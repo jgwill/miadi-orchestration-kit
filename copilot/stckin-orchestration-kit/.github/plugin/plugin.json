@@ -1,0 +1,25 @@
+{
+  "name": "stckin-orchestration-kit",
+  "description": "Miadi-native Copilot orchestration kit seed for STCKin and deep-search waves",
+  "version": "0.1.0",
+  "author": {
+    "name": "Hermes"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "stckin",
+    "orchestration",
+    "deep-search",
+    "copilot"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/stckin-wave-bootstrap",
+    "./skills/stckin-orchestration-scaffold",
+    "./skills/stckin-artefact-report"
+  ]
+}
