@@ -4,6 +4,18 @@ Miadi-native Copilot plugin for STCKin, structural-tension-aware deep-search, an
 
 ## Launch
 
+### Cheap smoke test in a temp dir
+
+```bash
+tmpdir=$(mktemp -d)
+cd "$tmpdir"
+copilot --model gpt-5-mini --reasoning-effort high --yolo --no-ask-user \
+  --plugin-dir /workspace/repos/jgwill/miadi-orchestration-kit/copilot/stckin-orchestration-kit \
+  --add-dir /workspace/repos/jgwill/miadi-orchestration-kit \
+  --add-dir /src/Miadi \
+  -p "Name the stckin kit agents and skills, then say if the kit is loaded."
+```
+
 ### Standard kit session
 
 ```bash
