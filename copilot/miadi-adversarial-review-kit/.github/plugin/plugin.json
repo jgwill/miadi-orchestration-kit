@@ -1,0 +1,28 @@
+{
+  "name": "miadi-adversarial-review-kit",
+  "description": "Adversarial review and revision orchestration for Miadi. Pressure-tests prompts, provenance, rispecs, wiki targets, and STCKin/context-layer outcomes before promotion.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Hermes"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "adversarial-review",
+    "revision",
+    "provenance",
+    "rise",
+    "stckin",
+    "context-layer",
+    "copilot"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/adversarial-rise-review",
+    "./skills/artefacted-revision-report",
+    "./skills/outcome-drift-audit"
+  ]
+}
