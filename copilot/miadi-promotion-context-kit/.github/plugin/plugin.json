@@ -1,0 +1,28 @@
+{
+  "name": "miadi-promotion-context-kit",
+  "description": "Promotion and drafting orchestration for Miadi. Routes reviewed material across provenance, spec, wiki, and context-layer boundaries without flattening retrieval concerns.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Hermes"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "promotion",
+    "provenance",
+    "spec",
+    "wiki",
+    "context-layer",
+    "retrieval",
+    "copilot"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/context-layer-promotion",
+    "./skills/wiki-promotion-draft",
+    "./skills/promotion-decision-record"
+  ]
+}
