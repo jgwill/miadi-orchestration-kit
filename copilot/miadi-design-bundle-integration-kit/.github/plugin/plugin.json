@@ -1,0 +1,28 @@
+{
+  "name": "miadi-design-bundle-integration-kit",
+  "description": "Miadi-native Copilot orchestration kit for integrating Claude Design bundles into any target codebase — token codification, screen reimplementation, two-stage fidelity audit, subagent-driven review/revise/test loops.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Mia + Miette (Hermes-style orchestration)"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "claude-design",
+    "design-bundle",
+    "design-to-codebase",
+    "orchestration",
+    "fidelity-audit",
+    "subagent",
+    "copilot"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/bundle-integration",
+    "./skills/screen-implementer",
+    "./skills/fidelity-audit"
+  ]
+}
