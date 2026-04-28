@@ -38,22 +38,38 @@ The session charter you were launched with names the concrete paths. The general
 6. **Surgical edits only.** No refactoring of unrelated code in the target codebase.
 7. **Real data wiring deferred.** First waves stage the visual layer. Wiring to real APIs is a later wave unless the charter explicitly asks for it.
 
-## Lane discipline
+## Lane discipline — subagent dispatch is MANDATORY
 
-- Every wave has a stated lane. Stay inside it.
-- If you discover something belonging to another lane, log it in the artefact ledger as a follow-up; do not silently expand scope.
-- **Subordinate-lane delegation**: when a wave covers multiple independent items (e.g., multiple screens), delegate one item per task agent. The main lane synthesizes per-item summaries; it does not absorb full implementation diffs.
-- The charter declares which lanes are delegated and which stay in the main lane. Honor that explicitly.
+**Every wave dispatches subagents.** Even single-lane waves. The main lane is the conductor, not the implementer. If you find yourself reading bundle JSX, copying files, writing rispecs, or editing the target codebase directly in the main lane, **STOP** — that work belongs to a delegated task agent.
 
-## Subagent dispatch pattern (when the charter calls for it)
+The only main-lane work is:
+- reading the wave charter
+- dispatching task agents with scoped prompts
+- reading task-agent return summaries (not their diffs)
+- synthesizing across task-agent reports
+- writing the wave report
 
-For each delegated item:
+If a wave is "small," that does not collapse the dispatch flow — it just means each task agent has a smaller scope. The two-stage review (spec compliance + code quality) is the gate, and the gate cannot be replaced by self-claim.
 
-1. **Implementer task agent** — fresh context, full item-specific text in the prompt (do NOT make the agent re-read the bundle README or other items)
-2. **Stage 1 fidelity reviewer** — spec compliance check (gate)
-3. **Stage 2 fidelity reviewer** — code quality check (only if Stage 1 passes)
-4. **Re-dispatch implementer** if any review returns gaps. Re-review until APPROVED.
-5. **Append item-summary to wave report** — main lane retains only the summary, not the diff.
+## The mandatory subagent flow (every wave, every item)
+
+For **each unit of work** the charter names (a token migration, a mark conversion, a rispec authoring, a screen reimplementation, a route wire-up — every concrete deliverable):
+
+1. **Dispatch implementer task agent** — fresh context, full item-specific scope in the prompt (do NOT make the agent re-read the bundle README or other items)
+2. **Dispatch Stage 1 fidelity reviewer** — spec compliance check, fresh context, sees only the bundle source + the implementation file. Gate.
+3. If Stage 1 returns gaps: **dispatch revise task agent** with the specific gap list. Re-dispatch Stage 1 reviewer. Loop until PASS.
+4. **Dispatch Stage 2 fidelity reviewer** — code quality check, fresh context. Only after Stage 1 PASS.
+5. If Stage 2 returns issues: **dispatch revise task agent** with the issue list. Re-dispatch Stage 2 reviewer. Loop until APPROVED.
+6. **Dispatch test/runtime task agent** when applicable — fresh context, runs the implementation in its target environment (open the HTML in a static-served path, verify theme toggle works, verify no console errors, etc.). Returns PASS/FAIL with evidence.
+7. **Append item-summary to wave report** — main lane retains only the summary line, not the diff. Format: `<item-id>: implementer=<agent>, stage1=PASS@<turn>, stage2=APPROVED@<turn>, runtime=<PASS|FAIL>, notes=<one line>`
+
+**Roles are complementary and review each other.** Implementer ≠ Stage 1 reviewer ≠ Stage 2 reviewer ≠ revise agent ≠ runtime tester. Each is a fresh dispatch with scoped context. They cannot be collapsed.
+
+## Why this matters
+
+- **Self-claim is not review.** An implementer that says "Stage 1: PASS, Stage 2: APPROVED" without dispatching a separate reviewer has skipped the gate. The wave report must show actual subagent dispatches, not a single agent declaring its own work approved.
+- **Fresh context catches issues.** A reviewer that has never seen the implementer's reasoning will catch fidelity drift the implementer rationalized away.
+- **Revise loops compound quality.** One pass through Stage 1 + Stage 2 + runtime test catches more than five passes of self-review.
 
 ## Required deliverables for every wave
 
