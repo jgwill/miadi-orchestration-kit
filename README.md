@@ -8,6 +8,12 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 | --- | --- | --- |
 | STCKin Orchestration Kit | First-wave Miadi plugin with bootstrap, kit-scaffolding, artefact reporting, and orchestration agents. | `copilot/stckin-orchestration-kit` |
 
+## Reusable RISE outputs
+
+| Rispec | Purpose | Path |
+| --- | --- | --- |
+| Miadi Storyweaver Orchestration Kit | Copilot-first storytelling orchestration specs for story agents, skills, state, review gates, and export packets. | `rispecs/miadi-storyweaver-orchestration-kit` |
+
 ## Launch patterns
 
 ### Core STCKin launch
