@@ -23,6 +23,12 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 - `rispecs/security-remediation-orchestration/` — reusable reverse-engineer, intent, specification, export, and provenance docs extracted from the issue-263 security-remediation evidence set.
 - `rispecs/east-pde-session-orchestration/` — EAST-direction RISE spec for turning a first prompt or hook event into a PDE session charter, native plugin recommendation, source ledger, and chronicle seed.
 
+## Reusable RISE outputs
+
+| Rispec | Purpose | Path |
+| --- | --- | --- |
+| Miadi Storyweaver Orchestration Kit | Copilot-first storytelling orchestration specs for story agents, skills, state, review gates, and export packets. | `rispecs/miadi-storyweaver-orchestration-kit` |
+
 ## Launch patterns
 
 ### Core STCKin launch
