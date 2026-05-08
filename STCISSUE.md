@@ -118,3 +118,51 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #7 - Security-remediation orchestration rispecs and issue-263 conductor skill
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-04-29T16:19:58Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/7
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #8 - coaia-agent: recommend orchestration-kit development path
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-04-29T17:52:23Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/8
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #9 - Define storytelling orchestration kit RISE specs for Copilot
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-04-30T15:47:47Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/9
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #11 - Skill: mcp-remote-qmd — wire companion agents to remote QMD over SSH
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-05T21:00:43Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/11
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
