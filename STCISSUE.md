@@ -166,3 +166,15 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #13 - spec: Edge Case Collector (STCGOAL) — Accountability-Driven System Design
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-08T21:55:56Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/13
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
