@@ -21,6 +21,7 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 ## Reusable RISE outputs
 
 - `rispecs/security-remediation-orchestration/` — reusable reverse-engineer, intent, specification, export, and provenance docs extracted from the issue-263 security-remediation evidence set.
+- `rispecs/miadi-chronicle-orchestration-core/` — bounded RISE core for Miadi Chronicle orientation, Tushell/Miadi continuity, Book One stewardship, chapter revision, and archive-first voice episode orchestration.
 
 ## Launch patterns
 
