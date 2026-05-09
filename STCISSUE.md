@@ -262,3 +262,27 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #13 - spec: Edge Case Collector (STCGOAL) — Accountability-Driven System Design
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-09T03:32:07Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/13
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #15 - Scaffold five orchestration rispecs for OpenClaw model-routing study
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-09T03:42:43Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/15
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
