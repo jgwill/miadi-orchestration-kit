@@ -1,0 +1,27 @@
+{
+  "name": "openclaw-model-routing-research-kit",
+  "description": "Miadi/OpenClaw Copilot kit for model-routing study orchestration, RISE rispec scaffolding, source ledgers, plugin-gap contracts, and final integration handoffs.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Iris/Hermes"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "openclaw",
+    "model-routing",
+    "deep-research",
+    "rise",
+    "miadi"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/openclaw-model-routing-bootstrap",
+    "./skills/openclaw-source-ledger",
+    "./skills/openclaw-rise-rispec-scaffold",
+    "./skills/openclaw-plugin-gap-contracts",
+    "./skills/model-routing-policy-simulator"
+  ]
+}
