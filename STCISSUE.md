@@ -178,3 +178,87 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #13 - spec: Edge Case Collector (STCGOAL) — Accountability-Driven System Design
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-08T21:57:21Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/13
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #14 - Scaffold OpenClaw model-routing research Copilot kit
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-08T22:23:52Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/14
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #15 - Scaffold five orchestration rispecs for OpenClaw model-routing study
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-08T22:23:54Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/15
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #16 - Add model-routing policy simulator skill for research matrix generation
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-08T22:23:55Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/16
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #17 - Scaffold three storytelling rispecs for OpenClaw model-routing Narrative track
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-08T22:24:32Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/17
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #18 - Add archetype guardrail template for Hermes messenger framing
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-08T22:24:34Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/18
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #14 - Scaffold OpenClaw model-routing research Copilot kit
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-09T00:15:21Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/14
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+

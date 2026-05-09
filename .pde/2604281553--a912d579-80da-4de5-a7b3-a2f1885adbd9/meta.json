@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "root_pde_id": "a912d579-80da-4de5-a7b3-a2f1885adbd9",
+  "engine": "claude",
+  "model": "sonnet",
+  "session_id": "96c2fbe1-1c0a-4667-80d9-5c432014c0e5",
+  "session_id_source": "engine",
+  "created_at": "2026-04-28T19:53:39.692Z",
+  "updated_at": "2026-04-28T19:53:39.694Z"
+}
