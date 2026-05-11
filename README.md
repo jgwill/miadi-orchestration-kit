@@ -21,6 +21,7 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 ## Reusable RISE outputs
 
 - `rispecs/security-remediation-orchestration/` — reusable reverse-engineer, intent, specification, export, and provenance docs extracted from the issue-263 security-remediation evidence set.
+- `rispecs/east-pde-session-orchestration/` — EAST-direction RISE spec for turning a first prompt or hook event into a PDE session charter, native plugin recommendation, source ledger, and chronicle seed.
 
 ## Launch patterns
 
