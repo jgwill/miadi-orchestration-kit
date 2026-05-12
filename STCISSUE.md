@@ -286,3 +286,51 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #24 - rispec: EAST PDE Session Orchestration — native plugin for first-prompt charters
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-11T17:09:41Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/24
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #25 - rispec: Codex Claw Dispatch Kit — bounded work commission through Gaia
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-11T17:10:07Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/25
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #26 - rispec: Community-Layer Spec Plugins — gap analysis + three native L1 kits
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-11T17:10:26Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/26
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #27 - rispec: Orchestration Plugin Recommender — intelligent plugin directory selection
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-11T17:11:03Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/27
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
