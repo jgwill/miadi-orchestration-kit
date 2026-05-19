@@ -4,7 +4,7 @@ RISE path: `Reverse-engineer -> Intent-extract -> Specify -> Export`
 
 ## Required reading order
 
-1. This README.
+1. `rispecs/hermes-hook-observer-framework/README.md`.
 2. `05-source-ledger.md`.
 3. `01-reverse-engineer.md`.
 4. `02-intent.md`.
