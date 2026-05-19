@@ -1,0 +1,41 @@
+{
+  "name": "miadi-codex-orchestration-kit",
+  "version": "0.1.0",
+  "description": "Miadi-native Codex orchestration workflows for session chartering, RISE wave plans, source ledgers, rispec readiness review, and handoff closeout.",
+  "author": {
+    "name": "Miadi",
+    "url": "https://github.com/jgwill/miadi-orchestration-kit"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/codex/miadi-codex-orchestration-kit",
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "codex",
+    "orchestration",
+    "rise",
+    "source-ledger",
+    "rispec"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Miadi Codex Orchestration Kit",
+    "shortDescription": "Charter, plan, ledger, review, and close Miadi Codex sessions.",
+    "longDescription": "A Codex-native orchestration kit for Miadi work. It helps turn raw session intent into a charter, RISE-aligned wave plan, evidence ledger, rispec promotion decision, and replayable handoff without promoting provisional rispecs prematurely.",
+    "developerName": "Miadi",
+    "category": "Development",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/jgwill/miadi-orchestration-kit",
+    "privacyPolicyURL": "https://github.com/jgwill/miadi-orchestration-kit",
+    "termsOfServiceURL": "https://github.com/jgwill/miadi-orchestration-kit/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Start a Miadi orchestration session for this task.",
+      "Create a RISE wave plan for this mission.",
+      "Review this rispec for plugin readiness."
+    ],
+    "brandColor": "#0F766E"
+  }
+}
