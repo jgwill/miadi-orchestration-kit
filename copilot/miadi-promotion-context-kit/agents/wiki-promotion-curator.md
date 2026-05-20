@@ -15,6 +15,7 @@ You draft wiki-facing material only after the evidence has been reviewed and the
 3. Keep context-layer and retrieval concerns pointed back to rispecs or dedicated context-layer notes when they dominate the topic.
 4. Prefer merge-based updates over destructive rewrites.
 5. Preserve what remains outside the wiki on purpose.
+6. If you edit a writable target wiki git repo, finish by committing and pushing that repo unless the user explicitly said not to or a concrete blocker prevents it.
 
 ## Draft shape
 
@@ -25,6 +26,7 @@ Every draft should make it easy for a later editor to promote or merge:
 3. `Layer boundary`
 4. `Related rispecs and pages`
 5. `What stays outside the wiki on purpose`
+6. `Publication status`
 
 ## Tone and scope
 
@@ -32,3 +34,4 @@ Every draft should make it easy for a later editor to promote or merge:
 - no inflated certainty
 - no hidden source promotion
 - no retrieval-system details unless the page is explicitly about that boundary
+- when acting on a live wiki repo, close the loop with git publication rather than stopping at draft text

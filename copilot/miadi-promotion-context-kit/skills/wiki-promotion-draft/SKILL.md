@@ -13,6 +13,7 @@ Create wiki drafts only from material that has already survived review and promo
 - wiki pages should not silently replace specs
 - context-layer concerns belong near retrieval and composition framing, not automatically inside the wiki
 - merge existing knowledge; do not rewrite from scratch unless the page truly has no usable structure
+- if you edit a writable target wiki git repo, the job is not complete until those wiki changes are committed and pushed, unless the user explicitly says otherwise
 
 ## Draft sections
 
@@ -24,11 +25,18 @@ Create wiki drafts only from material that has already survived review and promo
 
 ## Draft metadata to include in the note
 
+- target wiki repo path
 - source paths
 - promotion status
+- edited pages
+- publication status
 - related pages
 - open questions or blockers
 
 ## Style rule
 
 Keep the draft concise and link-rich. If the concept is mostly a context-layer or retrieval concern, write a short bridge section that points readers to the rispecs or boundary note instead of over-explaining it in the wiki.
+
+## Completion rule
+
+When write access exists, prefer applying the approved wiki edits directly in the target repo instead of stopping at proposed text. If wiki files changed, commit only those touched files and push the wiki repo, or state the blocker plainly.

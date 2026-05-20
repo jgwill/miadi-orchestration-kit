@@ -1,7 +1,7 @@
 {
   "name": "miadi-promotion-context-kit",
-  "description": "Promotion and drafting orchestration for Miadi. Routes reviewed material across provenance, spec, wiki, and context-layer boundaries without flattening retrieval concerns.",
-  "version": "0.2.0",
+  "description": "Promotion and drafting orchestration for Miadi. Routes reviewed material across provenance, spec, wiki, and context-layer boundaries without flattening retrieval concerns, and treats edited wiki repos as work that must be committed and pushed.",
+  "version": "0.2.1",
   "author": {
     "name": "Hermes"
   },

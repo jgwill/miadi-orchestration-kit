@@ -15,6 +15,7 @@ The record should make later waves able to answer:
 2. which layer each candidate belongs to
 3. what blocked promotion
 4. what draft work can happen next
+5. whether any touched wiki repo was actually committed and pushed
 
 ## Required sections
 
@@ -24,6 +25,7 @@ The record should make later waves able to answer:
 4. `Context-layer boundary notes`
 5. `Blocked or deferred items`
 6. `Draftable next steps`
+7. `Publication status`
 
 ## Promotion matrix format
 
@@ -39,3 +41,5 @@ Decisions should use the same vocabulary as the promotion architect:
 - `defer`
 
 Prefer exact paths and compact rationale over broad summary language.
+
+When a wiki repo was edited, record the repo path plus commit and push status, or the blocker that prevented publication.
