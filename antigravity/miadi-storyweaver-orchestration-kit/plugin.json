@@ -13,5 +13,19 @@
     "antigravity",
     "interactive",
     "visual-generation"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/storyweaver-session-bootstrap",
+    "./skills/storyweaver-brief-intake",
+    "./skills/storyweaver-story-bible",
+    "./skills/storyweaver-outline-and-beats",
+    "./skills/storyweaver-chapter-wave",
+    "./skills/storyweaver-review-loop",
+    "./skills/storyweaver-continuity-ledger",
+    "./skills/storyweaver-cultural-protocol-check",
+    "./skills/storyweaver-export-packet"
   ]
 }
