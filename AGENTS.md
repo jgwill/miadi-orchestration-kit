@@ -4,4 +4,4 @@
 
 `gemini/AGENTS.md` is for gemini plugins
 
-
+`antigravity/AGENTS.md` is for antigravity plugins

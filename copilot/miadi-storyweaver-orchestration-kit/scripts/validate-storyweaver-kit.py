@@ -21,6 +21,11 @@ EXPECTED_COMPANION_FILES = [
     "claude-code/miadi-storyweaver-orchestration-kit/CLAUDE.md",
     "claude-code/miadi-storyweaver-orchestration-kit/prompts/session-bootstrap.md",
     "claude-code/miadi-storyweaver-orchestration-kit/prompts/smoke-test.md",
+    "antigravity/miadi-storyweaver-orchestration-kit/README.md",
+    "antigravity/miadi-storyweaver-orchestration-kit/ANTIGRAVITY.md",
+    "antigravity/miadi-storyweaver-orchestration-kit/prompts/session-bootstrap.md",
+    "antigravity/miadi-storyweaver-orchestration-kit/prompts/smoke-test.md",
+    "antigravity/miadi-storyweaver-orchestration-kit/prompts/visual-chronicle-generator.md",
 ]
 
 
