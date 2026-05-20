@@ -26,6 +26,8 @@ EXPECTED_COMPANION_FILES = [
     "antigravity/miadi-storyweaver-orchestration-kit/prompts/session-bootstrap.md",
     "antigravity/miadi-storyweaver-orchestration-kit/prompts/smoke-test.md",
     "antigravity/miadi-storyweaver-orchestration-kit/prompts/visual-chronicle-generator.md",
+    "antigravity/miadi-storyweaver-orchestration-kit/scripts/storyweaver-cli.py",
+    "antigravity/miadi-storyweaver-orchestration-kit/scripts/storyweaver.sh",
 ]
 
 

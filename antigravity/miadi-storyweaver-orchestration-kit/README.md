@@ -47,3 +47,41 @@ antigravity -p "$(cat antigravity/miadi-storyweaver-orchestration-kit/prompts/vi
 ```
 
 Antigravity will read your story bible, prompt details, and create beautiful visual reference frames in your workspace.
+
+## Command Line Interface (CLI) Utility
+
+The companion includes a dedicated Python CLI tool `storyweaver.sh` designed to manage story workspaces, verify states, and register deliverables directly from any command line shell—supporting both **interactive** and **non-interactive** execution modes.
+
+### 1. Bootstrapping a Story Workspace
+Set up folders and write starting charter, state, and index files cleanly:
+
+- **Non-Interactive Mode**:
+  ```bash
+  ./antigravity/miadi-storyweaver-orchestration-kit/scripts/storyweaver.sh bootstrap my-awesome-story --title "My Beautiful Story" --stage brief --route continue
+  ```
+
+- **Interactive Mode**:
+  ```bash
+  ./antigravity/miadi-storyweaver-orchestration-kit/scripts/storyweaver.sh bootstrap my-awesome-story --interactive
+  ```
+
+### 2. Querying Status and Health Checks
+Audit the directory structure and read current pipeline stage and route details:
+
+```bash
+./antigravity/miadi-storyweaver-orchestration-kit/scripts/storyweaver.sh status my-awesome-story
+```
+
+### 3. Transitioning Story State
+Transition the workspace phase, route decisions, or set next skills:
+
+```bash
+./antigravity/miadi-storyweaver-orchestration-kit/scripts/storyweaver.sh transition my-awesome-story --stage bible --route continue --skill storyweaver-story-bible
+```
+
+### 4. Registering Created Deliverables
+Register generated draft files into the state manifest and update the artefact index:
+
+```bash
+./antigravity/miadi-storyweaver-orchestration-kit/scripts/storyweaver.sh register-artefact my-awesome-story story-bible.md accepted --description "Complete character sheet, relationships map, and setting bible"
+```
