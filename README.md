@@ -9,6 +9,14 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 | STCKin Orchestration Kit | First-wave Miadi plugin with bootstrap, kit-scaffolding, artefact reporting, and orchestration agents. | `copilot/stckin-orchestration-kit` |
 | Miadi Promotion Context Kit | Promotion-boundary review for deciding what stays provenance, becomes spec, or remains context-layer only. | `copilot/miadi-promotion-context-kit` |
 | Miadi Adversarial Review Kit | Dissenting review kit for RISE separation, outcome drift checks, and revision pressure. | `copilot/miadi-adversarial-review-kit` |
+| Miadi Storyweaver Orchestration Kit | Story, Chronicle episode, voice packet, visual prompt packet, foundations bridge, review, continuity, protocol, and export orchestration. | `copilot/miadi-storyweaver-orchestration-kit` |
+
+## Companion exports
+
+| Companion | Purpose | Path |
+| --- | --- | --- |
+| Gemini Storyweaver Companion | Lightweight Gemini CLI prompt contract mirroring the Storyweaver pipeline for portable/free-model use. | `gemini/miadi-storyweaver-orchestration-kit` |
+| Claude Code Storyweaver Companion | Lightweight Claude Code prompt contract for read-only smoke checks, session bootstrap routing, and portable Storyweaver handoffs. | `claude-code/miadi-storyweaver-orchestration-kit` |
 
 ## Reusable operator skills
 
@@ -22,6 +30,10 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 
 - `rispecs/security-remediation-orchestration/` — reusable reverse-engineer, intent, specification, export, and provenance docs extracted from the issue-263 security-remediation evidence set.
 - `rispecs/east-pde-session-orchestration/` — EAST-direction RISE spec for turning a first prompt or hook event into a PDE session charter, native plugin recommendation, source ledger, and chronicle seed.
+
+| Rispec | Purpose | Path |
+| --- | --- | --- |
+| Miadi Storyweaver Orchestration Kit | Copilot-first storytelling orchestration specs for story agents, skills, state, review gates, and export packets. | `rispecs/miadi-storyweaver-orchestration-kit` |
 
 ## Launch patterns
 

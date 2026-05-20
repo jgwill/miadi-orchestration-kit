@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miadi Storyweaver — Orchestration Kit</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --teal-900: #134e4a;
+            --teal-800: #0f766e;
+            --teal-600: #0d9488;
+            --teal-100: #ccfbf1;
+            --teal-50:  #f0fdfa;
+            --amber:    #f59e0b;
+            --slate:    #1e293b;
+            --mid:      #475569;
+            --muted:    #94a3b8;
+            --bg:       #f8fafc;
+            --white:    #ffffff;
+            --border:   #e2e8f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--slate);
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        header {
+            background: linear-gradient(135deg, var(--teal-900) 0%, var(--slate) 100%);
+            color: white;
+            padding: 24px 40px 0;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .header-title h1 {
+            font-size: 1.7em;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .header-title p {
+            font-size: 0.9em;
+            opacity: 0.75;
+            margin-top: 4px;
+        }
+
+        /* Medicine Wheel compass — light dressing */
+        .compass {
+            display: grid;
+            grid-template-columns: 1fr 40px 1fr;
+            grid-template-rows: 1fr 40px 1fr;
+            width: 110px;
+            height: 110px;
+            gap: 2px;
+            font-size: 0.68em;
+            text-align: center;
+            opacity: 0.85;
+        }
+
+        .compass-center {
+            grid-column: 2; grid-row: 2;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1em;
+        }
+
+        .compass-dir {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            line-height: 1.2;
+            opacity: 0.8;
+        }
+
+        .compass-dir.north { grid-column: 2; grid-row: 1; }
+        .compass-dir.south { grid-column: 2; grid-row: 3; }
+        .compass-dir.east  { grid-column: 3; grid-row: 2; }
+        .compass-dir.west  { grid-column: 1; grid-row: 2; }
+        .compass-corner    { grid-column: auto; grid-row: auto; }
+
+        .dir-glyph { font-size: 1.3em; }
+        .dir-label { font-size: 0.78em; font-weight: 600; color: var(--teal-100); }
+        .dir-phase { font-size: 0.7em; opacity: 0.7; }
+
+        /* ── Tab Nav ── */
+        .tab-nav {
+            display: flex;
+            gap: 2px;
+            margin-top: 4px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            padding: 10px 20px;
+            font-size: 0.88em;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab-btn:hover {
+            color: white;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .tab-btn.active {
+            background: var(--bg);
+            color: var(--teal-800);
+            font-weight: 700;
+        }
+
+        /* ── Content ── */
+        .content {
+            padding: 32px 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Pipeline view ── */
+        .pipeline-wrap {
+            background: var(--white);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+
+        .pipeline-wrap h2 {
+            color: var(--teal-800);
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mermaid { display: flex; justify-content: center; }
+
+        .phase-legend {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .phase-card {
+            background: var(--teal-50);
+            border: 1px solid var(--teal-100);
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 0.82em;
+        }
+
+        .phase-card .phase-dir { font-weight: 700; color: var(--teal-800); margin-bottom: 4px; }
+        .phase-card .phase-name { font-weight: 600; color: var(--slate); margin-bottom: 6px; }
+        .phase-card ul { padding-left: 14px; color: var(--mid); line-height: 1.7; }
+
+        /* ── Agents view ── */
+        .agent-group { margin-bottom: 28px; }
+
+        .agent-group-label {
+            font-size: 0.78em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--teal-800);
+            border-bottom: 2px solid var(--teal-100);
+            padding-bottom: 6px;
+            margin-bottom: 12px;
+        }
+
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+
+        .agent-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            cursor: default;
+        }
+
+        .agent-card:hover {
+            border-color: var(--teal-600);
+            box-shadow: 0 2px 12px rgba(13,148,136,0.1);
+        }
+
+        .agent-name {
+            font-weight: 700;
+            color: var(--teal-900);
+            font-size: 0.88em;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 4px;
+        }
+
+        .agent-mandate {
+            font-size: 0.8em;
+            color: var(--mid);
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .agent-io {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .io-badge {
+            font-size: 0.7em;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .io-badge.in  { background: #dbeafe; color: #1d4ed8; }
+        .io-badge.out { background: #d1fae5; color: #065f46; }
+        .io-badge.pause { background: #fef3c7; color: #92400e; }
+
+        /* ── Skills view ── */
+        .skill-list { display: flex; flex-direction: column; gap: 14px; }
+
+        .skill-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px 20px;
+            display: grid;
+            grid-template-columns: 260px 1fr auto;
+            gap: 20px;
+            align-items: start;
+            transition: border-color 0.15s;
+        }
+
+        .skill-card:hover { border-color: var(--teal-600); }
+
+        .skill-name {
+            font-family: 'Courier New', monospace;
+            font-size: 0.82em;
+            font-weight: 700;
+            color: var(--teal-900);
+            margin-bottom: 4px;
+        }
+
+        .skill-trigger {
+            font-size: 0.78em;
+            color: var(--mid);
+            line-height: 1.5;
+        }
+
+        .skill-workflow ol {
+            padding-left: 16px;
+            font-size: 0.8em;
+            color: var(--mid);
+            line-height: 1.8;
+        }
+
+        .skill-outputs {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 160px;
+        }
+
+        .output-file {
+            font-size: 0.72em;
+            font-family: 'Courier New', monospace;
+            background: var(--teal-50);
+            color: var(--teal-800);
+            padding: 2px 7px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .skill-number {
+            font-size: 0.72em;
+            font-weight: 800;
+            color: var(--muted);
+            background: var(--bg);
+            border-radius: 4px;
+            padding: 2px 7px;
+            white-space: nowrap;
+            align-self: start;
+        }
+
+        /* ── Tension view ── */
+        .tension-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+        }
+
+        .tension-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .tension-header {
+            background: var(--teal-900);
+            color: white;
+            padding: 10px 16px;
+            font-size: 0.82em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tension-body { padding: 14px 16px; }
+
+        .tension-row {
+            margin-bottom: 10px;
+            font-size: 0.82em;
+        }
+
+        .tension-label {
+            font-size: 0.72em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 3px;
+        }
+
+        .tension-label.cr  { color: #dc2626; }
+        .tension-label.do  { color: #16a34a; }
+        .tension-label.np  { color: var(--teal-800); }
+
+        .tension-text { color: var(--mid); line-height: 1.5; }
+
+        /* ── Episodes view ── */
+        .episodes-top {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .info-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .info-card h3 {
+            color: var(--teal-800);
+            font-size: 0.9em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .storyform-list { list-style: none; }
+
+        .storyform-list li {
+            font-size: 0.82em;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+            color: var(--mid);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .storyform-list li:last-child { border: none; }
+
+        .storyform-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--teal-600);
+            flex-shrink: 0;
+        }
+
+        .issue-refs {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .issue-ref {
+            background: #dbeafe;
+            border-left: 3px solid #2563eb;
+            padding: 10px 14px;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.82em;
+        }
+
+        .issue-ref strong { color: #1e40af; }
+        .issue-ref p { color: var(--mid); margin-top: 3px; }
+
+        /* ── Shared ── */
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .section-header h2 {
+            font-size: 1.15em;
+            color: var(--teal-900);
+        }
+
+        .section-header .count {
+            font-size: 0.8em;
+            color: var(--muted);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2px 10px;
+        }
+
+        .rispec-ref {
+            font-size: 0.75em;
+            color: var(--muted);
+            font-family: monospace;
+            margin-top: 4px;
+        }
+
+        footer {
+            background: var(--teal-900);
+            color: rgba(255,255,255,0.6);
+            text-align: center;
+            padding: 16px;
+            font-size: 0.78em;
+            margin-top: 40px;
+        }
+
+        footer a { color: var(--teal-100); text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-top">
+        <div class="header-title">
+            <h1>🌸 Miadi Storyweaver</h1>
+            <p>Orchestration Kit — Agent Ecosystem · Pipeline · Skills · Issue #9 · #17</p>
+        </div>
+
+        <!-- Medicine Wheel: light dressing as orientation compass -->
+        <div class="compass" title="Medicine Wheel orientation — light dressing">
+            <div class="compass-corner"></div>
+            <div class="compass-dir north">
+                <span class="dir-glyph">⭐</span>
+                <span class="dir-label">North</span>
+                <span class="dir-phase">Export</span>
+            </div>
+            <div class="compass-corner"></div>
+
+            <div class="compass-dir west">
+                <span class="dir-glyph">🌊</span>
+                <span class="dir-label">West</span>
+                <span class="dir-phase">Draft</span>
+            </div>
+            <div class="compass-center">🌸</div>
+            <div class="compass-dir east">
+                <span class="dir-glyph">🌅</span>
+                <span class="dir-label">East</span>
+                <span class="dir-phase">Brief</span>
+            </div>
+
+            <div class="compass-corner"></div>
+            <div class="compass-dir south">
+                <span class="dir-glyph">🌿</span>
+                <span class="dir-label">South</span>
+                <span class="dir-phase">Build</span>
+            </div>
+            <div class="compass-corner"></div>
+        </div>
+    </div>
+
+    <nav class="tab-nav">
+        <button class="tab-btn active" onclick="showTab('pipeline')">📊 Pipeline</button>
+        <button class="tab-btn" onclick="showTab('agents')">👥 Agents</button>
+        <button class="tab-btn" onclick="showTab('skills')">🎯 Skills</button>
+        <button class="tab-btn" onclick="showTab('tension')">⚖️ Structural Tension</button>
+        <button class="tab-btn" onclick="showTab('episodes')">📖 Episodes</button>
+    </nav>
+</header>
+
+<div class="content">
+
+    <!-- ── PIPELINE ── -->
+    <div class="tab-panel active" id="tab-pipeline">
+        <div class="pipeline-wrap">
+            <h2>📊 RISE Story Creation Pipeline</h2>
+            <div class="mermaid">
+graph LR
+    A["🌅 East<br/>Creative Brief<br/><small>Raw prompt</small>"] -->|Brief Archaeologist| B["📋 Brief Extracted<br/><small>Intent clarified</small>"]
+    B -->|World Architect| C["🌿 South<br/>Story Bible<br/><small>Foundation set</small>"]
+    C -->|Research Weaver| D["📚 Research Pack<br/><small>Context gathered</small>"]
+    D -->|Outline Architect| E["🗺️ Outline & Beats<br/><small>Structure mapped</small>"]
+    E -->|Scene Writer| F["🌊 West<br/>Drafted Chapters<br/><small>Prose generated</small>"]
+    F -->|Dev Editor| G["🔍 Structural Review<br/><small>Assessment made</small>"]
+    G -->|Critic| H["⚖️ Critique<br/><small>Pressure applied</small>"]
+    H -->|Revision Weaver| I["🔧 Revised Chapters<br/><small>Guidance applied</small>"]
+    I -->|Line Editor| J["✨ Polished Prose<br/><small>Rhythm refined</small>"]
+    J -->|Export Steward| K["⭐ North<br/>Final Packet<br/><small>Story + metadata</small>"]
+    C -.->|Continuity Keeper| F
+    F -.->|Continuity Keeper| H
+    B -.->|Protocol Steward| E
+    style A fill:#fef3c7,stroke:#d97706
+    style C fill:#d1fae5,stroke:#059669
+    style F fill:#dbeafe,stroke:#3b82f6
+    style K fill:#e9d5ff,stroke:#7c3aed
+            </div>
+
+            <div class="phase-legend">
+                <div class="phase-card">
+                    <div class="phase-dir">🌅 East — Emergence</div>
+                    <div class="phase-name">Brief Phase</div>
+                    <ul>
+                        <li>Brief Archaeologist</li>
+                        <li>Protocol Steward</li>
+                        <li>creative-brief.md</li>
+                        <li>constraints.md</li>
+                    </ul>
+                </div>
+                <div class="phase-card">
+                    <div class="phase-dir">🌿 South — Growth</div>
+                    <div class="phase-name">Build Phase</div>
+                    <ul>
+                        <li>World Architect</li>
+                        <li>Research Weaver</li>
+                        <li>Outline Architect</li>
+                        <li>story-bible.md</li>
+                    </ul>
+                </div>
+                <div class="phase-card">
+                    <div class="phase-dir">🌊 West — Deepening</div>
+                    <div class="phase-name">Draft + Review</div>
+                    <ul>
+                        <li>Scene Writer</li>
+                        <li>Dev Editor</li>
+                        <li>Critique Reviewer</li>
+                        <li>Revision Weaver</li>
+                    </ul>
+                </div>
+                <div class="phase-card">
+                    <div class="phase-dir">⭐ North — Completion</div>
+                    <div class="phase-name">Export + Memory</div>
+                    <ul>
+                        <li>Line Editor</li>
+                        <li>Export Steward</li>
+                        <li>Continuity Keeper</li>
+                        <li>story-packet.md</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <p class="rispec-ref">↳ rispecs/miadi-storyweaver-orchestration-kit/03-pipeline-spec.md · 04-agent-roster.md</p>
+    </div>
+
+    <!-- ── AGENTS ── -->
+    <div class="tab-panel" id="tab-agents">
+        <div class="section-header">
+            <h2>Agent Ecosystem</h2>
+            <span class="count">13 agents</span>
+        </div>
+
+        <div class="agent-group">
+            <div class="agent-group-label">🌅 East — Orchestration & Vision</div>
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <div class="agent-name">storyweaver-orchestration-architect</div>
+                    <div class="agent-mandate">Conduct full session, route agents, maintain RISE phase awareness, drive toward finished story packet.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">session charter</span>
+                        <span class="io-badge in">creative brief</span>
+                        <span class="io-badge out">state.md</span>
+                        <span class="io-badge out">wave plan</span>
+                        <span class="io-badge pause">unclear outcome → pause</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">creative-brief-archaeologist</div>
+                    <div class="agent-mandate">Separate creative intent from operational instruction. Extract first structural tension.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">original prompt</span>
+                        <span class="io-badge in">prior drafts</span>
+                        <span class="io-badge out">creative-brief.md</span>
+                        <span class="io-badge out">constraints.md</span>
+                        <span class="io-badge out">questions-for-human.md</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="agent-group">
+            <div class="agent-group-label">🌿 South — Foundation Building</div>
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <div class="agent-name">world-and-character-architect</div>
+                    <div class="agent-mandate">Create story bible: world, character, stakes, relationships, thematic promise.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">creative brief</span>
+                        <span class="io-badge in">research pack</span>
+                        <span class="io-badge out">story-bible.md</span>
+                        <span class="io-badge out">character-arcs.md</span>
+                        <span class="io-badge out">relationship-map.md</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">narrative-research-weaver</div>
+                    <div class="agent-mandate">Gather and synthesize context that can enrich the story while preserving source boundaries.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">research request</span>
+                        <span class="io-badge in">source paths / URLs</span>
+                        <span class="io-badge out">research-pack.md</span>
+                        <span class="io-badge out">source-ledger.md</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">outline-architect</div>
+                    <div class="agent-mandate">Turn story bible into draftable structure: plot, beats, chapter contracts.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">story bible</span>
+                        <span class="io-badge in">research pack</span>
+                        <span class="io-badge out">outline.md</span>
+                        <span class="io-badge out">beat-map.md</span>
+                        <span class="io-badge out">chapter-contracts/</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="agent-group">
+            <div class="agent-group-label">🌊 West — Writing & Review</div>
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <div class="agent-name">scene-writer</div>
+                    <div class="agent-mandate">Draft chapters or scenes from accepted contracts, preserving bible, outline, continuity, and requested voice.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">chapter contract</span>
+                        <span class="io-badge in">continuity ledger</span>
+                        <span class="io-badge out">chapter/scene draft</span>
+                        <span class="io-badge out">drafting notes</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">continuity-keeper</div>
+                    <div class="agent-mandate">Preserve cumulative story memory across chapters, reviews, and revisions. Authority to block export on conflicts.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">all accepted artefacts</span>
+                        <span class="io-badge out">continuity-ledger.md</span>
+                        <span class="io-badge out">timeline.md</span>
+                        <span class="io-badge pause">material conflict → block</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">developmental-editor</div>
+                    <div class="agent-mandate">Evaluate story structure before line-level polish: pacing, scene purpose, stakes, arcs.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">draft</span>
+                        <span class="io-badge in">outline + bible</span>
+                        <span class="io-badge out">developmental review</span>
+                        <span class="io-badge out">advancing moves</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">critique-reviewer</div>
+                    <div class="agent-mandate">Apply skeptical pressure. Detect contradictions, drift, weak motivation, unresolved promises.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">draft</span>
+                        <span class="io-badge in">dev review</span>
+                        <span class="io-badge out">critique review</span>
+                        <span class="io-badge out">route: accept/revise/pause/ask-human</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">revision-weaver</div>
+                    <div class="agent-mandate">Apply selected review guidance while preserving accepted creative intent.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">draft + selected findings</span>
+                        <span class="io-badge in">story bible</span>
+                        <span class="io-badge out">revised draft</span>
+                        <span class="io-badge out">revision log</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">line-editor</div>
+                    <div class="agent-mandate">Polish accepted prose for clarity, rhythm, voice consistency, and readability after structural questions settle.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">accepted draft</span>
+                        <span class="io-badge in">style guide</span>
+                        <span class="io-badge out">polished prose</span>
+                        <span class="io-badge out">line-edit note</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="agent-group">
+            <div class="agent-group-label">⭐ North — Responsibility & Closure</div>
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <div class="agent-name">cultural-protocol-steward</div>
+                    <div class="agent-mandate">Create protocol pause for sensitive material. Names what is known, unknown, and what requires human guidance. Cannot validate sacred material.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">creative brief</span>
+                        <span class="io-badge in">sensitive sections</span>
+                        <span class="io-badge out">protocol-notes.md</span>
+                        <span class="io-badge pause">authority unknown → ask-human</span>
+                    </div>
+                </div>
+                <div class="agent-card">
+                    <div class="agent-name">export-steward</div>
+                    <div class="agent-mandate">Assemble finished story packet. Cannot package unresolved drafts as final without state support.</div>
+                    <div class="agent-io">
+                        <span class="io-badge in">final text + ledgers</span>
+                        <span class="io-badge in">review notes</span>
+                        <span class="io-badge out">exports/story.md</span>
+                        <span class="io-badge out">story-metadata.json</span>
+                        <span class="io-badge out">story-packet.md</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p class="rispec-ref">↳ rispecs/miadi-storyweaver-orchestration-kit/04-agent-roster.md</p>
+    </div>
+
+    <!-- ── SKILLS ── -->
+    <div class="tab-panel" id="tab-skills">
+        <div class="section-header">
+            <h2>Skills Catalog</h2>
+            <span class="count">9 Copilot skills</span>
+        </div>
+
+        <div class="skill-list">
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-session-bootstrap</div>
+                    <div class="skill-trigger">Use when starting or resuming a story creation session.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Locate or create story workspace</li>
+                        <li>Read state.md, charter, artefact index</li>
+                        <li>Write structural tension for session</li>
+                        <li>Record deliverables, constraints, pause conditions</li>
+                        <li>Decide next skill to invoke</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">session-charter.md</div>
+                    <div class="output-file">state.md</div>
+                    <div class="output-file">artefact-index.md</div>
+                    <div class="skill-number">01 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-brief-intake</div>
+                    <div class="skill-trigger">Use when user gives a new prompt, premise, mission, or story request.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Preserve original prompt</li>
+                        <li>Extract story intent and operational instructions</li>
+                        <li>Separate manuscript content from agent instructions</li>
+                        <li>Identify contradictions, unknowns</li>
+                        <li>Create initial constraints and consent notes</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">creative-brief.md</div>
+                    <div class="output-file">constraints.md</div>
+                    <div class="output-file">protocol-notes.md</div>
+                    <div class="skill-number">02 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-story-bible</div>
+                    <div class="skill-trigger">Use when creative brief exists and drafting needs a stable foundation.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Read accepted brief and constraints</li>
+                        <li>Incorporate research context</li>
+                        <li>Build story bible</li>
+                        <li>Initialize character arcs, relationships, motifs</li>
+                        <li>Create first continuity ledger</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">story-bible.md</div>
+                    <div class="output-file">character-arcs.md</div>
+                    <div class="output-file">continuity-ledger.md</div>
+                    <div class="skill-number">03 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-outline-and-beats</div>
+                    <div class="skill-trigger">Use when story bible is ready and user wants a structure.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Read brief, bible, constraints, research pack</li>
+                        <li>Create outline and beat map</li>
+                        <li>Write chapter contracts</li>
+                        <li>Run outline developmental review</li>
+                        <li>Revise when route is "revise"</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">outline.md</div>
+                    <div class="output-file">beat-map.md</div>
+                    <div class="output-file">chapter-contracts/</div>
+                    <div class="skill-number">04 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-chapter-wave</div>
+                    <div class="skill-trigger">Use when drafting one or more chapters, scenes, or beats from an accepted outline.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Select target chapter/scene range</li>
+                        <li>Read contracts, bible, continuity, research</li>
+                        <li>Draft using layered scene pattern</li>
+                        <li>Update continuity ledger</li>
+                        <li>Run developmental then critique review</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">chapters/chapter-##.md</div>
+                    <div class="output-file">reviews/chapter-##-dev.md</div>
+                    <div class="output-file">continuity-ledger.md</div>
+                    <div class="skill-number">05 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-review-loop</div>
+                    <div class="skill-trigger">Use when user asks for critique, review, or revision readiness.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Identify artefact under review and governing brief</li>
+                        <li>Run structural review</li>
+                        <li>Run adversarial critique when requested</li>
+                        <li>Produce route recommendation</li>
+                        <li>Apply selected revisions only when instructed</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">reviews/</div>
+                    <div class="output-file">route recommendation</div>
+                    <div class="output-file">revision plan</div>
+                    <div class="skill-number">06 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-continuity-ledger</div>
+                    <div class="skill-trigger">Use when a draft, outline, revision, or story bible changes story facts.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Compare changed text to current ledger</li>
+                        <li>Record new and changed facts</li>
+                        <li>Update character state, timeline, world rules</li>
+                        <li>Name unresolved promises and payoffs</li>
+                        <li>Mark continuity risks before next chapter wave</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">continuity-ledger.md</div>
+                    <div class="output-file">character-arcs.md</div>
+                    <div class="output-file">timeline.md</div>
+                    <div class="skill-number">07 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-cultural-protocol-check</div>
+                    <div class="skill-trigger">Use when story involves Indigenous knowledge, living cultures, sacred material, or consent-sensitive content.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Identify sensitive material and source</li>
+                        <li>Separate public, user-owned, invented, uncertain</li>
+                        <li>Record consent assumptions and limits</li>
+                        <li>Recommend continue / with-boundaries / ask-human / do-not-proceed</li>
+                        <li>Update constraints for drafting agents</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">protocol-notes.md</div>
+                    <div class="output-file">constraints.md (updated)</div>
+                    <div class="output-file">route recommendation</div>
+                    <div class="skill-number">08 / 9</div>
+                </div>
+            </div>
+
+            <div class="skill-card">
+                <div>
+                    <div class="skill-name">storyweaver-export-packet</div>
+                    <div class="skill-trigger">Use when story or story segment is ready to deliver.</div>
+                </div>
+                <div class="skill-workflow">
+                    <ol>
+                        <li>Confirm accepted chapters or scenes</li>
+                        <li>Run final continuity check</li>
+                        <li>Run final line edit when requested</li>
+                        <li>Assemble manuscript</li>
+                        <li>Generate metadata and package with provenance</li>
+                    </ol>
+                </div>
+                <div class="skill-outputs">
+                    <div class="output-file">exports/story.md</div>
+                    <div class="output-file">exports/story-metadata.json</div>
+                    <div class="output-file">exports/story-packet.md</div>
+                    <div class="skill-number">09 / 9</div>
+                </div>
+            </div>
+
+        </div>
+        <p class="rispec-ref" style="margin-top:16px">↳ rispecs/miadi-storyweaver-orchestration-kit/05-skill-surface.md · jgwill/miadi-orchestration-kit issue #9 · #17</p>
+    </div>
+
+    <!-- ── STRUCTURAL TENSION ── -->
+    <div class="tab-panel" id="tab-tension">
+        <div class="section-header">
+            <h2>Structural Tension View</h2>
+            <span class="count">per rispec layer</span>
+        </div>
+
+        <div class="tension-grid">
+
+            <div class="tension-card">
+                <div class="tension-header">📋 Agent Roster</div>
+                <div class="tension-body">
+                    <div class="tension-row">
+                        <div class="tension-label cr">Current Reality</div>
+                        <div class="tension-text">Story work blurs drafting, critique, editing, continuity, and protocol judgment into one undifferentiated assistant voice.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label do">Desired Outcome</div>
+                        <div class="tension-text">A clear writing team whose members each carry a distinct narrative responsibility.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label np">Natural Progression</div>
+                        <div class="tension-text">Define agents by mandate, inputs, outputs, and handoff boundaries so the Copilot kit can coordinate specialized story work.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tension-card">
+                <div class="tension-header">🎯 Skill Surface</div>
+                <div class="tension-body">
+                    <div class="tension-row">
+                        <div class="tension-label cr">Current Reality</div>
+                        <div class="tension-text">Agent roles alone do not create repeatable workflows; users must remember every agent and artefact path.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label do">Desired Outcome</div>
+                        <div class="tension-text">A compact set of Copilot skills that can run the storytelling pipeline without requiring coordination knowledge from the user.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label np">Natural Progression</div>
+                        <div class="tension-text">Define each skill by trigger, workflow, required inputs, artefact outputs, and agent collaboration.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tension-card">
+                <div class="tension-header">📊 Pipeline</div>
+                <div class="tension-body">
+                    <div class="tension-row">
+                        <div class="tension-label cr">Current Reality</div>
+                        <div class="tension-text">No reliable order of operations: brief, drafting, review, and export happen ad-hoc with no tracked state transitions.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label do">Desired Outcome</div>
+                        <div class="tension-text">A RISE-aligned pipeline where each phase produces artefacts that gate the next, with clear resume points.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label np">Natural Progression</div>
+                        <div class="tension-text">Brief → Bible → Outline → Chapters → Review → Export, with Continuity Keeper and Protocol Steward as cross-cutting threads.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tension-card">
+                <div class="tension-header">🔄 State & Handoff</div>
+                <div class="tension-body">
+                    <div class="tension-row">
+                        <div class="tension-label cr">Current Reality</div>
+                        <div class="tension-text">Each new prompt restarts context. Agents cannot resume from a prior session's artefacts without re-reading everything.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label do">Desired Outcome</div>
+                        <div class="tension-text">A state manifest (state.md) that any agent can read to know what's been accepted, what's pending, and what's blocked.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label np">Natural Progression</div>
+                        <div class="tension-text">Orchestration Architect owns state.md. Every skill that touches artefacts also updates state. Review gates write their own route recommendations.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tension-card">
+                <div class="tension-header">🛡️ Cultural Protocol</div>
+                <div class="tension-body">
+                    <div class="tension-row">
+                        <div class="tension-label cr">Current Reality</div>
+                        <div class="tension-text">Sensitive material (Indigenous knowledge, sacred content, personal trauma) flows through the pipeline without explicit pause or authority review.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label do">Desired Outcome</div>
+                        <div class="tension-text">A protocol steward that can pause any skill, names what it does not know, and routes to human guidance before proceeding.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label np">Natural Progression</div>
+                        <div class="tension-text">Define steward authority, consent boundary types, and four-route output (continue / with-boundaries / ask-human / do-not-proceed).</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tension-card">
+                <div class="tension-header">📖 Episode Memory</div>
+                <div class="tension-body">
+                    <div class="tension-row">
+                        <div class="tension-label cr">Current Reality</div>
+                        <div class="tension-text">Sessions produce drafts but lose story-context: characters, world facts, and narrative promises evaporate when the window closes.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label do">Desired Outcome</div>
+                        <div class="tension-text">Each session produces an episode packet (StoryForms, StoryBeats, Settings) that feeds back into Miadi's world memory for future sessions.</div>
+                    </div>
+                    <div class="tension-row">
+                        <div class="tension-label np">Natural Progression</div>
+                        <div class="tension-text">Export Steward assembles packet. Continuity Keeper validates it. Closure note records follow-up commissions and open story promises.</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <p class="rispec-ref" style="margin-top:16px">↳ rispecs/miadi-storyweaver-orchestration-kit/01-reverse-engineer.md · 02-intent.md · 06-state-and-handoff.md</p>
+    </div>
+
+    <!-- ── EPISODES ── -->
+    <div class="tab-panel" id="tab-episodes">
+        <div class="section-header">
+            <h2>Session / Episode Memory</h2>
+            <span class="count">rispec 10</span>
+        </div>
+
+        <div class="episodes-top">
+            <div class="info-card">
+                <h3>📖 StoryForms Extracted Per Session</h3>
+                <ul class="storyform-list">
+                    <li><span class="storyform-dot"></span>Creative brief (intent + constraints)</li>
+                    <li><span class="storyform-dot"></span>Story bible (world, characters, stakes)</li>
+                    <li><span class="storyform-dot"></span>Story beats (scene-level events + turning points)</li>
+                    <li><span class="storyform-dot"></span>Settings (world, location, time, atmosphere)</li>
+                    <li><span class="storyform-dot"></span>Character arcs (state at session end)</li>
+                    <li><span class="storyform-dot"></span>Open promises + payoff obligations</li>
+                    <li><span class="storyform-dot"></span>Protocol notes (consent boundaries reached)</li>
+                    <li><span class="storyform-dot"></span>Revision dossier (what changed and why)</li>
+                    <li><span class="storyform-dot"></span>Follow-up commissions (next session seeds)</li>
+                </ul>
+            </div>
+
+            <div class="info-card">
+                <h3>🔗 Issue Coordination</h3>
+                <div class="issue-refs">
+                    <div class="issue-ref">
+                        <strong>jgwill/miadi-orchestration-kit #9</strong>
+                        <p>Define storytelling orchestration kit RISE specs for Copilot — agents, skills, state schema, review gates, export packet.</p>
+                    </div>
+                    <div class="issue-ref">
+                        <strong>jgwill/miadi-orchestration-kit #17</strong>
+                        <p>Scaffold three storytelling rispecs for OpenClaw model-routing narrative track — agent files, skill folders, plugin structure.</p>
+                    </div>
+                    <div class="issue-ref">
+                        <strong>jgwill/miadi-orchestration-kit #28</strong>
+                        <p>Codex Plugin Boundary — which rispecs are stable enough to promote? Storyweaver kit is a candidate.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h3>📦 Episode Packet Structure</h3>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px;">
+                <div>
+                    <div style="font-size:0.78em;font-weight:700;color:var(--teal-800);margin-bottom:6px;">Input artefacts</div>
+                    <div class="output-file" style="display:block;margin:3px 0">creative-brief.md</div>
+                    <div class="output-file" style="display:block;margin:3px 0">story-bible.md</div>
+                    <div class="output-file" style="display:block;margin:3px 0">chapters/*.md</div>
+                    <div class="output-file" style="display:block;margin:3px 0">continuity-ledger.md</div>
+                    <div class="output-file" style="display:block;margin:3px 0">protocol-notes.md</div>
+                </div>
+                <div>
+                    <div style="font-size:0.78em;font-weight:700;color:var(--teal-800);margin-bottom:6px;">Export packet</div>
+                    <div class="output-file" style="display:block;margin:3px 0">exports/story.md</div>
+                    <div class="output-file" style="display:block;margin:3px 0">exports/story-metadata.json</div>
+                    <div class="output-file" style="display:block;margin:3px 0">exports/story-packet.md</div>
+                    <div class="output-file" style="display:block;margin:3px 0">exports/revision-dossier.md</div>
+                </div>
+                <div>
+                    <div style="font-size:0.78em;font-weight:700;color:var(--teal-800);margin-bottom:6px;">Feeds back to</div>
+                    <div style="font-size:0.8em;color:var(--mid);line-height:1.8;">
+                        ↳ Miadi world memory<br>
+                        ↳ Chronicle doorway<br>
+                        ↳ Next session bootstrap<br>
+                        ↳ Series arc ledger<br>
+                        ↳ Follow-up commissions
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p class="rispec-ref" style="margin-top:16px">↳ rispecs/miadi-storyweaver-orchestration-kit/10-session-episode-storyforms.md · 07-copilot-plugin-export.md</p>
+    </div>
+
+</div>
+
+<footer>
+    📍 <strong>Source:</strong> /workspace/repos/jgwill/miadi-orchestration-kit-storytelling-rispecs/ &nbsp;·&nbsp;
+    🔗 <a href="https://github.com/jgwill/miadi-orchestration-kit">jgwill/miadi-orchestration-kit</a> &nbsp;·&nbsp;
+    Medicine Wheel: light dressing — orientation, not constraint &nbsp;·&nbsp;
+    🌸 Storyweaver v0.1 — rispec discovery surface
+</footer>
+
+<script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { curve: 'basis' } });
+
+    function showTab(name) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+</script>
+</body>
+</html>

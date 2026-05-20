@@ -1,0 +1,40 @@
+{
+  "name": "miadi-storyweaver-orchestration-kit",
+  "description": "Miadi-native Copilot orchestration kit for story creation, Miadi Chronicle episode extraction, voice packet preparation, visual chronicle seed prompts, continuity, review, protocol stewardship, and export.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Hermes"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "storyweaver",
+    "storytelling",
+    "chronicle",
+    "voice-episode",
+    "storyforms",
+    "orchestration",
+    "rise",
+    "copilot"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/storyweaver-session-bootstrap",
+    "./skills/storyweaver-brief-intake",
+    "./skills/storyweaver-story-bible",
+    "./skills/storyweaver-outline-and-beats",
+    "./skills/storyweaver-chapter-wave",
+    "./skills/storyweaver-review-loop",
+    "./skills/storyweaver-continuity-ledger",
+    "./skills/storyweaver-cultural-protocol-check",
+    "./skills/storyweaver-export-packet",
+    "./skills/storyweaver-session-to-episode",
+    "./skills/storyweaver-storyforms-and-beats",
+    "./skills/storyweaver-voice-episode-packet",
+    "./skills/storyweaver-visual-chronicle-seed",
+    "./skills/storyweaver-foundations-bridge"
+  ]
+}
