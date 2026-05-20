@@ -48,6 +48,21 @@ antigravity -p "$(cat antigravity/miadi-storyweaver-orchestration-kit/prompts/vi
 
 Antigravity will read your story bible, prompt details, and create beautiful visual reference frames in your workspace.
 
+## Native Plugin Installation in agy CLI
+
+The Antigravity companion is fully compliant with the native `agy` CLI plugin structure. You can install, enable, and validate it directly inside your local environment:
+
+```bash
+# Validate the plugin before installation
+/home/mia/.local/bin/agy plugin validate antigravity/miadi-storyweaver-orchestration-kit
+
+# Install the plugin natively
+/home/mia/.local/bin/agy plugin install antigravity/miadi-storyweaver-orchestration-kit
+
+# List imported plugins to confirm successful integration
+/home/mia/.local/bin/agy plugin list
+```
+
 ## Command Line Interface (CLI) Utility
 
 The companion includes a dedicated Python CLI tool `storyweaver.sh` designed to manage story workspaces, verify states, and register deliverables directly from any command line shell—supporting both **interactive** and **non-interactive** execution modes.
