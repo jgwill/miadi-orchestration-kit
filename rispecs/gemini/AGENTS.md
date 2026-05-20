@@ -142,4 +142,5 @@ If linked during development, edits in the local path are reflected by future Ge
 - [ ] Source ledger states what came from Gemini CLI docs/templates, Miadi scripts, and local repo examples.
 - [ ] Does not depend on the failed storytelling kit path as authoritative implementation evidence.
 - [ ] Agent inspected dirty repo state, staged exact intended files, and committed scoped work unless explicitly told not to.
+- [ ] Meaningful repo changes reference a GitHub issue or PR; hygiene/process work uses issue #31 or a more specific successor.
 - [ ] Operator report is 55 words or less per aspect and only lists attention-needed items.

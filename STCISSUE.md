@@ -358,3 +358,15 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #31 - Repo hygiene: agents must own scoped dirty-state cleanup
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-20T09:19:53Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/31
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+

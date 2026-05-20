@@ -6,7 +6,7 @@ Use `rispecs/gemini/AGENTS.md` before creating or modifying anything here. That 
 
 ## Agent ownership
 
-When you create or modify an extension here, validate it and commit the scoped repo work unless the operator explicitly says not to. Do not report a dirty repo as if cleanup belongs to the human. Own the final Git hygiene: inspect, secret-scan, stage exact files, verify staged names, commit, and report only attention-needed leftovers.
+When you create or modify an extension here, validate it and commit the scoped repo work unless the operator explicitly says not to. Do not report a dirty repo as if cleanup belongs to the human. Own the final Git hygiene: inspect, secret-scan, stage exact files, verify staged names, commit, and report only attention-needed leftovers. Every meaningful change must reference a GitHub issue or PR; use hygiene anchor #31 when the work is about repo-state discipline.
 
 ## Required Native Shape
 
