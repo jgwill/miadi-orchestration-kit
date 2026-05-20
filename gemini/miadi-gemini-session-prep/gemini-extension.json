@@ -1,0 +1,6 @@
+{
+  "name": "miadi-gemini-session-prep",
+  "version": "1.0.0",
+  "description": "Miadi-native Gemini CLI extension for preparing reliable orchestration sessions with charters, source ledgers, extension recommendations, and replayable launch scripts.",
+  "contextFileName": "GEMINI.md"
+}
