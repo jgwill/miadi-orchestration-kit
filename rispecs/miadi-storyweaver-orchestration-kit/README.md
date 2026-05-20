@@ -25,6 +25,7 @@ Mission issue: `jgwill/miadi-orchestration-kit#9`.
 | `07-copilot-plugin-export.md` | Defines the plugin folder, manifest, launch commands, and smoke tests. |
 | `08-quality-gates-and-review.md` | Defines review gates, critique formats, consent gates, and final acceptance. |
 | `09-source-ledger.md` | Records source provenance and the path mismatch discovered during this mission. |
+| `10-session-episode-storyforms.md` | Extends Storyweaver to extract episodes, StoryForms, StoryBeats, and Story Settings from meaningful sessions. |
 
 ## Implementation Target
 
@@ -93,3 +94,10 @@ The implementation must not import, shell into, or require the existing `jgwill/
 - **Current Reality**: Final text alone loses the reasoning, sources, constraints, and revision history that make the story resumable.
 - **Natural Progression**: The line editor polishes prose, the export steward assembles deliverables, and the orchestration architect records session closure.
 - **Achieved Outcome**: The story workspace can be read, resumed, reviewed, or adapted by future agents.
+
+### Scenario 5: Session To Episode Memory
+
+- **Desired Outcome**: A meaningful agent/workspace session becomes an auditable episode with StoryForms, StoryBeats, Story Setting, related work, and follow-up commissions.
+- **Current Reality**: Operational sessions can create real narrative movement, but their meaning often remains trapped in chat, memory notes, or command output.
+- **Natural Progression**: The session-episode branch reads sources, extracts setting and beats, names reusable StoryForms, and exports an episode packet without fictionalizing source facts.
+- **Achieved Outcome**: The Miadi world learns from the session as durable story-context memory.
