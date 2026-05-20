@@ -80,3 +80,19 @@ These specs infer markdown artefact persistence from the package's session check
 ## Boundaries For Future Agents
 
 Future implementation agents should use these source files for provenance, but should not re-couple the Copilot kit to the `jgwill/storytelling` source package. If implementation requires code, scripts, or schemas later, those should be native to `miadi-orchestration-kit` and justified by a separate rispec update.
+
+## 2026-05-11 Session-Episode Extension
+
+| Source | Use |
+| --- | --- |
+| `/workspace/repos/jgwill/miadi-orchestration-kit/rispecs/codex-claw-dispatch-kit/` | Companion operational rispec for Gaia-backed Claw dispatch and acknowledgement capture. |
+| `/home/mia/.openclaw/workspace/memory/2026-05-11.md` | Observed source for the MiaClaw pickup acknowledgement and session ID. |
+| `/home/mia/.openclaw/workspace/pto/gaia-endpoint-pebble/gaia-endpoint.mjs` | Endpoint source that created the dispatch context for the session-episode extension. |
+
+### Added Claims
+
+| Claim | Status | Basis |
+| --- | --- | --- |
+| Storyweaver needs a branch for extracting episodes from meaningful operational sessions. | Recommendation | User instruction plus observed MiaClaw dispatch workflow. |
+| StoryForms, StoryBeats, and Story Setting should be explicit artifacts, not only prose features. | Recommendation | Existing Storyweaver beat/world/continuity patterns plus user framing. |
+| The operational dispatch kit and narrative episode kit should remain separate but composable. | Recommendation | Different safety boundaries: Gateway communication vs story memory extraction. |

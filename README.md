@@ -7,6 +7,14 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 | Kit | Purpose | Path |
 | --- | --- | --- |
 | STCKin Orchestration Kit | First-wave Miadi plugin with bootstrap, kit-scaffolding, artefact reporting, and orchestration agents. | `copilot/stckin-orchestration-kit` |
+| Miadi Storyweaver Orchestration Kit | Story, Chronicle episode, voice packet, visual prompt packet, foundations bridge, review, continuity, protocol, and export orchestration. | `copilot/miadi-storyweaver-orchestration-kit` |
+
+## Companion exports
+
+| Companion | Purpose | Path |
+| --- | --- | --- |
+| Gemini Storyweaver Companion | Lightweight Gemini CLI prompt contract mirroring the Storyweaver pipeline for portable/free-model use. | `gemini/miadi-storyweaver-orchestration-kit` |
+| Claude Code Storyweaver Companion | Lightweight Claude Code prompt contract for read-only smoke checks, session bootstrap routing, and portable Storyweaver handoffs. | `claude-code/miadi-storyweaver-orchestration-kit` |
 
 ## Reusable RISE outputs
 
