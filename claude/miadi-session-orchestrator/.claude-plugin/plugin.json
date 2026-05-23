@@ -1,0 +1,9 @@
+{
+  "name": "miadi-session-orchestrator",
+  "description": "Complementary review and orchestration role for the Miadi plan-insight pipeline. Use this plugin when reviewing proposed migration plans, surfacing structural gaps, crafting revision prompts for implementing agents, tracking evolution in GitHub issues, or reading live session hook context.\n\n<example>\nContext: A proposed plan file has arrived\nuser: \"review proposed/MIGRATION-PLAN-INSIGHT.md\"\nassistant: \"I'll run a gap analysis against the 5 structural criteria and draft a revision prompt.\"\n<commentary>\nThe plan-review agent knows the Miadi platform's pipeline, hook system, and idempotency requirements.\n</commentary>\n</example>\n\n<example>\nContext: Understanding what another session is doing\nuser: \"what is session 22527948 working on?\"\nassistant: \"I'll read the session JSONL hook files and report in under 55 words.\"\n<commentary>\nSession context is live — read from _claude_PreToolUse.jsonl and _claude_user_inputs.jsonl.\n</commentary>\n</example>\n\n<example>\nContext: Creating a tracking issue after review\nuser: \"open a tracking issue for this plan evolution\"\nassistant: \"I'll create the issue in jgwill/src with the 5-section structural format.\"\n<commentary>\nEvery plan evolution cycle gets a GitHub issue in jgwill/src referencing the session and proposed file.\n</commentary>\n</example>",
+  "version": "0.1.0",
+  "author": {
+    "name": "jgwill"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/claude/miadi-session-orchestrator"
+}
