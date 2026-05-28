@@ -1,0 +1,27 @@
+{
+  "name": "miadi-wave-forge-kit",
+  "description": "Prepares and forges Miadi orchestration wave scripts from a user desire + target directories. Scans available plugins, selects agents, designs phases, and outputs a ready-to-run copilot command.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Hermes"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "orchestration",
+    "wave-forge",
+    "refactoring",
+    "preparation",
+    "copilot"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/scan-and-plan",
+    "./skills/forge-wave-script",
+    "./skills/review-wave-plan",
+    "./skills/resume-wave-prep"
+  ]
+}
