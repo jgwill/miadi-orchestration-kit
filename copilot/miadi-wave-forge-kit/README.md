@@ -1,44 +1,47 @@
 # miadi-wave-forge-kit
 
-A Miadi-native Copilot plugin that turns a user's refactoring or enhancement desire (plus a list of target directories) into a ready-to-run orchestration bash script. The kit scans available agents and plugins, designs a multi-phase wave plan, validates it adversarially, and forges the final `copilot` command — all without the user having to know which agents exist or how to compose them.
+A Miadi-native Copilot plugin that turns a user's desire (plus target directories) into a ready-to-run orchestration bash script.
+
+**How it works:**
+1. `copilot_prepare_orchestration` runs a fast **bash scan** of target dirs, kits, and all agents (~2 seconds, no AI)
+2. Writes `scan-context.md` + `prompt.md` into a **PDE working folder** at `.pde/<yyMMddHHmm>--<uuid>/`
+3. Launches **one focused copilot session** via `@.pde/.../prompt.md` — direct forge, no background subagents
+4. Copilot writes `orchestration-<slug>-<date>.sh` into the PDE folder
+5. On failure, the PDE folder is preserved for one-command retry
 
 ---
 
 ## Quick start
 
 ```bash
-# Source the helper function
 source /workspace/repos/jgwill/miadi-orchestration-kit/copilot/miadi-wave-forge-kit/scripts/copilot_prepare_orchestration.sh
 
-# Launch a wave-forge session
 copilot_prepare_orchestration "refactor Ava Decomposer Studio and its ava-*js packages" \
   /workspace/repos/avadisabelle/Ava-Decomposer-Studio \
   /workspace/repos/avadisabelle/ava-langchainjs
 ```
 
-The function launches an interactive Copilot session that:
-1. Scans the target directories and all available plugins/agents
-2. Designs a multi-phase orchestration plan matched to the desire
-3. Validates the plan adversarially
-4. Writes `orchestration-<slug>-<date>.sh` in the current working directory
+If the session ends without writing the script, retry with:
+
+```bash
+copilot --add-dir '.pde/<ts>--<uuid>' -p '@.pde/<ts>--<uuid>/prompt.md'
+```
 
 ---
 
-## Manual launch
+## Manual / interactive use
 
-If you want direct control over which kits are loaded:
+Skills (`scan-and-plan`, `review-wave-plan`, `forge-wave-script`, `resume-wave-prep`) remain available for interactive Copilot sessions when you want fine-grained control:
 
 ```bash
 copilot \
   --model claude-sonnet-4.6 \
   --plugin-dir /workspace/repos/jgwill/miadi-orchestration-kit/copilot/miadi-wave-forge-kit \
-  --plugin-dir /workspace/repos/jgwill/miadi-orchestration-kit/copilot/stckin-orchestration-kit \
-  --plugin-dir /workspace/repos/jgwill/miadi-orchestration-kit/copilot/miadi-adversarial-review-kit \
-  --add-dir /workspace/repos/miadisabelle/mia-awesome-copilot \
-  --add-dir /workspace/repos/jgwill/miadi-orchestration-kit \
   --add-dir /workspace/repos/avadisabelle/Ava-Decomposer-Studio \
   -p "Use scan-and-plan then review-wave-plan then forge-wave-script for: refactor Ava Decomposer Studio"
 ```
+
+Note: the skill chain runs background subagents sequentially — prefer `copilot_prepare_orchestration` for unattended use.
 
 ---
 
@@ -59,37 +62,32 @@ copilot \
 | `scan-and-plan` | Orchestrates Scanner → Planner flow. Validates scan completeness before planning. Outputs WavePlan. |
 | `review-wave-plan` | Adversarial review of a WavePlan: checks agent validity, path existence, desire alignment, issue/review/synthesis phase presence. Returns ADVANCE or REVISE. |
 | `forge-wave-script` | Invokes Wave Script Forge on a validated WavePlan (requires ADVANCE verdict), verifies the script with `bash -n` + preflight check, reports path and first 50 lines. |
-| `resume-wave-prep` | Resumes an interrupted wave-forge session. Reads prior WavePlan, review result, and generated script to determine whether to re-review, replan, or reforge. |
+| `resume-wave-prep` | Resumes an interrupted wave-forge session. Locates the most recent `.pde/` folder and retries the forge from the preserved `prompt.md`. |
 
 ---
 
-## Example session
+## Example flow
 
 ```
-User desire: "add comprehensive integration tests to the ava-langchainjs API layer"
-Target dirs: /workspace/repos/avadisabelle/ava-langchainjs
+$ copilot_prepare_orchestration "add integration tests to ava-langchainjs" \
+    /workspace/repos/avadisabelle/ava-langchainjs
 
-[scan-and-plan]
-  → Scanned 1 target dir: TypeScript monorepo, 4 packages, Jest configured, 12% coverage
-  → Found 87 agents in mia-awesome-copilot, 6 kits in miadi-orchestration-kit
-  → WavePlan: 5 phases, agents: arch, tdd-refactor, test-agent, agent-governance-reviewer, miadi-deep-search-synthesizer
+[wave-forge] PDE working folder : /workspace/wikis/.pde/2605281015--<uuid>/
+[wave-forge] Scanning directories...
+[wave-forge] Scan context       : scan-context.md (287 lines)
+[wave-forge] Prompt             : prompt.md (195 lines)
+[wave-forge] Launching copilot...  (direct forge — no subagents)
+────────────────────────────────────────────────────────────────────────────────
+  copilot writes orchestration-add-integration-tests-ava-260528.sh directly
+────────────────────────────────────────────────────────────────────────────────
+[wave-forge] ✓ Script created: .pde/2605281015--<uuid>/orchestration-add-integration-tests-ava-260528.sh
 
-[review-wave-plan]
-  → Check 1 (agent validity): PASS
-  → Check 2 (plugin paths): PASS
-  → Check 3 (add-dir paths): PASS
-  → Check 4 (desire alignment): PASS
-  → Check 5 (issue creation): PASS
-  → Check 6 (adversarial review): PASS
-  → Check 7 (synthesis): PASS
-  → Verdict: ADVANCE
+$ bash .pde/2605281015--<uuid>/orchestration-add-integration-tests-ava-260528.sh
+```
 
-[forge-wave-script]
-  → Written: ./orchestration-add-integration-tests-ava-langchain-250115.sh
-  → Syntax valid, executable
-
-To run:
-  bash ./orchestration-add-integration-tests-ava-langchain-250115.sh
+**If copilot ends the session before writing the script**, the PDE folder is intact — retry:
+```bash
+copilot --add-dir '.pde/<ts>--<uuid>' -p '@.pde/<ts>--<uuid>/prompt.md'
 ```
 
 ---
