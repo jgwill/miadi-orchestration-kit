@@ -370,3 +370,75 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #33 - feat(claude): miadi-session-orchestrator plugin scaffold
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-23T21:36:59Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/33
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #34 - feat: add miadi-wave-forge-kit — generalized orchestration preparation plugin
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-28T08:31:00Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/34
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #35 - Define PDE loop-closure orchestration consumer RISE spec
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-28T12:29:55Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/35
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #36 - rispec: Medicine Wheel cross-harness orchestration plugin contract
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-06-03T18:33:45Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/36
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #37 - rispec: EAST Intent Analyst strategy lineage
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-06-04T07:10:06Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/37
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #37 - rispec: EAST Intent Analyst strategy lineage
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-06-04T07:10:19Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/37
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+

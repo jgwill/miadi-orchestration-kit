@@ -6,35 +6,36 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 
 | Kit | Purpose | Path |
 | --- | --- | --- |
-| STCKin Orchestration Kit | First-wave Miadi plugin with bootstrap, kit-scaffolding, artefact reporting, and orchestration agents. | `copilot/stckin-orchestration-kit` |
-| Miadi Promotion Context Kit | Promotion-boundary review for deciding what stays provenance, becomes spec, or remains context-layer only. | `copilot/miadi-promotion-context-kit` |
-| Miadi Adversarial Review Kit | Dissenting review kit for RISE separation, outcome drift checks, and revision pressure. | `copilot/miadi-adversarial-review-kit` |
-| Miadi Storyweaver Orchestration Kit | Story, Chronicle episode, voice packet, visual prompt packet, foundations bridge, review, continuity, protocol, and export orchestration. | `copilot/miadi-storyweaver-orchestration-kit` |
+| STCKin Orchestration Kit | First-wave Miadi plugin with bootstrap, kit-scaffolding, artefact reporting, and orchestration agents. | [`copilot/stckin-orchestration-kit`](copilot/stckin-orchestration-kit) |
+| Miadi Promotion Context Kit | Promotion-boundary review for deciding what stays provenance, becomes spec, or remains context-layer only. | [`copilot/miadi-promotion-context-kit`](copilot/miadi-promotion-context-kit) |
+| Miadi Adversarial Review Kit | Dissenting review kit for RISE separation, outcome drift checks, and revision pressure. | [`copilot/miadi-adversarial-review-kit`](copilot/miadi-adversarial-review-kit) |
+| Miadi Orchestration Kit — Hermes Closure Layer | Hermes-facing launch/closure governance: machine-readable payloads, lane contracts, validation scripts, transcript audit, commit partitioning, and Chronicle event gates. | [`copilot/miadi-orchestration-kit-hermes`](copilot/miadi-orchestration-kit-hermes) |
+| Miadi Storyweaver Orchestration Kit | Story, Chronicle episode, voice packet, visual prompt packet, foundations bridge, review, continuity, protocol, and export orchestration. | [`copilot/miadi-storyweaver-orchestration-kit`](copilot/miadi-storyweaver-orchestration-kit) |
 
 ## Companion exports
 
 | Companion | Purpose | Path |
 | --- | --- | --- |
-| Gemini Storyweaver Companion | Lightweight Gemini CLI prompt contract mirroring the Storyweaver pipeline for portable/free-model use. | `gemini/miadi-storyweaver-orchestration-kit` |
-| Claude Code Storyweaver Companion | Lightweight Claude Code prompt contract for read-only smoke checks, session bootstrap routing, and portable Storyweaver handoffs. | `claude-code/miadi-storyweaver-orchestration-kit` |
-| Codex Storyweaver Plugin | Codex-native plugin with Storyweaver skills, agent references, templates, and installable `.codex-plugin/plugin.json`. | `codex/miadi-storyweaver-orchestration-kit` |
+| Gemini Storyweaver Companion | Lightweight Gemini CLI prompt contract mirroring the Storyweaver pipeline for portable/free-model use. | [`gemini/miadi-storyweaver-orchestration-kit`](gemini/miadi-storyweaver-orchestration-kit) |
+| Claude Code Storyweaver Companion | Lightweight Claude Code prompt contract for read-only smoke checks, session bootstrap routing, and portable Storyweaver handoffs. | [`claude-code/miadi-storyweaver-orchestration-kit`](claude-code/miadi-storyweaver-orchestration-kit) |
+| Codex Storyweaver Plugin | Codex-native plugin with Storyweaver skills, agent references, templates, and installable `.codex-plugin/plugin.json`. | [`codex/miadi-storyweaver-orchestration-kit`](codex/miadi-storyweaver-orchestration-kit) |
 
 ## Reusable operator skills
 
 | Skill | Purpose | Path |
 | --- | --- | --- |
-| `deep-research` | Multi-agent research orchestration pattern used as a source reference for decomposition and synthesis. | `skills/deep-search/SKILL.md` |
-| `use-design-bundle-integration-kit` | Main-session conductor skill for running design-bundle integration waves with an existing plugin kit. | `skills/use-design-bundle-integration-kit/SKILL.md` |
-| `miadi-mightyeagle-issue-263` | Issue-aware conductor skill for the issue-263-derived security-remediation first wave: reusable rispecs plus an operational resume/review contract. | `skills/miadi-mightyeagle-issue-263/SKILL.md` |
+| `deep-research` | Multi-agent research orchestration pattern used as a source reference for decomposition and synthesis. | [`skills/deep-search/SKILL.md`](skills/deep-search/SKILL.md) |
+| `use-design-bundle-integration-kit` | Main-session conductor skill for running design-bundle integration waves with an existing plugin kit. | [`skills/use-design-bundle-integration-kit/SKILL.md`](skills/use-design-bundle-integration-kit/SKILL.md) |
+| `miadi-mightyeagle-issue-263` | Issue-aware conductor skill for the issue-263-derived security-remediation first wave: reusable rispecs plus an operational resume/review contract. | [`skills/miadi-mightyeagle-issue-263/SKILL.md`](skills/miadi-mightyeagle-issue-263/SKILL.md) |
 
 ## Reusable RISE outputs
 
-- `rispecs/security-remediation-orchestration/` — reusable reverse-engineer, intent, specification, export, and provenance docs extracted from the issue-263 security-remediation evidence set.
-- `rispecs/east-pde-session-orchestration/` — EAST-direction RISE spec for turning a first prompt or hook event into a PDE session charter, native plugin recommendation, source ledger, and chronicle seed.
+- [`rispecs/security-remediation-orchestration/`](rispecs/security-remediation-orchestration/) — reusable reverse-engineer, intent, specification, export, and provenance docs extracted from the issue-263 security-remediation evidence set.
+- [`rispecs/east-pde-session-orchestration/`](rispecs/east-pde-session-orchestration/) — EAST-direction RISE spec for turning a first prompt or hook event into a PDE session charter, native plugin recommendation, source ledger, and chronicle seed.
 
 | Rispec | Purpose | Path |
 | --- | --- | --- |
-| Miadi Storyweaver Orchestration Kit | Copilot-first storytelling orchestration specs for story agents, skills, state, review gates, and export packets. | `rispecs/miadi-storyweaver-orchestration-kit` |
+| Miadi Storyweaver Orchestration Kit | Copilot-first storytelling orchestration specs for story agents, skills, state, review gates, and export packets. | [`rispecs/miadi-storyweaver-orchestration-kit`](rispecs/miadi-storyweaver-orchestration-kit) |
 
 ## Launch patterns
 
