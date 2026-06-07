@@ -1,0 +1,31 @@
+{
+  "name": "miadi-storyweaver-antigravity",
+  "description": "Premium interactive Antigravity companion for Storyweaver kit with CLI tools and generate_image concept art.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Antigravity"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "storyweaver",
+    "antigravity",
+    "interactive",
+    "visual-generation"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/storyweaver-session-bootstrap",
+    "./skills/storyweaver-brief-intake",
+    "./skills/storyweaver-story-bible",
+    "./skills/storyweaver-outline-and-beats",
+    "./skills/storyweaver-chapter-wave",
+    "./skills/storyweaver-review-loop",
+    "./skills/storyweaver-continuity-ledger",
+    "./skills/storyweaver-cultural-protocol-check",
+    "./skills/storyweaver-export-packet"
+  ]
+}
