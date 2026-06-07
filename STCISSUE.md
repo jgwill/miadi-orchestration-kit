@@ -334,3 +334,39 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #28 - Codex Plugin Boundary: Which rispecs are stable enough to promote?
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-19T17:19:43Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/28
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #29 - Implement Miadi Storyweaver Orchestration Kit companions
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-20T01:30:50Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/29
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #31 - Repo hygiene: agents must own scoped dirty-state cleanup
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-05-20T09:19:53Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/31
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+

@@ -6,6 +6,8 @@ This RISpec defines the EAST-direction plugin that prepares a ceremonial coding 
 
 The seed evidence is the Gemini CLI hook session `ca226890-bae0-4936-bc27-3c3f3b0db9f2`, where a small PDE-label request caused Gemini to set a topic, summarize strategic intent, and return a compact label description with Miette narrative resonance. The desired kit makes that beginning reusable without depending on `mia-awesome-copilot/plugins`.
 
+Upgrade issue: `jgwill/miadi-orchestration-kit#37`, child of `#24`, adds strategy-aware decomposition and the Intent Analyst role to this RISpec.
+
 ## What is in this folder
 
 | File | Purpose |
@@ -20,6 +22,9 @@ The seed evidence is the Gemini CLI hook session `ca226890-bae0-4936-bc27-3c3f3b
 
 - The plugin receives a first prompt, transcript excerpt, or hook-event bundle.
 - It identifies whether the work is EAST initiation, not a later-direction execution wave.
+- It consults the portable Intent Analyst guidance at `/workspace/repos/jgwill/llms-txt/skills/intent-analyst/` without vendoring that source into this kit.
+- It selects an explicit `miaco decompose run --strategy` value and records why `standard`, `iterative-refinement`, or `adversarial-consensus` was chosen.
+- It preserves parent/child PDE lineage when `--parent`, `--parent-path`, or `--child-kind` applies.
 - It creates a session charter, source ledger, and recommended plugin set without copying from `mia-awesome-copilot/plugins`.
 - It can still cite external plugins as inspiration until native kit equivalents exist.
 - It treats narrative resonance as orientation metadata, not as a substitute for evidence.

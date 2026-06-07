@@ -31,11 +31,13 @@ Do not confuse retrieval or context-layer material with general wiki explanation
    - promote to wiki
    - keep as context-layer note
    - defer
-4. Check context-layer candidates against these boundaries:
+4. For wiki candidates, name the exact target wiki repo and target page paths before drafting.
+5. Check context-layer candidates against these boundaries:
    - Miadi is downstream of AvaLangStack here
    - the context layer sits closer to retrieval and composition than to the wiki
    - provenance, lineage, and decision-memory concerns should not be flattened into generic wiki prose
-5. Produce a promotion matrix and name blockers.
+6. If target wiki files were edited in a writable git repo, commit and push that wiki repo unless the user explicitly said not to or a concrete blocker prevents it.
+7. Produce a promotion matrix and name blockers.
 
 ## Output
 
@@ -43,8 +45,10 @@ Do not confuse retrieval or context-layer material with general wiki explanation
 - promotion matrix
 - blocked or deferred items
 - draftable items for later spec or wiki work
+- edited wiki pages
 - execution method
 - subagents or task lanes used
+- publication status for each touched repo
 - context-preservation notes
 
 If the promotion work was done without subordinate lanes, say so explicitly and state what evidence breadth may have been lost.

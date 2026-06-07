@@ -1,0 +1,17 @@
+prompt = """
+Prepare a reliable Miadi Gemini orchestration session for this context:
+
+<context>{{args}}</context>
+
+Use the miadi-gemini-session-prep skill. Create a .pde/<tlid>--<uuid>/ workspace containing session-charter.md, source-ledger.md, extension-recommendation.md, and LAUNCH.gemini-orchestration.sh.
+
+Inspect local guidance first:
+!{test -f AGENTS.md && sed -n '1,120p' AGENTS.md || true}
+!{test -f gemini/AGENTS.md && sed -n '1,160p' gemini/AGENTS.md || true}
+!{test -f rispecs/gemini/AGENTS.md && sed -n '1,220p' rispecs/gemini/AGENTS.md || true}
+
+Inspect current Gemini extension candidates:
+!{find gemini -maxdepth 3 -type f | sort 2>/dev/null || true}
+
+Report only attention-needed items, 55 words or less per aspect.
+"""

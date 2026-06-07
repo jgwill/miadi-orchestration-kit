@@ -14,6 +14,7 @@ while keeping retrieval and context-layer concerns distinct from general wiki ex
 - you need to separate provenance, spec, wiki, and context-layer material
 - you want artefact-friendly promotion records for later RISE or wiki drafting waves
 - you need wiki-facing drafts that preserve what stays outside the wiki on purpose
+- you expect the target wiki repo to end the session committed and pushed, not left as an unpublished working tree
 
 ## Layer contract
 
@@ -58,9 +59,24 @@ copilot \
 - promotion decision matrix with exact evidence paths
 - explicit keep / promote / defer decisions
 - clear separation between wiki-facing explanation and context-layer retrieval concerns
-- draftable markdown for later wiki waves
+- merged or draftable markdown for wiki waves, depending on write access
 - reusable promotion notes that later sessions can pick up without guessing
 - execution method note stating whether subordinate lanes/subagents were used
+- publication status for each edited wiki repo: committed and pushed, or an explicit blocker
+
+## Completion contract
+
+If the session edits files inside a writable target wiki git repo, the work is not complete at "draft created."
+
+Completion means:
+
+1. merge or create the approved wiki pages in the target wiki repo
+2. review the touched wiki files
+3. commit only the touched wiki files in that wiki repo
+4. push that wiki repo
+5. report commit/push status or the concrete blocker
+
+If multiple repos are touched, each repo should be committed and pushed separately.
 
 ## Recommended lane split
 
@@ -68,6 +84,7 @@ For larger promotion waves, delegate at least:
 - provenance and source-trace inspection
 - spec and context-layer boundary checking
 - wiki-draft shaping and cross-link review
+- target wiki repo publication when edits have landed
 
 Keep the main session responsible for the promotion matrix and final keep / promote / defer decisions.
 

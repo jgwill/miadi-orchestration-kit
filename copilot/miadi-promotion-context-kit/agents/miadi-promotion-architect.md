@@ -31,7 +31,9 @@ But do not force every item through every stage. Some material should remain pro
 - what should remain provenance-only
 - what is stable enough for spec language
 - what is mature enough for wiki explanation
+- which exact target wiki pages should be edited for wiki promotions
 - what must stay distinct as context-layer or retrieval material
+- whether downstream wiki publication is required and, if not done, why not
 
 ## Output contract
 
