@@ -17,6 +17,7 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 | --- | --- | --- |
 | Gemini Storyweaver Companion | Lightweight Gemini CLI prompt contract mirroring the Storyweaver pipeline for portable/free-model use. | `gemini/miadi-storyweaver-orchestration-kit` |
 | Claude Code Storyweaver Companion | Lightweight Claude Code prompt contract for read-only smoke checks, session bootstrap routing, and portable Storyweaver handoffs. | `claude-code/miadi-storyweaver-orchestration-kit` |
+| Codex Storyweaver Plugin | Codex-native plugin with Storyweaver skills, agent references, templates, and installable `.codex-plugin/plugin.json`. | `codex/miadi-storyweaver-orchestration-kit` |
 
 ## Reusable operator skills
 
@@ -36,6 +37,20 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 | Miadi Storyweaver Orchestration Kit | Copilot-first storytelling orchestration specs for story agents, skills, state, review gates, and export packets. | `rispecs/miadi-storyweaver-orchestration-kit` |
 
 ## Launch patterns
+
+### Codex Storyweaver launch
+
+After the kit is available on the local `main` checkout:
+
+```bash
+codex plugin marketplace add /workspace/repos/jgwill/miadi-orchestration-kit/codex/miadi-storyweaver-orchestration-kit
+```
+
+Then invoke one of the Storyweaver skills from Codex, for example:
+
+```text
+Use storyweaver-session-bootstrap to create a workspace for this premise.
+```
 
 ### Core STCKin launch
 

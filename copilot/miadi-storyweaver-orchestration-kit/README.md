@@ -69,6 +69,7 @@ Sibling companions provide read-only verification surfaces when Copilot plugin l
 | --- | --- | --- |
 | Gemini | `gemini -p "$(cat gemini/miadi-storyweaver-orchestration-kit/prompts/smoke-test.md)"` | Reads the Copilot kit as source material through `GEMINI.md`. |
 | Claude Code | `claude -p "$(cat claude-code/miadi-storyweaver-orchestration-kit/prompts/smoke-test.md)" --add-dir /workspace/repos/jgwill/miadi-orchestration-kit-storytelling-rispecs` | Reads the Copilot kit and RISE specs as repository context through `--add-dir`. |
+| Codex | `python3 /home/mia/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py codex/miadi-storyweaver-orchestration-kit` | Validates the Codex-native plugin metadata and skill surface before installation. |
 
 Both smoke prompts are read-only. They should report the available agents, skills, route values, source-ledger labels, and packet-prep boundaries for Storyweaver voice, visual, foundations, StoryForms, and Chronicle episode work.
 
@@ -220,3 +221,5 @@ Optional Chronicle branch:
 A lightweight Gemini CLI companion lives at `gemini/miadi-storyweaver-orchestration-kit/`. It mirrors this pipeline as prompt guidance for free-model portability when Copilot plugins are unavailable.
 
 A lightweight Claude Code companion lives at `claude-code/miadi-storyweaver-orchestration-kit/`. It uses `claude -p` plus `--add-dir` to read the Copilot kit and RISE specs as canonical context for smoke checks and session bootstrap handoffs.
+
+A Codex-native plugin lives at `codex/miadi-storyweaver-orchestration-kit/`. It exposes the Storyweaver skill tree through Codex `SKILL.md` files, agent reference notes, templates, and `.codex-plugin/plugin.json`.

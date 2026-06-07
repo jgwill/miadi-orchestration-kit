@@ -11,8 +11,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 KIT = ROOT / "copilot" / "miadi-storyweaver-orchestration-kit"
 PLUGIN_JSON = KIT / ".github" / "plugin" / "plugin.json"
+CODEX_KIT = ROOT / "codex" / "miadi-storyweaver-orchestration-kit"
+CODEX_PLUGIN_JSON = CODEX_KIT / ".codex-plugin" / "plugin.json"
 
 EXPECTED_COMPANION_FILES = [
+    "codex/miadi-storyweaver-orchestration-kit/README.md",
+    "codex/miadi-storyweaver-orchestration-kit/CODEX.md",
+    "codex/miadi-storyweaver-orchestration-kit/.codex-plugin/plugin.json",
+    "codex/miadi-storyweaver-orchestration-kit/templates/session-charter.md",
+    "codex/miadi-storyweaver-orchestration-kit/templates/state.md",
+    "codex/miadi-storyweaver-orchestration-kit/templates/artefact-index.md",
+    "codex/miadi-storyweaver-orchestration-kit/templates/review.md",
+    "codex/miadi-storyweaver-orchestration-kit/templates/source-ledger.md",
+    "codex/miadi-storyweaver-orchestration-kit/templates/episode-packet.md",
+    "codex/miadi-storyweaver-orchestration-kit/templates/visual-prompt-packet.md",
     "gemini/miadi-storyweaver-orchestration-kit/README.md",
     "gemini/miadi-storyweaver-orchestration-kit/GEMINI.md",
     "gemini/miadi-storyweaver-orchestration-kit/prompts/session-bootstrap.md",
@@ -32,19 +44,23 @@ EXPECTED_COMPANION_FILES = [
 ]
 
 
-def load_manifest(errors: list[str]) -> dict:
-    if not PLUGIN_JSON.is_file():
-        errors.append(f"missing plugin JSON: {PLUGIN_JSON.relative_to(ROOT)}")
+def load_json(path: Path, label: str, errors: list[str]) -> dict:
+    if not path.is_file():
+        errors.append(f"missing {label}: {path.relative_to(ROOT)}")
         return {}
 
     try:
-        return json.loads(PLUGIN_JSON.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         errors.append(
-            "plugin JSON does not parse: "
-            f"{PLUGIN_JSON.relative_to(ROOT)}:{exc.lineno}:{exc.colno}: {exc.msg}"
+            f"{label} does not parse: "
+            f"{path.relative_to(ROOT)}:{exc.lineno}:{exc.colno}: {exc.msg}"
         )
     return {}
+
+
+def load_manifest(errors: list[str]) -> dict:
+    return load_json(PLUGIN_JSON, "plugin JSON", errors)
 
 
 def resolve_manifest_path(raw_path: str, errors: list[str]) -> Path | None:
@@ -103,13 +119,43 @@ def check_companion_files(errors: list[str]) -> None:
             errors.append(f"missing companion file: {rel_path}")
 
 
+def check_codex_plugin(copilot_manifest: dict, errors: list[str]) -> int:
+    codex_manifest = load_json(CODEX_PLUGIN_JSON, "Codex plugin JSON", errors)
+    if not codex_manifest:
+        return 0
+
+    if codex_manifest.get("skills") != "./skills/":
+        errors.append("Codex plugin JSON field `skills` must be './skills/'")
+
+    copilot_skills = copilot_manifest.get("skills", [])
+    if not isinstance(copilot_skills, list):
+        errors.append("cannot compare Codex skills because Copilot `skills` is not a list")
+        return 0
+
+    skill_names = sorted(Path(raw_path).name for raw_path in copilot_skills if isinstance(raw_path, str))
+    for skill_name in skill_names:
+        skill_md = CODEX_KIT / "skills" / skill_name / "SKILL.md"
+        if not skill_md.is_file():
+            errors.append(f"missing Codex skill mirror: {skill_md.relative_to(ROOT)}")
+
+    copilot_agents = sorted((KIT / "agents").glob("*.md"))
+    for agent_path in copilot_agents:
+        codex_agent = CODEX_KIT / "agents" / agent_path.name
+        if not codex_agent.is_file():
+            errors.append(f"missing Codex agent reference: {codex_agent.relative_to(ROOT)}")
+
+    return len(skill_names)
+
+
 def main() -> int:
     errors: list[str] = []
     manifest = load_manifest(errors)
+    codex_skill_count = 0
 
     if manifest:
         check_manifest_skills(manifest, errors)
         check_manifest_agents(manifest, errors)
+        codex_skill_count = check_codex_plugin(manifest, errors)
 
     check_companion_files(errors)
 
@@ -123,10 +169,10 @@ def main() -> int:
     print("Storyweaver validation passed")
     print(f"- plugin JSON parsed: {PLUGIN_JSON.relative_to(ROOT)}")
     print(f"- manifest skills checked: {skill_count}")
+    print(f"- Codex skill mirrors checked: {codex_skill_count}")
     print(f"- companion files checked: {len(EXPECTED_COMPANION_FILES)}")
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

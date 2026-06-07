@@ -34,3 +34,7 @@ or live connectors.
 
 Use `miadi-codex-orchestration-kit` as the first reference implementation for
 session-control plugins in this folder.
+
+Use `miadi-storyweaver-orchestration-kit` as the Storyweaver reference
+implementation for Codex-native storytelling, Chronicle episode, voice packet,
+visual prompt packet, continuity, review, protocol, and export workflows.

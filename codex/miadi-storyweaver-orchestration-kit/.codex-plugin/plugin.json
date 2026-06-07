@@ -1,0 +1,44 @@
+{
+  "name": "miadi-storyweaver-orchestration-kit",
+  "version": "0.1.0",
+  "description": "Codex-native Miadi Storyweaver workflows for story workspaces, Chronicle episode packets, voice prep, visual prompt packets, continuity, review, protocol stewardship, and export.",
+  "author": {
+    "name": "Miadi",
+    "url": "https://github.com/jgwill/miadi-orchestration-kit"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/codex/miadi-storyweaver-orchestration-kit",
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "codex",
+    "storyweaver",
+    "storytelling",
+    "chronicle",
+    "voice-episode",
+    "visual-prompts",
+    "orchestration",
+    "rise"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Miadi Storyweaver Orchestration Kit",
+    "shortDescription": "Run Storyweaver story and Chronicle workflows in Codex.",
+    "longDescription": "A Codex-native companion for Miadi Storyweaver. It exposes markdown skills for bootstrapping .storyweaver workspaces, extracting briefs, creating story bibles and outlines, drafting chapter waves, running review and protocol gates, maintaining continuity, exporting packets, and preparing Chronicle episode, StoryForms, voice, visual, and foundations bridge artefacts.",
+    "developerName": "Miadi",
+    "category": "Writing",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/jgwill/miadi-orchestration-kit",
+    "privacyPolicyURL": "https://github.com/jgwill/miadi-orchestration-kit",
+    "termsOfServiceURL": "https://github.com/jgwill/miadi-orchestration-kit/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Start a Storyweaver workspace for this story prompt.",
+      "Turn this session into a Miadi Chronicle episode packet.",
+      "Review this Storyweaver artefact and choose the next route."
+    ],
+    "brandColor": "#7C3AED"
+  }
+}
