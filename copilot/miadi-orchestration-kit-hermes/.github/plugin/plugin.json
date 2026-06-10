@@ -1,0 +1,26 @@
+{
+  "name": "miadi-orchestration-kit-hermes",
+  "description": "Hermes-side closure and launch-governance kit for Miadi Copilot waves: prepare payloads, audit transcript evidence, produce commit/chronicle closure packets, and avoid silent uncommitted work.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Hermes"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miadi",
+    "hermes",
+    "copilot",
+    "closure",
+    "chronicle",
+    "commit-gate",
+    "orchestration"
+  ],
+  "agents": [
+    "./agents"
+  ],
+  "skills": [
+    "./skills/hermes-copilot-launch-preparation",
+    "./skills/hermes-copilot-wave-closure"
+  ]
+}
