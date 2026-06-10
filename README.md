@@ -28,14 +28,28 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 | `use-design-bundle-integration-kit` | Main-session conductor skill for running design-bundle integration waves with an existing plugin kit. | [`skills/use-design-bundle-integration-kit/SKILL.md`](skills/use-design-bundle-integration-kit/SKILL.md) |
 | `miadi-mightyeagle-issue-263` | Issue-aware conductor skill for the issue-263-derived security-remediation first wave: reusable rispecs plus an operational resume/review contract. | [`skills/miadi-mightyeagle-issue-263/SKILL.md`](skills/miadi-mightyeagle-issue-263/SKILL.md) |
 
-## Reusable RISE outputs
+## Major RISE Specifications
 
-- [`rispecs/security-remediation-orchestration/`](rispecs/security-remediation-orchestration/) — reusable reverse-engineer, intent, specification, export, and provenance docs extracted from the issue-263 security-remediation evidence set.
-- [`rispecs/east-pde-session-orchestration/`](rispecs/east-pde-session-orchestration/) — EAST-direction RISE spec for turning a first prompt or hook event into a PDE session charter, native plugin recommendation, source ledger, and chronicle seed.
+Major envisioned and existing RISE Framework specifications for orchestration kits.
 
 | Rispec | Purpose | Path |
 | --- | --- | --- |
 | Miadi Storyweaver Orchestration Kit | Copilot-first storytelling orchestration specs for story agents, skills, state, review gates, and export packets. | [`rispecs/miadi-storyweaver-orchestration-kit`](rispecs/miadi-storyweaver-orchestration-kit) |
+| Agent Memory Provenance Framework | Specs for carrying auditable memory across sessions and model swaps without turning context into false authority. | [`rispecs/agent-memory-provenance-framework`](rispecs/agent-memory-provenance-framework) |
+| Codex Claw Dispatch Kit | Plugin surface for dispatching bounded missions between agents (Claws) through Gaia endpoints. | [`rispecs/codex-claw-dispatch-kit`](rispecs/codex-claw-dispatch-kit) |
+| EAST PDE Session Orchestration | Turning prompt or hook events into PDE session charters, plugin recommendations, and chronicle seeds. | [`rispecs/east-pde-session-orchestration`](rispecs/east-pde-session-orchestration) |
+| Orchestration Plugin Recommender | Turning work context into recommended Copilot plugin launch scripts and explaining the "why" behind each plugin choice. | [`rispecs/orchestration-plugin-recommender`](rispecs/orchestration-plugin-recommender) |
+| Claude Session Orchestrator Plugin | Complementary review role for plan-insight pipelines: gap reports, revision prompts, and audit contracts. | [`rispecs/claude-session-orchestrator-plugin`](rispecs/claude-session-orchestrator-plugin) |
+| Security Remediation Orchestration | Reusable RISE outputs extracted from the issue-263 security-remediation evidence set. | [`rispecs/security-remediation-orchestration`](rispecs/security-remediation-orchestration) |
+
+## Reusable RISE outputs
+
+Additional RISE artefacts and patterns:
+
+- [`rispecs/agent-memory-provenance-framework/`](rispecs/agent-memory-provenance-framework/) — memory record auditing, confidence levels, and human confirmation state.
+- [`rispecs/permission-scoping-orchestration/`](rispecs/permission-scoping-orchestration/) — evidence-led intent for permission scoping across model-routing waves.
+- [`rispecs/openclaw-runtime-patterns/`](rispecs/openclaw-runtime-patterns/) — observed and envisioned runtime patterns for OpenClaw model routing.
+
 
 ## Launch patterns
 
