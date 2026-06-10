@@ -11,14 +11,19 @@ Miadi-native Copilot orchestration assets for resumable STCKin and deep-search w
 | Miadi Adversarial Review Kit | Dissenting review kit for RISE separation, outcome drift checks, and revision pressure. | [`copilot/miadi-adversarial-review-kit`](copilot/miadi-adversarial-review-kit) |
 | Miadi Orchestration Kit — Hermes Closure Layer | Hermes-facing launch/closure governance: machine-readable payloads, lane contracts, validation scripts, transcript audit, commit partitioning, and Chronicle event gates. | [`copilot/miadi-orchestration-kit-hermes`](copilot/miadi-orchestration-kit-hermes) |
 | Miadi Storyweaver Orchestration Kit | Story, Chronicle episode, voice packet, visual prompt packet, foundations bridge, review, continuity, protocol, and export orchestration. | [`copilot/miadi-storyweaver-orchestration-kit`](copilot/miadi-storyweaver-orchestration-kit) |
+| Miadi Design Bundle Integration Kit | Integrating Claude Design bundles into target codebases with token codification and fidelity audits. | [`copilot/miadi-design-bundle-integration-kit`](copilot/miadi-design-bundle-integration-kit) |
+| Miadi Wave Forge Kit | Turning user desire and target directories into ready-to-run orchestration bash scripts. | [`copilot/miadi-wave-forge-kit`](copilot/miadi-wave-forge-kit) |
+| OpenClaw Model-Routing Research Kit | Launch surface for model-routing study, RISE scaffolding, and integration handoffs. | [`copilot/openclaw-model-routing-research-kit`](copilot/openclaw-model-routing-research-kit) |
 
 ## Companion exports
 
 | Companion | Purpose | Path |
 | --- | --- | --- |
-| Gemini Storyweaver Companion | Lightweight Gemini CLI prompt contract mirroring the Storyweaver pipeline for portable/free-model use. | [`gemini/miadi-storyweaver-orchestration-kit`](gemini/miadi-storyweaver-orchestration-kit) |
-| Claude Code Storyweaver Companion | Lightweight Claude Code prompt contract for read-only smoke checks, session bootstrap routing, and portable Storyweaver handoffs. | [`claude-code/miadi-storyweaver-orchestration-kit`](claude-code/miadi-storyweaver-orchestration-kit) |
-| Codex Storyweaver Plugin | Codex-native plugin with Storyweaver skills, agent references, templates, and installable `.codex-plugin/plugin.json`. | [`codex/miadi-storyweaver-orchestration-kit`](codex/miadi-storyweaver-orchestration-kit) |
+| Gemini Storyweaver Companion | Lightweight Gemini CLI prompt contract mirroring the Storyweaver pipeline. | [`gemini/miadi-storyweaver-orchestration-kit`](gemini/miadi-storyweaver-orchestration-kit) |
+| Claude Code Storyweaver Companion | Lightweight Claude Code prompt contract for smoke checks and session bootstrap routing. | [`claude-code/miadi-storyweaver-orchestration-kit`](claude-code/miadi-storyweaver-orchestration-kit) |
+| Codex Storyweaver Plugin | Codex-native plugin with Storyweaver skills, agent references, and templates. | [`codex/miadi-storyweaver-orchestration-kit`](codex/miadi-storyweaver-orchestration-kit) |
+| Gemini Session Prep Extension | Repeatable session preparation ritual for reliable Miadi orchestration work in Gemini. | [`gemini/miadi-gemini-session-prep`](gemini/miadi-gemini-session-prep) |
+| Codex Orchestration Kit | Codex-native workflows for session control, bootstrap, and chartering. | [`codex/miadi-codex-orchestration-kit`](codex/miadi-codex-orchestration-kit) |
 
 ## Reusable operator skills
 
