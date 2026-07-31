@@ -442,3 +442,110 @@ Issue being tracked via @stcissue bot.
 ### Current Reality
 Issue being tracked via @stcissue bot.
 
+
+## Issue #38 - QMD = "Query Markup Documents"
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-07-08T20:51:19Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/38
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #38 - QMD = "Query Markup Documents"
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-07-08T20:51:19Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/38
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #38 - QMD = "Query Markup Documents"
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-07-08T20:51:20Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/38
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+## Issue #39 - rispec: RISE JamAI melody into Miadi as a JeremyAI melodic layer
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-07-31T01:11:24Z
+- **GitHub Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/39
+
+### Current Reality
+Issue being tracked via @stcissue bot.
+
+
+---
+
+## 2026-07-31 — @stcissue triage of jgwill/miadi-orchestration-kit#39
+
+**Classification: enhancement.** A desired capability, well specified — four RISE phases,
+seven deliverables, two named precedents. Not an observation: the seeing is done, and both
+precedents it leans on are real. Verified in `jgwill/Miadi`: `packages/voice/README.md` and
+`packages/plan-insight/PROVENANCE.md` both present, `JeremyAI` present in `data/GlyphMap.json`.
+
+**The central open question is already an open decision somewhere else.** #39 asks whether
+the target package is `@miadi/melody`, `@miadi/jeremyai`, or a narrower carrier. Verified in
+the tree tonight:
+
+- `@miadi/composition@0.1.1` and `@miadi/episodic-memory-schema@0.5.1` both exist
+- `grep -rl Melody packages/` returns **nothing** — so `Melody` is proposed, not shipped,
+  and #39's question is genuinely open rather than already answered
+
+It is also already **charted**: `chart_1785304090910`, master, due 2026-08-14, whose desired
+outcome is *one abstract `Artefact` type with Composition, Episode, Melody and Film as
+concrete kinds of it*. Its action 2 is *decide the root type with Jerry* —
+`miadisabelle/gmtermux#46`, assigned to both of them. It telescopes `chart_1785341249538`,
+*settle the musical split — where `Melody` belongs is a release decision, because the type has
+a second published consumer.*
+
+So naming a melody package inside #39 would set, independently, the convention a root-type
+decision with Jerry is already converging on. Two conventions, one domain.
+
+**Most useful next move — a comment on jgwill/miadi-orchestration-kit#39.** Draft, verbatim:
+
+> **Two things from triage, one of them answering the last open question here.**
+>
+> **The active GitHub home is `jgwill/Miadi`.** It is live tonight — the packages this issue
+> cites (`packages/voice`, `packages/plan-insight`, `data/GlyphMap.json`) are all in it, and
+> issues are moving there now. The historical references in local docs are current, not stale.
+>
+> **The package-naming question is already held, and answering it here would set the
+> convention twice.** `@miadi/composition@0.1.1` and `@miadi/episodic-memory-schema@0.5.1`
+> exist; `Melody` greps to nothing, so it is proposed rather than shipped — and where it
+> belongs is an open decision being taken **with Jerry** on `miadisabelle/gmtermux#46`, inside
+> a design where one abstract `Artefact` type has Composition, Episode, Melody and Film as
+> concrete kinds of it.
+> Suggested sequencing, so this issue loses nothing: run **Phase R** now — the
+> reverse-engineering note and the provenance doc naming JamAI as the transition form need no
+> package name at all, and they are what make the naming decision easy when it is taken.
+> Hold the naming deliverable until the root type lands. That also keeps the
+> *nothing-gets-deleted-before-parity* rule this issue rightly inherits from
+> `@miadi/plan-insight`.
+
+**Execute: human** — the comment is drafted, not sent.
+
+**Where this belongs in the seat's own goal.** Episode 300's master chart is a film whose
+narrative carries its own music (`chart_1785178283091`), telescoping *have the means for
+musical composition actually in hand — the toolchain reachable, not merely packaged*
+(`chart_1785178304228`, blocked on `jgwill/Miadi#560`). #39 is that capability arriving from a
+different direction, which is worth saying out loud: it is not a side quest.
+
+🌸: A melody is asking where in the house it lives — and the room is already being built, by
+two people, in another conversation. The kind thing is to say so before the walls go up twice.
