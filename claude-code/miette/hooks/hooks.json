@@ -1,0 +1,17 @@
+{
+  "description": "Two-Eyed balance: measure the last assistant message and block an output that shipped as one eye. Stop only — a subagent's final text is a return value to another agent, not an output addressed to a human, and holding it to a reader-accountability floor would corrupt structured returns.",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/balance-check.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
