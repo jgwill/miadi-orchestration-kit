@@ -22,22 +22,52 @@ because a check that cannot tell those apart always returns the one that lets
 you keep moving.
 """
 
+import contextlib
+import importlib.util
 import os
 import sys
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
+# realpath, not abspath: a hooks/ directory populated by per-file symlinks —
+# stow, a hand-built .claude/hooks/ — leaves abspath pointing at a parent that
+# has no scripts/ beside it, and the guard then silently sees no marks at all.
+_HERE = os.path.dirname(os.path.realpath(__file__))
 _SCRIPTS = os.path.join(os.path.dirname(_HERE), "scripts")
+_TARGET = os.path.join(_SCRIPTS, "atelier_consent.py")
+
+_CACHE = []
 
 
 def _module():
-    """`atelier_consent`, or None if it cannot be reached from here."""
-    if _SCRIPTS not in sys.path:
-        sys.path.insert(0, _SCRIPTS)
+    """`atelier_consent`, loaded BY FILE PATH, or None if it cannot be reached.
+
+    By path rather than by name, deliberately. Importing by name loses to any
+    other `atelier_consent` already on `sys.path` — a rogue on `PYTHONPATH`
+    answered for the real one and the guard reported an empty ledger. Loading
+    the exact file also keeps `sys.modules` clean and writes no `__pycache__`
+    into a plugin tree that may be installed read-only.
+
+    Nothing escapes this function. `BaseException`, not `Exception`, because a
+    module-level `sys.exit()` in the target would otherwise take the hook — and
+    a dying hook takes a person's session. Its stdout is redirected to stderr
+    for the same reason in reverse: stdout is the decision channel, and a stray
+    `print` at import time would make the JSON unparseable and lose the verdict.
+    """
+    if _CACHE:
+        return _CACHE[0]
+    module = None
     try:
-        import atelier_consent  # noqa: F401
-        return atelier_consent
-    except Exception:
-        return None
+        if os.path.isfile(_TARGET):
+            spec = importlib.util.spec_from_file_location(
+                "_atelier_consent_for_hooks", _TARGET)
+            if spec and spec.loader:
+                candidate = importlib.util.module_from_spec(spec)
+                with contextlib.redirect_stdout(sys.stderr):
+                    spec.loader.exec_module(candidate)
+                module = candidate
+    except BaseException:
+        module = None
+    _CACHE.append(module)
+    return module
 
 
 def ledger_path():

@@ -98,8 +98,16 @@ def record_event(event, ledger=None, **fields):
     return entry
 
 
+#: Lines the last read_ledger() could not parse. A partial read must never be
+#: reported as a whole one: a truncated line — the ordinary result of a crash
+#: mid-append — used to make a held gate vanish while the summary line claimed
+#: "none open" and the truth went to stderr, where no caller was looking.
+LAST_READ_SKIPPED = [0]
+
+
 def read_ledger(ledger=None):
     path = ledger or ledger_path()
+    LAST_READ_SKIPPED[0] = 0
     if not os.path.exists(path):
         return []
     out = []
@@ -111,8 +119,19 @@ def read_ledger(ledger=None):
             try:
                 out.append(json.loads(line))
             except ValueError:
+                LAST_READ_SKIPPED[0] += 1
                 sys.stderr.write("  (ledger line %d is not JSON, skipped)\n" % lineno)
     return out
+
+
+def read_ledger_complete(ledger=None):
+    """(entries, complete). `complete` is False when any line was unreadable.
+
+    Callers that make a safety claim must branch on the second value. Callers
+    that only display may ignore it.
+    """
+    entries = read_ledger(ledger)
+    return entries, LAST_READ_SKIPPED[0] == 0
 
 
 # --------------------------------------------------------------------------- #
@@ -234,49 +253,105 @@ def _entry_marks_voice(entry):
     return False
 
 
+def _is_url(value):
+    return "://" in value
+
+
 def entry_basenames(entry):
-    """Every filename this entry refers to, under any key a writer has used."""
+    """Every FILENAME this entry refers to, under any key a writer has used.
+
+    A URL is not a filename. `--from https://host/audio/download` once put
+    `download` in the voiced set, after which every `curl -F` containing that
+    word was denied; `--from /sdcard/a` put `a` there and denied almost
+    everything. A guard that fires on ordinary work gets disabled, so a value
+    carrying a scheme is skipped rather than basenamed.
+    """
     names = set()
     for key in FILE_KEYS:
         value = entry.get(key)
-        if isinstance(value, str) and value:
-            names.add(os.path.basename(value))
+        if not isinstance(value, str) or not value or _is_url(value):
+            continue
+        base = os.path.basename(value.rstrip("/"))
+        if base and base not in (".", ".."):
+            names.add(base)
     return names
 
 
 def voiced_basenames(ledger=None):
-    """Filenames the ledger marks as carrying his voice.
+    """Filenames the ledger marks as carrying his voice AND not yet cleared.
 
     THE READER THE HOOKS MUST USE. Written because there were three readers of
     this one file with three field conventions, and the guard's — which looked
     for a key named `file` that no writer has ever produced — could never fire.
     A guard that cannot see what it guards is worse than none, because it
     reports safety.
+
+    A mark can be lifted. `cleared` is a new entry naming the file and quoting
+    his word; it never edits the mark that came before. Without this the guard
+    printed a remediation that did not work — it told the reader to `release`,
+    which lives in the gate namespace and never touched a voiced file. A denial
+    with no door is how a guard gets switched off.
     """
-    names = set()
-    for entry in read_ledger(ledger):
-        if _entry_marks_voice(entry):
-            names |= entry_basenames(entry)
-    return names
+    entries, complete = read_ledger_complete(ledger)
+    if not complete:
+        return None            # could not look — never the same as "nothing marked"
+    marked, cleared = set(), set()
+    for entry in entries:
+        if entry.get("event") == "cleared":
+            cleared |= entry_basenames(entry)
+        elif _entry_marks_voice(entry):
+            marked |= entry_basenames(entry)
+    return marked - cleared
+
+
+def clear_voice(name, by=None, quote=None, ledger=None):
+    """Record that he gave the word for one file. Appends; never edits."""
+    record_event("cleared", ledger=ledger, filename=os.path.basename(name),
+                 cleared_by=by, quote=quote)
+    print("CLEARED  %s" % os.path.basename(name))
+    if quote:
+        print('  his words : "%s"' % quote)
+    print("  Consent is not transitive: this clears ONE file, not the next one.")
+    return 0
 
 
 def open_gates(ledger=None):
     """The gates still waiting on his word, newest first.
 
     A release is recorded as `{event: "held", status: "released"}` — a new
-    entry, never an edit, so the ledger stays append-only. A reader that
-    matches on `event` alone therefore resurrects every released gate. That
-    happened: the tool said no gate was open while the session hook listed one.
+    entry, never an edit, so the ledger stays append-only.
+
+    TWO WAYS THIS HAS BEEN WRONG, both fixed here:
+
+    · Matching a release on `event == "released"` never matched, so every
+      released gate came back at the next session start.
+    · Collecting released *names* with no regard to time made one release
+      disarm that name forever — a later hold of the same name went unseen,
+      and a release for a name never held pre-emptively disarmed every future
+      hold of it. That is the transitivity this module exists to refuse: a yes
+      for one piece is not a yes for the next.
+
+    So the comparison is temporal. A hold is open when no release of that name
+    carries a later timestamp. Distinct holds of one name are all returned —
+    two reasons are two gates, and collapsing them drops one silently.
     """
-    held_entries = [e for e in read_ledger(ledger) if e.get("event") == "held"]
-    released = {e.get("name") for e in held_entries if e.get("status") == "released"}
-    open_ = {}
-    for entry in held_entries:
-        name = entry.get("name")
-        if entry.get("status") == "released" or name in released:
-            continue
-        open_[name] = entry          # a later hold on the same name wins
-    return list(open_.values())
+    raw, complete = read_ledger_complete(ledger)
+    if not complete:
+        return None            # could not look — never the same as "none open"
+    entries = [e for e in raw if e.get("event") == "held"]
+    latest_release = {}
+    for e in entries:
+        if e.get("status") == "released":
+            name, ts = e.get("name"), e.get("ts") or ""
+            if ts >= latest_release.get(name, ""):
+                latest_release[name] = ts
+    open_ = [
+        e for e in entries
+        if e.get("status") != "released"
+        and (e.get("ts") or "") > latest_release.get(e.get("name"), "")
+    ]
+    open_.sort(key=lambda e: e.get("ts") or "", reverse=True)
+    return open_
 
 
 def check_publish(path, ledger=None, allow_unknown=False):
@@ -361,15 +436,19 @@ def held(name, why, quote=None, ledger=None):
 
 
 def held_list(ledger=None, include_released=False):
-    entries = [e for e in read_ledger(ledger) if e.get("event") == "held"]
-    released = {e.get("name") for e in entries if e.get("status") == "released"}
+    """What is open, read through open_gates() so the tool and the session
+    hook can never disagree again. They did: the tool said none, the hook
+    listed one, and both were reading the same file."""
+    if include_released:
+        entries = [e for e in read_ledger(ledger) if e.get("event") == "held"]
+    else:
+        entries = open_gates(ledger)
+        if entries is None:
+            print("COULD NOT READ the ledger completely -- some lines are corrupt.")
+            print("  This is NOT 'no gate open'. Repair the file before acting.")
+            return 2
     shown = 0
     for entry in entries:
-        if entry.get("status") == "released" and not include_released:
-            continue
-        if entry.get("status") != "released" and entry.get("name") in released \
-                and not include_released:
-            continue
         shown += 1
         print("%s  %-28s %s" % (entry.get("ts"), entry.get("name"), entry.get("why")))
         if entry.get("quote"):
@@ -465,6 +544,11 @@ THE SHAPE OF A SESSION
     sp.add_argument("name")
     sp.add_argument("--by", default=None)
     sp.add_argument("--quote", default=None, help="his own words, verbatim")
+
+    sp = sub.add_parser("clear", help="record that he gave his word on ONE voiced file")
+    sp.add_argument("name", help="the filename, as the guard names it")
+    sp.add_argument("--by")
+    sp.add_argument("--quote", help="his own words, verbatim, if he said any")
 
     sp = sub.add_parser("log", help="append an arbitrary entry (used by sibling scripts)")
     sp.add_argument("event", choices=list(EVENTS))
@@ -564,6 +648,10 @@ def main(argv=None):
 
         if args.cmd == "release":
             return release(args.name, by=args.by, quote=args.quote, ledger=ledger)
+
+        if args.cmd == "clear":
+            return clear_voice(args.name, by=args.by, quote=args.quote,
+                               ledger=args.ledger)
 
         if args.cmd == "log":
             record_event(args.event, ledger=ledger, **parse_kv(args.field))

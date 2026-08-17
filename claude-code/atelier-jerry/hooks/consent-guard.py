@@ -44,16 +44,66 @@ import _ledger  # noqa: E402  — the single reader; see hooks/_ledger.py
 # /transcribe on a Pixel Recorder composition clip, however the URL is spelled.
 TRANSCRIBE = re.compile(r"/clips?/[^\s'\"]+/transcribe", re.I)
 
-# an upload leaving the machine: curl -F/--form or -T/--upload-file to a URL
-UPLOAD = re.compile(r"\bcurl\b[^\n|;]*?(?:-F|--form|-T|--upload-file)\b", re.I)
+# ── what carries a file off this machine ────────────────────────────────────
+#
+# The old matcher knew only `curl -F` and then substring-tested the WHOLE
+# command for a voiced basename. Both halves were wrong, and an adversarial
+# review broke each:
+#
+#   · the plugin's OWN publish path is `atelier_portal.py import`, and it was
+#     invisible. The one act this hook exists to refuse had a first-class
+#     in-plugin command that walked straight past it.
+#   · a backslash-continued curl — the ordinary way to write a multipart POST —
+#     was missed, because the pattern excluded newline.
+#   · substring-testing the command denied `--label "derived from <voiced>"`,
+#     denied running `check-publish` in the same Bash call as a publish, and
+#     denied a `grep` for the name. Doing it right got you refused.
+#
+# So: find the ARGUMENTS that name a file being sent, and test only those.
+#
+# `re.S` so a `\`-continued command is one command. Each pattern captures the
+# path in group 1.
+_SENDERS = [
+    # curl -F field=@path · --form · -T path · --upload-file · --data-binary @path · -d @path
+    (r"curl\b", r"(?:-F|--form)\s+[\'\"]?[^\s=\'\"]*=@([^\s\'\";|&]+)"),
+    (r"curl\b", r"(?:-T|--upload-file)\s+[\'\"]?([^\s\'\";|&]+)"),
+    (r"curl\b", r"(?:--data-binary|--data|-d)\s+[\'\"]?@([^\s\'\";|&]+)"),
+    # the plugin's own uploader, and the portal API by any client
+    (r"atelier_portal\.py", r"\bimport\s+[\'\"]?([^\s\'\"-][^\s\'\";|&]*)"),
+    (r"atelier_portal\.py", r"\badd-image\s+\S+\s+[\'\"]?([^\s\'\";|&]+)"),
+    # other clients that put a file on a wire
+    (r"\bwget\b", r"--post-file[= ][\'\"]?([^\s\'\";|&]+)"),
+    (r"\bhttpie?\b|\bhttp\b", r"\w+@([^\s\'\";|&]+)"),
+    (r"\bscp\b|\brsync\b|\brclone\b", r"(?:^|\s)([^\s\'\";|&-][^\s\'\";|&]*)\s+\S+:"),
+    (r"\baws\b.*\bs3\b", r"\bcp\s+[\'\"]?([^\s\'\";|&]+)"),
+]
+_SENDERS = [(re.compile(tool, re.I), re.compile(arg, re.I | re.S)) for tool, arg in _SENDERS]
 
 
-def deny(reason):
+def sent_files(command):
+    """Basenames of every file this command hands to something off-machine.
+
+    Only the argument that names the payload — never the whole command line —
+    so a label, a comment, a grep pattern or a sibling check-publish call
+    cannot be mistaken for the thing being sent.
+    """
+    names = set()
+    for tool, arg in _SENDERS:
+        if not tool.search(command):
+            continue
+        for match in arg.finditer(command):
+            value = (match.group(1) or "").strip("\'\"")
+            if value and "://" not in value:
+                names.add(os.path.basename(value.rstrip("/")))
+    return names
+
+
+def _decide(decision, reason):
     json.dump(
         {
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
+                "permissionDecision": decision,
                 "permissionDecisionReason": reason,
             }
         },
@@ -61,6 +111,17 @@ def deny(reason):
     )
     sys.stdout.write("\n")
     sys.exit(0)
+
+
+def deny(reason):
+    _decide("deny", reason)
+
+
+def ask(reason):
+    """Hand the decision to the person. Used when the ledger cannot be read:
+    an unreadable ledger is not evidence of consent, and it is not evidence of
+    its absence either."""
+    _decide("ask", reason)
 
 
 def voiced_files():
@@ -100,18 +161,40 @@ def main():
             "recording goes outside of the boundary here.\" Consent is not transitive."
         )
 
-    if UPLOAD.search(command):
-        hits = [n for n in voiced_files() if n and n in command]
+    sent = sent_files(command)
+    if sent:
+        marked = _ledger.voiced_basenames()
+        if marked is None:
+            # The ledger could not be read. "Nothing is marked" and "I could not
+            # look" are different answers and must not share an idiom — that is
+            # the whole reason hooks/_ledger.py returns None. Blocking outright
+            # would fire on ordinary work and get this guard switched off;
+            # allowing silently is how a recording leaves without anyone
+            # deciding. So: hand the decision to the person.
+            ask(
+                "This command sends %s off this machine, and I could not read the "
+                "consent ledger at %s — so I cannot tell whether any of it carries "
+                "their voice.\n"
+                "Their standing words: \"I don't consent that my voice and my original "
+                "recording goes outside of the boundary here.\"\n"
+                "You decide. To settle it first:\n"
+                "  python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/atelier_consent.py\" "
+                "check-publish <file>"
+                % (", ".join(sorted(sent)), _ledger.ledger_path())
+            )
+        hits = sorted(sent & marked)
         if hits:
             deny(
-                "Refused: this uploads "
-                + ", ".join(sorted(hits))
-                + ", which the consent ledger records as carrying their voice. Their MIDI "
-                "is the offered part; the voice is not, and derived work built from it "
-                "inherits the same rule.\n"
-                "If they have given the word for this file, record it first:\n"
-                "  python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/atelier_consent.py\" release "
-                "<name> --by <who> --quote '<their words>'"
+                "Refused: this sends "
+                + ", ".join(hits)
+                + " off this machine, and the consent ledger records it as carrying "
+                "their voice. Their MIDI is the offered part; the voice is not, and "
+                "derived work built from it inherits the same rule.\n"
+                "If they have given the word FOR THIS FILE, record it and the refusal "
+                "lifts:\n"
+                "  python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/atelier_consent.py\" clear "
+                "<file> --by <who> --quote '<their words>'\n"
+                "Consent is not transitive: that clears one file, not the next one."
             )
 
     sys.exit(0)
