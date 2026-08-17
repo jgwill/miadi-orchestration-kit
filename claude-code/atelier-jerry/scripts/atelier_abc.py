@@ -11,8 +11,9 @@ WORK on 2026-08-16, and that the plugin exists to make unrepeatable. Each one is
 named at the place where it bites:
 
   1. AN EXPLICIT ACCIDENTAL ON EVERY NOTE, naturals included.   -> pitch()
-     An accidental contaminates the rest of its bar. A chromatic line written
-     implicitly renders wrong: a note came out 42 instead of 41.
+     An accidental holds to the bar line for every later note of THE SAME
+     LETTER. Reproduced here: `^F,, =G,, F,,` renders 42 43 42, where
+     `^F,, =G,, =F,,` renders 42 43 41. That is the 42-instead-of-41 exactly.
   2. A WINDOW NARROWER THAN AN OCTAVE LEAVES PITCH CLASSES WITH
      NO REPRESENTATIVE.                                        -> in_window()
      Two of six harmonic stations were unplayable. The fix is a full octave, and
@@ -20,9 +21,11 @@ named at the place where it bites:
   3. `%%MIDI beat` DOES NOT REACH VOICE 1.                      -> dynamics()
      Measured: velocities 80-105 where 40-112 were asked for. WRITTEN marks
      (!pp! ... !fff!) do arrive, and appear in the score as well as the MIDI.
-  4. A BARE `Q:` LINE IN THE BODY IS SILENTLY IGNORED.          -> tempo_inline()
-     The rendered MIDI carried a single tempo; the change existed only in the
-     comments. A mid-tune tempo must be inline.
+  4. A BARE `Q:` LINE IN A MULTI-VOICE BODY IS SILENTLY IGNORED. -> tempo_inline()
+     Reproduced here: two voices, a change asked for at bar 3 -- the bare form
+     yields tempo events [96.0], the inline form [96.0, 136.0], both exit 0.
+     In a SINGLE-voice tune the bare form works, so it fails only once the piece
+     grows a second voice. A mid-tune tempo must be inline.
   5. A 5-EIGHTH REST IN 4/4 CANNOT BE ONE `z5`.                 -> rest()
      abcm2ps answers "Note too much dotted" and exits 1. Measured on this host:
      5, 9, 10, 11 fail; 1, 2, 3, 4, 6, 7, 8, 12, 14, 16 pass.
@@ -173,12 +176,19 @@ def pitch(midi, length=None):
         pitch(67, 2)   -> '=G2'
 
     WHY THE NATURAL IS ALWAYS WRITTEN
-        In ABC an accidental holds until the bar line, for every note of the
-        same letter. Writing `^C ... C` inside one bar does not give C sharp then
-        C natural: it gives TWO C sharps. A chromatic line written implicitly
-        therefore renders wrong, and did: on the first pass of one piece the
-        lowest note came out as 42 instead of 41. The implicit form is a
-        falsehood the moment the line moves by a semitone.
+        In ABC an accidental holds until the bar line, for every later note of
+        THE SAME LETTER. Writing `^F ... F` inside one bar does not give F sharp
+        then F natural: it gives TWO F sharps.
+
+        Reproduced on this host with abc2midi 4.88, one bar, same intent:
+
+            ^F,, =G,,  F,, =G,, ^F,, =G,,  F,, =G,,  -> 42 43 42 43 42 43 42 43
+            ^F,, =G,, =F,, =G,, ^F,, =G,, =F,, =G,,  -> 42 43 41 43 42 43 41 43
+                                                                  ^^          ^^
+        That is the "42 instead of 41" the atelier paid for, exactly. The
+        condition is a letter RECURRING in a bar after an accidental -- which is
+        why a chromatic or modal line is where it bites, and why a run that
+        happens never to repeat a letter renders fine and teaches you nothing.
 
         The cost of the systematic natural is one character. The cost of leaving
         it out is a wrong pitch that no reading of the source reveals -- it only
@@ -454,11 +464,25 @@ def tempo_inline(bpm, unit="1/4"):
         [V:1] [Q:1/4=136]=E2 =G =B |
 
     THE TRAP
-        A `Q:` field sitting alone on its own line in the BODY of a tune is
-        SILENTLY IGNORED by abc2midi. No warning, no error, exit status 0: the
-        .mid then carries a single tempo event, the header's. A 120 -> 136 shift
-        measured on somebody's body existed only in the comments. Always verify
-        by RE-READING the tempo events of the rendered .mid, not the source.
+        A `Q:` field sitting alone on its own line in the body of a MULTI-VOICE
+        tune -- one with interleaved `[V:n]` lines, which is every piece this
+        atelier writes -- is SILENTLY IGNORED by abc2midi. No warning, no error,
+        exit status 0.
+
+        Reproduced on this host with abc2midi 4.88, four bars, two voices, the
+        change asked for at bar 3:
+
+            bare `Q:1/4=136` on its own line  -> tempo events [96.0]
+            inline `[Q:1/4=136]` in the voice -> tempo events [96.0, 136.0]
+
+        And the nastiest part, also measured: in a SINGLE-voice tune the bare
+        form does work. So it works while you are prototyping and stops working
+        the moment the piece grows a second voice, with nothing announcing the
+        change. A 120 -> 136 shift measured on somebody's body ended up existing
+        only in the comments.
+
+        Always verify by RE-READING the tempo events of the rendered .mid, not
+        the source.
     """
     n = int(bpm)
     if n <= 0:
@@ -764,9 +788,11 @@ def build_demo():
                "atelier_abc.py demo · four bars, three voices"),
         measured=[
             "the four ABC traps, measured on this host:",
-            "  · an accidental contaminates its whole bar (a note rendered 42, not 41)",
+            "  · an accidental holds to the bar line for the SAME letter:",
+            "    '^F,, =G,, F,,' renders 42 43 42; '^F,, =G,, =F,,' renders 42 43 41",
             "  · %%MIDI beat does not reach voice 1 (velocities 80-105 for 40-112 asked)",
-            "  · a bare Q: in the body is ignored, exit status 0",
+            "  · a bare Q: in a MULTI-VOICE body is ignored (1 tempo event, not 2),",
+            "    exit status 0; inline [Q:1/4=136] gives both",
             "  · z5 -> abcm2ps \"Note too much dotted\", exit 1",
             "band left empty: MIDI %d-%d, checkable in the rendered .mid" % plan.band("void"),
             "channel 10 excluded from that check: a \"46\" there is an open hi-hat, "
