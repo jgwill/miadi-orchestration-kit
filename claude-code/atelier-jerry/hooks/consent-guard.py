@@ -38,11 +38,8 @@ import os
 import re
 import sys
 
-LEDGER = os.path.join(
-    os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state"),
-    "atelier",
-    "consent-ledger.jsonl",
-)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _ledger  # noqa: E402  — the single reader; see hooks/_ledger.py
 
 # /transcribe on a Pixel Recorder composition clip, however the URL is spelled.
 TRANSCRIBE = re.compile(r"/clips?/[^\s'\"]+/transcribe", re.I)
@@ -67,23 +64,15 @@ def deny(reason):
 
 
 def voiced_files():
-    """Filenames the ledger marks as carrying the person's voice."""
-    names = set()
-    try:
-        with open(LEDGER, "r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                if rec.get("voice") and rec.get("file"):
-                    names.add(os.path.basename(str(rec["file"])))
-    except OSError:
-        pass
-    return names
+    """Filenames the ledger marks as carrying the person's voice.
+
+    Delegates to `atelier_consent.voiced_basenames` through `hooks/_ledger.py`,
+    which searches every key a writer in this atelier has ever used for a
+    filename. This function used to look for a key named `file`; nothing has
+    ever written one, so this denial could not fire. Fixed 2026-08-17.
+    """
+    names = _ledger.voiced_basenames()
+    return set() if names is None else names
 
 
 def main():

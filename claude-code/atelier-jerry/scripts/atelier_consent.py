@@ -222,12 +222,61 @@ def shred(path, ledger=None, passes=3, measured=None, reason=None):
 
 VOICE_KEYS = ("voice", "contains_voice", "his_voice")
 
+#: Every key under which some writer in this atelier has recorded a filename.
+#: There is one list because there was once three, and two of them were wrong.
+FILE_KEYS = ("path", "dest", "source", "filename", "portal_filename", "out", "src")
+
 
 def _entry_marks_voice(entry):
     for key in VOICE_KEYS:
         if entry.get(key):
             return True
     return False
+
+
+def entry_basenames(entry):
+    """Every filename this entry refers to, under any key a writer has used."""
+    names = set()
+    for key in FILE_KEYS:
+        value = entry.get(key)
+        if isinstance(value, str) and value:
+            names.add(os.path.basename(value))
+    return names
+
+
+def voiced_basenames(ledger=None):
+    """Filenames the ledger marks as carrying his voice.
+
+    THE READER THE HOOKS MUST USE. Written because there were three readers of
+    this one file with three field conventions, and the guard's — which looked
+    for a key named `file` that no writer has ever produced — could never fire.
+    A guard that cannot see what it guards is worse than none, because it
+    reports safety.
+    """
+    names = set()
+    for entry in read_ledger(ledger):
+        if _entry_marks_voice(entry):
+            names |= entry_basenames(entry)
+    return names
+
+
+def open_gates(ledger=None):
+    """The gates still waiting on his word, newest first.
+
+    A release is recorded as `{event: "held", status: "released"}` — a new
+    entry, never an edit, so the ledger stays append-only. A reader that
+    matches on `event` alone therefore resurrects every released gate. That
+    happened: the tool said no gate was open while the session hook listed one.
+    """
+    held_entries = [e for e in read_ledger(ledger) if e.get("event") == "held"]
+    released = {e.get("name") for e in held_entries if e.get("status") == "released"}
+    open_ = {}
+    for entry in held_entries:
+        name = entry.get("name")
+        if entry.get("status") == "released" or name in released:
+            continue
+        open_[name] = entry          # a later hold on the same name wins
+    return list(open_.values())
 
 
 def check_publish(path, ledger=None, allow_unknown=False):

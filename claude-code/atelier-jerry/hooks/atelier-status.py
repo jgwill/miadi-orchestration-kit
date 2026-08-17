@@ -16,13 +16,12 @@ It never blocks and never fails the session: an unreadable ledger or a missing
 binary is reported, not raised.
 """
 
-import json
 import os
 import shutil
 import sys
 
-STATE = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
-LEDGER = os.path.join(STATE, "atelier", "consent-ledger.jsonl")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _ledger  # noqa: E402  — the single reader; see hooks/_ledger.py
 
 # what the atelier needs, and what stops working without it
 FLOORS = [
@@ -36,34 +35,19 @@ FLOORS = [
 
 
 def held_gates():
-    """Open gates, newest wins, releases removing their gate.
+    """Open gates, read through the one reader in `hooks/_ledger.py`.
 
-    The ledger written by scripts/atelier_consent.py keys its record type on
-    `event`. `kind` is accepted too, so a ledger written by an older or a
-    hand-rolled writer is still read rather than silently reported as empty —
-    a check that cannot tell "nothing is held" from "I am reading the wrong
-    field" will always return the answer that lets you keep moving.
+    Returns `None` when the ledger could not be read at all — which is not the
+    same as no gates, and must not be reported as if it were.
+
+    This function used to read the file itself and match a release on
+    `event == "released"`. A release is written as
+    `{event: "held", status: "released"}`, so every released gate came back at
+    the next session start with `why: released` as its reason, while the tool
+    correctly reported none open. Fixed 2026-08-17 by deleting the second
+    reader rather than teaching it the convention.
     """
-    out = []
-    try:
-        with open(LEDGER, "r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                what = rec.get("event") or rec.get("kind")
-                if what == "held":
-                    out = [g for g in out if g.get("name") != rec.get("name")]
-                    out.append(rec)
-                elif what in ("released", "release"):
-                    out = [g for g in out if g.get("name") != rec.get("name")]
-    except OSError:
-        return None  # no ledger yet is not the same as no gates
-    return out
+    return _ledger.open_gates()
 
 
 def main():
@@ -71,7 +55,11 @@ def main():
 
     gates = held_gates()
     if gates is None:
-        lines.append("  held gates: no ledger yet (nothing has been held on this machine)")
+        if _ledger.ledger_exists():
+            lines.append("  held gates: COULD NOT READ the ledger at %s" % _ledger.ledger_path())
+            lines.append("    this is not 'none open' — assume a gate is held until it is read")
+        else:
+            lines.append("  held gates: no ledger yet (nothing has been held on this machine)")
     elif not gates:
         lines.append("  held gates: none open")
     else:
