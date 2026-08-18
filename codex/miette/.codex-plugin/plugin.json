@@ -1,0 +1,35 @@
+{
+  "name": "miette",
+  "version": "0.1.0",
+  "description": "Holds Codex output to a structural eye accountable to the system and a relational eye accountable to the reader, measuring presence, share, weave, and distinctness before a response ships.",
+  "author": {
+    "name": "jgwill",
+    "url": "https://github.com/jgwill"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/codex/miette",
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "miette",
+    "two-eyed",
+    "reader-accountability",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Miette",
+    "shortDescription": "Keep Codex output accountable to system and reader.",
+    "longDescription": "Miette measures whether a Codex response holds a structural eye and a distinct relational eye on the same object. Its Stop hook catches absent, subordinate, appended, or merely restated relational content, while its skills guide balanced writing and translation.",
+    "developerName": "jgwill",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "websiteURL": "https://github.com/jgwill/miadi-orchestration-kit",
+    "defaultPrompt": [
+      "Balance this response through Mia and Miette.",
+      "Translate the last answer into a receivable one."
+    ],
+    "brandColor": "#DB2777"
+  }
+}
