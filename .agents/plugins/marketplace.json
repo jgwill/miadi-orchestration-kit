@@ -1,0 +1,20 @@
+{
+  "name": "miadi-orchestration-kit",
+  "interface": {
+    "displayName": "Miadi Orchestration Kit"
+  },
+  "plugins": [
+    {
+      "name": "miette",
+      "source": {
+        "source": "local",
+        "path": "./codex/miette"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
