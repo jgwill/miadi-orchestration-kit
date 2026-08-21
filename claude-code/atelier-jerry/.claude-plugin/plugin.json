@@ -1,0 +1,20 @@
+{
+  "name": "atelier-jerry",
+  "description": "The music atelier as a working instrument: measure a human's voice, body-capture and playing; leave the band they sing in empty; choose timbre by spectral measurement instead of taste; verify the rendered artifact rather than the source; and publish with a provenance block that separates what was MEASURED, what was GIVEN BY THEM, and what was CHOSEN BY THE AGENT and can be undone with a word. Carries the studio-portal client, the two-studio watch, Android device-space reporting, and a consent guard that refuses to ship a person's voice to a third party.\n\n<example>\nContext: A new recording lands in the studio and the agent is about to arrange over it\nuser: \"/atelier-mesure 260816161332.m4a\"\nassistant: \"Held notes only, octaves folded: median do3, 94.1% between la2 and mi3. The register plan's void band moves to 45-53.\"\n<commentary>\nA band chosen from a week-old take was four semitones wrong, and the singer went and sang in the exact gap the error left between the bass and the reserved band. The newest take decides, always.\n</commentary>\n</example>\n\n<example>\nContext: An arrangement is rendered and the agent is ready to publish\nassistant: \"(verification) 0 notes in 45-53, 100% in mode, kick on eighths 0-2-4-6 across 52 bars, his 119 pitches identical note for note.\"\n<commentary>\nVerification re-reads the RENDERED midi, never the generator's intent. A count that comes out right is not proof — the session shipped a tempo change that existed only in the comments, because a bare Q: line in an ABC body is silently ignored.\n</commentary>\n</example>\n\n<example>\nContext: The agent wants more rhythmic resolution and raises the capture rate\nassistant: \"(movement) 1627 packets, 1232 identical to their predecessor. 100 Hz requested, 23.8 Hz of new values. Onsets computed on the deduped stream: 15, not 28.\"\n<commentary>\nThe 28 onsets found in the raw stream were the staircase of held values, not the body. Dedupe is the first operation on any OSC capture, before rate, before onsets, before anything.\n</commentary>\n</example>\n\n<example>\nContext: A piece sounds harsh and the drums are the obvious suspect\nassistant: \"Measured: drums at 100 gives 27.07%, removing the hi-hats gives 28.73%. The source is the sawtooth lead. Calliope: 11.30%.\"\n<commentary>\nRemoving the suspect raised the number. Timbre is chosen by rendering every candidate and measuring the 2-5 kHz share of the whole piece against Jerry's thresholds: above 13.12% rejected, at or below 5.98% accepted.\n</commentary>\n</example>\n\n<example>\nContext: An untranscribed voice note is sitting in the room\nuser: \"transcribe it so you can read it\"\nassistant: \"That ships his audio to a third party. It is his action, not mine — the button is in his room, or he gives the word.\"\n<commentary>\nConsent is not transitive: a yes for one piece is not a yes for the next. The guard hook refuses the transcribe endpoint outright, and the held-gate ledger records what was named but not done.\n</commentary>\n</example>",
+  "version": "0.1.0",
+  "author": {
+    "name": "Gerico1007",
+    "url": "https://github.com/Gerico1007"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/claude-code/atelier-jerry",
+  "keywords": [
+    "music",
+    "abc-notation",
+    "measurement",
+    "movement-capture",
+    "osc",
+    "pixel-recorder",
+    "consent",
+    "provenance"
+  ]
+}

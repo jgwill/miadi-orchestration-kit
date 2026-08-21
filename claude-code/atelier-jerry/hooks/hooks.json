@@ -1,0 +1,29 @@
+{
+  "description": "Two hooks. PreToolUse/Bash refuses the one act in this atelier that cannot be undone by the agent that performs it: sending a person's recorded voice to a third party, or publishing a file the consent ledger marks as theirs. SessionStart prints the current reality — which held gates are open, and the reminder that hooks do not hot-swap. Neither hook blocks ordinary work: measuring, rendering, verifying and publishing the agent's own renders all pass untouched.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/consent-guard.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/atelier-status.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
