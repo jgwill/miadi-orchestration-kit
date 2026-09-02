@@ -34,6 +34,7 @@ export interface SendMessageRequest {
   sender_session: string;
   target: string;
   prompt: string;
+  idempotency_key?: string;
   conversation_id?: string | null;
   response_schema?: Record<string, unknown> | null;
   hops: number;
@@ -41,9 +42,12 @@ export interface SendMessageRequest {
 
 export interface NetworkMessage {
   msg_id: string;
+  idempotency_key?: string;
   project: string;
   sender_session: string;
+  sender?: Pick<AgentCard, "session_id" | "name" | "purpose" | "model" | "provider" | "cwd">;
   target_session: string;
+  target_name?: string;
   prompt: string;
   conversation_id: string | null;
   response_schema: Record<string, unknown> | null;

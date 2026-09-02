@@ -1,20 +1,19 @@
-import { describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import test from "node:test";
 import { encodeSse, normalizeBaseUrl, parseSseFrames } from "../src/protocol.ts";
 
-describe("protocol helpers", () => {
-  test("round-trips SSE events while retaining partial frames", () => {
-    const input = encodeSse("prompt", { msg_id: "one", prompt: "hello" }, "one") +
-      "event: response\ndata: {\"msg_id\":\"two\"}";
-    const parsed = parseSseFrames(input);
+test("SSE events round-trip while partial frames remain buffered", () => {
+  const input = encodeSse("prompt", { msg_id: "one", prompt: "hello" }, "one") +
+    "event: response\ndata: {\"msg_id\":\"two\"}";
+  const parsed = parseSseFrames(input);
 
-    expect(parsed.events).toEqual([
-      { event: "prompt", data: { msg_id: "one", prompt: "hello" } },
-    ]);
-    expect(parsed.remainder).toContain("event: response");
-  });
+  assert.deepEqual(parsed.events, [
+    { event: "prompt", data: { msg_id: "one", prompt: "hello" } },
+  ]);
+  assert.match(parsed.remainder, /event: response/);
+});
 
-  test("accepts HTTP(S) hubs and rejects other schemes", () => {
-    expect(normalizeBaseUrl("https://hub.example/" )).toBe("https://hub.example");
-    expect(() => normalizeBaseUrl("file:///tmp/hub")).toThrow("http or https");
-  });
+test("hub URL normalization accepts HTTP(S) and rejects other schemes", () => {
+  assert.equal(normalizeBaseUrl("https://hub.example/"), "https://hub.example");
+  assert.throws(() => normalizeBaseUrl("file:///tmp/hub"), /http or https/);
 });

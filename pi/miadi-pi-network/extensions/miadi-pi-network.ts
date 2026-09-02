@@ -1,5 +1,6 @@
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
+import { randomUUID } from "node:crypto";
 import {
   DEFAULT_HEARTBEAT_MS,
   DEFAULT_PROJECT,
@@ -23,6 +24,7 @@ interface InboundPrompt {
   msgId: string;
   senderName: string;
   senderSession: string;
+  prompt: string;
   hops: number;
   responseSchema: Record<string, unknown> | null;
   fulfilled: boolean;
@@ -33,6 +35,7 @@ interface HttpFailure extends Error {
 }
 
 const INBOUND_MARKER = "MIADI_PI_NETWORK_INBOUND";
+const STATE_ENTRY_TYPE = "miadi-pi-network-state-v1";
 const DEFAULT_URL = "http://127.0.0.1:8787";
 const MAX_RECONNECT_MS = 10_000;
 
@@ -69,7 +72,10 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
   let connected = false;
   const peers = new Map<string, AgentCard>();
   const inbound = new Map<string, InboundPrompt>();
+  const inboundOrder: string[] = [];
+  const inboundStates = new Map<string, "queued" | "active" | "replied">();
   const responses = new Map<string, Omit<NetworkMessage, "prompt">>();
+  let laneMsgId: string | null = null;
   let activeInbound: InboundPrompt | null = null;
 
   function safeError(error: unknown): string {
@@ -86,6 +92,58 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
       });
     } catch {
       // Audit persistence is best-effort and never carries prompt bodies.
+    }
+  }
+
+  function restoreState(ctx: ExtensionContext): void {
+    inboundStates.clear();
+    const entries = ctx.sessionManager.getBranch();
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index] as any;
+      if (entry.type !== "custom" || entry.customType !== STATE_ENTRY_TYPE) continue;
+      const stored = entry.data?.inbound;
+      if (stored && typeof stored === "object") {
+        for (const [msgId, state] of Object.entries(stored)) {
+          if (state === "replied") inboundStates.set(msgId, "replied");
+          else if (state === "queued" || state === "active") inboundStates.set(msgId, "queued");
+        }
+      }
+      break;
+    }
+  }
+
+  function persistState(): void {
+    try {
+      pi.appendEntry(STATE_ENTRY_TYPE, {
+        version: 1,
+        inbound: Object.fromEntries(inboundStates),
+        at: new Date().toISOString(),
+      });
+    } catch (error) {
+      audit("state_persist_failed", { reason: safeError(error) });
+    }
+  }
+
+  function pumpInboundLane(): void {
+    if (laneMsgId || shuttingDown) return;
+    while (inboundOrder.length > 0) {
+      const msgId = inboundOrder.shift()!;
+      const item = inbound.get(msgId);
+      if (!item || inboundStates.get(msgId) === "replied") continue;
+      laneMsgId = msgId;
+      inboundStates.set(msgId, "active");
+      persistState();
+      pi.sendMessage({
+        customType: "miadi-pi-network-inbound",
+        content:
+          `[${INBOUND_MARKER}:${item.msgId}]\n` +
+          `Peer ${item.senderName} asks:\n\n${item.prompt}\n\n` +
+          "Reply with your normal assistant response. The network extension returns that response automatically. " +
+          "Do not call miadi_network_send back to the same peer merely to answer this message.",
+        display: true,
+        details: { msg_id: item.msgId, sender: item.senderName, hops: item.hops },
+      }, { deliverAs: "followUp", triggerTurn: true });
+      return;
     }
   }
 
@@ -192,13 +250,14 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
       response_schema?: unknown;
     };
     if (typeof event.msg_id !== "string" || typeof event.prompt !== "string") return;
-    if (inbound.has(event.msg_id)) return;
+    if (inboundStates.get(event.msg_id) === "replied" || inbound.has(event.msg_id)) return;
     const senderName = typeof event.sender?.name === "string" ? event.sender.name : "unknown-peer";
     const senderSession = typeof event.sender?.session_id === "string" ? event.sender.session_id : "unknown";
     const item: InboundPrompt = {
       msgId: event.msg_id,
       senderName,
       senderSession,
+      prompt: event.prompt,
       hops: typeof event.hops === "number" ? event.hops : 0,
       responseSchema: event.response_schema && typeof event.response_schema === "object" && !Array.isArray(event.response_schema)
         ? event.response_schema as Record<string, unknown>
@@ -206,17 +265,11 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
       fulfilled: false,
     };
     inbound.set(item.msgId, item);
+    inboundStates.set(item.msgId, "queued");
+    inboundOrder.push(item.msgId);
+    persistState();
     audit("prompt_received", { msg_id: item.msgId, sender: item.senderName, hops: item.hops });
-    pi.sendMessage({
-      customType: "miadi-pi-network-inbound",
-      content:
-        `[${INBOUND_MARKER}:${item.msgId}]\n` +
-        `Peer ${senderName} asks:\n\n${event.prompt}\n\n` +
-        "Reply with your normal assistant response. The network extension returns that response automatically. " +
-        "Do not call miadi_network_send back to the same peer merely to answer this message.",
-      display: true,
-      details: { msg_id: item.msgId, sender: senderName, hops: item.hops },
-    }, { deliverAs: "followUp", triggerTurn: true });
+    pumpInboundLane();
   }
 
   function handleNetworkEvent(event: string, data: unknown): void {
@@ -354,18 +407,21 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
     name: "miadi_network_send",
     label: "Miadi Network Send",
     description:
-      "Start a new request to a peer Pi. Returns a msg_id for miadi_network_get or miadi_network_await. " +
+      "Start a privacy-bounded intent request to a peer Pi. Returns a msg_id for miadi_network_get or miadi_network_await. " +
+      "Send the minimum context needed; never include raw captures or full transcripts unless the human explicitly authorizes that transfer. " +
       "Never use this merely to answer an inbound Miadi network message; normal assistant output is returned automatically.",
     parameters: Type.Object({
       target: Type.String({ description: "Peer name or session ID." }),
-      prompt: Type.String({ description: "Focused request for the peer." }),
+      prompt: Type.String({ description: "Focused, privacy-bounded intent packet for the peer." }),
       conversation_id: Type.Optional(Type.String()),
+      idempotency_key: Type.Optional(Type.String({ description: "Stable retry key; reuse it only when retrying the same request." })),
       response_schema: Type.Optional(Type.Any()),
     }),
     async execute(_toolCallId, params) {
       const ident = assertReady();
       const hops = activeInbound ? activeInbound.hops + 1 : 0;
       if (hops >= MAX_HOPS) throw new Error(`Miadi network hop limit reached (${MAX_HOPS})`);
+      const idempotencyKey = params.idempotency_key ?? randomUUID();
       const result = await api<{
         msg_id: string;
         status: string;
@@ -377,13 +433,14 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
         target: params.target,
         prompt: params.prompt,
         conversation_id: params.conversation_id ?? null,
+        idempotency_key: idempotencyKey,
         response_schema: params.response_schema ?? null,
         hops,
       });
       audit("prompt_sent", { msg_id: result.msg_id, target: result.target_name, hops });
       return {
         content: [{ type: "text" as const, text: `Sent to ${result.target_name}. msg_id: ${result.msg_id}` }],
-        details: result,
+        details: { ...result, idempotency_key: idempotencyKey },
       };
     },
   });
@@ -453,9 +510,12 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
     currentCtx = ctx;
     peers.clear();
     inbound.clear();
+    inboundOrder.splice(0, inboundOrder.length);
     responses.clear();
+    laneMsgId = null;
     activeInbound = null;
     connected = false;
+    restoreState(ctx);
     token = process.env.MIADI_PI_NETWORK_TOKEN ?? "";
     try {
       baseUrl = normalizeBaseUrl(
@@ -506,7 +566,7 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
 
   pi.on("before_agent_start", async (event) => {
     const match = event.prompt.match(new RegExp(`\\[${INBOUND_MARKER}:([^\\]]+)\\]`));
-    activeInbound = match ? inbound.get(match[1]) ?? null : null;
+    activeInbound = match && match[1] === laneMsgId ? inbound.get(match[1]) ?? null : null;
   });
 
   pi.on("agent_end", async (event) => {
@@ -521,26 +581,40 @@ export default function miadiPiNetwork(pi: ExtensionAPI): void {
         .join("\n")
         .trim()
       : "";
-    if (!text) return;
-
-    let response: unknown = text;
-    let error: string | null = null;
-    if (item.responseSchema) {
+    let response: unknown = text || null;
+    let error: string | null = text ? null : "peer produced no textual response";
+    if (item.responseSchema && text) {
       try { response = JSON.parse(text); } catch { response = null; error = "response is not valid JSON"; }
     }
-    try {
-      await api("POST", `/v1/messages/${encodeURIComponent(item.msgId)}/response`, {
-        responder_session: identity.sessionId,
-        response,
-        error,
-      });
-      item.fulfilled = true;
-      inbound.delete(item.msgId);
-      activeInbound = null;
-      audit("response_sent", { msg_id: item.msgId, recipient: item.senderName, error });
-    } catch (submitError) {
-      audit("response_failed", { msg_id: item.msgId, reason: safeError(submitError) });
+
+    let submitError: unknown;
+    let submitted = false;
+    for (let attempt = 0; attempt < 3 && !submitted; attempt += 1) {
+      try {
+        await api("POST", `/v1/messages/${encodeURIComponent(item.msgId)}/response`, {
+          responder_session: identity.sessionId,
+          response,
+          error,
+        });
+        submitted = true;
+      } catch (caught) {
+        submitError = caught;
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      }
     }
+    if (!submitted) {
+      audit("response_failed", { msg_id: item.msgId, reason: safeError(submitError) });
+      return;
+    }
+
+    item.fulfilled = true;
+    inbound.delete(item.msgId);
+    inboundStates.set(item.msgId, "replied");
+    laneMsgId = null;
+    activeInbound = null;
+    persistState();
+    audit("response_sent", { msg_id: item.msgId, recipient: item.senderName, error });
+    pumpInboundLane();
   });
 
   pi.on("session_shutdown", async () => {

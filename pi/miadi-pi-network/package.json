@@ -11,8 +11,8 @@
     "miadi"
   ],
   "scripts": {
-    "hub": "bun hub.ts",
-    "test": "bun test",
+    "hub": "node hub.ts",
+    "test": "node --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "pi": {
@@ -20,15 +20,14 @@
       "./extensions/miadi-pi-network.ts"
     ]
   },
-  "dependencies": {
-    "@sinclair/typebox": "^0.34.52"
-  },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.73.1",
-    "@types/bun": "^1.3.10",
+    "@earendil-works/pi-coding-agent": "^0.84.4",
+    "@types/node": "^24.10.0",
+    "typebox": "^1.3.25",
     "typescript": "^5.9.2"
   }
 }

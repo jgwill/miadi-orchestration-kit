@@ -18,7 +18,7 @@ The hub has no model and makes no decisions. It tracks presence and pending mess
 
 ```bash
 cd /workspace/repos/jgwill/miadi-orchestration-kit/pi/miadi-pi-network
-bun install
+npm install --ignore-scripts
 pi install "$PWD"
 ```
 
@@ -31,7 +31,7 @@ Keep the token private and distribute it through an existing secret channel—no
 ```bash
 cd pi/miadi-pi-network
 read -rsp 'Network token: ' MIADI_PI_NETWORK_TOKEN; export MIADI_PI_NETWORK_TOKEN; echo
-bun run hub
+npm run hub
 ```
 
 Defaults: `127.0.0.1:8787`. Health is public and contains counts only:
@@ -74,7 +74,7 @@ Run the hub on a stable VPN node and bind it to that node's VPN address:
 export MIADI_PI_NETWORK_HOST='<hub-vpn-address>'
 export MIADI_PI_NETWORK_PORT=8787
 export MIADI_PI_NETWORK_TOKEN
-bun run hub
+npm run hub
 ```
 
 On every Pi host—including Android/Termux—set:
@@ -108,15 +108,18 @@ The token is environment-only. Working directories are not advertised unless `MI
 - sender/target ownership checks on message reads and responses;
 - heartbeat presence and stale-peer status;
 - automatic unregister and stream cleanup on shutdown;
-- no durable prompt storage: the current hub is memory-only.
+- durable queued-message replay through `~/.miadi/pi-network/hub-state.json` (mode `0600`);
+- idempotency keys and a serialized one-inbound-turn-at-a-time correlation lane.
+
+The durable queue necessarily holds pending intent packets until completion/expiry. Send minimal intent, not custody material. Set `MIADI_PI_NETWORK_STORE=:memory:` only when deliberate loss on restart is preferable.
 
 This is an authenticated coordination plane, not a sandbox. A peer's message is untrusted input; each Pi retains its own tools, permissions, purpose, and data-access boundary.
 
 ## Verify
 
 ```bash
-bun run typecheck
-bun test
+npm run typecheck
+npm test
 pi -e ./extensions/miadi-pi-network.ts --help >/dev/null
 ```
 
@@ -124,6 +127,6 @@ The integration suite starts a real hub, joins two independent extension instanc
 
 ## Lineage
 
-This implementation was prompted by IndyDevDan's “Pi to Pi” approach and the community `coms` / `coms-net` prototype preserved in `miadisabelle/mia-pi-vs-claude-code`. Miadi's version keeps the four primitive operations while adding a package boundary, tests, VPN deployment guidance, response ownership checks, privacy defaults, and Chronicle/Medicine Wheel lineage.
+This implementation was prompted by IndyDevDan's “Pi to Pi” approach and the community `coms` / `coms-net` prototype preserved in `miadisabelle/mia-pi-vs-claude-code`. Episode 339's cross-device second-slice contract then changed the implementation: the hub runs on Node 24 available on Gaia and Ilex, the extension uses current `@earendil-works/*` imports, reconnecting peers receive durable queued work, inbound turns are explicitly serialized and correlated, and prompt bodies never enter logs.
 
 Review: `miadi-review://d4edc6bd-6990-4248-b415-0c11fa6c0160`.

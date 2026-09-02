@@ -1,4 +1,7 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { dirname } from "node:path";
 import {
   DEFAULT_HEARTBEAT_MS,
   DEFAULT_MESSAGE_TTL_MS,
@@ -14,9 +17,7 @@ import {
   publicMessage,
   requiredString,
   type AgentCard,
-  type AgentStatus,
   type NetworkMessage,
-  type SendMessageRequest,
 } from "./protocol.ts";
 
 interface StoredAgent extends AgentCard {
@@ -24,16 +25,22 @@ interface StoredAgent extends AgentCard {
 }
 
 interface Subscriber {
-  controller: ReadableStreamDefaultController<Uint8Array>;
+  response: ServerResponse;
   project: string;
   sessionId: string;
   keepalive: ReturnType<typeof setInterval>;
+}
+
+interface StoredState {
+  version: 1;
+  messages: NetworkMessage[];
 }
 
 export interface MiadiNetworkHubOptions {
   hostname?: string;
   port?: number;
   token: string;
+  storePath?: string | null;
   messageTtlMs?: number;
   heartbeatMs?: number;
   staleAfterMs?: number;
@@ -43,48 +50,57 @@ export interface MiadiNetworkHubOptions {
 
 export interface MiadiNetworkHub {
   readonly url: string;
-  readonly server: ReturnType<typeof Bun.serve>;
+  readonly server: Server;
+  readonly storePath: string | null;
   stop(): Promise<void>;
   snapshot(): { agents: AgentCard[]; messages: Array<Omit<NetworkMessage, "prompt">> };
 }
 
 class HttpProblem extends Error {
-  constructor(readonly status: number, message: string) {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
-const encoder = new TextEncoder();
 const PROJECT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const NAME_PATTERN = /^[^\s/][^/]{0,62}[^\s/]$|^[^\s/]$/;
 
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, {
-    status,
-    headers: {
-      "cache-control": "no-store",
-      "content-type": "application/json; charset=utf-8",
-    },
+function sendJson(response: ServerResponse, data: unknown, status = 200): void {
+  const body = JSON.stringify(data);
+  response.writeHead(status, {
+    "cache-control": "no-store",
+    "content-type": "application/json; charset=utf-8",
+    "content-length": Buffer.byteLength(body),
   });
+  response.end(body);
 }
 
-function bearerMatches(request: Request, token: string): boolean {
-  const header = request.headers.get("authorization") ?? "";
+function bearerMatches(request: IncomingMessage, token: string): boolean {
+  const header = request.headers.authorization ?? "";
   if (!header.startsWith("Bearer ")) return false;
   const supplied = Buffer.from(header.slice(7), "utf8");
   const expected = Buffer.from(token, "utf8");
   return supplied.length === expected.length && timingSafeEqual(supplied, expected);
 }
 
-async function readJson(request: Request): Promise<Record<string, unknown>> {
-  const advertised = Number(request.headers.get("content-length") ?? 0);
+async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const advertised = Number(request.headers["content-length"] ?? 0);
   if (Number.isFinite(advertised) && advertised > MAX_BODY_BYTES) {
     throw new HttpProblem(413, "request body too large");
   }
-  const text = await request.text();
-  if (byteLength(text) > MAX_BODY_BYTES) throw new HttpProblem(413, "request body too large");
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const raw of request) {
+    const chunk = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+    total += chunk.byteLength;
+    if (total > MAX_BODY_BYTES) throw new HttpProblem(413, "request body too large");
+    chunks.push(chunk);
+  }
   try {
-    const value = JSON.parse(text);
+    const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     if (!isRecord(value)) throw new Error("not an object");
     return value;
   } catch {
@@ -120,10 +136,33 @@ function validatedString(
   }
 }
 
-export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNetworkHub {
+function decodePathPart(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw new HttpProblem(400, "malformed path encoding");
+  }
+}
+
+function isStoredMessage(value: unknown): value is NetworkMessage {
+  if (!isRecord(value)) return false;
+  return [
+    "msg_id",
+    "project",
+    "sender_session",
+    "target_session",
+    "prompt",
+    "status",
+    "created_at",
+    "expires_at",
+  ].every((key) => typeof value[key] === "string") && typeof value.hops === "number";
+}
+
+export async function createMiadiNetworkHub(options: MiadiNetworkHubOptions): Promise<MiadiNetworkHub> {
   const token = requiredString(options.token, "token", { max: 4096 });
   const hostname = options.hostname ?? "127.0.0.1";
   const port = options.port ?? DEFAULT_PORT;
+  const storePath = options.storePath ?? null;
   const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
   const heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
   const staleAfterMs = options.staleAfterMs ?? heartbeatMs * 4;
@@ -132,36 +171,65 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
   const messages = new Map<string, NetworkMessage>();
   const subscribers = new Map<string, Set<Subscriber>>();
 
+  function loadState(): void {
+    if (!storePath || !existsSync(storePath)) return;
+    const parsed = JSON.parse(readFileSync(storePath, "utf8")) as StoredState;
+    if (parsed?.version !== 1 || !Array.isArray(parsed.messages)) {
+      throw new Error(`unsupported or malformed hub state: ${storePath}`);
+    }
+    for (const message of parsed.messages) {
+      if (isStoredMessage(message)) messages.set(message.msg_id, message);
+    }
+  }
+
+  function persistState(): void {
+    if (!storePath) return;
+    mkdirSync(dirname(storePath), { recursive: true, mode: 0o700 });
+    const tempPath = `${storePath}.${process.pid}.tmp`;
+    const state: StoredState = { version: 1, messages: [...messages.values()] };
+    writeFileSync(tempPath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+    chmodSync(tempPath, 0o600);
+    renameSync(tempPath, storePath);
+    chmodSync(storePath, 0o600);
+  }
+
+  loadState();
+
   function activeAgentCards(project?: string): AgentCard[] {
     const now = Date.now();
     return [...agents.values()]
       .filter((agent) => !project || agent.project === project)
-      .map(({ desired_name: _desired, ...agent }) => {
-        const status: AgentStatus = now - Date.parse(agent.heartbeat_at) > staleAfterMs ? "stale" : "online";
-        return { ...agent, status };
-      })
+      .map(({ desired_name: _desired, ...agent }) => ({
+        ...agent,
+        status: now - Date.parse(agent.heartbeat_at) > staleAfterMs ? ("stale" as const) : ("online" as const),
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  function subscriberCount(sessionId: string): number {
-    return subscribers.get(sessionId)?.size ?? 0;
+  function removeSubscriber(subscriber: Subscriber): void {
+    clearInterval(subscriber.keepalive);
+    const group = subscribers.get(subscriber.sessionId);
+    group?.delete(subscriber);
+    if (group?.size === 0) subscribers.delete(subscriber.sessionId);
   }
 
   function emit(sessionId: string, event: string, data: unknown, id?: string): boolean {
     const group = subscribers.get(sessionId);
     if (!group || group.size === 0) return false;
-    const payload = encoder.encode(encodeSse(event, data, id));
+    const payload = encodeSse(event, data, id);
     let delivered = false;
     for (const subscriber of [...group]) {
+      if (subscriber.response.destroyed || subscriber.response.writableEnded) {
+        removeSubscriber(subscriber);
+        continue;
+      }
       try {
-        subscriber.controller.enqueue(payload);
+        subscriber.response.write(payload);
         delivered = true;
       } catch {
-        clearInterval(subscriber.keepalive);
-        group.delete(subscriber);
+        removeSubscriber(subscriber);
       }
     }
-    if (group.size === 0) subscribers.delete(sessionId);
     return delivered;
   }
 
@@ -188,7 +256,14 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
     return {
       msg_id: message.msg_id,
       project: message.project,
-      sender: senderSummary(message.sender_session),
+      sender: message.sender ?? (agents.has(message.sender_session)
+        ? senderSummary(message.sender_session)
+        : {
+          session_id: message.sender_session,
+          name: "reconnecting-peer",
+          purpose: "",
+          model: "unknown",
+        }),
       prompt: message.prompt,
       conversation_id: message.conversation_id,
       response_schema: message.response_schema,
@@ -216,29 +291,30 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
     return `${desired}-${suffix}`;
   }
 
-  function removeSubscriber(subscriber: Subscriber): void {
-    clearInterval(subscriber.keepalive);
-    const group = subscribers.get(subscriber.sessionId);
-    group?.delete(subscriber);
-    if (group?.size === 0) subscribers.delete(subscriber.sessionId);
-  }
-
-  async function handle(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const method = request.method.toUpperCase();
+  async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+    const method = (request.method ?? "GET").toUpperCase();
 
     if (method === "GET" && url.pathname === "/health") {
-      return json({
+      sendJson(response, {
         ok: true,
         service: "miadi-pi-network-hub",
         protocol_version: PROTOCOL_VERSION,
+        durable_queue: Boolean(storePath),
         agents: agents.size,
         messages: messages.size,
       });
+      return;
     }
 
-    if (!url.pathname.startsWith("/v1/")) return json({ error: "not found" }, 404);
-    if (!bearerMatches(request, token)) return json({ error: "unauthorized" }, 401);
+    if (!url.pathname.startsWith("/v1/")) {
+      sendJson(response, { error: "not found" }, 404);
+      return;
+    }
+    if (!bearerMatches(request, token)) {
+      sendJson(response, { error: "unauthorized" }, 401);
+      return;
+    }
 
     if (method === "POST" && url.pathname === "/v1/agents/register") {
       const body = await readJson(request);
@@ -279,45 +355,51 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
       agents.set(sessionId, agent);
       const { desired_name: _desired, ...card } = agent;
       broadcastProject(project, existing ? "agent_updated" : "agent_joined", { agent: card });
-      return json({ ok: true, agent: card, heartbeat_interval_ms: heartbeatMs });
+      sendJson(response, { ok: true, agent: card, heartbeat_interval_ms: heartbeatMs });
+      return;
     }
 
     const heartbeatMatch = url.pathname.match(/^\/v1\/agents\/([^/]+)\/heartbeat$/);
     if (method === "POST" && heartbeatMatch) {
-      const sessionId = decodeURIComponent(heartbeatMatch[1]);
+      const sessionId = decodePathPart(heartbeatMatch[1]);
       const agent = agents.get(sessionId);
       if (!agent) throw new HttpProblem(404, "agent not found");
       const body = await readJson(request);
       if (body.project !== agent.project) throw new HttpProblem(403, "project mismatch");
-      const context = typeof body.context_used_pct === "number"
-        ? Math.max(0, Math.min(100, Math.round(body.context_used_pct)))
-        : agent.context_used_pct;
       agent.heartbeat_at = new Date().toISOString();
-      agent.context_used_pct = context;
+      if (typeof body.context_used_pct === "number") {
+        agent.context_used_pct = Math.max(0, Math.min(100, Math.round(body.context_used_pct)));
+      }
       if (typeof body.model === "string" && body.model.trim()) agent.model = body.model.trim().slice(0, 256);
       const { desired_name: _desired, ...card } = agent;
       broadcastProject(agent.project, "agent_updated", { agent: card });
-      return json({ ok: true });
+      sendJson(response, { ok: true });
+      return;
     }
 
     const agentMatch = url.pathname.match(/^\/v1\/agents\/([^/]+)$/);
     if (method === "DELETE" && agentMatch) {
-      const sessionId = decodeURIComponent(agentMatch[1]);
+      const sessionId = decodePathPart(agentMatch[1]);
       const agent = agents.get(sessionId);
-      if (!agent) return json({ ok: true, removed: false });
+      if (!agent) {
+        sendJson(response, { ok: true, removed: false });
+        return;
+      }
       agents.delete(sessionId);
       const group = subscribers.get(sessionId);
-      for (const subscriber of group ?? []) {
+      for (const subscriber of [...(group ?? [])]) {
         removeSubscriber(subscriber);
-        try { subscriber.controller.close(); } catch { /* already closed */ }
+        subscriber.response.end();
       }
       broadcastProject(agent.project, "agent_left", { session_id: sessionId, name: agent.name });
-      return json({ ok: true, removed: true });
+      sendJson(response, { ok: true, removed: true });
+      return;
     }
 
     if (method === "GET" && url.pathname === "/v1/agents") {
       const project = validatedString(url.searchParams.get("project"), "project", { max: 64, pattern: PROJECT_PATTERN });
-      return json({ agents: activeAgentCards(project) });
+      sendJson(response, { agents: activeAgentCards(project) });
+      return;
     }
 
     if (method === "GET" && url.pathname === "/v1/events") {
@@ -327,48 +409,45 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
       if (!agent) throw new HttpProblem(404, "agent not found");
       if (agent.project !== project) throw new HttpProblem(403, "project mismatch");
 
+      response.writeHead(200, {
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "content-type": "text/event-stream; charset=utf-8",
+        "x-accel-buffering": "no",
+      });
+      response.flushHeaders();
       let subscriber!: Subscriber;
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          const keepalive = setInterval(() => {
-            try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { removeSubscriber(subscriber); }
-          }, Math.max(heartbeatMs, 5_000));
-          subscriber = { controller, project, sessionId, keepalive };
-          const group = subscribers.get(sessionId) ?? new Set<Subscriber>();
-          group.add(subscriber);
-          subscribers.set(sessionId, group);
-          controller.enqueue(encoder.encode(encodeSse("hello", {
-            protocol_version: PROTOCOL_VERSION,
-            heartbeat_interval_ms: heartbeatMs,
-          })));
-          controller.enqueue(encoder.encode(encodeSse("pool_snapshot", {
-            agents: activeAgentCards(project),
-          })));
+      const keepalive = setInterval(() => {
+        if (response.destroyed || response.writableEnded) removeSubscriber(subscriber);
+        else response.write(": keepalive\n\n");
+      }, Math.max(heartbeatMs, 5_000));
+      keepalive.unref?.();
+      subscriber = { response, project, sessionId, keepalive };
+      const group = subscribers.get(sessionId) ?? new Set<Subscriber>();
+      group.add(subscriber);
+      subscribers.set(sessionId, group);
+      request.once("close", () => removeSubscriber(subscriber));
 
-          for (const message of messages.values()) {
-            if (message.target_session === sessionId && (message.status === "queued" || message.status === "delivered")) {
-              controller.enqueue(encoder.encode(encodeSse("prompt", promptEvent(message), message.msg_id)));
-              message.status = "delivered";
-            }
-            if (message.sender_session === sessionId && ["complete", "error", "timeout"].includes(message.status)) {
-              controller.enqueue(encoder.encode(encodeSse("response", publicMessage(message), message.msg_id)));
-            }
+      response.write(encodeSse("hello", {
+        protocol_version: PROTOCOL_VERSION,
+        heartbeat_interval_ms: heartbeatMs,
+      }));
+      response.write(encodeSse("pool_snapshot", { agents: activeAgentCards(project) }));
+      let changed = false;
+      for (const message of messages.values()) {
+        if (message.target_session === sessionId && (message.status === "queued" || message.status === "delivered")) {
+          response.write(encodeSse("prompt", promptEvent(message), message.msg_id));
+          if (message.status !== "delivered") {
+            message.status = "delivered";
+            changed = true;
           }
-        },
-        cancel() {
-          if (subscriber) removeSubscriber(subscriber);
-        },
-      });
-      request.signal.addEventListener("abort", () => {
-        if (subscriber) removeSubscriber(subscriber);
-      }, { once: true });
-      return new Response(stream, {
-        headers: {
-          "cache-control": "no-cache, no-transform",
-          "content-type": "text/event-stream; charset=utf-8",
-          "x-accel-buffering": "no",
-        },
-      });
+        }
+        if (message.sender_session === sessionId && ["complete", "error", "timeout"].includes(message.status)) {
+          response.write(encodeSse("response", publicMessage(message), message.msg_id));
+        }
+      }
+      if (changed) persistState();
+      return;
     }
 
     if (method === "POST" && url.pathname === "/v1/messages") {
@@ -390,12 +469,34 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
         : isRecord(body.response_schema)
           ? body.response_schema
           : (() => { throw new HttpProblem(400, "response_schema must be an object or null"); })();
+      const idempotencyKey = optionalString(body.idempotency_key, "idempotency_key", 256);
+      if (idempotencyKey) {
+        const prior = [...messages.values()].find((message) =>
+          message.project === project &&
+          message.sender_session === senderSession &&
+          message.idempotency_key === idempotencyKey
+        );
+        if (prior) {
+          sendJson(response, {
+            ok: true,
+            duplicate: true,
+            msg_id: prior.msg_id,
+            status: prior.status,
+            target_session: prior.target_session,
+            target_name: agents.get(prior.target_session)?.name ?? target.name,
+          }, 200);
+          return;
+        }
+      }
       const now = Date.now();
       const message: NetworkMessage = {
         msg_id: randomUUID(),
+        idempotency_key: idempotencyKey,
         project,
         sender_session: senderSession,
+        sender: senderSummary(senderSession),
         target_session: target.session_id,
+        target_name: target.name,
         prompt,
         conversation_id: typeof body.conversation_id === "string" ? body.conversation_id.slice(0, 256) : null,
         response_schema: responseSchema,
@@ -405,28 +506,29 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
         expires_at: new Date(now + messageTtlMs).toISOString(),
       };
       messages.set(message.msg_id, message);
-      if (emit(target.session_id, "prompt", promptEvent(message), message.msg_id)) {
-        message.status = "delivered";
-      }
-      return json({
+      if (emit(target.session_id, "prompt", promptEvent(message), message.msg_id)) message.status = "delivered";
+      persistState();
+      sendJson(response, {
         ok: true,
         msg_id: message.msg_id,
         status: message.status,
         target_session: target.session_id,
         target_name: target.name,
       }, 202);
+      return;
     }
 
     const responseMatch = url.pathname.match(/^\/v1\/messages\/([^/]+)\/response$/);
     if (method === "POST" && responseMatch) {
-      const msgId = decodeURIComponent(responseMatch[1]);
+      const msgId = decodePathPart(responseMatch[1]);
       const message = messages.get(msgId);
       if (!message) throw new HttpProblem(404, "message not found");
       const body = await readJson(request);
       const responderSession = validatedString(body.responder_session, "responder_session", { max: 128 });
       if (responderSession !== message.target_session) throw new HttpProblem(403, "only the target may respond");
       if (["complete", "error", "timeout"].includes(message.status)) {
-        return json({ ok: true, duplicate: true, status: message.status });
+        sendJson(response, { ok: true, duplicate: true, status: message.status });
+        return;
       }
       const serializedResponse = JSON.stringify(body.response ?? null);
       if (byteLength(serializedResponse) > MAX_RESPONSE_BYTES) throw new HttpProblem(413, "response too large");
@@ -434,71 +536,105 @@ export function createMiadiNetworkHub(options: MiadiNetworkHubOptions): MiadiNet
       message.error = typeof body.error === "string" ? body.error.slice(0, 1000) : null;
       message.status = message.error ? "error" : "complete";
       message.completed_at = new Date().toISOString();
+      persistState();
       emit(message.sender_session, "response", publicMessage(message), message.msg_id);
-      return json({ ok: true, status: message.status });
+      sendJson(response, { ok: true, status: message.status });
+      return;
     }
 
     const messageMatch = url.pathname.match(/^\/v1\/messages\/([^/]+)$/);
     if (method === "GET" && messageMatch) {
-      const msgId = decodeURIComponent(messageMatch[1]);
+      const msgId = decodePathPart(messageMatch[1]);
       const caller = validatedString(url.searchParams.get("caller_session"), "caller_session", { max: 128 });
       const message = messages.get(msgId);
       if (!message) throw new HttpProblem(404, "message not found");
       if (caller !== message.sender_session && caller !== message.target_session) {
         throw new HttpProblem(403, "message does not belong to caller");
       }
-      return json(publicMessage(message));
+      sendJson(response, publicMessage(message));
+      return;
     }
 
-    return json({ error: "not found" }, 404);
+    sendJson(response, { error: "not found" }, 404);
   }
 
-  const server = Bun.serve({
-    hostname,
-    port,
-    idleTimeout: 255,
-    fetch(request) {
-      return handle(request).catch((error) => {
-        if (error instanceof HttpProblem) return json({ error: error.message }, error.status);
-        if (!options.quiet) console.error("miadi-pi-network hub error", error);
-        return json({ error: "internal server error" }, 500);
-      });
-    },
+  const server = createServer((request, response) => {
+    void handle(request, response).catch((error) => {
+      if (response.headersSent) {
+        response.destroy();
+        return;
+      }
+      if (error instanceof HttpProblem) {
+        sendJson(response, { error: error.message }, error.status);
+        return;
+      }
+      if (!options.quiet) console.error("miadi-pi-network hub error", error);
+      sendJson(response, { error: "internal server error" }, 500);
+    });
   });
+
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => reject(error);
+    server.once("error", onError);
+    server.listen(port, hostname, () => {
+      server.off("error", onError);
+      resolve();
+    });
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("hub did not bind a TCP address");
+  const url = `http://${hostname}:${address.port}`;
 
   const sweepTimer = setInterval(() => {
     const now = Date.now();
-    for (const message of messages.values()) {
+    let changed = false;
+    for (const message of [...messages.values()]) {
       if ((message.status === "queued" || message.status === "delivered") && Date.parse(message.expires_at) <= now) {
         message.status = "timeout";
         message.error = "message expired before a response arrived";
         message.completed_at = new Date(now).toISOString();
         emit(message.sender_session, "response", publicMessage(message), message.msg_id);
+        changed = true;
       }
-      if (Date.parse(message.expires_at) + messageTtlMs <= now) messages.delete(message.msg_id);
+      if (Date.parse(message.expires_at) + messageTtlMs <= now) {
+        messages.delete(message.msg_id);
+        changed = true;
+      }
     }
+    for (const agent of [...agents.values()]) {
+      if (now - Date.parse(agent.heartbeat_at) > staleAfterMs * 6 && !subscribers.has(agent.session_id)) {
+        agents.delete(agent.session_id);
+        broadcastProject(agent.project, "agent_left", { session_id: agent.session_id, name: agent.name });
+      }
+    }
+    if (changed) persistState();
   }, sweepIntervalMs);
   sweepTimer.unref?.();
 
-  const url = `http://${server.hostname}:${server.port}`;
   if (!options.quiet) {
     console.log(`Miadi Pi network hub listening on ${url}`);
-    console.log(`Protocol v${PROTOCOL_VERSION}; authentication required for /v1/*`);
+    console.log(`Protocol v${PROTOCOL_VERSION}; authenticated durable queue: ${storePath ?? "disabled"}`);
   }
 
   return {
     url,
     server,
+    storePath,
     async stop() {
       clearInterval(sweepTimer);
+      persistState();
       for (const group of subscribers.values()) {
         for (const subscriber of group) {
           clearInterval(subscriber.keepalive);
-          try { subscriber.controller.close(); } catch { /* already closed */ }
+          subscriber.response.end();
         }
       }
       subscribers.clear();
-      await server.stop(true);
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        server.closeAllConnections?.();
+      });
     },
     snapshot() {
       return {

@@ -1,4 +1,6 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { createMiadiNetworkHub } from "./src/hub.ts";
 import { DEFAULT_PORT } from "./src/protocol.ts";
 
@@ -15,7 +17,17 @@ if (!Number.isInteger(rawPort) || rawPort < 0 || rawPort > 65_535) {
   process.exit(1);
 }
 
-const hub = createMiadiNetworkHub({ hostname, port: rawPort, token });
+const configuredStore = process.env.MIADI_PI_NETWORK_STORE;
+const storePath = configuredStore === ":memory:"
+  ? null
+  : configuredStore ?? join(homedir(), ".miadi", "pi-network", "hub-state.json");
+
+const hub = await createMiadiNetworkHub({
+  hostname,
+  port: rawPort,
+  token,
+  storePath,
+});
 
 let stopping = false;
 async function stop(signal: string): Promise<void> {
