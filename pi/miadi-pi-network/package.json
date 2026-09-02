@@ -1,0 +1,33 @@
+{
+  "name": "@miadi/pi-network",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Authenticated peer-to-peer communication for purpose-specific Pi instances through a Miadi VPN hub",
+  "keywords": [
+    "pi-package",
+    "multi-agent",
+    "peer-to-peer",
+    "miadi"
+  ],
+  "scripts": {
+    "hub": "node hub.ts",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/miadi-pi-network.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.4",
+    "@types/node": "^24.10.0",
+    "typebox": "^1.3.25",
+    "typescript": "^5.9.2"
+  }
+}
