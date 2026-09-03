@@ -1,7 +1,9 @@
 {
   "name": "@miadi/pi-network",
   "version": "0.1.0",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Authenticated peer-to-peer communication for purpose-specific Pi instances through a Miadi VPN hub",
   "keywords": [
