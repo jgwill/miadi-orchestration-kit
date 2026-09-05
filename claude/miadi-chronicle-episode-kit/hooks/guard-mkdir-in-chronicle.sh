@@ -36,7 +36,7 @@
 #
 # INPUT   PreToolUse hook JSON on stdin: {"tool_name":"Bash","tool_input":{"command":...},
 #         "cwd":...}. Contract source: Claude Code hook documentation (plugin-dev
-#         hook-development skill, read 2026-09-04) and claude-code/miette/hooks/hooks.json,
+#         hook-development skill, read 2026-09-04) and claude/miette/hooks/hooks.json,
 #         the working hook already in this repo.
 #
 # EXIT CODES — branch on these, never on "it printed something":

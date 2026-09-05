@@ -1,4 +1,4 @@
-# `claude-code/` — the Claude Code plugin lane
+# `claude/` — the Claude Code plugin lane
 
 The root `AGENTS.md` has named this file as the lane's contract since the repo began.
 It did not exist until 2026-08-16. This is it.
@@ -15,15 +15,14 @@ editing that host's system policy.
 | `miette/` | a full plugin — manifest, skill, agent, command, and the repo's **first hook** |
 | `miadi-storyweaver-orchestration-kit/` | `CLAUDE.md` + `README.md` + `prompts/` — a prompt wrapper, not a plugin; declared as *"not a fork of the kit"* |
 
-## The lane split is unresolved and it is a human's call
+## The lane split was resolved on 2026-09-05
 
-`claude/miadi-session-orchestrator/` is also a real Claude Code plugin, in a directory
-the root `AGENTS.md` never names. Two directories, one harness. **Do not resolve this by
-moving files** — pick one lane and amend the root contract, or amend the contract to
-name both. Carried in jgwill/miadi-orchestration-kit#41 and jgwill/miadi-orchestration-kit#33.
-
-Until it is settled: new Claude Code plugins land here, in `claude-code/`, because that
-is what the root contract says.
+Until that day two directories held Claude Code plugins: `claude/` (`miadi-session-orchestrator`,
+`miadi-pi-network`) and `claude-code/` (`miette`, `miadi-chronicle-episode-kit`, the storyweaver
+prompt wrapper). William's word: "I don't like the fact that we have two folders there" — so
+`claude-code/*` was moved into `claude/` with `git mv`, this contract moved with it, and every
+path in the kit that named `claude-code/` was rewritten. One lane, this one. Carried in
+jgwill/miadi-orchestration-kit#41 and jgwill/miadi-orchestration-kit#33.
 
 ## Rules for a plugin in this lane
 

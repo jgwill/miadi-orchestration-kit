@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "miadi-chronicle-episode-kit",
-      "source": "./claude-code/miadi-chronicle-episode-kit",
+      "source": "./claude/miadi-chronicle-episode-kit",
       "description": "Creates, adopts, registers, works in, and closes Miadi Chronicle episodes from one host-neutral skill, and refuses mkdir under the chronicle root with a PreToolUse hook that returns the mkepisode invocation instead.",
       "version": "0.1.0"
     }

@@ -2,7 +2,7 @@
 
 Read these files:
 
-- `claude-code/miadi-storyweaver-orchestration-kit/CLAUDE.md`
+- `claude/miadi-storyweaver-orchestration-kit/CLAUDE.md`
 - `copilot/miadi-storyweaver-orchestration-kit/README.md`
 - `copilot/miadi-storyweaver-orchestration-kit/.github/plugin/plugin.json`
 - `rispecs/miadi-storyweaver-orchestration-kit/09-source-ledger.md`

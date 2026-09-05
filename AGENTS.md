@@ -1,6 +1,6 @@
 `copilot/AGENTS.md` is for copilot plugins
 
-`claude-code/AGENTS.md` is for claude-code plugins
+`claude/AGENTS.md` is for Claude Code plugins (one lane since 2026-09-05; `claude-code/` was folded into it on William's word)
 
 `gemini/AGENTS.md` is for Gemini CLI extensions (Gemini calls them extensions, not plugins).
 

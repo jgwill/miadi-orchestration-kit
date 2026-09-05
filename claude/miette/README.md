@@ -65,7 +65,7 @@ never to be conflated in anything this plugin produces.
 ## Install
 
 ```bash
-claude --plugin-dir /path/to/miadi-orchestration-kit/claude-code/miette
+claude --plugin-dir /path/to/miadi-orchestration-kit/claude/miette
 ```
 
 Or add the repo as a marketplace and enable `miette`. **Hooks load at session start** —

@@ -20,7 +20,7 @@
 #   file exists. It does not today; see --check output for why, and 05-distribution.md.
 #
 # WHAT IT REFUSES TO DO
-#   Proceed on a host below the runtime floors. `claude-code/AGENTS.md` rule 3: a plugin
+#   Proceed on a host below the runtime floors. `claude/AGENTS.md` rule 3: a plugin
 #   that quietly assumes a version misleads rather than refuses.
 #
 # MODES
@@ -215,7 +215,7 @@ say ""
 # produce an entry no Claude Code host can read. So this script writes only into a real
 # Claude Code marketplace, and reports honestly when there is none.
 CC_MARKET="$KIT/.claude-plugin/marketplace.json"
-PLUGIN_REL="./claude-code/miadi-chronicle-episode-kit"
+PLUGIN_REL="./claude/miadi-chronicle-episode-kit"
 say "plugin registration"
 if [ -f "$CC_MARKET" ]; then
   if python3 - "$CC_MARKET" "$PLUGIN_REL" <<'PY'
@@ -241,7 +241,7 @@ else
   note "no Claude Code marketplace at $CC_MARKET"
   note ".agents/plugins/marketplace.json is a CODEX marketplace — \`claude plugin validate\` rejects it"
   note "load the plugin directly meanwhile:"
-  note "  claude --plugin-dir \"$KIT/claude-code/miadi-chronicle-episode-kit\""
+  note "  claude --plugin-dir \"$KIT/claude/miadi-chronicle-episode-kit\""
 fi
 say ""
 

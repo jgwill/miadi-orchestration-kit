@@ -75,14 +75,14 @@ The suite is mutation-tested: an always-allow stub fails 7 of 14, an always-bloc
 Or load the plugin directly for one session, without installing anything:
 
 ```bash
-claude --plugin-dir "$MIADI_ORCHESTRATION_KIT_ROOT/claude-code/miadi-chronicle-episode-kit"
+claude --plugin-dir "$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-chronicle-episode-kit"
 ```
 
 ## Runtime floors
 
 `passages >= 0.3.0` (ep<NNN> resolution, `attention`) and `@miadi/inquiry-weave >= 0.8.0`.
 `mkepisode` must carry `--adopt`. The install script preflights all three and exits `3`
-rather than proceeding, per `claude-code/AGENTS.md` rule 3.
+rather than proceeding, per `claude/AGENTS.md` rule 3.
 
 ## Environment
 

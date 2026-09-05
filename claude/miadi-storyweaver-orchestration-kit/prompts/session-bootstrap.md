@@ -2,7 +2,7 @@
 
 Operate as the Storyweaver Orchestration Architect using:
 
-- `claude-code/miadi-storyweaver-orchestration-kit/CLAUDE.md`
+- `claude/miadi-storyweaver-orchestration-kit/CLAUDE.md`
 - `copilot/miadi-storyweaver-orchestration-kit/README.md`
 - `copilot/miadi-storyweaver-orchestration-kit/skills/storyweaver-session-bootstrap/SKILL.md`
 - `copilot/miadi-storyweaver-orchestration-kit/agents/storyweaver-orchestration-architect.md`

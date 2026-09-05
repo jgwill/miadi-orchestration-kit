@@ -24,14 +24,14 @@ Claude Code should treat the Copilot kit and rispecs as source material:
 From the repo root, run a read-only smoke check:
 
 ```bash
-claude -p "$(cat claude-code/miadi-storyweaver-orchestration-kit/prompts/smoke-test.md)" \
+claude -p "$(cat claude/miadi-storyweaver-orchestration-kit/prompts/smoke-test.md)" \
   --add-dir /workspace/repos/jgwill/miadi-orchestration-kit-storytelling-rispecs
 ```
 
 For a story session bootstrap:
 
 ```bash
-claude -p "$(cat claude-code/miadi-storyweaver-orchestration-kit/prompts/session-bootstrap.md)" \
+claude -p "$(cat claude/miadi-storyweaver-orchestration-kit/prompts/session-bootstrap.md)" \
   --add-dir /workspace/repos/jgwill/miadi-orchestration-kit-storytelling-rispecs \
   --add-dir <story-workspace-or-project>
 ```
