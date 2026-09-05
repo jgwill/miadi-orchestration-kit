@@ -5,7 +5,7 @@ description: The one entry point for Miadi Chronicle episode work on any host an
 
 # Chronicle Episode
 
-Every verb below is given API first, MCP second, CLI third. Raw `git` and `curl` appear only as proof of record. Every path is an environment name. Rows marked `UNVERIFIED` describe the episode API a parallel lane is building; reconcile them with `foundations/chronicle-one-skill/03-api-design.md` before treating a path or field as fact.
+Every verb below is given API first, MCP second, CLI third. Raw `git` and `curl` appear only as proof of record. Every path is an environment name. The episode API rows were reconciled on 2026-09-05 against `app/api/chronicle/episodes/**` in jgwill/Miadi (commit 123446ec); the design and the verification record are `foundations/chronicle-one-skill/03-api-design.md` and `04-api-implementation-plan.md` in the kit. The API base is `$MIADI_API_URL`; every POST needs writer authority (loopback, an allowlisted tailnet identity, or `Authorization: Bearer $MIADI_API_TOKEN_WRITER`), every GET is public. Send `dryRun: true` before any first real call.
 
 ## S0. Desired outcome
 
@@ -35,7 +35,8 @@ A `git -C` pointed anywhere but `$GIT_ROOT` reports a clean tree for a chronicle
 | `MIADI_CHRONICLE_MW_URL` | the chronicle wheel, the variable of record (William, 2026-09-04) | hand it to tools at the flag or inline; never export `MW_API_URL` to reach it |
 | `MW_API_URL` | the tool-contract name `mkepisode`, `inquiry-weave`, `passages attention` read when no flag is given | a fallback the binaries own, never a name to reason from |
 | `MIADI_INQUIRY_DIR` | the artefact shelf (`inquiry-weave` reads it before `MIADI_INQUIRY_ROOT`, env.ts:38-44) | `.` does not mean cwd here, see S7 |
-| `MIADI_API_URL` | the Miadi app, the Attention HTTP door | not the wheel |
+| `MIADI_API_URL` | the Miadi app: the episode door (`/api/chronicle/episodes`) and the Attention door | not the wheel |
+| `MIADI_API_TOKEN_WRITER` | writer authority for POSTs from outside loopback or the tailnet | never inline it; `GET …/episodes` reports `capabilities.mint` for the caller you are |
 | `MIADI_SRC` | the Miadi checkout | source-run fallback, S3 |
 | `MIADI_URL_BASE_INTERNAL`, `MIADI_URL_BASE`, `MIADI_WEB_URL` | the room's doors, read by `inquiry-weave resolve` | ask `resolve`, do not compose room URLs |
 
@@ -57,8 +58,8 @@ Upgrade: `npm i -g passages@latest @miadi/inquiry-weave@latest`. Source run when
 
 ## S4. Mint
 
-1. API. `POST /api/chronicle/episodes` with `{number, title, goal, references[]}`, returning the five-stage report. UNVERIFIED. The API is expected to mint, register, commit, and push (S5).
-2. MCP (miadi-voice). `voice_resolve_episode` first; "no episode is adequate" is a valid answer. `voice_create_episode` mints, registers, and returns the five proofs. It does not commit or push (closing.ts:14), so the caller finishes S5.
+1. API. `POST $MIADI_API_URL/api/chronicle/episodes` with `{title, goal, references[], number?, date?, lineage?[], inquiry?, register?, land?, dryRun?}`. It writes the mkepisode-shaped manifest, registers the card, writes the receipt, lands (S5), and returns `{ok, episode, number, manifest, files, registration, landing, closing[5], drift, owedActions}`; `ok` is computed from `closing`, never asserted. `GET …/episodes?number=N` says whether N is free on disk, on `origin/main`, and on the wheel; `?allocate=1` previews max+1 and never fills a hole (an explicit `number` is how a lower free number is taken). A taken number is `409 number_taken` with where it was seen. A wheel card with no directory is a reservation and counts as taken.
+2. MCP. `chronicle_episode_mint` and `chronicle_episode_number` on `inquiry-weave-mcp` (same fields; the tool calls the library on disk when `MIADI_CHRONICLE_ROOT` is set, otherwise forwards to the API through `MIADI_INQUIRY_API_BASE` and `MIADI_API_TOKEN_WRITER`). In `@miadi/inquiry-weave` source since 123446ec; a published release carrying them is owed. On miadi-voice, `voice_resolve_episode` first ("no episode is adequate" is a valid answer); `voice_create_episode` mints and registers but does not commit or push (closing.ts:14), so its caller finishes S5.
 3. CLI.
 
 ```bash
@@ -79,7 +80,7 @@ Empty output means free. `mkepisode` checks the local tree only (jgwill/Miadi#58
 
 ## S5. Commit and push (stages 2 and 3)
 
-Owner, stated once: the tool or API that minted the vessel commits and pushes it, pulling with a safe rebase first (William's word, 2026-09-04). `voice-mcp/src/closing.ts:11`, which says the stages belong to the human, is stale. Until the invoked tool does it (`mkepisode` and `voice_create_episode` both stop at the receipt today), the agent that invoked it performs both in the same turn:
+Owner, stated once: the tool or API that minted the vessel commits and pushes it, integrating origin first (William's word, 2026-09-04). The episode API does this itself (`land: true` by default): fetch, fast-forward or `merge --no-edit origin/main`, path-limited add of the vessel files, commit with the source issue as `Ref:`, push; a rejected push is integrated once and retried once, then reported as stage 3 `owed` with `POST …/episodes/<ref>/land` in `owedActions`, never forced. Rebase is not what runs, because the chronicle's `.githooks/reference-transaction` refuses any non-fast-forward move of `main`; a merge commit is the price of a shared tree that forbids rewinds. `POST …/episodes/<ref>/land` (MCP `chronicle_episode_land`) is the recovery verb for a vessel that exists but was never committed or pushed. `mkepisode` and `voice_create_episode` both stop at the receipt, so when you mint by CLI or by voice you perform both stages in the same turn:
 
 ```bash
 git -C "$GIT_ROOT" add "$LEDGER/$EP/episode.yaml" "$LEDGER/$EP/.mw-registration.json"   # named files only
@@ -92,15 +93,15 @@ On a rebase conflict: `git rebase --abort`, report the exact stage, stop. The le
 
 ## S6. Status and closure report
 
-1. API. `GET /api/chronicle/episodes/<ref>/status`, the five stages with each probe's observed output. UNVERIFIED.
-2. MCP. `voice_episode_closing_status` (miadi-voice): read-only, runs the five probes, reports `state`, `probe`, `observed`, plus `drift` and `owedActions` (closing.ts:135-283).
+1. API. `GET $MIADI_API_URL/api/chronicle/episodes/<ref>` (public): `{episode, closing[5], drift[], owedActions[], manifest}`, each stage with its probe and what the probe observed. `<ref>` is `347`, `ep347`, or the directory name, never a path.
+2. MCP. `chronicle_episode_status` on `inquiry-weave-mcp`; `voice_episode_closing_status` (miadi-voice): read-only, runs the five probes, reports `state`, `probe`, `observed`, plus `drift` and `owedActions` (closing.ts:135-283).
 3. CLI. `inquiry-weave resolve "miadi-chronicle:<N>" --verify --json` for the wheel leg and every door; `inquiry-weave status --episode ep<N> --json` for the weave leg.
 4. Proof of record: S1.
 
 ## S7. Inquiry: relate and sync
 
-1. API. Relate and sync an artefact to an episode. UNVERIFIED.
-2. MCP. None today; `inquiry-weave-mcp` 0.8.3 carries thread reads, `inquiry_weave_kin`, and the attention tools only.
+1. API. `POST $MIADI_API_URL/api/chronicle/episodes/<ref>/inquiry` with `{artefact: <bare directory name on the shelf>, issue?, land?, dryRun?}`: relate, sync, weave registration, then land the episode side. The artefact side (`.weave.yaml`, `AGENTS.md`) is written in the inquiry repository and not committed there; the response says so. A path or `..` in `artefact` is refused at the door.
+2. MCP. `chronicle_episode_inquiry` on `inquiry-weave-mcp` (source since 123446ec; the published 0.8.3 carries thread reads, `inquiry_weave_kin`, and the attention tools only).
 3. CLI.
 
 ```bash
@@ -115,8 +116,8 @@ inquiry-weave status  --episode ep<N> --json
 
 ## S8. Lineage
 
-1. API. UNVERIFIED.
-2. MCP. None today.
+1. API. `POST $MIADI_API_URL/api/chronicle/episodes/<ref>/lineage` with `{field: continues_from|relates_to, to: <ref>, relation, reverse?, land?, dryRun?}`: the manifest edge, the wheel edge, then land.
+2. MCP. `chronicle_episode_lineage` on `inquiry-weave-mcp` (source since 123446ec).
 3. CLI. `inquiry-weave lineage --from ep<N> --to ep<M> --relation "<one sentence true from both doors>" --kind continues-from|relates-to [--reverse] [--dry-run]`.
 
 Both manifests must exist (lineage.ts:117-121; the error names `--adopt`). Idempotent by target (lineage.ts:160). The edge is projected onto the wheel by default; `--no-wheel` writes the manifest only (cli.ts:660-663). `--json` carries `wheel.state`; the room's Lineage card rendering the link is the proof.
@@ -140,7 +141,7 @@ Exit 0 written and verified, 3 written but the wheel leg is pending, 1 refused (
 
 ## S10. Repair: receipts, drift, manifests
 
-- Receipt. `state: pending` is a debt; `state: registered` with no node on the wheel is a lie; a `url` naming the retired `tail3b11eb` host is poison (`grep -l tail3b11eb "$MIADI_CHRONICLE_ROOT"/*/.mw-registration.json`). Never commit either unredeemed and never edit the word by hand. `<skill-dir>/redeem-receipt.sh "$EP" [--dry-run]` retries `registerEpisodeNode`, which preflights `GET` and never overwrites an existing card (episode-node.ts:10-14), then rewrites the receipt truthfully. Exit 0 registered or already-registered, 1 still pending, 2 setup refusal. `--dry-run` performs the GET only. A receipt that stays `pending` while the wheel is down is correct and dated; commit it and leave the retry owed.
+- Receipt. `state: pending` is a debt; `state: registered` with no node on the wheel is a lie; a `url` naming the retired `tail3b11eb` host is poison (`grep -l tail3b11eb "$MIADI_CHRONICLE_ROOT"/*/.mw-registration.json`). Never commit either unredeemed and never edit the word by hand. `<skill-dir>/redeem-receipt.sh "$EP" [--dry-run]` retries `registerEpisodeNode`, which preflights `GET` and never overwrites an existing card (episode-node.ts:10-14), then rewrites the receipt truthfully. Exit 0 registered or already-registered, 1 still pending, 2 setup refusal. `--dry-run` performs the GET only. A receipt that stays `pending` while the wheel is down is correct and dated; commit it and leave the retry owed. Over HTTP the same repair is `POST $MIADI_API_URL/api/chronicle/episodes/<ref>/register` (MCP `chronicle_episode_register`): re-register, rewrite the receipt truthfully, land it.
 - Reconcile. `python3 <skill-dir>/reconcile.py [--all] [--json]`: read-only, disk x git x wheel x receipt; exit 0 clean, 1 drift, 2 could not look. Shapes: `GHOST-NODE`, `UNCOMMITTED-VESSEL`, `UNPUSHED-VESSEL`, `DIRTY-VESSEL`, `LYING-RECEIPT`, `PENDING-RECEIPT`, `POISONED-RECEIPT`, `UNREGISTERED-VESSEL`, `MANIFESTLESS-VESSEL`. Repair one vessel at a time, on the human's word; a sweep is a second event with nobody to answer for it.
 - Manifest-less. `resolveEpisode` matches by directory name alone (episode.ts:87-124); `lineage` and the room read the manifest; the wheel derives its card from the name too, so such a vessel registers and reads healthy. `mkepisode --adopt -n <N> -t -g -r --register "$MIADI_CHRONICLE_MW_URL"` writes only `episode.yaml`, keeps the directory's own date, number, and slug, refuses when a manifest exists or the number is ambiguous. Adopt before you redeem. A repair, never a birth.
 - Companion files. `redeem-receipt.sh`, `redeem-receipt.mjs`, `reconcile.py` ship beside this SKILL.md (`${CLAUDE_PLUGIN_ROOT}/skills/chronicle-episode/` when installed as a plugin). Both read `MIADI_CHRONICLE_MW_URL` then `MW_API_URL`; both refuse the poisoned host.
@@ -166,10 +167,10 @@ The room reads filenames (episodeRoom.ts `classify()` 142-152, `segmentKey()` 16
 1. Narrative: `script.md`, chapters, `status.md`, `HELD.md`, `source-ledger.md`. No verb writes prose.
 2. Capture custody: copying a take under `captures/<stem>/`. Raw `.m4a .mp4 .mov .wav .aac .flac` are ignored at `$GIT_ROOT` (`git -C "$GIT_ROOT" check-ignore -v <file>` proves it); `keep/` is the deliberate exception. Never force-add media.
 3. The bytes a wheel card points at (`metadata.relative_path`): the wheel holds the card, not the vessel.
-4. `git` for stages 2 and 3, until the API performs them.
+4. `git` for stages 2 and 3 when the vessel was minted by CLI or by voice; the episode API lands them itself.
 5. Redeem and reconcile: the scripts read the disk and the index.
 
-Everything else (mint, status, relate, lineage, attention, register) has an API or MCP door today or in the design under reconciliation.
+Everything else (mint, number check, status, relate and sync, lineage, register and redeem, attention) has an HTTP door on the Miadi app and a tool on `inquiry-weave-mcp` since 2026-09-05.
 
 ## S13. Kin: what this skill does not do
 
@@ -207,6 +208,7 @@ Everything else (mint, status, relate, lineage, attention, register) has an API 
 - 2026-09-04 ep347: `relate --artefact .` wove the whole shelf and `sync` copied 31 865 files (1.5 GB) into the vessel; name the artefact (S7).
 - 2026-09-04: `MIADI_CHRONICLE_MW_URL` is the variable of record; the `MW_API_URL_OVERRIDE` chain is retired (William).
 - 2026-09-04: stages 2 and 3 belong to the minting tool or API, safe rebase first (William); `closing.ts:11` is stale.
-- 2026-09-04: `closing.ts:278` names `chronicle-episode-closing/redeem-receipt.sh`, a directory that no longer exists; an owed action that points nowhere is owed twice.
+- 2026-09-04: `closing.ts:278` names `chronicle-episode-closing/redeem-receipt.sh`, a directory that no longer exists; an owed action that points nowhere is owed twice (amended in jgwill/Miadi 9e59e946).
+- 2026-09-05: the episode door landed (jgwill/Miadi 123446ec, 24 library tests and 7 route tests); rebase is impossible on the chronicle because its reference-transaction hook refuses non-fast-forward moves of main, so the door merges and says so.
 
 🌸: One skill that names no host is the difference between an agent that can close an episode wherever it is running and one that has to be told, again, which machine it is on.
