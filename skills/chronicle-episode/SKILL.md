@@ -59,7 +59,7 @@ Upgrade: `npm i -g passages@latest @miadi/inquiry-weave@latest`. Source run when
 ## S4. Mint
 
 1. API. `POST $MIADI_API_URL/api/chronicle/episodes` with `{title, goal, references[], number?, date?, lineage?[], inquiry?, register?, land?, dryRun?}`. It writes the mkepisode-shaped manifest, registers the card, writes the receipt, lands (S5), and returns `{ok, episode, number, manifest, files, registration, landing, closing[5], drift, owedActions}`; `ok` is computed from `closing`, never asserted. `GET …/episodes?number=N` says whether N is free on disk, on `origin/main`, and on the wheel; `?allocate=1` previews max+1 and never fills a hole (an explicit `number` is how a lower free number is taken). A taken number is `409 number_taken` with where it was seen. A wheel card with no directory is a reservation and counts as taken.
-2. MCP. `chronicle_episode_mint` and `chronicle_episode_number` on `inquiry-weave-mcp` (same fields; the tool calls the library on disk when `MIADI_CHRONICLE_ROOT` is set, otherwise forwards to the API through `MIADI_INQUIRY_API_BASE` and `MIADI_API_TOKEN_WRITER`). In `@miadi/inquiry-weave` source since 123446ec; a published release carrying them is owed. On miadi-voice, `voice_resolve_episode` first ("no episode is adequate" is a valid answer); `voice_create_episode` mints and registers but does not commit or push (closing.ts:14), so its caller finishes S5.
+2. MCP. `chronicle_episode_mint` and `chronicle_episode_number` on `inquiry-weave-mcp` (same fields; the tool calls the library on disk when `MIADI_CHRONICLE_ROOT` is set, otherwise forwards to the API through `MIADI_INQUIRY_API_BASE` and `MIADI_API_TOKEN_WRITER`). Published in `@miadi/inquiry-weave` 0.9.0 (2026-09-05). On miadi-voice, `voice_resolve_episode` first ("no episode is adequate" is a valid answer); `voice_create_episode` mints and registers but does not commit or push (closing.ts:14), so its caller finishes S5.
 3. CLI.
 
 ```bash
@@ -101,7 +101,7 @@ On a rebase conflict: `git rebase --abort`, report the exact stage, stop. The le
 ## S7. Inquiry: relate and sync
 
 1. API. `POST $MIADI_API_URL/api/chronicle/episodes/<ref>/inquiry` with `{artefact: <bare directory name on the shelf>, issue?, land?, dryRun?}`: relate, sync, weave registration, then land the episode side. The artefact side (`.weave.yaml`, `AGENTS.md`) is written in the inquiry repository and not committed there; the response says so. A path or `..` in `artefact` is refused at the door.
-2. MCP. `chronicle_episode_inquiry` on `inquiry-weave-mcp` (source since 123446ec; the published 0.8.3 carries thread reads, `inquiry_weave_kin`, and the attention tools only).
+2. MCP. `chronicle_episode_inquiry` on `inquiry-weave-mcp` (published 0.9.0; 0.8.3 carried thread reads, `inquiry_weave_kin`, and the attention tools only).
 3. CLI.
 
 ```bash
@@ -117,7 +117,7 @@ inquiry-weave status  --episode ep<N> --json
 ## S8. Lineage
 
 1. API. `POST $MIADI_API_URL/api/chronicle/episodes/<ref>/lineage` with `{field: continues_from|relates_to, to: <ref>, relation, reverse?, land?, dryRun?}`: the manifest edge, the wheel edge, then land.
-2. MCP. `chronicle_episode_lineage` on `inquiry-weave-mcp` (source since 123446ec).
+2. MCP. `chronicle_episode_lineage` on `inquiry-weave-mcp` (published 0.9.0).
 3. CLI. `inquiry-weave lineage --from ep<N> --to ep<M> --relation "<one sentence true from both doors>" --kind continues-from|relates-to [--reverse] [--dry-run]`.
 
 Both manifests must exist (lineage.ts:117-121; the error names `--adopt`). Idempotent by target (lineage.ts:160). The edge is projected onto the wheel by default; `--no-wheel` writes the manifest only (cli.ts:660-663). `--json` carries `wheel.state`; the room's Lineage card rendering the link is the proof.
@@ -209,6 +209,6 @@ Everything else (mint, number check, status, relate and sync, lineage, register 
 - 2026-09-04: `MIADI_CHRONICLE_MW_URL` is the variable of record; the `MW_API_URL_OVERRIDE` chain is retired (William).
 - 2026-09-04: stages 2 and 3 belong to the minting tool or API, safe rebase first (William); `closing.ts:11` is stale.
 - 2026-09-04: `closing.ts:278` names `chronicle-episode-closing/redeem-receipt.sh`, a directory that no longer exists; an owed action that points nowhere is owed twice (amended in jgwill/Miadi 9e59e946).
-- 2026-09-05: the episode door landed (jgwill/Miadi 123446ec, 24 library tests and 7 route tests); rebase is impossible on the chronicle because its reference-transaction hook refuses non-fast-forward moves of main, so the door merges and says so.
+- 2026-09-05: the episode door landed (jgwill/Miadi 123446ec, 24 library tests and 7 route tests); rebase is impossible on the chronicle because its reference-transaction hook refuses non-fast-forward moves of main, so the door merges and says so. `@miadi/inquiry-weave` 0.9.0, `@miadi/voice-mcp` 0.4.1, and `passages` 0.3.2 published the same day; `ep348` was the door's first real mint.
 
 🌸: One skill that names no host is the difference between an agent that can close an episode wherever it is running and one that has to be told, again, which machine it is on.
