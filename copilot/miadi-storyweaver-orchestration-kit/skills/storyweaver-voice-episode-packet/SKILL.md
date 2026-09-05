@@ -30,7 +30,7 @@ Use this skill when a Chronicle episode should become a voice-ready archive pack
 2. Write `script.md` with episode structure, speaker cues if needed, source-aware scene turns, and production notes.
 3. Write `narration.txt` as clean spoken text with no markdown control syntax unless requested.
 4. Write `revision-notes.md` with claims, uncertainties, pronunciation notes, and editorial choices.
-5. Write `episode.yaml` with title, slug, date, source packet, status, tags, duration estimate, and archive placement.
+5. Write the voice packet manifest `episodes/<session-id>/voice/episode.yaml` with title, slug, date, source packet, status, tags, duration estimate, and archive placement. This is the VOICE PACKET manifest and is not the Miadi Chronicle's `episode.yaml` — a Chronicle vessel's manifest is written by `mkepisode`, never by hand.
 6. Write `index-update.md` describing how to update a voice archive index.
 7. Add split/recovery clip guidance when the narration is long.
 8. Update `state.md`.

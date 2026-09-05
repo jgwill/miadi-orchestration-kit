@@ -145,3 +145,6 @@ vite.config.ts.timestamp-*
 
 # Miadi Storyweaver workspaces
 .storyweaver/
+
+# python bytecode from skills/chronicle-episode/reconcile.py
+__pycache__/

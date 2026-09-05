@@ -1,0 +1,17 @@
+{
+  "description": "Episode vessels are born by mkepisode, never mkdir. A PreToolUse hook on Bash refuses a command that would create a new directory directly under $MIADI_CHRONICLE_ROOT and returns the mkepisode invocation — with the --adopt repair for a directory that already holds work. Creating directories inside an episode that already exists is not blocked, and a host with no MIADI_CHRONICLE_ROOT is not guarded at all. Hooks load at session start and do not hot-swap: restart Claude Code after changing this file.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-mkdir-in-chronicle.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

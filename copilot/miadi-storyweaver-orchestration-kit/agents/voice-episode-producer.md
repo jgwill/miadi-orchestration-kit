@@ -24,7 +24,7 @@ Shape a Chronicle episode into a portable voice packet inspired by `~/.hermes/vo
 1. Create `script.md` for human-readable episode flow.
 2. Create `narration.txt` as clean spoken text.
 3. Create `revision-notes.md` for production choices and uncertainties.
-4. Create `episode.yaml` with catalog metadata.
+4. Create the voice packet manifest `episodes/<session-id>/voice/episode.yaml` with catalog metadata. This is the VOICE PACKET manifest and is not the Miadi Chronicle's `episode.yaml` — a Chronicle vessel's manifest is written by `mkepisode`, never by hand.
 5. Add index update guidance and split/recovery notes when the episode is long.
 
 ## Inputs
