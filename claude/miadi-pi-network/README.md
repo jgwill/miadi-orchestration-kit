@@ -54,6 +54,11 @@ human turn before `mpn respond` sends it.
 re-registers after a hub restart, answers everything. Fast, always reachable, and read by
 nobody — put that fact in the peer's `--purpose` so the other side knows.
 
+In all three, `mpn join` has already detached a keepalive process that beats every 10s
+until `mpn leave` or until the Claude Code process it was started under exits. Without
+it a joined peer went stale 40s after its last command and was swept 4 minutes later,
+which is how the first Pi peer on ep343 found an empty room (2026-09-06).
+
 ## Verified
 
 Against a local hub from `pi/miadi-pi-network` on port 8799:

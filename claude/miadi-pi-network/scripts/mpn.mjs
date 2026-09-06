@@ -7,9 +7,9 @@
 
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 const DEFAULT_URL = "http://127.0.0.1:8787";
 const DEFAULT_PROJECT = "miadi";
@@ -17,6 +17,9 @@ const DEFAULT_HEARTBEAT_MS = 10_000;
 const MAX_PROMPT_BYTES = 64 * 1024;
 const MAX_HOPS = 5;
 const SETTLE_MS = 900;
+// A detached keeper beats for a joined peer; without one the hub marks the
+// peer stale after 4 missed beats and forgets it after 24.
+const KEEPALIVE_MAX_MIN = Number(process.env.MIADI_PI_NETWORK_KEEPALIVE_MAX_MIN) || 480;
 
 const TOKEN = process.env.MIADI_PI_NETWORK_TOKEN ?? "";
 const BASE_URL = normalizeBaseUrl(process.env.MIADI_PI_NETWORK_URL ?? DEFAULT_URL);
@@ -206,6 +209,9 @@ async function cmdStatus() {
     return;
   }
   out(`peer      ${state.name} @ ${state.project} (session ${state.session_id})`);
+  out(`keepalive ${state.keepalive_pid
+    ? `pid ${state.keepalive_pid} ${pidAlive(state.keepalive_pid) ? "alive" : "dead — run: mpn join"}`
+    : "none — run: mpn join"}`);
   if (!TOKEN) return;
   try {
     const { agents } = await api("GET", `/v1/agents?project=${encodeURIComponent(state.project)}`);
@@ -215,6 +221,117 @@ async function cmdStatus() {
     out(`peers     ${others.length}${others.length ? `: ${others.map((a) => a.name).join(", ")}` : ""}`);
   } catch (error) {
     out(`presence  unknown (${redact(error)})`);
+  }
+}
+
+// ---------------------------------------------------------------- keepalive
+
+function keepaliveEnabled(options) {
+  if (options.noKeepalive) return false;
+  return process.env.MIADI_PI_NETWORK_KEEPALIVE !== "false";
+}
+
+function pidAlive(pid) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+function stopKeepalive(state) {
+  if (!state?.keepalive_pid || !pidAlive(state.keepalive_pid)) return false;
+  try {
+    process.kill(state.keepalive_pid, "SIGTERM");
+  } catch {
+    // already gone
+  }
+  return true;
+}
+
+// The Claude Code process this shell runs under, found by walking /proc. The
+// keeper deregisters and exits once it is gone, so a dead session is never
+// listed as an online peer. Best effort: without /proc nothing is watched.
+function findClaudePid() {
+  let pid = process.ppid;
+  for (let depth = 0; depth < 8 && pid > 1; depth += 1) {
+    let cmdline;
+    let status;
+    try {
+      cmdline = readFileSync(`/proc/${pid}/cmdline`, "utf8");
+      status = readFileSync(`/proc/${pid}/status`, "utf8");
+    } catch {
+      return null;
+    }
+    if (basename(cmdline.split("\0")[0] ?? "") === "claude") return pid;
+    const parent = Number(status.match(/^PPid:\s+(\d+)/m)?.[1]);
+    if (!parent) return null;
+    pid = parent;
+  }
+  return null;
+}
+
+function startKeepalive(state, options) {
+  const watchPid = options.watchPid ? Number(options.watchPid) : findClaudePid();
+  const logFile = join(STATE_DIR, `${slug(state.name)}.keepalive.log`);
+  const log = openSync(logFile, "a", 0o600);
+  const args = [process.argv[1], "keepalive", "--name", state.name];
+  if (watchPid) args.push("--watch-pid", String(watchPid));
+  const child = spawn(process.execPath, args, {
+    detached: true,
+    stdio: ["ignore", log, log],
+    env: process.env,
+  });
+  child.unref();
+  closeSync(log);
+  state.keepalive_pid = child.pid;
+  state.keepalive_watch_pid = watchPid ?? null;
+  writeState(state);
+  return { pid: child.pid, watchPid, logFile };
+}
+
+// Detached by `join`. Beats until `leave` stops it, the watched Claude process
+// is gone, the identity is replaced, or the lifetime cap is reached. Every exit
+// but `leave` deregisters first, so the hub never lists a peer nobody reads.
+async function cmdKeepalive(options) {
+  const state = identity(options);
+  const watchPid = options.watchPid ? Number(options.watchPid) : null;
+  const deadline = Date.now() + KEEPALIVE_MAX_MIN * 60_000;
+  const intervalMs = state.heartbeat_interval_ms ?? DEFAULT_HEARTBEAT_MS;
+  const log = (line) => out(`${new Date().toISOString()} ${line}`);
+  let stopping = false;
+  const stop = (signal) => {
+    stopping = true;
+    log(`stopping (${signal})`);
+    process.exit(0);
+  };
+  process.on("SIGINT", () => stop("SIGINT"));
+  process.on("SIGTERM", () => stop("SIGTERM"));
+  log(`keepalive for ${state.name}@${state.project} (session ${state.session_id}, pid ${process.pid}`
+    + `${watchPid ? `, watching pid ${watchPid}` : ""})`);
+  while (!stopping) {
+    const current = readState(state.name);
+    if (!current || current.session_id !== state.session_id) {
+      log("identity left or replaced; exiting");
+      return;
+    }
+    let reason = null;
+    if (watchPid && !pidAlive(watchPid)) reason = `watched pid ${watchPid} is gone`;
+    else if (Date.now() > deadline) reason = `lifetime cap of ${KEEPALIVE_MAX_MIN} min reached`;
+    if (reason) {
+      log(`${reason}; deregistering`);
+      await api("DELETE", `/v1/agents/${encodeURIComponent(state.session_id)}`)
+        .catch((error) => log(`deregister failed: ${redact(error)}`));
+      return;
+    }
+    try {
+      if (!(await heartbeat(state))) await cmdJoinSilently(state);
+    } catch (error) {
+      log(`heartbeat failed: ${redact(error)}`);
+    }
+    await sleep(intervalMs);
   }
 }
 
@@ -247,18 +364,32 @@ async function cmdJoin(options) {
     heartbeat_interval_ms: result.heartbeat_interval_ms ?? DEFAULT_HEARTBEAT_MS,
     joined_at: new Date().toISOString(),
   };
+  stopKeepalive(existing);
   const file = writeState(state);
   out(`joined as ${state.name} @ ${state.project} (session ${state.session_id})`);
   out(`state     ${file}`);
   if (result.agent.name !== name) {
     out(`note      hub renamed "${name}" to "${result.agent.name}" — that name was taken`);
   }
+  if (keepaliveEnabled(options)) {
+    const keeper = startKeepalive(state, options);
+    out(`keepalive pid ${keeper.pid}${keeper.watchPid ? ` (stops when claude pid ${keeper.watchPid} exits)` : ""}`
+      + ` — log ${keeper.logFile}`);
+  } else {
+    out("keepalive off — presence lapses about 40s after the last mpn command");
+  }
 }
 
 async function cmdLeave(options) {
   const state = identity(options);
+  const stopped = stopKeepalive(state);
   await api("DELETE", `/v1/agents/${encodeURIComponent(state.session_id)}`);
-  out(`left the network (${state.name})`);
+  try {
+    unlinkSync(statePath(state.name));
+  } catch {
+    // nothing to remove
+  }
+  out(`left the network (${state.name})${stopped ? `, keepalive pid ${state.keepalive_pid} stopped` : ""}`);
 }
 
 async function heartbeat(state) {
@@ -540,17 +671,21 @@ function parseArgs(argv) {
 const USAGE = `mpn — Miadi Pi Network client for Claude Code
 
   mpn status                             hub reachability, this peer, peer count
-  mpn join --name NAME --purpose TEXT    register this session as a peer
+  mpn join --name NAME --purpose TEXT    register this session as a peer and start
+                                         a detached keepalive (--no-keepalive to skip)
   mpn peers                              list other peers and their purposes
   mpn send PEER "prompt" [--await 180]   send a prompt; optionally block for the reply
   mpn await MSG_ID [--timeout 180]       poll a sent message until it resolves
   mpn inbox [--wait 300]                 show inbound prompts; --wait blocks until one lands
   mpn respond MSG_ID "text" | --stdin    answer an inbound prompt
   mpn serve [--responder "claude -p"]    unattended peer: answer every inbound prompt
-  mpn leave                              unregister this peer
+  mpn leave                              unregister this peer and stop its keepalive
+  mpn keepalive --name NAME              what join detaches: beat until leave, until the
+                                         watched claude pid exits, or the lifetime cap
 
 Environment: MIADI_PI_NETWORK_URL, MIADI_PI_NETWORK_TOKEN (required),
-MIADI_PI_NETWORK_NAME, MIADI_PI_NETWORK_PURPOSE, MIADI_PI_NETWORK_PROJECT.
+MIADI_PI_NETWORK_NAME, MIADI_PI_NETWORK_PURPOSE, MIADI_PI_NETWORK_PROJECT,
+MIADI_PI_NETWORK_KEEPALIVE=false (no keeper), MIADI_PI_NETWORK_KEEPALIVE_MAX_MIN (480).
 The token is read from the environment only and never printed.`;
 
 const [verb, ...rest] = process.argv.slice(2);
@@ -566,6 +701,7 @@ const verbs = {
   inbox: () => cmdInbox(options),
   respond: () => cmdRespond(options, positional),
   serve: () => cmdServe(options),
+  keepalive: () => cmdKeepalive(options),
 };
 
 if (!verb || verb === "help" || verb === "--help") {
