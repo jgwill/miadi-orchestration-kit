@@ -22,6 +22,17 @@ claude --plugin-dir /workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi
 
 Or add the directory through `/plugin` in an existing session.
 
+For a named peer in an existing room, prefer the same launcher used by Pi:
+
+```bash
+miadi-agent check miette
+miadi-agent claude miette
+```
+
+It loads the shared room separately from `.miadi/agents/miette.env`, joins the
+peer with a keepalive, and then starts Claude Code with this plugin. See
+[`pi/miadi-pi-network/README.md`](../../pi/miadi-pi-network/README.md#launch-a-named-agent).
+
 ## Configure
 
 ```bash

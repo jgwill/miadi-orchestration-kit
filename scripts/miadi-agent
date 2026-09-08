@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Launch Pi or Claude Code as a named peer on an existing Miadi Pi Network room.
+# Shared room credentials/config and per-agent identity are deliberately separate.
+set -euo pipefail
+
+readonly KIT_ROOT="${MIADI_PI_NETWORK_KIT_ROOT:-/workspace/repos/jgwill/miadi-orchestration-kit}"
+readonly PI_EXTENSION="${KIT_ROOT}/pi/miadi-pi-network/extensions/miadi-pi-network.ts"
+readonly CLAUDE_PLUGIN="${KIT_ROOT}/claude/miadi-pi-network"
+readonly MPN="${CLAUDE_PLUGIN}/scripts/mpn.mjs"
+readonly NETWORK_ENV="${MIADI_PI_NETWORK_ENV:-/srv/miadi/episodes/.env.ep343}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  miadi-agent check <agent>
+  miadi-agent pi <agent> [pi arguments...]
+  miadi-agent claude <agent> [claude arguments...]
+
+Identity is read from `.miadi/agents/<agent>.env`, searched from the current
+working directory upward, then from `$HOME/.miadi/agents/<agent>.env`.
+The profile must define MIADI_PI_NETWORK_NAME and MIADI_PI_NETWORK_PURPOSE.
+Shared URL, token, and project come from MIADI_PI_NETWORK_ENV (default:
+/srv/miadi/episodes/.env.ep343) and cannot be overridden by a profile.
+EOF
+}
+
+die() {
+  printf 'miadi-agent: %s\n' "$*" >&2
+  exit 1
+}
+
+find_profile() {
+  local agent="$1" dir
+  if [[ -n "${MIADI_AGENT_PROFILE_ROOT:-}" ]]; then
+    printf '%s/%s.env\n' "${MIADI_AGENT_PROFILE_ROOT%/}" "$agent"
+    return
+  fi
+
+  dir="$PWD"
+  while :; do
+    if [[ -f "$dir/.miadi/agents/$agent.env" ]]; then
+      printf '%s/.miadi/agents/%s.env\n' "$dir" "$agent"
+      return
+    fi
+    [[ "$dir" == / ]] && break
+    dir="${dir%/*}"
+    [[ -n "$dir" ]] || dir=/
+  done
+
+  printf '%s/.miadi/agents/%s.env\n' "$HOME" "$agent"
+}
+
+load_profile() {
+  local agent="$1" profile room_url room_project room_token
+  [[ -f "$NETWORK_ENV" ]] || die "shared network environment not found: $NETWORK_ENV"
+
+  # Export every assignment while loading. Plain `source` was the original
+  # failure: MIADI_PI_NETWORK_PROJECT existed as a shell variable but Pi never
+  # inherited it, so peers silently landed in the default `miadi` project.
+  set -a
+  # shellcheck disable=SC1090
+  . "$NETWORK_ENV"
+  set +a
+
+  [[ -n "${MIADI_PI_NETWORK_URL:-}" ]] || die "MIADI_PI_NETWORK_URL is missing from $NETWORK_ENV"
+  [[ -n "${MIADI_PI_NETWORK_PROJECT:-}" ]] || die "MIADI_PI_NETWORK_PROJECT is missing from $NETWORK_ENV"
+  [[ -n "${MIADI_PI_NETWORK_TOKEN:-}" ]] || die "MIADI_PI_NETWORK_TOKEN is missing from $NETWORK_ENV"
+  room_url="$MIADI_PI_NETWORK_URL"
+  room_project="$MIADI_PI_NETWORK_PROJECT"
+  room_token="$MIADI_PI_NETWORK_TOKEN"
+
+  profile="$(find_profile "$agent")"
+  [[ -f "$profile" ]] || die "agent profile not found: $profile"
+
+  unset MIADI_PI_NETWORK_NAME MIADI_PI_NETWORK_PURPOSE
+  set -a
+  # shellcheck disable=SC1090
+  . "$profile"
+  set +a
+
+  # A profile names a peer; it cannot silently move that peer to another room.
+  export MIADI_PI_NETWORK_URL="$room_url"
+  export MIADI_PI_NETWORK_PROJECT="$room_project"
+  export MIADI_PI_NETWORK_TOKEN="$room_token"
+
+  [[ -n "${MIADI_PI_NETWORK_NAME:-}" ]] || die "MIADI_PI_NETWORK_NAME is missing from $profile"
+  [[ -n "${MIADI_PI_NETWORK_PURPOSE:-}" ]] || die "MIADI_PI_NETWORK_PURPOSE is missing from $profile"
+  [[ "$MIADI_PI_NETWORK_NAME" == "$agent" ]] \
+    || die "profile $profile names '$MIADI_PI_NETWORK_NAME', not requested agent '$agent'"
+  [[ "$MIADI_PI_NETWORK_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
+    || die "invalid peer name: $MIADI_PI_NETWORK_NAME"
+  [[ "$MIADI_PI_NETWORK_PROJECT" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
+    || die "invalid network project: $MIADI_PI_NETWORK_PROJECT"
+
+  export MIADI_AGENT_PROFILE="$profile"
+}
+
+check_network() {
+  [[ -f "$MPN" ]] || die "network client not found: $MPN"
+  printf 'profile  %s\n' "$MIADI_AGENT_PROFILE"
+  printf 'identity %s@%s\n' "$MIADI_PI_NETWORK_NAME" "$MIADI_PI_NETWORK_PROJECT"
+  printf 'purpose  %s\n' "$MIADI_PI_NETWORK_PURPOSE"
+  node "$MPN" status --name "$MIADI_PI_NETWORK_NAME"
+  node "$MPN" peers --name "$MIADI_PI_NETWORK_NAME"
+}
+
+[[ $# -ge 2 ]] || { usage >&2; exit 2; }
+runtime="$1"
+agent="$2"
+shift 2
+
+case "$runtime" in
+  check|pi|claude) ;;
+  -h|--help|help) usage; exit 0 ;;
+  *) die "runtime must be check, pi, or claude" ;;
+esac
+
+load_profile "$agent"
+
+case "$runtime" in
+  check)
+    [[ $# -eq 0 ]] || die "check takes no additional arguments"
+    check_network
+    ;;
+  pi)
+    [[ -f "$PI_EXTENSION" ]] || die "Pi extension not found: $PI_EXTENSION"
+    check_network
+    printf '\nstarting Pi as %s@%s\n' "$MIADI_PI_NETWORK_NAME" "$MIADI_PI_NETWORK_PROJECT"
+    exec pi -e "$PI_EXTENSION" \
+      --miadi-network-url "$MIADI_PI_NETWORK_URL" \
+      --miadi-network-project "$MIADI_PI_NETWORK_PROJECT" \
+      --miadi-network-name "$MIADI_PI_NETWORK_NAME" \
+      --miadi-network-purpose "$MIADI_PI_NETWORK_PURPOSE" \
+      "$@"
+    ;;
+  claude)
+    [[ -f "$CLAUDE_PLUGIN/.claude-plugin/plugin.json" ]] \
+      || die "Claude Code plugin not found: $CLAUDE_PLUGIN"
+    check_network
+    node "$MPN" join --name "$MIADI_PI_NETWORK_NAME" --purpose "$MIADI_PI_NETWORK_PURPOSE"
+    printf '\nstarting Claude Code as %s@%s\n' "$MIADI_PI_NETWORK_NAME" "$MIADI_PI_NETWORK_PROJECT"
+    exec /home/mia/.local/bin/claude --plugin-dir "$CLAUDE_PLUGIN" "$@"
+    ;;
+esac

@@ -24,6 +24,30 @@ pi install "$PWD"
 
 For development, replace `pi install` with `pi -e ./extensions/miadi-pi-network.ts`.
 
+## Launch a named agent
+
+Use the shared launcher when a room already exists:
+
+```bash
+miadi-agent check tushell
+miadi-agent pi tushell
+```
+
+The launcher reads shared URL, token, and project values from
+`$MIADI_PI_NETWORK_ENV` (default `/srv/miadi/episodes/.env.ep343`) and reads the
+peer identity separately from `.miadi/agents/tushell.env`, searched upward from
+the working directory and then under `$HOME`. A profile defines only
+`MIADI_PI_NETWORK_NAME` and `MIADI_PI_NETWORK_PURPOSE`; it cannot move the peer
+to another room. Install the launcher on PATH with:
+
+```bash
+ln -sfn "$PWD/../../scripts/miadi-agent" "$HOME/.local/bin/miadi-agent"
+```
+
+This avoids relying on interactive shell startup files: every room value is
+exported before Pi starts, and the extension receives explicit identity and
+project flags.
+
 ## Start a local hub
 
 Keep the token private and distribute it through an existing secret channel—not chat, Git, logs, or command-line arguments.
