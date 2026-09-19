@@ -1,0 +1,7 @@
+miadi — the Miadi host platform
+
+This package installs the parts of a Miadi host. Each part is its own package
+and joins as a dependency. The first is miadi-config, the host's MIADI_*
+settings: run `miadi-config` to see them.
+
+Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb

@@ -1,0 +1,12 @@
+Package: miadi
+Version: 0.2.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: miadi-config (>= 0.2.0)
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Miadi host platform
+ Installs the parts of a Miadi host. Each part is its own package and joins
+ as a dependency here. The first is miadi-config, the host's MIADI_*
+ settings.

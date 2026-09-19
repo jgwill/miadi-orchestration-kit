@@ -1,7 +1,10 @@
 # /usr/share/miadi/env.sh — the MIADI_* environment of a Miadi host.
 #
-# Source it from bash, don't execute it. Installed by the `miadi` apt package
-# (source: jgwill/miadi-orchestration-kit, packages/miadi/deb).
+# Source it from bash, don't execute it. Installed by the `miadi-config` apt
+# package (source: jgwill/miadi-orchestration-kit, packages/miadi/deb), which
+# also loads it into login shells through /etc/profile.d/miadi.sh. It prints
+# nothing and is safe under `set -u`: `miadi-config check` reports what this
+# host is missing, and `miadi-config show` where each value comes from.
 #
 # Where a value comes from, first match wins:
 #   1. the environment already has it (a user's ~/.env, a parent shell)
@@ -30,15 +33,15 @@ fi
 # Layout. Termux has no /opt: set MIADI_OPT_DIR in its miadi.env.
 export MIADI_OPT_DIR="${MIADI_OPT_DIR:-/opt}"
 export MIADI_WORK_DIR="${MIADI_WORK_DIR:-/workspace}" # where the repositories and wikis we work on are cloned
-export MIADI_ORCHESTRATION_KIT_ROOT="${MIADI_ORCHESTRATION_KIT_ROOT:-/workspace/repos/jgwill/miadi-orchestration-kit}"
-if [ -z "$MIADI_REPOS_ROOT" ]; then
-	if [ -d "/workspace/repos" ]; then
-		MIADI_REPOS_ROOT="/workspace/repos"
-	else
+if [ -z "${MIADI_REPOS_ROOT:-}" ]; then
+	if [ ! -d "$MIADI_WORK_DIR/repos" ] && [ -d /data/data/com.termux/files ]; then
 		MIADI_REPOS_ROOT="/data/data/com.termux/files/repos"
+	else
+		MIADI_REPOS_ROOT="$MIADI_WORK_DIR/repos"
 	fi
 fi
 export MIADI_REPOS_ROOT
+export MIADI_ORCHESTRATION_KIT_ROOT="${MIADI_ORCHESTRATION_KIT_ROOT:-$MIADI_REPOS_ROOT/jgwill/miadi-orchestration-kit}"
 export MIADI_INFRA_EURY_DIR="${MIADI_INFRA_EURY_DIR:-$MIADI_OPT_DIR/eury}"
 export MIADI_INFRA_GAIA_DIR="${MIADI_INFRA_GAIA_DIR:-$MIADI_OPT_DIR/gaia}"
 export MIADI_INFRA_BINSCRIPTS_DIR="${MIADI_INFRA_BINSCRIPTS_DIR:-$MIADI_OPT_DIR/binscripts}"
@@ -50,12 +53,8 @@ export MIADI_EPISODES_HOOKS_DIR="${MIADI_EPISODES_HOOKS_DIR:-$MIADI_HOOKS_SCRIPT
 # Source checkout. Falls back to the Mighty Eagle checkout on hosts without /src/Miadi.
 export MIADI_ROOT="${MIADI_ROOT:-/src/Miadi}"
 : "${MIADI_SRC:=/src/Miadi}"
-if [ ! -e "$MIADI_SRC/package.json" ]; then
-	if [ -e "/usr/local/src/mightyeagle/package.json" ]; then
-		MIADI_SRC="/usr/local/src/mightyeagle"
-	else
-		echo "MIADI_SRC is not defined and /src/Miadi/package.json does not exist.  Please define MIADI_SRC to point to the Miadi source code directory."
-	fi
+if [ ! -e "$MIADI_SRC/package.json" ] && [ -e "/usr/local/src/mightyeagle/package.json" ]; then
+	MIADI_SRC="/usr/local/src/mightyeagle"
 fi
 export MIADI_SRC
 
@@ -71,11 +70,13 @@ if [ ! -d "${MIADI_STORIES_ROOT:-}" ]; then
 	MIADI_STORIES_ROOT="$MIADI_REPOS_ROOT/jgwill/miadi-passages"
 fi
 export MIADI_STORIES_ROOT
-if [ ! -d "$MIADI_STORIES_ROOT" ]; then echo "Warning: MIADI_STORIES_ROOT not found, please clone repo jgwill/miadi-passages into $MIADI_REPOS_ROOT or set MIADI_STORIES_ROOT in $MIADI_ETC/miadi.env"; fi
+# Read by the Miadi app, which falls back to these same paths.
+export MIADI_IDENTITY_DIR="${MIADI_IDENTITY_DIR:-$MIADI_DATA_DIR/identity}"
+export MIADI_STUDIO_DIR="${MIADI_STUDIO_DIR:-$MIADI_EPISODES_DIR/miadi-studio}"
 
 # Agent session capture: /src/_sessiondata on hosts that have /src, else
 # $HOME/_sessiondata so hooks always have a writable dir.
-if [ -z "$MIADI_SESSIONDATA_ROOT" ]; then
+if [ -z "${MIADI_SESSIONDATA_ROOT:-}" ]; then
 	if [ -d "/src" ]; then
 		MIADI_SESSIONDATA_ROOT="/src/_sessiondata"
 	else
@@ -92,7 +93,7 @@ export MIADI_SRC_WIKI_DIR="${MIADI_SRC_WIKI_DIR:-$MIADI_WIKI_DIR/Miadi}"
 
 # Inquiry (IAIP)
 export MIADI_INQUIRY_ROOT="${MIADI_INQUIRY_ROOT:-/src/IAIP/prototypes/artefacts}"
-if [ -z "$MIADI_INQUIRY_DIR" ]; then
+if [ -z "${MIADI_INQUIRY_DIR:-}" ]; then
 	MIADI_INQUIRY_DIR="/a/src/IAIP/prototypes/artefacts"
 	if [ ! -d "$MIADI_INQUIRY_DIR" ]; then
 		MIADI_INQUIRY_DIR="/workspace/repos/miadisabelle/Etuaptmumk-RSM/prototypes/artefacts"
@@ -108,7 +109,7 @@ export MIADI_API_URL="${MIADI_API_URL:-$MIADI_API_URL_DEFAULT}"
 export MIADI_CHRONICLE_MW_URL="${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}" # the chronicle medicine wheel
 export MIADI_CHRONICLE_FW_URL="${MIADI_CHRONICLE_FW_URL:-http://127.0.0.1:8031}"
 export MIADI_STATELOOM_BRIDGE_URL="${MIADI_STATELOOM_BRIDGE_URL:-${STATELOOM_BRIDGE_URL:-http://127.0.0.1:4599}}"
-if [ -n "$MIADI_URL_BASE" ]; then
+if [ -n "${MIADI_URL_BASE:-}" ]; then
 	export MIADI_PDE_WEBHOOK="${MIADI_PDE_WEBHOOK:-$MIADI_URL_BASE/api/pde/webhook}"
 	export MIADI_WEBHOOK_URL="${MIADI_WEBHOOK_URL:-$MIADI_URL_BASE/api/workflow/webhook}"
 fi
@@ -122,7 +123,7 @@ export MIADI_TOOLS_ENABLED="${MIADI_TOOLS_ENABLED:-miadi-get-memory,miadi-store-
 
 # Names only. Values come from the user's ~/.env or the service's env file.
 export MIADI_API_TOKEN_WRITER MIADI_API_TOKEN_READER
-export MIADI_API_KEY="${MIADI_API_KEY:-$MIADI_API_TOKEN_WRITER}" # older name of MIADI_API_TOKEN_WRITER
+export MIADI_API_KEY="${MIADI_API_KEY:-${MIADI_API_TOKEN_WRITER:-}}" # older name of MIADI_API_TOKEN_WRITER
 export MIADI_QMD_MCP_TOKEN MIADI_PDE_WEBHOOK_TOKEN MIADI_INQUIRY_GITHUB_TOKEN MIADI_EH_TOKEN MIADI_REVIEW_TOKEN
 export MIADI_PI_NETWORK_TOKEN MIADI_PI_NETWORK_PROJECT MIADI_TRUST_TAILNET_SERVICE
 export MIADI_KHERIX_API_SERVER_ENABLED MIADI_KHERIX_API_SERVER_HOST MIADI_KHERIX_API_SERVER_KEY

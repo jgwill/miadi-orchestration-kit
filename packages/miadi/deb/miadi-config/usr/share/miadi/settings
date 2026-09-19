@@ -1,0 +1,33 @@
+# /usr/share/miadi/settings — the settings a Miadi host knows: a name, then
+# what it does. `miadi-config settings` prints this file, and `miadi-config
+# show` lists each of these even when unset. Replaced on upgrade: this host's
+# values go in /etc/miadi/miadi.env, through `sudo miadi-config set`.
+
+# Host layout
+MIADI_ETC                        where miadi.env lives (default /etc/miadi)
+MIADI_DATA_DIR                   the host's Miadi data (default /srv/miadi)
+MIADI_WORK_DIR                   where repositories and wikis are cloned (default /workspace)
+MIADI_REPOS_ROOT                 the cloned repositories (default $MIADI_WORK_DIR/repos)
+MIADI_SRC                        the jgwill/Miadi checkout (default /src/Miadi)
+MIADI_URL_BASE                   this host's public URL; MIADI_WEBHOOK_URL and MIADI_PDE_WEBHOOK derive from it
+
+# Read by the Miadi app (jgwill/Miadi)
+MIADI_API_URL                    the Miadi API the app and clients call (default http://127.0.0.1:3335)
+MIADI_CHRONICLE_ROOT             the chronicle episodes (default $MIADI_EPISODES_DIR/miadi-chronicle)
+MIADI_CHRONICLE_MW_URL           the chronicle medicine wheel (default http://127.0.0.1:8040)
+MIADI_STORIES_ROOT               the Twine story library, a jgwill/miadi-passages checkout
+MIADI_SESSIONDATA_ROOT           agent session capture (default /src/_sessiondata, else ~/_sessiondata)
+MIADI_INQUIRY_ROOT               the inquiry artefact store the /v viewer admits
+MIADI_IDENTITY_DIR               hashed person credentials (default $MIADI_DATA_DIR/identity)
+MIADI_STUDIO_DIR                 the composition studio (default $MIADI_EPISODES_DIR/miadi-studio)
+MIADI_VIEW_ROOTS                 colon-separated absolute paths the /v viewer serves; replaces config/view-roots.json
+MIADI_HOST_TYPE                  local or cloud (the app treats unset as local)
+MIADI_MIACO_BIN                  absolute path of the miaco binary, for the PDE milestone chain
+MIADI_PDE_STEER_TIMEOUT_MS       PDE steer timeout in milliseconds (the app's default is 900000)
+MIADI_GATE_TRUST_LOOPBACK_HOST   1 only when the server binds 127.0.0.1; off when unset
+MIADI_TRUST_TAILNET_SERVICE      hostname of the Tailscale Service that fronts the app; off when unset
+MIADI_TAILNET_LOGINS             comma-separated Tailscale logins granted reader and writer over that service
+MIADI_FLOWISE_ENABLED            1 re-enables the Flowise proxy; off when unset
+MIADI_STEER_DEV_BYPASS           1 lets /api/tide/steer run without a writer token outside production; off when unset
+MIADI_API_TOKEN_WRITER           secret, read and write; kept in ~/.env or the service's env file, never in miadi.env
+MIADI_API_TOKEN_READER           secret, read only; kept in ~/.env or the service's env file, never in miadi.env

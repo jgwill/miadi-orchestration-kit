@@ -1,0 +1,17 @@
+Package: miadi-config
+Version: 0.2.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: bash
+Replaces: miadi (<< 0.2.0)
+Breaks: miadi (<< 0.2.0)
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Miadi host settings
+ The MIADI_* settings of a Miadi host. /etc/miadi/miadi.env holds this
+ host's values as plain KEY=VALUE, readable by systemd and docker too.
+ /usr/share/miadi/env.sh resolves every other value, and login shells load
+ it through /etc/profile.d/miadi.sh. The miadi-config command shows where
+ each value comes from, sets and unsets this host's values, and checks the
+ host.

@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# miadi-config — the MIADI_* settings of this host. Installed by miadi-config.
+set -euo pipefail
+
+ENV_SH=/usr/share/miadi/env.sh
+SETTINGS=/usr/share/miadi/settings
+etc=${MIADI_ETC:-/etc/miadi}
+file=$etc/miadi.env
+
+usage() {
+	cat <<'EOF'
+usage: miadi-config [command]
+  show [NAME...]    resolved values and where each comes from (the default command)
+  get NAME          one resolved value, for scripts
+  set NAME VALUE    write this host's value into miadi.env (needs root)
+  unset NAME        remove this host's value from miadi.env (needs root)
+  check             what this host is missing
+  settings          every known setting and what it does
+A value in the environment wins over miadi.env, which wins over the defaults.
+EOF
+}
+
+die() { echo "miadi-config: $*" >&2; exit 1; }
+is_secret() { [[ $1 =~ (TOKEN|KEY|SECRET|PASSWORD) ]]; }
+valid_name() { [[ $1 =~ ^MIADI_[A-Z0-9_]+$ ]] || die "not a MIADI_* name: $1"; }
+
+# resolve CMD...: every MIADI_* as NAME=VALUE after env.sh, run under CMD
+resolve() {
+	"$@" bash -c '. "$0" >/dev/null 2>&1
+		for n in $(compgen -e); do [[ $n == MIADI_* ]] && printf "%s=%s\n" "$n" "${!n}"; done' "$ENV_SH"
+}
+
+# The names miadi.env sets, uncommented.
+file_names() { [ -r "$file" ] && sed -n 's/^\(MIADI_[A-Za-z0-9_]*\)=.*/\1/p' "$file" || true; }
+
+show() {
+	local -A cur=() clean=() infile=() known=()
+	local line n src v
+	while IFS= read -r line; do cur[${line%%=*}]=${line#*=}; done < <(resolve env)
+	while IFS= read -r line; do clean[${line%%=*}]=${line#*=}; done \
+		< <(resolve env -i HOME="${HOME:-/root}" PATH="$PATH" MIADI_ETC="$etc")
+	while IFS= read -r n; do infile[$n]=1; done < <(file_names)
+	while IFS= read -r n; do known[$n]=1; done < <(sed -n 's/^\(MIADI_[A-Z0-9_]*\).*/\1/p' "$SETTINGS")
+	local names
+	if [ $# -gt 0 ]; then
+		for n; do valid_name "$n"; done
+		names=$(printf '%s\n' "$@")
+	else
+		names=$(printf '%s\n' "${!cur[@]}" "${!known[@]}" | sort -u)
+	fi
+	for n in $names; do
+		if [ -n "${cur[$n]+x}" ] && { [ -z "${clean[$n]+x}" ] || [ "${cur[$n]}" != "${clean[$n]}" ]; }; then
+			src=env
+		elif [ -n "${infile[$n]:-}" ]; then
+			src=miadi.env
+		elif [ -n "${cur[$n]+x}" ]; then
+			src=default
+		else
+			src=unset
+		fi
+		v=${cur[$n]-}
+		if is_secret "$n" && [ -n "$v" ]; then v='(set)'; fi
+		printf '%-9s %s=%s\n' "$src" "$n" "$v"
+	done
+}
+
+get() {
+	[ $# -eq 1 ] || die "usage: miadi-config get NAME"
+	valid_name "$1"
+	bash -c '. "$0" >/dev/null 2>&1; printf "%s\n" "${!1-}"' "$ENV_SH" "$1"
+}
+
+writable() {
+	[ -e "$file" ] || die "$file does not exist: reinstall miadi-config"
+	[ -w "$file" ] || die "$file is not writable: run it with sudo"
+}
+
+set_value() {
+	[ $# -eq 2 ] || die "usage: miadi-config set NAME VALUE"
+	local name=$1 value=$2 line tmp
+	valid_name "$name"
+	if is_secret "$name"; then die "$name is a secret: keep it in ~/.env or the service's env file, not in $file"; fi
+	case $value in *[$'\n\r"\\$`']*) die "a value cannot hold newlines, quotes, backslashes, \$ or backticks" ;; esac
+	if [[ $value =~ ^[A-Za-z0-9_./:@%+,=~-]*$ ]]; then line="$name=$value"; else line="$name=\"$value\""; fi
+	writable
+	tmp=$(mktemp)
+	awk -v name="$name" -v line="$line" '
+		!done && ($0 ~ "^" name "=" || $0 ~ "^#" name "=") { print line; done = 1; next }
+		$0 ~ "^" name "=" { next }
+		{ print }
+		END { if (!done) print line }' "$file" > "$tmp"
+	cat "$tmp" > "$file"
+	rm -f "$tmp"
+	echo "$line"
+}
+
+unset_value() {
+	[ $# -eq 1 ] || die "usage: miadi-config unset NAME"
+	valid_name "$1"
+	writable
+	grep -q "^$1=" "$file" || { echo "$1 is not set in $file"; return; }
+	local tmp
+	tmp=$(mktemp)
+	grep -v "^$1=" "$file" > "$tmp" || true
+	cat "$tmp" > "$file"
+	rm -f "$tmp"
+	echo "$1 removed from $file"
+}
+
+check() {
+	local missing=0 n=0 line key
+	miss() { echo "missing  $*"; missing=$((missing + 1)); }
+	if [ -r "$file" ]; then
+		while IFS= read -r line || [ -n "$line" ]; do
+			n=$((n + 1))
+			case $line in '' | '#'*) continue ;; esac
+			key=${line%%=*}
+			[[ $line == *=* && $key =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { miss "$file line $n is not KEY=VALUE"; continue; }
+			if is_secret "$key"; then miss "$file line $n holds a secret ($key): move it to ~/.env or the service's env file"; fi
+		done < "$file"
+		echo "ok       $file"
+	else
+		miss "$file"
+	fi
+	set +eu
+	. "$ENV_SH" >/dev/null 2>&1
+	set -eu
+	if [ -e "$MIADI_SRC/package.json" ]; then echo "ok       MIADI_SRC=$MIADI_SRC"
+	else miss "MIADI_SRC=$MIADI_SRC has no package.json: sudo miadi-config set MIADI_SRC <jgwill/Miadi checkout>"; fi
+	for key in MIADI_DATA_DIR MIADI_CHRONICLE_ROOT MIADI_REPOS_ROOT MIADI_ORCHESTRATION_KIT_ROOT MIADI_STORIES_ROOT; do
+		if [ -d "${!key}" ]; then echo "ok       $key=${!key}"
+		else miss "$key=${!key} is not a directory"; fi
+	done
+	[ "$missing" -eq 0 ] || { echo "$missing missing"; return 1; }
+}
+
+cmd=${1:-show}
+[ $# -eq 0 ] || shift
+case $cmd in
+	show) show "$@" ;;
+	get) get "$@" ;;
+	set) set_value "$@" ;;
+	unset) unset_value "$@" ;;
+	check) check ;;
+	settings) cat "$SETTINGS" ;;
+	-h | --help | help) usage ;;
+	*) usage >&2; exit 2 ;;
+esac

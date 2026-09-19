@@ -1,0 +1,11 @@
+miadi-config — the MIADI_* settings of a Miadi host
+
+  /etc/miadi/miadi.env        this host's values, plain KEY=VALUE (kept on upgrade)
+  /usr/share/miadi/env.sh     the defaults and how each value is built
+  /usr/share/miadi/settings   every known setting and what it does
+  /etc/profile.d/miadi.sh     loads env.sh into bash login shells
+
+A value in the environment wins over miadi.env, which wins over the defaults.
+Run `miadi-config help` for the command.
+
+Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
