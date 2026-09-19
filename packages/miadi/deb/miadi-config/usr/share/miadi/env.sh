@@ -14,6 +14,22 @@
 # No secret values live here. Token names are only exported: a user's client
 # tokens come from that user's ~/.env, a service's from its own env file.
 
+# Sourced twice in one shell (the login hook, then a loader such as binscripts
+# after ~/.env), it rebuilds what it filled in the first time from the new
+# inputs. A value it filled in that nobody changed since is dropped first; a
+# value someone changed in between is kept.
+if [ -n "${_miadi_filled:-}" ]; then
+	while IFS= read -r _miadi_line; do
+		[ -n "$_miadi_line" ] || continue
+		_miadi_key=${_miadi_line%%=*}
+		if [ "${!_miadi_key-}" = "${_miadi_line#*=}" ]; then unset "$_miadi_key"; fi
+	done <<<"$_miadi_filled"
+fi
+_miadi_before=" "
+for _miadi_key in $(compgen -e); do
+	case $_miadi_key in MIADI_*) _miadi_before+="$_miadi_key " ;; esac
+done
+
 : "${MIADI_ETC:=/etc/miadi}"
 export MIADI_ETC
 
@@ -128,3 +144,12 @@ export MIADI_QMD_MCP_TOKEN MIADI_PDE_WEBHOOK_TOKEN MIADI_INQUIRY_GITHUB_TOKEN MI
 export MIADI_PI_NETWORK_TOKEN MIADI_PI_NETWORK_PROJECT MIADI_TRUST_TAILNET_SERVICE
 export MIADI_KHERIX_API_SERVER_ENABLED MIADI_KHERIX_API_SERVER_HOST MIADI_KHERIX_API_SERVER_KEY
 export MIADI_EH_API_URL MIADI_REVIEW_URL
+
+# What this run filled in, for the next run in this shell. Not exported.
+_miadi_filled=
+for _miadi_key in $(compgen -e); do
+	case $_miadi_key in MIADI_*) ;; *) continue ;; esac
+	case $_miadi_before in *" $_miadi_key "*) continue ;; esac
+	_miadi_filled+="$_miadi_key=${!_miadi_key}"$'\n'
+done
+unset _miadi_before _miadi_key _miadi_line

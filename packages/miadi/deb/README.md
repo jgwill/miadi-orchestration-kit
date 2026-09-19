@@ -32,7 +32,10 @@ installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
 | `/usr/bin/miadi-config` | the command below | replaced |
 
 A value in the environment wins over `miadi.env`, which wins over the defaults.
-`env.sh` prints nothing and loads under `set -u`. Because `miadi.env` is plain
+`env.sh` prints nothing and loads under `set -u`. Sourced a second time in the
+same shell, as binscripts `load.sh` does after `~/.env`, it rebuilds the values
+it filled in the first time from the new inputs and keeps any value changed in
+between. Because `miadi.env` is plain
 `KEY=VALUE`, systemd `EnvironmentFile=` and docker compose `env_file` read it
 too. It holds no secrets: a user's tokens stay in that user's `~/.env`, a
 service's in its own env file.
