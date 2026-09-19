@@ -18,7 +18,8 @@ sudo apt update && sudo apt install miadi
 | `miadi-config` | the `MIADI_*` settings and the `miadi-config` command | 0.2.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
-installs.
+installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
+`build.sh` writes each one's `/usr/share/doc/<package>/copyright` from it.
 
 ## miadi-config
 
