@@ -1,6 +1,17 @@
 # miadi (apt package)
 
-`sudo apt install miadi` gives a host its `MIADI_*` environment.
+`sudo apt install miadi` gives a host its `MIADI_*` environment. On a new
+system, add the repository first:
+
+```bash
+curl -fsSL https://apt.sanctuaireagentique.com/sanctuaire-agentique.gpg \
+  | sudo tee /usr/share/keyrings/sanctuaire-agentique.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/sanctuaire-agentique.gpg] https://apt.sanctuaireagentique.com stable main" \
+  | sudo tee /etc/apt/sources.list.d/sanctuaire-agentique.list
+sudo apt update && sudo apt install miadi
+```
+
+Then write the host's own values into `/etc/miadi/miadi.env`.
 
 | file | holds | in the package |
 |---|---|---|
@@ -26,7 +37,11 @@ sudo apt install ./dist/miadi_<version>_all.deb
 
 Publishing to `apt.sanctuaireagentique.com` uses `scripts/apt-publish.sh` from
 miadisabelle/mia-parallel-code, which needs the repository's signing key and
-`APT_PUBLISH_TOKEN`.
+`APT_PUBLISH_TOKEN`. Bump `Version:` in `root/DEBIAN/control`, build, then:
+
+```bash
+bash /workspace/repos/miadisabelle/mia-parallel-code/scripts/apt-publish.sh dist/miadi_<version>_all.deb
+```
 
 This directory sits where the Miadi umbrella packages (`packages/miadi/js`,
 `packages/miadi/py` in jgwill/Miadi) can join it later.
