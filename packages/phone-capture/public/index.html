@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b1512">
+<title>Speak to the episode</title>
+<style>
+  :root { --bg:#0b1512; --panel:#12211c; --line:#2a4a3e; --ink:#e8f1ec; --muted:#9fb3a9; --mint:#7fe0b4; --live:#ff8a7a; --gold:#e8c46a; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; background:var(--bg); color:var(--ink); font:16px/1.45 -apple-system, system-ui, sans-serif;
+         padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  main { max-width: 520px; margin: 0 auto; display:flex; flex-direction:column; gap:16px; }
+  h1 { font-size: 1.15rem; margin: 4px 0 0; }
+  label { display:block; color:var(--gold); font-size:.8rem; font-weight:700; margin-bottom:6px; }
+  select { width:100%; min-height:44px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.95rem; }
+  .record { width:100%; min-height:120px; border:0; border-radius:22px; font-size:1.35rem; font-weight:800; background:var(--mint); color:#062117; }
+  .record.live { background:var(--live); color:#2b0906; }
+  .record:disabled { opacity:.5; }
+  .timer { font: 700 2rem ui-monospace, monospace; text-align:center; color:var(--mint); min-height: 2.4rem; }
+  .status { color:var(--muted); font-size:.9rem; min-height:1.3rem; }
+  .status.error { color:var(--live); }
+  .result { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .result[hidden] { display:none; }
+  .result strong { color:var(--mint); }
+  .transcript { white-space:pre-wrap; margin-top:10px; color:var(--ink); font-size:.92rem; }
+  small { color:var(--muted); font-size:.78rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Speak to the episode</h1>
+  <div>
+    <label for="episode">Episode</label>
+    <select id="episode"><option value="">Loading episodes…</option></select>
+  </div>
+  <button id="record" class="record" type="button" disabled>Record</button>
+  <div id="timer" class="timer" aria-live="off"></div>
+  <div id="status" class="status" role="status" aria-live="polite"></div>
+  <section id="result" class="result" hidden aria-live="polite">
+    <div id="resultHead"></div>
+    <div id="transcript" class="transcript"></div>
+  </section>
+  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Keep the screen on while you speak.</small>
+</main>
+<script>
+(function () {
+  "use strict";
+  var select = document.getElementById("episode");
+  var button = document.getElementById("record");
+  var timer = document.getElementById("timer");
+  var status = document.getElementById("status");
+  var result = document.getElementById("result");
+  var resultHead = document.getElementById("resultHead");
+  var transcript = document.getElementById("transcript");
+  var recorder = null, stream = null, chunks = [], startedAt = 0, tick = null, wakeLock = null;
+
+  function say(text, isError) { status.textContent = text; status.className = "status" + (isError ? " error" : ""); }
+  function remember(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
+  function recall(key) { try { return localStorage.getItem(key) || ""; } catch (_) { return ""; } }
+
+  // mp4 first: it is what iPhone Safari records and what the Chronicle already keeps out of git.
+  function pickType() {
+    if (typeof MediaRecorder === "undefined") return null;
+    var candidates = ["audio/mp4", "audio/mp4;codecs=mp4a.40.2"];
+    for (var i = 0; i < candidates.length; i++) {
+      if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+    }
+    return null;
+  }
+
+  function clock() {
+    var s = Math.floor((Date.now() - startedAt) / 1000);
+    timer.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  async function loadEpisodes() {
+    try {
+      var answer = await (await fetch("api/episodes")).json();
+      var chosen = new URLSearchParams(location.search).get("episode") || recall("episode") || answer.defaultEpisode;
+      select.textContent = "";
+      answer.episodes.forEach(function (ep) {
+        var option = document.createElement("option");
+        option.value = ep.path;
+        option.textContent = "Episode " + ep.number + " · " + ep.path.replace(/^\d{4}-\d{2}-\d{2}-episode-\d+-/, "").replace(/-/g, " ");
+        if (ep.path === chosen) option.selected = true;
+        select.appendChild(option);
+      });
+      button.disabled = !pickType();
+      if (!pickType()) say("This browser cannot record audio/mp4. Use Safari on the iPhone.", true);
+    } catch (error) {
+      select.innerHTML = "<option value=''>Episodes unavailable</option>";
+      say("Could not reach gaia: " + error.message, true);
+    }
+  }
+
+  async function start() {
+    var type = pickType();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error) {
+      say("Microphone refused: " + error.message, true);
+      return;
+    }
+    chunks = [];
+    recorder = new MediaRecorder(stream, { mimeType: type });
+    recorder.ondataavailable = function (event) { if (event.data && event.data.size) chunks.push(event.data); };
+    recorder.start(1000);
+    startedAt = Date.now();
+    clock();
+    tick = setInterval(clock, 500);
+    try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {}
+    button.textContent = "Stop & send";
+    button.classList.add("live");
+    select.disabled = true;
+    result.hidden = true;
+    say("Recording for " + select.options[select.selectedIndex].textContent);
+  }
+
+  function stopped() {
+    return new Promise(function (done) {
+      recorder.onstop = function () { done(new Blob(chunks, { type: recorder.mimeType || "audio/mp4" })); };
+      recorder.stop();
+    });
+  }
+
+  async function finish() {
+    button.disabled = true;
+    clearInterval(tick);
+    var blob = await stopped();
+    stream.getTracks().forEach(function (track) { track.stop(); });
+    if (wakeLock) { try { await wakeLock.release(); } catch (_) {} wakeLock = null; }
+    button.textContent = "Record";
+    button.classList.remove("live");
+    var episode = select.value;
+    remember("episode", episode);
+    say("Sending " + (blob.size / 1024 / 1024).toFixed(1) + " MB, then transcribing and storing on gaia…");
+    try {
+      var response = await fetch("api/takes?episode=" + encodeURIComponent(episode), {
+        method: "POST",
+        headers: { "content-type": blob.type.split(";")[0] || "audio/mp4" },
+        body: blob,
+      });
+      var answer = await response.json();
+      if (!answer.success) throw new Error(answer.error || ("HTTP " + response.status));
+      resultHead.innerHTML = "";
+      var strong = document.createElement("strong");
+      strong.textContent = "Take " + answer.take + " is in the episode.";
+      resultHead.appendChild(strong);
+      resultHead.appendChild(document.createTextNode(answer.transcriptError
+        ? " Transcription failed, so no session will wake yet: " + answer.transcriptError
+        : " The session listening there will hear it."));
+      transcript.textContent = answer.english || "";
+      result.hidden = false;
+      say("");
+      timer.textContent = "";
+    } catch (error) {
+      say("Not stored: " + error.message, true);
+    } finally {
+      button.disabled = false;
+      select.disabled = false;
+    }
+  }
+
+  button.addEventListener("click", function () {
+    if (recorder && recorder.state === "recording") finish(); else start();
+  });
+  loadEpisodes();
+})();
+</script>
+</body>
+</html>

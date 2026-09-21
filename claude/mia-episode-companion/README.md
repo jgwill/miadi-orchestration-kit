@@ -50,6 +50,12 @@ The first listen on an episode takes every existing take as its baseline, so not
 wakes the session. After that, takes recorded while no session was listening are unheard,
 and the next `/mia-listen` wakes on them at once.
 
+## Recording from the iPhone at the desk
+
+`packages/phone-capture` in this kit is a small service on gaia. It lets Safari on the
+iPhone record straight into an episode's `captures/`, and the listener wakes on those
+takes too. See its README.
+
 ## Limits
 
 - Replies are read in this conversation, not in the Episode Recorder's ceremony view.

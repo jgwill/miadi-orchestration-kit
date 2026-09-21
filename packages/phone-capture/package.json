@@ -1,0 +1,18 @@
+{
+  "name": "miadi-phone-capture",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Record on the iPhone, land the take in a Chronicle episode on gaia, through @miadi/capture-service and @miadi/episode-capture.",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "./start.sh",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@miadi/capture-service": "^0.3.0"
+  }
+}
