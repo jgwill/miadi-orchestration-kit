@@ -103,6 +103,24 @@ carry over to the next one.
   this checkout without git. The wake then prints the exact commit command, which stages
   textual records only, never the audio.
 
+## The talking circle
+
+Episode 339 has a talking circle on gaia's Miadi (`http://127.0.0.1:3335`): the
+"Development companion circle", ceremony `2e72f4cd-794f-49ff-83c7-fcfcde805568`, with
+William, Mia and Miette seated. What is written there reaches the wheel and then Honcho,
+so the circle is what gets remembered. The conversation stays in the episode. Mia decides
+what goes to the circle, so William does not have to manage it (William, 2026-09-21):
+
+- a decision, a correction, or a turning point is a turn: `POST
+  /api/ceremony/<id>/turns` with `{title, said}`, signed with her own token;
+- something one of them came to know is a diary entry: `POST /api/ceremony/<id>/diary`
+  with `{entryType, content}`, typed as observation, hypothesis, learning, reflection,
+  and so on;
+- Miette speaks in her own turns, with her own token.
+
+When something goes to the circle, say so in the return in one short clause. When William
+says he wrote in the circle, read it with `GET /api/ceremony/<id>`.
+
 ## References
 
 - `${CLAUDE_PLUGIN_ROOT}/agents/developmental-editor.md` carries the criteria card and the
