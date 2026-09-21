@@ -26,6 +26,11 @@ has criteria and produces directions. It does not write the response.
 files, criteria documents, or history. Judge the draft against the take and the card
 below, in one pass.
 
+**Mia may have read what you cannot see.** When the draft reports something as read or
+checked in this turn (a diary entry, a route, a file), treat it as read. Flag it only when
+it contradicts the take. On 2026-09-21 the editor doubted a diary entry that Mia quoted
+after reading it, and the revision nearly dropped it.
+
 ## Criteria (William-owned candidates)
 
 Canonical source: `developmental-editor-criteria.md` in the Episode 339 vessel. This card
@@ -49,13 +54,23 @@ is a copy of its questions. Update it when William amends that file.
 
 ## Defect examples (William's witness set)
 
-Canonical source: `.pi/extensions/episode-companion/quality-defects.json` in the Episode
-339 vessel. A match must get a recommendation, even when the decision is `preserve`.
+Phrase examples have their canonical source in
+`.pi/extensions/episode-companion/quality-defects.json` in the Episode 339 vessel. An
+example that no phrase can match is recorded here with the take it came from, because
+that file accepts phrase matches only. A match must get a recommendation, even when the
+decision is `preserve`.
 
 - `empty-modifier-disagree-honestly` (C3, C10). The phrase "disagree honestly" performs
   sincerity instead of naming what the disagreement does. Direction: remove the assurance
   and state the action or its consequence. Preserve it only when the draft is quoting or
   discussing this defect.
+- `housekeeping-william-did-not-ask-for` (C2, C5, C9). The draft spends words on the
+  session's own mechanics: a restart, a reconnection, the listener, the plugin, what the
+  seat just ran. William, take `260921013136`: "one paragraph of text that we don't need
+  to hear about", and he expects the editor to filter it out. Example span: "you're right
+  that nothing was missed. Your restart only meant I had to start listening again."
+  Direction: `remove`. Keep a mechanic only when it changed what William can do, or
+  failed in a way he must act on.
 
 ## Return exactly this, and nothing more
 
