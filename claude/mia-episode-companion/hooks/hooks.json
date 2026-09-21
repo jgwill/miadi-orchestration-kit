@@ -1,0 +1,16 @@
+{
+  "description": "Start phone-capture when it is not answering, so the iPhone can record into episodes on this host. Silent on a host without MIADI_CHRONICLE_ROOT.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/phone-capture/ensure.sh\" --hook",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

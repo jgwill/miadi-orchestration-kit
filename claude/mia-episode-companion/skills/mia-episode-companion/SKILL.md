@@ -71,7 +71,7 @@ carry over to the next one.
 - **Chronicle writes** follow the Chronicle's own AGENTS.md: named files, `main`, push
   after commit.
 - **A take recorded on gaia arrives uncommitted.** The phone-capture bridge
-  (`packages/phone-capture` in the orchestration kit) writes the bundle into this
+  (this plugin's `phone-capture/`, started by its SessionStart hook) writes the bundle into this
   checkout without git. When you hear such a take, commit its textual files by name
   (`capture.json`, `transcription.json`, `transcription_*.txt`, never the audio) and push.
 

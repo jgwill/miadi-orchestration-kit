@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { CaptureService, ConcatSegmentJoiner, FileImportDriver, resolveConfig } from "@miadi/capture-service";
 import { createApp } from "../server.mjs";
 
-const LISTENER = fileURLToPath(new URL("../../../claude/mia-episode-companion/scripts/mia-listen.mjs", import.meta.url));
+const LISTENER = fileURLToPath(new URL("../../scripts/mia-listen.mjs", import.meta.url));
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
 
 async function bridge({ transcriber } = {}) {

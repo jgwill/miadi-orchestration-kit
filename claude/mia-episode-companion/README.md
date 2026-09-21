@@ -30,8 +30,9 @@ never read.
 claude --plugin-dir /workspace/repos/jgwill/miadi-orchestration-kit/claude/mia-episode-companion
 ```
 
-Or through `/plugin` from the `miadi-orchestration-kit` marketplace. The plugin has no
-hooks. Commands, the skill, and the agent load at session start.
+Or through `/plugin` from the `miadi-orchestration-kit` marketplace. Commands, the skill,
+the agent, and the SessionStart hook load at session start. Hooks do not hot-swap, so a
+plugin enabled mid-session starts phone-capture only from the next session.
 
 ## Use
 
@@ -44,6 +45,7 @@ The short form is shown below.
 /mia-listen status           # what this seat has heard, what is unheard or waiting
 /mia-listen show <take-id>   # answer one take without marking it heard
 /mia-listen stop
+/mia-listen phone            # start phone-capture if it is down; print the iPhone link
 ```
 
 The first listen on an episode takes every existing take as its baseline, so nothing old
@@ -52,9 +54,18 @@ and the next `/mia-listen` wakes on them at once.
 
 ## Recording from the iPhone at the desk
 
-`packages/phone-capture` in this kit is a small service on gaia. It lets Safari on the
-iPhone record straight into an episode's `captures/`, and the listener wakes on those
-takes too. See its README.
+`phone-capture/` is a small service carried by this plugin. It lets Safari on the iPhone
+record straight into an episode's `captures/`, and the listener wakes on those takes too.
+
+The plugin's SessionStart hook runs `phone-capture/ensure.sh`. On a host with
+`MIADI_CHRONICLE_ROOT`, it does three things:
+- starts the service detached when it is not answering, installing its dependencies the
+  first time;
+- adds the `tailscale serve` HTTPS mapping when it is absent;
+- gives the session the iPhone link for its episode.
+
+A running service is left alone. A lock keeps two sessions from starting two services.
+See `phone-capture/README.md`.
 
 ## Limits
 

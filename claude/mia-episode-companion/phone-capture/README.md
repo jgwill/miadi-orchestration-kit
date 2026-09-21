@@ -17,29 +17,30 @@ iPhone Safari ──audio/mp4──▶ tailscale serve :8443 ──▶ phone-cap
 The bundle is the one the Episode Recorder on ilex writes, with parity checked by
 `episode-capture`'s own tests. The listener cannot tell a gaia take from an ilex take.
 
-## Run on gaia
+## Run
 
-```bash
-npm install
-MIADI_CHRONICLE_ROOT=/srv/miadi/episodes/miadi-chronicle \
-MIADI_PHONE_CAPTURE_EPISODE=2026-08-25-episode-339-relation-to-mia-on-mobile-devops \
-MIADI_PHONE_CAPTURE_PUBLIC_URL=https://gaia.tail3b11eb.ts.net:8443 \
-  ./start.sh
-tailscale serve --bg --https=8443 http://127.0.0.1:8771
-```
+Nobody has to start it. The plugin's SessionStart hook runs `./ensure.sh --hook`, and
+`/mia-listen phone` runs `./ensure.sh`. Both are idempotent. When the service is not
+answering on `127.0.0.1:8771`, ensure installs dependencies once (`npm ci --omit=dev`) and
+starts `start.sh` detached with `setsid`. The service outlives the session. Ensure also
+adds `tailscale serve --https=8443` when that mapping is absent. It leaves an 8443 that
+serves something else untouched and says so. A `flock` keeps concurrent sessions to one
+service. On a host without `MIADI_CHRONICLE_ROOT`, it does nothing.
 
-On the iPhone, open `https://gaia.tail3b11eb.ts.net:8443/` in Safari and allow the
-microphone. Add `?episode=<folder>` to preselect an episode. The page also remembers the
-last one.
+On the iPhone, open `https://<host>.<tailnet>.ts.net:8443/` in Safari and allow the
+microphone. The hook gives each session the link with `?episode=<its folder>`. The page
+also remembers the last episode.
 
-Stop: `tailscale serve --https=8443 off`, then stop the process (tmux session
-`phone-capture` on gaia).
+Log: `$XDG_STATE_HOME/miadi-phone-capture/service.log`. To stop it:
+`tailscale serve --https=8443 off`, then `pkill -f phone-capture/server.mjs`. The next
+session start will bring it back unless the plugin is disabled.
 
 | Env | Default | |
 |---|---|---|
 | `MIADI_CHRONICLE_ROOT` | required | where episodes live |
 | `MIADI_PHONE_CAPTURE_EPISODE` | none | the preselected episode |
 | `MIADI_PHONE_CAPTURE_PORT` / `_HOST` | `8771` / `127.0.0.1` | loopback only. `tailscale serve` is the way in |
+| `MIADI_PHONE_CAPTURE_HTTPS_PORT` | `8443` | the `tailscale serve` port `ensure.sh` maps |
 | `MIADI_PHONE_CAPTURE_PUBLIC_URL` | `http://<host>:<port>` | base of the audio `uri` each registration carries |
 | `MIADI_PHONE_CAPTURE_STATE_DIR` | `$XDG_STATE_HOME/miadi-phone-capture` | the take library (`takes/`) and in-flight uploads |
 | `MIADI_PHONE_CAPTURE_GROQ_ENV_FILE` | `/a/src/Miadi/.env` | `start.sh` reads only its `GROQ_API_KEY` line |
