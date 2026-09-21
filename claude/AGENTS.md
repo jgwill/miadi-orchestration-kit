@@ -13,6 +13,7 @@ editing that host's system policy.
 | directory | state |
 |---|---|
 | `miette/` | a full plugin — manifest, skill, agent, command, and the repo's **first hook** |
+| `mia-episode-companion/` | a plugin — the Claude Code counterpart of Episode 339's Pi episode-companion: voice-take listener, skill, developmental-editor agent, `/mia-listen` |
 | `miadi-storyweaver-orchestration-kit/` | `CLAUDE.md` + `README.md` + `prompts/` — a prompt wrapper, not a plugin; declared as *"not a fork of the kit"* |
 
 ## The lane split was resolved on 2026-09-05

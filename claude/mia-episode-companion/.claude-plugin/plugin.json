@@ -1,0 +1,10 @@
+{
+  "name": "mia-episode-companion",
+  "description": "Mia, William's development companion, in a Claude Code seat bound to one Chronicle episode. The Claude Code counterpart of Episode 339's Pi episode-companion extension: a listener wakes the session when a voice take recorded on the phone lands in the episode (read from origin by fetch, never merged), and Mia answers through draft, a separate developmental-editor agent, and revision.\n\n<example>\nContext: William is about to walk with his phone\nuser: \"/mia-listen\"\nassistant: \"Mia is listening on episode 339; no takes unheard.\"\n<commentary>\nThe listener runs as a background Bash task and exits on the first new take, which re-invokes the session.\n</commentary>\n</example>\n\n<example>\nContext: A wake arrives: NEW TAKE FROM WILLIAM\nassistant: \"Drafting backstage, then sending the draft to the developmental-editor agent before answering.\"\n<commentary>\nThe editor runs in its own context and returns exact-span recommendations only; Mia revises and accounts for each one.\n</commentary>\n</example>\n\n<example>\nContext: William wants Mia to answer an older take\nuser: \"/mia-listen show 260920053025\"\nassistant: \"Reading that take and answering it as Mia.\"\n<commentary>\nshow prints a take without marking it heard.\n</commentary>\n</example>",
+  "version": "0.1.0",
+  "author": {
+    "name": "jgwill"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/claude/mia-episode-companion",
+  "keywords": ["miadi", "chronicle", "companion", "voice", "episode"]
+}

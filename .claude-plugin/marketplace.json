@@ -10,6 +10,12 @@
       "source": "./claude/miadi-chronicle-episode-kit",
       "description": "Creates, adopts, registers, works in, and closes Miadi Chronicle episodes from one host-neutral skill, and refuses mkdir under the chronicle root with a PreToolUse hook that returns the mkepisode invocation instead.",
       "version": "0.1.0"
+    },
+    {
+      "name": "mia-episode-companion",
+      "source": "./claude/mia-episode-companion",
+      "description": "Mia, William's development companion, in a Claude Code seat: wakes the session when a phone voice take lands in the episode, and answers through draft, a developmental-editor agent, and revision.",
+      "version": "0.1.0"
     }
   ]
 }
