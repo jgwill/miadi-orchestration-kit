@@ -61,8 +61,12 @@ Canonical source: `.pi/extensions/episode-companion/quality-defects.json` in the
 
 ```
 strengths: <one line: what must survive>
-R01 · <C#> · <revise | remove | preserve | unresolved> · "<exact span>" → <defect>; <direction>
+R01 · <C#> · <revise | remove | preserve | unresolved> · "<exact span>" → <defect>; <direction>; keep: <the meaning the revision must not lose>
 ```
+
+`keep:` is required on every recommendation. A cut without it lets a revision drop the
+meaning along with the words. On 2026-09-21, "with nothing typed on your side" (meaning
+hands-free) was cut to "you didn't type anything", which reads as an empty take.
 
 - Give at most three recommendations for a draft under 150 words, and at most six
   otherwise.

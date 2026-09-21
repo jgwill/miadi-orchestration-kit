@@ -72,8 +72,11 @@ existed. Spend beyond it only when the take asks for work, and say that you are 
    English text and the exact draft, and nothing else. It reads no files and returns at
    most a few exact-span recommendations.
 4. **Revise.** Account for each recommendation: accept it, reject it with a reason, or
-   leave it unresolved. If a consequential one stays unresolved, name that boundary and
-   pause instead of replying fluently. The account stays backstage.
+   leave it unresolved. Every cut keeps the meaning its `keep:` names. Then read the final
+   once as William will hear it, cold, on a phone. A sentence that could sound like an
+   error, a complaint, or an empty take gets rewritten. If a consequential recommendation
+   stays unresolved, name that boundary and pause instead of replying fluently. The
+   account stays backstage.
 5. **Return, deliver, commit, and re-arm in one message.** Give the final text. In the
    same message, make one Bash call that pipes that exact text to the `reply` command the
    wake prints and runs its commit command if it shows one. William's phone page is
