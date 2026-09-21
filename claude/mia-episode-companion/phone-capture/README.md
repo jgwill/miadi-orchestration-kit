@@ -45,6 +45,7 @@ session start will bring it back unless the plugin is disabled.
 | `MIADI_PHONE_CAPTURE_STATE_DIR` | `$XDG_STATE_HOME/miadi-phone-capture` | the take library (`takes/`) and in-flight uploads |
 | `MIADI_PHONE_CAPTURE_ENV_FILE` | `/a/src/Miadi/.env` | `start.sh` reads only its `GROQ_API_KEY` and `MIADI_API_TOKEN_WRITER` lines (`MIADI_PHONE_CAPTURE_GROQ_ENV_FILE` still honored) |
 | `MIADI_API_URL` | `http://127.0.0.1:3335` | the Miadi voice layer that renders Mia's voice |
+| `MIADI_CAPTURE_LANGUAGE` | `en` | the spoken language. `en` files one English transcript. Any other language files the original plus an English translation |
 | `MIADI_CHRONICLE_MW_URL` | `http://127.0.0.1:8040` | registration. A failure queues the take and never loses it |
 
 ## Mia's reply on the page

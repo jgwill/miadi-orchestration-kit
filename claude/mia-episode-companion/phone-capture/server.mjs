@@ -93,6 +93,26 @@ async function receive(req, uploadsDir, extension) {
   return { path, bytes };
 }
 
+// William speaks English to Mia (his word, 2026-09-21), so English is assumed.
+// capture-service writes one transcript per sidecar field, named by language: spoken
+// English would otherwise come out as two outputs both named transcription_<take>_EN.txt,
+// the second overwriting the first and breaking its receipt. Spoken English is returned
+// as the English text alone. Any other language keeps its original plus the translation.
+export class SpokenLanguageTranscriber {
+  constructor(inner, language) {
+    this.inner = inner;
+    this.language = language;
+    this.name = `${inner.name}+spoken-${language}`;
+  }
+
+  async transcribe(filepath, filename, options = {}) {
+    const language = options.language ?? this.language;
+    const result = await this.inner.transcribe(filepath, filename, { language });
+    if (language !== "en") return result;
+    return { ...result, language: "en", transcription: "", translation: result.transcription || result.translation };
+  }
+}
+
 // ---------- replies ----------
 // Mia posts her return here (mia-listen.mjs reply), and the page shows it beside the take.
 // One append-only JSONL per episode, with a voice sidecar per reply once it has been heard.
@@ -384,12 +404,13 @@ async function main() {
     publicBaseUrl: publicUrl,
     chronicleRoot,
     device: process.env.MIADI_CAPTURE_DEVICE || "iphone",
+    language: process.env.MIADI_CAPTURE_LANGUAGE || "en",
   });
   const service = new CaptureService({
     config,
     driver: new FileImportDriver(),
     joiner: new ConcatSegmentJoiner(),
-    transcriber: new GroqTranscriber({ defaultLanguage: config.language }),
+    transcriber: new SpokenLanguageTranscriber(new GroqTranscriber({ defaultLanguage: config.language }), config.language),
   });
   const flushed = await service.flushPending().catch(() => ({ delivered: 0, remaining: -1 }));
 
@@ -404,7 +425,7 @@ async function main() {
   createServer(handle).listen(port, host, () => {
     console.log(`[phone-capture] http://${host}:${port} → ${publicUrl}`);
     console.log(`[phone-capture] chronicle ${chronicleRoot} · takes ${config.takesDir} · wheel ${config.mwApiUrl}`);
-    console.log(`[phone-capture] groq key ${process.env.GROQ_API_KEY ? "present" : "absent: takes will store without transcript"}`);
+    console.log(`[phone-capture] spoken language ${config.language} · groq key ${process.env.GROQ_API_KEY ? "present" : "absent: takes will store without transcript"} · voice token ${process.env.MIADI_API_TOKEN_WRITER ? "present" : "absent"}`);
     if (flushed.delivered || flushed.remaining > 0) {
       console.log(`[phone-capture] pending registrations: ${flushed.delivered} delivered, ${flushed.remaining} queued`);
     }

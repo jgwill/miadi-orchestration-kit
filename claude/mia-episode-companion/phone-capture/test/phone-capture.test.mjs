@@ -8,12 +8,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CaptureService, ConcatSegmentJoiner, FileImportDriver, resolveConfig } from "@miadi/capture-service";
-import { createApp, speakable } from "../server.mjs";
+import { createApp, speakable, SpokenLanguageTranscriber } from "../server.mjs";
 
 const LISTENER = fileURLToPath(new URL("../../scripts/mia-listen.mjs", import.meta.url));
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
 
-async function bridge({ transcriber, voice = null } = {}) {
+async function bridge({ transcriber, voice = null, language = "fr" } = {}) {
   const base = mkdtempSync(join(tmpdir(), "phone-capture-"));
   const chronicleRoot = join(base, "chronicle");
   mkdirSync(join(chronicleRoot, EPISODE), { recursive: true });
@@ -21,7 +21,7 @@ async function bridge({ transcriber, voice = null } = {}) {
   const registrations = [];
   const config = resolveConfig({}, {
     port: 8799, host: "127.0.0.1", takesDir: join(base, "takes"), driver: "file-import",
-    publicBaseUrl: "https://gaia.example:8443", chronicleRoot, mwApiUrl: "http://wheel.invalid",
+    publicBaseUrl: "https://gaia.example:8443", chronicleRoot, mwApiUrl: "http://wheel.invalid", language,
   });
   const service = new CaptureService({
     config,
@@ -159,6 +159,29 @@ test("without a voice layer, Hear Mia says so instead of substituting another vo
     const answer = await fetch(`${b.url}/api/replies/${id}/voice`, { method: "POST" });
     assert.equal(answer.status, 503);
     assert.equal(speakable("## Next\n- `mia-listen` **now**"), "Next\nmia-listen now");
+  } finally {
+    b.close();
+  }
+});
+
+test("spoken English gives one English transcript, not two files fighting over _EN.txt", async () => {
+  const calls = [];
+  const inner = { name: "stub", async transcribe(_path, _name, options) {
+    calls.push(options.language);
+    return { transcription: "Mia, I am speaking English.", translation: "Mia, I'm speaking English.", model: "stub", language: options.language };
+  } };
+  const b = await bridge({ transcriber: new SpokenLanguageTranscriber(inner, "en"), language: "en" });
+  try {
+    const answer = await (await fetch(`${b.url}/api/takes`, { method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("bytes") })).json();
+    assert.equal(answer.success, true, JSON.stringify(answer));
+    assert.deepEqual(calls, ["en"]);
+    assert.equal(answer.english, "Mia, I am speaking English.", "the English transcription, not a re-translation");
+    const capture = JSON.parse(readFileSync(join(b.chronicleRoot, EPISODE, "captures", answer.take, "capture.json"), "utf8"));
+    assert.deepEqual(capture.transcription.outputs.map((output) => output.language), ["en"]);
+    const shown = execFileSync("node", [LISTENER, "show", answer.take, "--no-fetch", "--episode", join(b.chronicleRoot, EPISODE)], {
+      encoding: "utf8", env: { ...process.env, MIADI_MIA_COMPANION_STATE_DIR: join(b.base, "listener") },
+    });
+    assert.match(shown, /Mia, I am speaking English\./);
   } finally {
     b.close();
   }
