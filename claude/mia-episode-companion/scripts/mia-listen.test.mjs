@@ -127,6 +127,9 @@ test("a worktree take is delivered once its signature holds across two polls", (
   assert.equal(woke.code, 0);
   assert.match(woke.stdout, /take 260101000004 · transcribed/);
   assert.doesNotMatch(woke.stdout, /not yet in this checkout/);
+  assert.match(woke.stdout, /Committed: no\. Commit its textual records by name/);
+  assert.match(woke.stdout, /add -- captures\/260101000004\/capture\.json captures\/260101000004\/transcription_260101000004_EN\.txt &&/);
+  assert.match(woke.stdout, /Turn budget/);
   assert.match(woke.stdout, /re-arm in the background: node ".*mia-listen\.mjs" await --episode/);
 });
 

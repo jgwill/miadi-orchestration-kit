@@ -300,6 +300,85 @@ function episodeLabel(episode) {
   return episode.number ? `episode ${episode.number} (${episode.folder})` : episode.folder;
 }
 
+const CONTEXT_CHARS = 700;
+
+// What Mia would otherwise go looking for, bounded: the companion ceremony's latest
+// note (the one carrying a thread ledger, else the most recently touched) and the
+// threads still open. A wake that carries this spares a turn of exploration.
+export function wakeContext(episodeRoot) {
+  const ceremoniesRoot = join(episodeRoot, "ceremonies");
+  if (!existsSync(ceremoniesRoot)) return [];
+  const ceremonies = readdirSync(ceremoniesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(ceremoniesRoot, entry.name, "notes.md")))
+    .map((entry) => {
+      const dir = join(ceremoniesRoot, entry.name);
+      return {
+        id: entry.name,
+        dir,
+        ledger: existsSync(join(dir, "thread-ledger.json")),
+        mtime: statSync(join(dir, "notes.md")).mtimeMs,
+      };
+    })
+    .sort((a, b) => Number(b.ledger) - Number(a.ledger) || b.mtime - a.mtime);
+  const ceremony = ceremonies[0];
+  if (!ceremony) return [];
+
+  const lines = [];
+  const note = readFileSync(join(ceremony.dir, "notes.md"), "utf8").trim();
+  if (note) {
+    let excerpt = note.slice(0, CONTEXT_CHARS);
+    if (note.length > CONTEXT_CHARS) {
+      const cut = Math.max(excerpt.lastIndexOf("\n"), excerpt.lastIndexOf(". "));
+      if (cut > CONTEXT_CHARS / 2) excerpt = excerpt.slice(0, cut + 1);
+      excerpt += ` … (${note.length - excerpt.length} more chars in ceremonies/${ceremony.id}/notes.md)`;
+    }
+    lines.push(`Latest ceremony note (ceremonies/${ceremony.id}/notes.md):`, excerpt, "");
+  }
+  if (ceremony.ledger) {
+    try {
+      const ledger = JSON.parse(readFileSync(join(ceremony.dir, "thread-ledger.json"), "utf8"));
+      const open = (ledger.threads ?? []).filter((thread) => ["active", "emerging", "blocked"].includes(thread.state));
+      if (open.length) {
+        lines.push(`Open threads: ${open.slice(0, 8).map((thread) => `${thread.id} (${thread.state})`).join(", ")}`, "");
+      }
+    } catch { /* an unreadable ledger is context lost, not a failure to wake */ }
+  }
+  return lines;
+}
+
+// Whether the take's textual records are committed in this checkout, and if not, the
+// one command that commits them by name and pushes (integrating once on a refusal).
+export function commitLine(episode, take) {
+  if (take.source !== "worktree") return `Committed: yes, on ${take.source}.`;
+  const takeDir = join(episode.root, "captures", take.takeId);
+  const textual = readdirSync(takeDir)
+    .filter((name) => name === "capture.json" || name === "transcription.json" || /^transcription_.*\.txt$/.test(name))
+    .sort()
+    .map((name) => `captures/${take.takeId}/${name}`);
+  const R = `git -C "${episode.root}"`;
+  let tracked = false;
+  try {
+    git(episode.root, ["ls-files", "--error-unmatch", "--", ...textual]);
+    tracked = true;
+  } catch { /* at least one textual record is untracked or git is absent */ }
+  if (tracked) {
+    if (!episode.git) return "Committed: yes.";
+    try {
+      const commit = git(episode.root, ["log", "-1", "--format=%H", "--", ...textual]).trim();
+      git(episode.root, ["merge-base", "--is-ancestor", commit, episode.git.upstream]);
+      return `Committed: yes, and pushed (on ${episode.git.upstream}).`;
+    } catch {
+      return `Committed: yes, not yet on ${episode.git.upstream}. Push: ${R} push -q`;
+    }
+  }
+  if (!episode.git) return "Committed: no, and this episode is not in a git checkout.";
+  const label = episode.number ? `Episode ${episode.number}` : episode.folder;
+  return [
+    "Committed: no. Commit its textual records by name, never the audio:",
+    `  ${R} add -- ${textual.join(" ")} && ${R} commit -q -m "Store ${take.takeId} in ${label}" && { ${R} push -q || { ${R} pull -q --no-rebase --no-edit && ${R} push -q; }; }`,
+  ].join("\n");
+}
+
 export function formatWake(episode, takes, { rearm = true } = {}) {
   const lines = [
     `NEW TAKE${takes.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`,
@@ -315,11 +394,20 @@ export function formatWake(episode, takes, { rearm = true } = {}) {
       "English translation, exact validated contents:",
       take.english.text.trim(),
       "",
+      commitLine(episode, take),
+      "",
     );
   }
   lines.push(
+    ...wakeContext(episode.root),
     "This is William speaking in the episode. Answer what he says; do not read it as a task list.",
-    "Follow the mia-episode-companion skill: hear, draft, developmental-editor agent, revise, return here.",
+    "Turn budget (mia-episode-companion skill): this wake carries what an ordinary take needs.",
+    "1. Hear from the wake. Read a file only if the take names something the wake does not carry; at most two reads.",
+    "2. Draft backstage. Send only the take text and the exact draft to the developmental-editor agent, once.",
+    "3. Revise against each recommendation and give the return, short enough to say aloud.",
+    rearm
+      ? "4. In that same message, run the commit above if one is shown, and re-arm."
+      : "4. In that same message, run the commit above if one is shown.",
   );
   if (rearm) {
     lines.push(`After your return, re-arm in the background: node "${SCRIPT}" await --episode "${episode.root}"`);

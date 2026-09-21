@@ -67,6 +67,28 @@ The plugin's SessionStart hook runs `phone-capture/ensure.sh`. On a host with
 A running service is left alone. A lock keeps two sessions from starting two services.
 See `phone-capture/README.md`.
 
+## Cost of a turn
+
+The first live wake (Episode 349, take `260920235421`, 40 words) over-read. Mia explored
+the episode before loading the skill. The editor ran on Opus, looked for its criteria on
+disk, and read history. Three changes fixed that:
+- the wake now carries the context, the commit and push state, and a turn budget;
+- the skill carries two voice examples inline, in place of history reads;
+- the editor is one pass on Sonnet with no tools, and its criteria are built in.
+
+Measured on the same take (de-duplicated per model call):
+
+| | model calls | tool calls | cache read | output |
+|---|---|---|---|---|
+| main thread, before | 14 | 12 | 1,268k | 9.3k |
+| main thread, after | 5 | 4 | 258k | 2.6k |
+| editor, before (Opus) | 8 | 13 | 235k | 2.7k |
+| editor, after (Sonnet) | 1 | 0 | 0 | 4.4k |
+
+The "after" main thread was a cold headless session. It paid 55k of cache writes to load
+the session, and a warm session does not. Every subagent pays about 21k of cache writes to
+load the host's policy files. The plugin cannot reduce that.
+
 ## Limits
 
 - Replies are read in this conversation, not in the Episode Recorder's ceremony view.
