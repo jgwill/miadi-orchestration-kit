@@ -13,6 +13,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@miadi/capture-service": "^0.3.0"
+    "@miadi/capture-service": "^0.3.0",
+    "@miadi/voice-client": "^0.2.2"
   }
 }

@@ -26,6 +26,13 @@
   .result strong { color:var(--mint); }
   .transcript { white-space:pre-wrap; margin-top:10px; color:var(--ink); font-size:.92rem; }
   small { color:var(--muted); font-size:.78rem; }
+  .reply { border-color:#477b65; }
+  .reply-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .reply-head strong { color:var(--gold); }
+  .reply-actions { display:flex; gap:10px; margin-top:12px; }
+  .reply-actions button { flex:1; min-height:48px; border:0; border-radius:13px; font-weight:800; font-size:1rem; background:#263c34; color:var(--ink); }
+  .reply-actions button.primary { background:var(--mint); color:#062117; }
+  audio { width:100%; margin-top:10px; }
 </style>
 </head>
 <body>
@@ -42,7 +49,17 @@
     <div id="resultHead"></div>
     <div id="transcript" class="transcript"></div>
   </section>
-  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Keep the screen on while you speak.</small>
+  <section id="reply" class="result reply" hidden aria-live="polite">
+    <div class="reply-head"><strong>Mia</strong><small id="replyMeta"></small></div>
+    <div id="replyText" class="transcript"></div>
+    <div class="reply-actions">
+      <button id="hearReply" class="primary" type="button">Hear Mia</button>
+      <button id="copyReply" type="button">Copy</button>
+    </div>
+    <audio id="replyAudio" controls preload="none" hidden></audio>
+  </section>
+  <div id="replyStatus" class="status" role="status" aria-live="polite"></div>
+  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Mia's reply appears here. Keep the screen on while you speak.</small>
 </main>
 <script>
 (function () {
@@ -54,7 +71,119 @@
   var result = document.getElementById("result");
   var resultHead = document.getElementById("resultHead");
   var transcript = document.getElementById("transcript");
+  var replyBox = document.getElementById("reply");
+  var replyMeta = document.getElementById("replyMeta");
+  var replyText = document.getElementById("replyText");
+  var replyAudio = document.getElementById("replyAudio");
+  var hearButton = document.getElementById("hearReply");
+  var copyButton = document.getElementById("copyReply");
+  var replyStatus = document.getElementById("replyStatus");
   var recorder = null, stream = null, chunks = [], startedAt = 0, tick = null, wakeLock = null;
+  var current = null, waiting = null;
+  var WAIT_MS = 15 * 60 * 1000;
+
+  function when(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function showReply(reply) {
+    current = reply;
+    replyText.textContent = reply.text;
+    replyMeta.textContent = (reply.take ? "take " + reply.take + " · " : "") + when(reply.at);
+    replyAudio.hidden = !reply.audio;
+    if (reply.audio) replyAudio.src = reply.audio; else replyAudio.removeAttribute("src");
+    hearButton.textContent = "Hear Mia";
+    copyButton.textContent = "Copy";
+    replyBox.hidden = false;
+  }
+
+  async function replies(episode, take) {
+    var query = "api/replies?episode=" + encodeURIComponent(episode) + (take ? "&take=" + take : "");
+    var answer = await (await fetch(query)).json();
+    return answer.success ? answer.replies : [];
+  }
+
+  // Coming back later is a supported way to hear her: the latest reply is shown on open.
+  async function loadLatestReply() {
+    if (!select.value || waiting) return;
+    try {
+      var found = await replies(select.value);
+      if (found.length) showReply(found[0]); else replyBox.hidden = true;
+    } catch (_) {}
+  }
+
+  function stopWaiting() {
+    if (waiting) clearInterval(waiting.timer);
+    waiting = null;
+  }
+
+  function waitForReply(episode, take) {
+    stopWaiting();
+    replyBox.hidden = true;
+    var since = Date.now();
+    async function check() {
+      var elapsed = Math.floor((Date.now() - since) / 1000);
+      try {
+        var found = await replies(episode, take);
+        if (found.length) {
+          stopWaiting();
+          replyStatus.textContent = "";
+          showReply(found[0]);
+          return;
+        }
+      } catch (_) {}
+      if (Date.now() - since > WAIT_MS) {
+        stopWaiting();
+        replyStatus.textContent = "No reply after 15 minutes. It will show here when it comes; reopen this page later.";
+        return;
+      }
+      replyStatus.textContent = "Waiting for Mia… " + Math.floor(elapsed / 60) + ":" + String(elapsed % 60).padStart(2, "0");
+    }
+    waiting = { timer: setInterval(check, 4000) };
+    check();
+  }
+
+  hearButton.addEventListener("click", async function () {
+    if (!current) return;
+    if (current.audio) { replyAudio.hidden = false; replyAudio.play().catch(function () {}); return; }
+    hearButton.disabled = true;
+    hearButton.textContent = "Voicing…";
+    try {
+      var response = await fetch("api/replies/" + current.id + "/voice", { method: "POST" });
+      var answer = await response.json();
+      if (!answer.success) throw new Error(answer.error || ("HTTP " + response.status));
+      current.audio = answer.audio;
+      replyAudio.src = answer.audio;
+      replyAudio.hidden = false;
+      hearButton.textContent = "Hear Mia";
+      // Safari may refuse to start sound after an await; the controls are there when it does.
+      replyAudio.play().catch(function () { hearButton.textContent = "Tap ▶ below"; });
+    } catch (error) {
+      hearButton.textContent = "Hear Mia";
+      replyStatus.textContent = "Voice unavailable: " + error.message;
+    } finally {
+      hearButton.disabled = false;
+    }
+  });
+
+  copyButton.addEventListener("click", async function () {
+    if (!current) return;
+    try {
+      await navigator.clipboard.writeText(current.text);
+    } catch (_) {
+      var area = document.createElement("textarea");
+      area.value = current.text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+    copyButton.textContent = "Copied";
+    setTimeout(function () { copyButton.textContent = "Copy"; }, 1500);
+  });
+
+  select.addEventListener("change", function () { stopWaiting(); replyStatus.textContent = ""; loadLatestReply(); });
 
   function say(text, isError) { status.textContent = text; status.className = "status" + (isError ? " error" : ""); }
   function remember(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
@@ -89,6 +218,7 @@
       });
       button.disabled = !pickType();
       if (!pickType()) say("This browser cannot record audio/mp4. Use Safari on the iPhone.", true);
+      loadLatestReply();
     } catch (error) {
       select.innerHTML = "<option value=''>Episodes unavailable</option>";
       say("Could not reach gaia: " + error.message, true);
@@ -115,6 +245,8 @@
     button.classList.add("live");
     select.disabled = true;
     result.hidden = true;
+    stopWaiting();
+    replyStatus.textContent = "";
     say("Recording for " + select.options[select.selectedIndex].textContent);
   }
 
@@ -155,6 +287,7 @@
       result.hidden = false;
       say("");
       timer.textContent = "";
+      if (!answer.transcriptError) waitForReply(episode, answer.take);
     } catch (error) {
       say("Not stored: " + error.message, true);
     } finally {

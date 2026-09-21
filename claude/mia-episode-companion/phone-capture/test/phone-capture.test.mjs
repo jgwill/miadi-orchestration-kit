@@ -8,12 +8,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CaptureService, ConcatSegmentJoiner, FileImportDriver, resolveConfig } from "@miadi/capture-service";
-import { createApp } from "../server.mjs";
+import { createApp, speakable } from "../server.mjs";
 
 const LISTENER = fileURLToPath(new URL("../../scripts/mia-listen.mjs", import.meta.url));
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
 
-async function bridge({ transcriber } = {}) {
+async function bridge({ transcriber, voice = null } = {}) {
   const base = mkdtempSync(join(tmpdir(), "phone-capture-"));
   const chronicleRoot = join(base, "chronicle");
   mkdirSync(join(chronicleRoot, EPISODE), { recursive: true });
@@ -30,7 +30,7 @@ async function bridge({ transcriber } = {}) {
     transcriber,
     registryClient: { register: async (record) => { registrations.push(record); return { success: true, id: record.id ?? "capture:stub" }; } },
   });
-  const server = createServer(createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), defaultEpisode: EPISODE }));
+  const server = createServer(createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), voice, defaultEpisode: EPISODE }));
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const url = `http://127.0.0.1:${server.address().port}`;
   return { base, chronicleRoot, url, registrations, close: () => server.close() };
@@ -98,6 +98,67 @@ test("refusals: a container git would track, an unknown episode, an empty body",
     assert.deepEqual(episodes.episodes.map((ep) => ep.path), [EPISODE]);
     const page = await fetch(`${b.url}/`);
     assert.match(await page.text(), /Speak to the episode/);
+  } finally {
+    b.close();
+  }
+});
+
+test("a reply posted from this host waits for the page; one forwarded from the tailnet is refused", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const post = (headers, body) => fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+    const reply = { episode: EPISODE, take: "260920235421", text: "🧠: William, it arrived.", origin: { multiplexer: "tmux", pane: "%1" } };
+    assert.equal((await post({ "x-forwarded-for": "100.71.17.43" }, reply)).status, 403);
+    assert.equal((await post({ "tailscale-user-login": "jgi@example" }, reply)).status, 403);
+    const posted = await (await post({}, reply)).json();
+    assert.equal(posted.success, true);
+
+    const byTake = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}&take=260920235421`)).json();
+    assert.equal(byTake.replies.length, 1);
+    assert.equal(byTake.replies[0].text, "🧠: William, it arrived.");
+    assert.equal(byTake.replies[0].audio, null);
+    assert.equal(byTake.replies[0].origin, undefined, "the page never sees pane ids");
+    const other = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}&take=260920235499`)).json();
+    assert.equal(other.replies.length, 0);
+  } finally {
+    b.close();
+  }
+});
+
+test("Hear Mia renders once through the voice layer as persona mia, then serves byte ranges", async () => {
+  const requests = [];
+  const voice = { async render(request) { requests.push(request); return Buffer.from("ID3-mp3-bytes-0123456789"); } };
+  const b = await bridge({ transcriber: stubTranscriber, voice });
+  try {
+    const { id } = await (await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, take: "260920235421", text: "🧠: **William**, it arrived.\n\n🌸: You can speak from the desk.", origin: { multiplexer: "tmux", session: "s", pane: "%1" } }) })).json();
+    const voiced = await (await fetch(`${b.url}/api/replies/${id}/voice`, { method: "POST" })).json();
+    assert.equal(voiced.success, true);
+    await fetch(`${b.url}/api/replies/${id}/voice`, { method: "POST" });
+    assert.equal(requests.length, 1, "a second tap does not render a second voice");
+    assert.equal(requests[0].persona, "mia");
+    assert.equal(requests[0].episode, EPISODE);
+    assert.equal(requests[0].origin.pane, "%1");
+    assert.equal(requests[0].text, "William, it arrived.\n\nYou can speak from the desk.");
+
+    const ranged = await fetch(`${b.url}/${voiced.audio}`, { headers: { range: "bytes=0-3" } });
+    assert.equal(ranged.status, 206);
+    assert.equal(await ranged.text(), "ID3-");
+    const listed = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}`)).json();
+    assert.equal(listed.replies[0].audio, voiced.audio);
+  } finally {
+    b.close();
+  }
+});
+
+test("without a voice layer, Hear Mia says so instead of substituting another voice", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const { id } = await (await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, text: "hello" }) })).json();
+    const answer = await fetch(`${b.url}/api/replies/${id}/voice`, { method: "POST" });
+    assert.equal(answer.status, 503);
+    assert.equal(speakable("## Next\n- `mia-listen` **now**"), "Next\nmia-listen now");
   } finally {
     b.close();
   }

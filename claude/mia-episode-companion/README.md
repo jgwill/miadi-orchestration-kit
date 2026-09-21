@@ -56,6 +56,8 @@ and the next `/mia-listen` wakes on them at once.
 
 `phone-capture/` is a small service carried by this plugin. It lets Safari on the iPhone
 record straight into an episode's `captures/`, and the listener wakes on those takes too.
+Mia's reply comes back to the same page with `mia-listen reply`. There, William can copy
+it or tap **Hear Mia** to have the Miadi voice layer render it in her voice.
 
 The plugin's SessionStart hook runs `phone-capture/ensure.sh`. On a host with
 `MIADI_CHRONICLE_ROOT`, it does three things:

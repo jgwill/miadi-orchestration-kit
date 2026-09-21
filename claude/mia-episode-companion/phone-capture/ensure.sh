@@ -49,12 +49,30 @@ exec 9>"$state/ensure.lock"
 command -v flock >/dev/null && flock -w 30 9
 
 started=""
+restarted=""
+# A running service whose code differs from disk is restarted, but only while idle,
+# so a plugin update reaches the phone without anyone restarting anything.
+if answering; then
+  health="$(curl -s -m 2 "http://127.0.0.1:$port/api/health")"
+  running_build="$(printf '%s' "$health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const h=JSON.parse(s);process.stdout.write([h.build||"",h.pid||"",h.capture?.state||""].join("|"))}catch{}})')"
+  IFS="|" read -r build pid cstate <<<"$running_build"
+  disk_build="$(cat "$here/server.mjs" "$here/public/index.html" "$here/package-lock.json" | sha256sum | cut -d' ' -f1)"
+  if [ -n "$pid" ] && [ "$build" != "$disk_build" ] && [ "$cstate" = "idle" ]; then
+    echo "--- $(date -Is) ensure.sh restarting phone-capture pid $pid for build ${disk_build:0:12}" >>"$log"
+    kill "$pid" 2>/dev/null
+    for _ in $(seq 1 40); do answering || break; sleep 0.25; done
+    restarted="yes"
+  fi
+fi
 if ! answering; then
   if curl -s -m 2 -o /dev/null "http://127.0.0.1:$port/" 2>/dev/null; then
     report "📱 phone-capture not started: port $port answers but is not phone-capture" "Port $port is held by another service; phone-capture is not running."
   fi
-  if [ ! -d "$here/node_modules/@miadi/capture-service" ]; then
-    (cd "$here" && npm ci --omit=dev --no-audit --no-fund >>"$log" 2>&1) \
+  # Install when the lockfile differs from the one last installed, so a new
+  # dependency arrives with the plugin update that needs it.
+  lock_sum="$(sha256sum "$here/package-lock.json" | cut -d' ' -f1)"
+  if [ "$(cat "$here/node_modules/.phone-capture-lock" 2>/dev/null)" != "$lock_sum" ]; then
+    (cd "$here" && npm ci --omit=dev --no-audit --no-fund >>"$log" 2>&1 && echo "$lock_sum" > node_modules/.phone-capture-lock) \
       || report "📱 phone-capture not started: npm ci failed, see $log" "phone-capture dependencies failed to install."
   fi
   dns="$(tailscale status --json 2>/dev/null | node -e '
@@ -116,7 +134,7 @@ link="$url/"
 
 context="phone-capture is running on this host. William can record from the iPhone in Safari at $link$serve_note. Takes land in the chosen episode's captures/ uncommitted; mia-listen wakes on them."
 case "$started" in
-  yes) report "📱 phone-capture started · $link$serve_note" "$context" ;;
+  yes) report "📱 phone-capture ${restarted:+re}started · $link$serve_note" "$context" ;;
   serve) report "📱 phone-capture: tailscale serve restored · $link" "$context" ;;
   *) report "" "$context" ;;
 esac

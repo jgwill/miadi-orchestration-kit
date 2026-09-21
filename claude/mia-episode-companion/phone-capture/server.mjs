@@ -11,8 +11,10 @@
 // Binds to loopback. `tailscale serve` fronts it with HTTPS, which Safari needs
 // before it will open the microphone, and keeps it on the tailnet.
 
-import { randomUUID } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  appendFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync,
+} from "node:fs";
 import { rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
@@ -30,6 +32,11 @@ import {
 } from "@miadi/capture-service";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
+// The code this process is running. ensure.sh hashes the same three files, in the same
+// order, and restarts an idle service whose build differs from what is on disk.
+const BUILD = createHash("sha256")
+  .update(Buffer.concat(["server.mjs", "public/index.html", "package-lock.json"].map((file) => readFileSync(join(HERE, file)))))
+  .digest("hex");
 const MAX_BYTES = 200 * 1024 * 1024;
 const EPISODE_NAME = /^\d{4}-\d{2}-\d{2}-episode-(\d+)-[a-z0-9-]+$/;
 // Only containers the Chronicle already gitignores may enter a bundle
@@ -86,6 +93,68 @@ async function receive(req, uploadsDir, extension) {
   return { path, bytes };
 }
 
+// ---------- replies ----------
+// Mia posts her return here (mia-listen.mjs reply), and the page shows it beside the take.
+// One append-only JSONL per episode, with a voice sidecar per reply once it has been heard.
+
+const MAX_REPLY_CHARS = 20_000;
+
+async function readJson(req, limit = 256 * 1024) {
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > limit) throw new Refusal(413, "request body too large");
+  }
+  try {
+    return JSON.parse(body || "{}");
+  } catch {
+    throw new Refusal(400, "body is not JSON");
+  }
+}
+
+// tailscale serve adds these to every request it forwards. A request without them came
+// from a process on this host, which is the only place a reply may come from.
+function fromThisHost(req) {
+  return !req.headers["x-forwarded-for"] && !req.headers["tailscale-user-login"];
+}
+
+function readReplies(repliesDir, episode) {
+  const file = join(repliesDir, `${episode}.jsonl`);
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8").split("\n").filter(Boolean).flatMap((line) => {
+    try { return [JSON.parse(line)]; } catch { return []; }
+  });
+}
+
+function findReply(repliesDir, id) {
+  if (!/^[0-9a-f-]{36}$/.test(id) || !existsSync(repliesDir)) return null;
+  for (const name of readdirSync(repliesDir).filter((file) => file.endsWith(".jsonl"))) {
+    const found = readReplies(repliesDir, name.slice(0, -".jsonl".length)).find((reply) => reply.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function publicReply(reply, repliesDir) {
+  const voiced = existsSync(join(repliesDir, "audio", `${reply.id}.mp3`));
+  return {
+    id: reply.id, episode: reply.episode, take: reply.take, text: reply.text, seat: reply.seat, at: reply.at,
+    audio: voiced ? `api/replies/${reply.id}/audio` : null,
+  };
+}
+
+// What a voice reads: the words, without the labels and markup that only a screen needs.
+export function speakable(text) {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^\s*(🧠|🌸)\s*:?\s*/u, "").replace(/^#+\s*/, "").replace(/^\s*[-*]\s+/, ""))
+    .join("\n")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // One take at a time: the capture service holds a single recorder.
 function serializer() {
   let tail = Promise.resolve();
@@ -96,8 +165,74 @@ function serializer() {
   };
 }
 
-export function createApp({ service, chronicleRoot, uploadsDir, defaultEpisode = "" }) {
+export function createApp({ service, chronicleRoot, uploadsDir, repliesDir, voice = null, defaultEpisode = "" }) {
   const serial = serializer();
+  const voicing = new Map(); // reply id → in-flight synthesis, so two taps make one voice
+
+  async function postReply(req) {
+    if (!fromThisHost(req)) throw new Refusal(403, "replies are posted from this host only");
+    const body = await readJson(req, MAX_REPLY_CHARS * 4 + 8192);
+    episodeDir(chronicleRoot, body.episode);
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!text) throw new Refusal(400, "a reply needs text");
+    if (text.length > MAX_REPLY_CHARS) throw new Refusal(413, `a reply is limited to ${MAX_REPLY_CHARS} characters`);
+    if (body.take !== undefined && !/^\d{12}$/.test(String(body.take))) throw new Refusal(400, "take must be a 12-digit take id");
+    const reply = {
+      id: randomUUID(),
+      episode: body.episode,
+      take: body.take === undefined ? null : String(body.take),
+      text,
+      seat: typeof body.seat === "string" ? body.seat.slice(0, 200) : "",
+      origin: body.origin && typeof body.origin === "object" ? body.origin : null,
+      at: new Date().toISOString(),
+    };
+    mkdirSync(repliesDir, { recursive: true });
+    appendFileSync(join(repliesDir, `${reply.episode}.jsonl`), `${JSON.stringify(reply)}\n`, { mode: 0o600 });
+    return { success: true, id: reply.id };
+  }
+
+  function listReplies(url) {
+    const episode = url.searchParams.get("episode") || defaultEpisode;
+    episodeDir(chronicleRoot, episode);
+    const take = url.searchParams.get("take");
+    const replies = readReplies(repliesDir, episode)
+      .filter((reply) => !take || reply.take === take)
+      .reverse()
+      .slice(0, 10)
+      .map((reply) => publicReply(reply, repliesDir));
+    return { success: true, episode, replies };
+  }
+
+  // Mia's voice for one reply, through the Miadi voice layer (persona mia, bound to the
+  // episode, answering to the seat that wrote the words). Rendered once, then cached so
+  // Safari gets byte ranges from a local file.
+  async function voiceReply(id) {
+    const reply = findReply(repliesDir, id);
+    if (!reply) throw new Refusal(404, `no such reply: ${id}`);
+    const file = join(repliesDir, "audio", `${id}.mp3`);
+    if (existsSync(file)) return { success: true, audio: `api/replies/${id}/audio` };
+    if (!voice) throw new Refusal(503, "the voice layer is not configured on this host");
+    if (!voicing.has(id)) {
+      voicing.set(id, (async () => {
+        const bytes = await voice.render({
+          text: speakable(reply.text),
+          episode: reply.episode,
+          persona: "mia",
+          lang: "en",
+          source: "phone-capture",
+          origin: reply.origin,
+        });
+        mkdirSync(join(repliesDir, "audio"), { recursive: true });
+        writeFileSync(file, bytes, { mode: 0o600 });
+      })().finally(() => voicing.delete(id)));
+    }
+    try {
+      await voicing.get(id);
+    } catch (error) {
+      throw new Refusal(502, `the voice layer refused: ${error instanceof Error ? error.message : error}`);
+    }
+    return { success: true, audio: `api/replies/${id}/audio` };
+  }
 
   async function storeTake(req, url) {
     const episode = url.searchParams.get("episode") || defaultEpisode;
@@ -160,7 +295,7 @@ export function createApp({ service, chronicleRoot, uploadsDir, defaultEpisode =
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/health") {
-        sendJson(res, 200, { success: true, defaultEpisode, capture: service.status() });
+        sendJson(res, 200, { success: true, pid: process.pid, build: BUILD, defaultEpisode, capture: service.status() });
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/episodes") {
@@ -170,6 +305,21 @@ export function createApp({ service, chronicleRoot, uploadsDir, defaultEpisode =
       if (req.method === "POST" && url.pathname === "/api/takes") {
         sendJson(res, 200, await storeTake(req, url));
         return;
+      }
+      if (url.pathname === "/api/replies") {
+        if (req.method === "POST") { sendJson(res, 200, await postReply(req)); return; }
+        if (req.method === "GET") { sendJson(res, 200, listReplies(url)); return; }
+      }
+      const replyRoute = url.pathname.match(/^\/api\/replies\/([0-9a-f-]{36})\/(voice|audio)$/);
+      if (replyRoute) {
+        const [, id, what] = replyRoute;
+        if (what === "voice" && req.method === "POST") { sendJson(res, 200, await voiceReply(id)); return; }
+        if (what === "audio" && (req.method === "GET" || req.method === "HEAD")) {
+          const file = join(repliesDir, "audio", `${id}.mp3`);
+          if (!existsSync(file)) throw new Refusal(404, "this reply has not been voiced yet");
+          await serveFileRanged(req, res, file, "audio/mpeg");
+          return;
+        }
       }
       // The registration uri every take carries answers here.
       const audioPrefix = "/api/captures/audio/";
@@ -186,6 +336,31 @@ export function createApp({ service, chronicleRoot, uploadsDir, defaultEpisode =
       if (!res.headersSent) sendJson(res, status, { success: false, error: error instanceof Error ? error.message : String(error) });
       else res.destroy();
     }
+  };
+}
+
+// The Miadi voice layer through its own client: publish, then fetch the rendered mp3.
+async function voiceLayer() {
+  let createVoiceClient;
+  try {
+    ({ createVoiceClient } = await import("@miadi/voice-client"));
+  } catch {
+    return null;
+  }
+  const base = (process.env.MIADI_API_URL || "http://127.0.0.1:3335").replace(/\/+$/, "");
+  const client = createVoiceClient({ baseUrl: base });
+  return {
+    async render(request) {
+      const message = await client.publish(request);
+      const url = client.audioUrl(message);
+      if (!url) throw new Error("the voice layer produced no audio for this reply");
+      // The token goes to the voice layer's own address only, never to a Blob URL.
+      const token = process.env.MIADI_API_TOKEN_WRITER;
+      const own = url.startsWith(`${base}/`);
+      const response = await fetch(url, own && token ? { headers: { authorization: `Bearer ${token}` } } : {});
+      if (!response.ok) throw new Error(`audio fetch answered ${response.status}`);
+      return Buffer.from(await response.arrayBuffer());
+    },
   };
 }
 
@@ -222,6 +397,8 @@ async function main() {
     service,
     chronicleRoot,
     uploadsDir: join(stateDir, "uploads"),
+    repliesDir: join(stateDir, "replies"),
+    voice: await voiceLayer(),
     defaultEpisode: process.env.MIADI_PHONE_CAPTURE_EPISODE || "",
   });
   createServer(handle).listen(port, host, () => {

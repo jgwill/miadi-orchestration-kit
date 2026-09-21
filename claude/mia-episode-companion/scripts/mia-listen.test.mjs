@@ -130,7 +130,44 @@ test("a worktree take is delivered once its signature holds across two polls", (
   assert.match(woke.stdout, /Committed: no\. Commit its textual records by name/);
   assert.match(woke.stdout, /add -- captures\/260101000004\/capture\.json captures\/260101000004\/transcription_260101000004_EN\.txt &&/);
   assert.match(woke.stdout, /Turn budget/);
+  assert.match(woke.stdout, /mia-listen\.mjs" reply 260101000004 --episode ".*" <<'MIA'/);
   assert.match(woke.stdout, /re-arm in the background: node ".*mia-listen\.mjs" await --episode/);
+});
+
+test("reply posts the return on stdin to phone-capture with this invocation's origin", async () => {
+  const fx = fixture();
+  const { createServer } = await import("node:http");
+  const received = [];
+  const server = createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    received.push({ url: req.url, body: JSON.parse(body) });
+    res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ success: true, id: "stub-id" }));
+  });
+  await new Promise((done) => server.listen(0, "127.0.0.1", done));
+  // Async: the stub server lives in this process and must answer while the child waits.
+  const runReply = (env, input) => new Promise((done) => {
+    const child = spawn("node", [SCRIPT, "reply", "260101000001", "--episode", fx.episodeRoot], { env: { ...process.env, ...env } });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("exit", (status) => done({ status, stdout, stderr }));
+    child.stdin.end(input);
+  });
+  const posted = await runReply({ MIADI_PHONE_CAPTURE_PORT: String(server.address().port), TMUX_PANE: "%999" }, "William, it arrived.\n");
+  server.close();
+  assert.equal(posted.status, 0, posted.stderr);
+  assert.match(posted.stdout, /delivered to the phone page \(stub-id\)/);
+  assert.equal(received[0].url, "/api/replies");
+  assert.equal(received[0].body.episode, FOLDER);
+  assert.equal(received[0].body.take, "260101000001");
+  assert.equal(received[0].body.text, "William, it arrived.");
+  assert.equal(received[0].body.origin.pane, "%999");
+  assert.equal(received[0].body.origin.multiplexer, "tmux");
+
+  const refused = await runReply({ MIADI_PHONE_CAPTURE_PORT: "1" }, "text");
+  assert.equal(refused.status, 3);
+  assert.match(refused.stderr, /stays in this conversation/);
 });
 
 test("show prints a take without marking it heard", () => {

@@ -17,7 +17,7 @@ import { execFileSync } from "node:child_process";
 import {
   existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, statSync, writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname, userInfo } from "node:os";
 import { join, posix, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +27,7 @@ const STATE_VERSION = 1;
 const STABILITY_POLL_MS = 3_000;
 
 const EXIT_NO_EPISODE = 2;
+const EXIT_UNDELIVERED = 3;
 const EXIT_TIMEOUT = 4;
 
 // ---------- capture validation ----------
@@ -406,8 +407,12 @@ export function formatWake(episode, takes, { rearm = true } = {}) {
     "2. Draft backstage. Send only the take text and the exact draft to the developmental-editor agent, once.",
     "3. Revise against each recommendation and give the return, short enough to say aloud.",
     rearm
-      ? "4. In that same message, run the commit above if one is shown, and re-arm."
-      : "4. In that same message, run the commit above if one is shown.",
+      ? "4. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown, then re-arm."
+      : "4. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown.",
+    "Deliver the return to William's phone page, which waits for it and can voice it as Mia:",
+    `  node "${SCRIPT}" reply ${takes.at(-1).takeId} --episode "${episode.root}" <<'MIA'`,
+    "  <the final return, exactly as given>",
+    "  MIA",
   );
   if (rearm) {
     lines.push(`After your return, re-arm in the background: node "${SCRIPT}" await --episode "${episode.root}"`);
@@ -452,15 +457,56 @@ const USAGE = `usage: mia-listen.mjs <command> [--episode <dir>] [--no-fetch]
                       [--interval <sec>=20] [--timeout <sec>=0 (none)] → exit 4 on timeout
   show <take-id>      print a take as a wake without marking it heard
   heard <take-id>     mark a take heard without printing it
+  reply <take-id>     post the return on stdin to the phone page (phone-capture on this host)
 The episode defaults to the nearest directory above the cwd carrying episode.yaml.
 State: $MIADI_MIA_COMPANION_STATE_DIR, else $XDG_STATE_HOME/miadi-mia-companion.`;
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
+// Who wrote this reply, read in the same invocation that posts it: the voice layer
+// answers a voiced reply to this seat, and a pane id copied from elsewhere would point
+// that answer at somebody else's terminal.
+function currentOrigin() {
+  const pane = process.env.TMUX_PANE;
+  let session = "";
+  if (pane) {
+    try {
+      session = execFileSync("tmux", ["display-message", "-p", "-t", pane, "#S"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch { /* no tmux server reachable: the pane alone is still a true statement */ }
+  }
+  return {
+    user: userInfo().username,
+    host: hostname(),
+    cwd: process.cwd(),
+    multiplexer: pane ? "tmux" : "none",
+    ...(session ? { session } : {}),
+    ...(pane ? { pane } : {}),
+  };
+}
+
+async function readStdin() {
+  let text = "";
+  for await (const chunk of process.stdin) text += chunk;
+  return text;
+}
+
+async function postReply(episode, takeId, text) {
+  const port = process.env.MIADI_PHONE_CAPTURE_PORT || "8771";
+  const origin = currentOrigin();
+  const response = await fetch(`http://127.0.0.1:${port}/api/replies`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ episode: episode.folder, take: takeId, text, seat: `claude-code@${origin.host}`, origin }),
+  });
+  const answer = await response.json().catch(() => ({}));
+  if (!response.ok || !answer.success) throw new Error(answer.error || `HTTP ${response.status}`);
+  return answer.id;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const command = args._[0] ?? "status";
-  if (args.help || !["status", "await", "show", "heard"].includes(command)) {
+  if (args.help || !["status", "await", "show", "heard", "reply"].includes(command)) {
     console.log(USAGE);
     return args.help ? 0 : EXIT_NO_EPISODE;
   }
@@ -476,6 +522,27 @@ async function main() {
     const { state, created } = ensureState(episode, scan.takes);
     printStatus(episode, state, scan, created);
     return 0;
+  }
+
+  if (command === "reply") {
+    const takeId = args._[1];
+    if (!/^\d{12}$/.test(takeId ?? "")) {
+      console.error("mia-listen: reply needs a 12-digit take id, and the return on stdin");
+      return EXIT_NO_EPISODE;
+    }
+    const text = (await readStdin()).trim();
+    if (!text) {
+      console.error("mia-listen: reply read no text on stdin");
+      return EXIT_NO_EPISODE;
+    }
+    try {
+      const id = await postReply(episode, takeId, text);
+      console.log(`mia-listen: reply to ${takeId} delivered to the phone page (${id})`);
+      return 0;
+    } catch (error) {
+      console.error(`mia-listen: reply not delivered to phone-capture: ${message(error)}. It stays in this conversation.`);
+      return EXIT_UNDELIVERED;
+    }
   }
 
   if (command === "show" || command === "heard") {

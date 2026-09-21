@@ -43,8 +43,30 @@ session start will bring it back unless the plugin is disabled.
 | `MIADI_PHONE_CAPTURE_HTTPS_PORT` | `8443` | the `tailscale serve` port `ensure.sh` maps |
 | `MIADI_PHONE_CAPTURE_PUBLIC_URL` | `http://<host>:<port>` | base of the audio `uri` each registration carries |
 | `MIADI_PHONE_CAPTURE_STATE_DIR` | `$XDG_STATE_HOME/miadi-phone-capture` | the take library (`takes/`) and in-flight uploads |
-| `MIADI_PHONE_CAPTURE_GROQ_ENV_FILE` | `/a/src/Miadi/.env` | `start.sh` reads only its `GROQ_API_KEY` line |
+| `MIADI_PHONE_CAPTURE_ENV_FILE` | `/a/src/Miadi/.env` | `start.sh` reads only its `GROQ_API_KEY` and `MIADI_API_TOKEN_WRITER` lines (`MIADI_PHONE_CAPTURE_GROQ_ENV_FILE` still honored) |
+| `MIADI_API_URL` | `http://127.0.0.1:3335` | the Miadi voice layer that renders Mia's voice |
 | `MIADI_CHRONICLE_MW_URL` | `http://127.0.0.1:8040` | registration. A failure queues the take and never loses it |
+
+## Mia's reply on the page
+
+After Stop & send, the page waits for up to 15 minutes, polling every 4 seconds. It shows
+Mia's reply to that take with **Hear Mia** and **Copy**. Opening the page later shows the
+latest reply for the selected episode.
+
+- **Delivery.** The Mia seat runs `mia-listen.mjs reply <take>` with its return on stdin,
+  and the wake prints that command. It reads the seat's tmux origin in that same
+  invocation. `POST /api/replies` is refused (403) for anything `tailscale serve`
+  forwarded, so only a process on this host can post a reply. Replies are kept in
+  `<state>/replies/<episode>.jsonl`.
+- **Hear Mia.** The first tap asks the Miadi voice layer through `@miadi/voice-client`:
+  persona `mia`, `en`, bound to the episode, with the reply's origin, so an answer routes
+  back to that seat. The page reads the words without glyph labels or markup. The mp3 is
+  cached and served with byte ranges, which iOS Safari needs. A second tap plays the
+  cache. With no voice layer configured, the page says so. It never substitutes another
+  voice.
+- **Updates reach the running service.** `/api/health` reports a build hash of
+  `server.mjs`, `public/index.html` and `package-lock.json`. `ensure.sh` restarts an idle
+  service whose hash differs from disk, and reinstalls when the lockfile changed.
 
 ## What it holds to
 
@@ -63,7 +85,10 @@ session start will bring it back unless the plugin is disabled.
 npm test
 ```
 
-Three hermetic tests with a temp chronicle, a stub transcriber, and a stub wheel:
+Six hermetic tests with a temp chronicle, a stub transcriber, a stub wheel, and a stub voice layer:
 - an upload becomes a bundle that `mia-listen show` validates;
 - a failed transcription still stores the take;
-- the refusals: webm, an unknown episode, traversal, and an empty body.
+- the refusals: webm, an unknown episode, traversal, and an empty body;
+- a reply posted from the host is shown, and one forwarded from the tailnet is refused;
+- one voice is rendered per reply, as `mia`, and served with byte ranges;
+- without a voice layer the page is told so.
