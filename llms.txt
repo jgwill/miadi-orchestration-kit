@@ -1,0 +1,83 @@
+# Miadi Orchestration Kit
+
+Agent-host assets for Miadi: Claude Code, Codex, Copilot, Gemini, Antigravity and Pi plugins, host-neutral skills, hooks, prompt contracts, RISE specifications, and host install scripts.
+
+- Docs site: `https://docs.miadi-orchestration-kit.jgwill.com`
+- Repository: `https://github.com/jgwill/miadi-orchestration-kit`
+
+## Relation to Miadi
+
+`jgwill/Miadi` builds the runtime: the `@miadi/*` npm packages, the web app, and the chronicle services. This kit holds what an agent host loads to use that runtime. The table below names the Miadi packages and CLIs each kit lane calls.
+
+Some plugins, skills, or packages may move between the two repositories. When something is missing here, check the Miadi index.
+
+- Miadi package index (live): `https://docs.miadi.jgwill.com/packages/llms.txt`
+- Package-local docs: `https://docs.miadi.jgwill.com/packages/<name>/llms.txt`, `.../README.md`, `.../rispecs/RISPEC.md`
+- Miadi root maps: `https://github.com/jgwill/Miadi/blob/main/llms.txt` and `https://github.com/jgwill/Miadi/blob/main/llms-full.txt`
+
+| Kit lane | Miadi packages and CLIs it calls |
+| --- | --- |
+| `skills/chronicle-episode`, `claude/miadi-chronicle-episode-kit` | `passages` (`mkepisode`), `@miadi/inquiry-weave`, `@miadi/voice-mcp`, `@miadi/musical-composition-to-episode` (the skill text still names the deprecated `@miadi/composition-to-episode`) |
+| `claude/mia-episode-companion` | `@miadi/capture`, `capture-client`, `capture-service`, `episode-capture`, `transcription`, `episodic-memory-schema`, `node-service-kit`, `voice`, `voice-client` |
+| `claude/miadi-session-orchestrator` | the `@miadi/plan-insight` pipeline |
+| `pi/miadi-pi-network` | publishes its own `@miadi/pi-network` hub from this repository |
+| `packages/miadi/deb` | apt packaging of a Miadi host: `miadi` umbrella and `miadi-config` |
+
+## Reading this site
+
+GitHub Pages serves this repository through Jekyll:
+
+- Files without YAML front matter (`README.md`, scripts, JSON, this file) are served raw at the same path.
+- Markdown with YAML front matter (`SKILL.md`, agent and command files) is rendered to `.html` at the same path, for example `skills/chronicle-episode/SKILL.html`.
+- Dot-directories (`.claude-plugin/`, `.codex-plugin/`, `.github/`, `.agents/`) are not served. Read plugin manifests and marketplaces on GitHub.
+
+## Claude Code plugins
+
+Marketplace: `.claude-plugin/marketplace.json` lists `miadi-chronicle-episode-kit` and `mia-episode-companion`. Any plugin loads with `claude --plugin-dir <kit>/claude/<plugin>`.
+
+| Plugin | Use when you need | Path |
+| --- | --- | --- |
+| `miadi-chronicle-episode-kit` | the chronicle-episode skill, plus a PreToolUse hook that refuses `mkdir` under the chronicle root and returns the `mkepisode` invocation | [`claude/miadi-chronicle-episode-kit`](claude/miadi-chronicle-episode-kit/README.md) |
+| `mia-episode-companion` | Mia as a companion seat bound to one episode: a phone voice take wakes the session, answers go through draft, developmental editor, and revision | [`claude/mia-episode-companion`](claude/mia-episode-companion/README.md) |
+| `miadi-pi-network` | a Claude Code session joining the Pi Network hub as a peer | [`claude/miadi-pi-network`](claude/miadi-pi-network/README.md) |
+| `miadi-session-orchestrator` | review role for plan-insight pipelines: gap reports, revision prompts, audit contracts | `claude/miadi-session-orchestrator` |
+| `miette` | a Two-Eyed Seeing check on output: structural eye (🧠 Mia) and relational eye (🌸 Miette) | [`claude/miette`](claude/miette/README.md) |
+| `miadi-storyweaver-orchestration-kit` | Storyweaver prompt contract for smoke checks and session bootstrap | [`claude/miadi-storyweaver-orchestration-kit`](claude/miadi-storyweaver-orchestration-kit/README.md) |
+
+## Other hosts
+
+| Host | Plugins | Path |
+| --- | --- | --- |
+| Codex | `miette` (marketplace `.agents/plugins/marketplace.json`), `miadi-storyweaver-orchestration-kit`, `miadi-codex-orchestration-kit`; add with `codex plugin marketplace add <kit>/codex/<plugin>` | `codex/` |
+| Copilot | `stckin-orchestration-kit`, `miadi-promotion-context-kit`, `miadi-adversarial-review-kit`, `miadi-orchestration-kit-hermes`, `miadi-storyweaver-orchestration-kit`, `miadi-design-bundle-integration-kit`, `miadi-wave-forge-kit`, `openclaw-model-routing-research-kit`; load with `copilot --plugin-dir <kit>/copilot/<kit-name>` | `copilot/` |
+| Gemini CLI | extensions `miadi-gemini-session-prep`, `miadi-storyweaver-orchestration-kit` | `gemini/` |
+| Antigravity | `miadi-storyweaver-orchestration-kit` | `antigravity/` |
+| Pi | `miadi-pi-network`: authenticated peer discovery and two-way collaboration over an HTTP/SSE hub | [`pi/miadi-pi-network`](pi/miadi-pi-network/README.md) |
+
+Per-host authoring rules: [`claude/AGENTS.md`](claude/AGENTS.md), [`codex/AGENTS.md`](codex/AGENTS.md), [`copilot/AGENTS.md`](copilot/AGENTS.md), [`gemini/AGENTS.md`](gemini/AGENTS.md), [`antigravity/AGENTS.md`](antigravity/AGENTS.md).
+
+## Host-neutral skills and scripts
+
+| Item | Use when you need | Path |
+| --- | --- | --- |
+| `chronicle-episode` | the one entry point for Chronicle episode work on any host: mint, register, relate, redeem receipts, reconcile drift | [`skills/chronicle-episode/SKILL.html`](skills/chronicle-episode/SKILL.html), `redeem-receipt.sh`, `reconcile.py` |
+| `install-chronicle-skill.sh` | point every skill layer on a host at the one kit copy of `chronicle-episode` instead of a diverging copy | [`scripts/install-chronicle-skill.sh`](scripts/install-chronicle-skill.sh) |
+| `miadi-agent` | launch Pi or Claude Code as a named peer on an existing Pi Network room | [`scripts/miadi-agent`](scripts/miadi-agent) |
+| `deep-search` | multi-agent research decomposition and synthesis pattern | `skills/deep-search/` |
+| `mcp-remote-qmd` | companion agents reaching remote QMD over SSH | `skills/mcp-remote-qmd/` |
+| `use-design-bundle-integration-kit` | conducting a design-bundle integration wave | `skills/use-design-bundle-integration-kit/` |
+| `miadi-mightyeagle-issue-263` | the issue-263 security-remediation first wave | `skills/miadi-mightyeagle-issue-263/` |
+
+Hosts set `MIADI_ORCHESTRATION_KIT_ROOT` to their checkout of this repository.
+
+## RISE specifications and foundations
+
+RISE means Reverse Engineering, Intent, Specifications, Exportation. Each folder under `rispecs/` holds `README.md` and, when complete, `01-reverse-engineer.md` through `05-source-ledger.md`:
+
+`agent-memory-provenance-framework`, `claude-session-orchestrator-plugin`, `coaia-agent-orchestration-session`, `codex-claw-dispatch-kit`, `community-layer-spec-plugins`, `discord-integration-patterns`, `east-pde-session-orchestration`, `gemini`, `medicine-wheel`, `miadi-edge-case-collector`, `miadi-storyweaver-orchestration-kit`, `model-routing-orchestration`, `openclaw-runtime-patterns`, `orchestration-plugin-recommender`, `pde-loop-closure-orchestration`, `permission-scoping-orchestration`, `security-remediation-orchestration`.
+
+Foundations: [`foundations/INDEX.html`](foundations/INDEX.html) over `ai-writing`, `chronicle-one-skill`, `multi-agent-systems`, `narrative-theory`, `storyteller-practices`, `vault-synthesis`.
+
+## Safe rule
+
+When an exact CLI flag, export, or version of a Miadi package matters, resolve it through the Miadi package index above, the npm registry, or the package source, not from a kit prompt.
