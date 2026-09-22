@@ -13,7 +13,7 @@ Some plugins, skills, or packages may move between the two repositories. When so
 
 - Miadi package index (live): `https://docs.miadi.jgwill.com/packages/llms.txt`
 - Package-local docs: `https://docs.miadi.jgwill.com/packages/<name>/llms.txt`, `.../README.md`, `.../rispecs/RISPEC.md`
-- Miadi root maps: `https://github.com/jgwill/Miadi/blob/main/llms.txt` and `https://github.com/jgwill/Miadi/blob/main/llms-full.txt`
+- Miadi root maps: `https://docs.miadi.jgwill.com/llms.txt` and `https://docs.miadi.jgwill.com/llms-full.txt`
 
 | Kit lane | Miadi packages and CLIs it calls |
 | --- | --- |
