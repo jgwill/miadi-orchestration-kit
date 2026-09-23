@@ -336,7 +336,8 @@ export function createApp({ service, chronicleRoot, uploadsDir, repliesDir, voic
         if (what === "voice" && req.method === "POST") { sendJson(res, 200, await voiceReply(id)); return; }
         if (what === "audio" && (req.method === "GET" || req.method === "HEAD")) {
           const file = join(repliesDir, "audio", `${id}.mp3`);
-          if (!existsSync(file)) throw new Refusal(404, "this reply has not been voiced yet");
+          // Render on demand, so a play started inside the tap does not need a second one.
+          if (!existsSync(file)) await voiceReply(id);
           await serveFileRanged(req, res, file, "audio/mpeg");
           return;
         }

@@ -33,6 +33,8 @@
   .reply-actions button { flex:1; min-height:48px; border:0; border-radius:13px; font-weight:800; font-size:1rem; background:#263c34; color:var(--ink); }
   .reply-actions button.primary { background:var(--mint); color:#062117; }
   audio { width:100%; margin-top:10px; }
+  .autoplay { display:flex; align-items:center; gap:9px; margin-top:12px; color:var(--muted); font-size:.85rem; }
+  .autoplay input { width:22px; height:22px; accent-color:var(--mint); }
 </style>
 </head>
 <body>
@@ -56,6 +58,7 @@
       <button id="hearReply" class="primary" type="button">Hear Mia</button>
       <button id="copyReply" type="button">Copy</button>
     </div>
+    <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
     <audio id="replyAudio" controls preload="none" hidden></audio>
   </section>
   <div id="replyStatus" class="status" role="status" aria-live="polite"></div>
@@ -78,6 +81,9 @@
   var hearButton = document.getElementById("hearReply");
   var copyButton = document.getElementById("copyReply");
   var replyStatus = document.getElementById("replyStatus");
+  var autoplay = document.getElementById("autoplay");
+  // A fraction of a second of silence: playing it inside a tap unlocks the element on iOS.
+  var SILENT = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
   var recorder = null, stream = null, chunks = [], startedAt = 0, tick = null, wakeLock = null;
   var current = null, waiting = null;
   var WAIT_MS = 15 * 60 * 1000;
@@ -88,14 +94,47 @@
   }
 
   function showReply(reply) {
+    var isNew = !current || current.id !== reply.id;
     current = reply;
     replyText.textContent = reply.text;
     replyMeta.textContent = (reply.take ? "take " + reply.take + " · " : "") + when(reply.at);
-    replyAudio.hidden = !reply.audio;
-    if (reply.audio) replyAudio.src = reply.audio; else replyAudio.removeAttribute("src");
+    if (isNew) {
+      replyAudio.pause();
+      replyAudio.removeAttribute("src");
+      replyAudio.hidden = true;
+    }
     hearButton.textContent = "Hear Mia";
+    hearButton.disabled = false;
     copyButton.textContent = "Copy";
     replyBox.hidden = false;
+    if (isNew && autoplay.checked) playReply();
+  }
+
+  // The audio renders on demand, so play() starts inside the tap and needs no second one.
+  // On arrival there is no tap, so Safari allows it only if this element was played
+  // before: priming it on the Record tap is what earns that.
+  function playReply() {
+    if (!current) return;
+    var src = "api/replies/" + current.id + "/audio";
+    if (replyAudio.getAttribute("src") !== src) replyAudio.src = src;
+    replyAudio.hidden = false;
+    hearButton.textContent = "Voicing…";
+    hearButton.disabled = true;
+    var started = replyAudio.play();
+    if (started && started.catch) {
+      started.catch(function () {
+        hearButton.textContent = "Tap ▶ below";
+        hearButton.disabled = false;
+      });
+    }
+  }
+
+  function primeAudio() {
+    try {
+      replyAudio.src = SILENT;
+      var started = replyAudio.play();
+      if (started && started.then) started.then(function () { replyAudio.pause(); replyAudio.removeAttribute("src"); }).catch(function () {});
+    } catch (_) {}
   }
 
   async function replies(episode, take) {
@@ -173,27 +212,22 @@
     check();
   }
 
-  hearButton.addEventListener("click", async function () {
-    if (!current) return;
-    if (current.audio) { replyAudio.hidden = false; replyAudio.play().catch(function () {}); return; }
-    hearButton.disabled = true;
-    hearButton.textContent = "Voicing…";
-    try {
-      var response = await fetch("api/replies/" + current.id + "/voice", { method: "POST" });
-      var answer = await response.json();
-      if (!answer.success) throw new Error(answer.error || ("HTTP " + response.status));
-      current.audio = answer.audio;
-      replyAudio.src = answer.audio;
-      replyAudio.hidden = false;
-      hearButton.textContent = "Hear Mia";
-      // Safari may refuse to start sound after an await; the controls are there when it does.
-      replyAudio.play().catch(function () { hearButton.textContent = "Tap ▶ below"; });
-    } catch (error) {
-      hearButton.textContent = "Hear Mia";
-      replyStatus.textContent = "Voice unavailable: " + error.message;
-    } finally {
-      hearButton.disabled = false;
-    }
+  hearButton.addEventListener("click", function () { playReply(); });
+
+  replyAudio.addEventListener("playing", function () {
+    hearButton.textContent = "Hear Mia";
+    hearButton.disabled = false;
+  });
+
+  replyAudio.addEventListener("error", function () {
+    hearButton.textContent = "Hear Mia";
+    hearButton.disabled = false;
+    if (replyAudio.getAttribute("src")) replyStatus.textContent = "Her voice could not be rendered.";
+  });
+
+  autoplay.addEventListener("change", function () {
+    remember("autoplay", autoplay.checked ? "1" : "");
+    if (autoplay.checked) primeAudio();
   });
 
   copyButton.addEventListener("click", async function () {
@@ -262,6 +296,7 @@
       button.disabled = !pickType();
       if (!pickType()) say("This browser cannot record audio/mp4. Use Safari on the iPhone.", true);
       remember("episode", select.value);
+      autoplay.checked = recall("autoplay") === "1";
       urlKeepsEpisode();
       if (!resumeWait()) loadLatestReply();
     } catch (error) {
@@ -343,6 +378,7 @@
   }
 
   button.addEventListener("click", function () {
+    primeAudio(); // this tap is what lets her reply play by itself when it lands
     if (recorder && recorder.state === "recording") finish(); else start();
   });
   loadEpisodes();
