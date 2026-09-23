@@ -25,7 +25,6 @@ Exit: 0 ok · 64 usage · 65 not a chronicle reference · 66 no reference at
 that cell · 78 no front configured
 """
 
-import math
 import os
 import re
 import subprocess
@@ -82,52 +81,150 @@ def clean(ref):
     return ref.strip().rstrip(TRAILING)
 
 
+# Whether U+FE0F widens the character before it. tmux 3.4 always did; 3.5
+# made it the option variation-selector-always-wide, on by default; 3.2a did
+# not. Set from the running tmux in tmux mode.
+VS16_WIDE = False
+
+
 def cells(char):
-    if unicodedata.combining(char) or unicodedata.category(char) == "Cf":
+    """Terminal cells, as tmux counts them: marks and format characters take
+    none (U+FE0F itself, a keycap's U+20E3, U+200B), the soft hyphen takes
+    one, wide and fullwidth characters two."""
+    if char == "\u00ad":
+        return 1
+    if unicodedata.category(char) in ("Mn", "Me", "Cf"):
         return 0
     return 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
 
 
+def cell_widths(text):
+    """The cells each character of `text` takes, U+FE0F's widening included."""
+    widths = [cells(c) for c in text]
+    if VS16_WIDE:
+        for i in range(1, len(text)):
+            if text[i] == "\ufe0f" and widths[i - 1] == 1:
+                widths[i - 1] = 2
+    return widths
+
+
 def width(text):
-    return sum(cells(c) for c in text)
+    return sum(cell_widths(text))
 
 
-def reference_at(line, column):
-    """The reference covering terminal cell `column` (0-based) of `line`."""
+def reference_span(line, column):
+    """(reference, cell after its end) covering cell `column` (0-based) of `line`."""
     offsets, cell = [], 0
-    for char in line:
+    for size in cell_widths(line):
         offsets.append(cell)
-        cell += cells(char)
+        cell += size
     offsets.append(cell)
     for found in REFERENCE.finditer(line):
         ref = clean(found.group(0))
-        if offsets[found.start()] <= column < offsets[found.start() + len(ref)]:
-            return ref
-    return ""
+        end = offsets[found.start() + len(ref)]
+        if offsets[found.start()] <= column < end:
+            return ref, end
+    return "", 0
 
 
-def tmux_logical_cell(pane, row, column, pane_width):
-    """The logical line under a click in `pane`, and the click's cell in it.
+def reference_at(line, column):
+    return reference_span(line, column)[0]
 
-    tmux reports one screen row, so a reference wrapped at the pane edge
-    arrives cut in two. capture-pane -J joins wrapped rows back into the line
-    the program printed; a joined line of W cells took ceil(W / width) rows.
-    The line itself never passes through a shell.
+
+CLICK_OPTION = "@miadi_chronicle_click"
+
+
+def tmux(*args):
+    result = subprocess.run(["tmux", *args], capture_output=True, text=True, timeout=10)
+    return result.stdout if result.returncode == 0 else None
+
+
+def char_at(text, column):
+    """Index of the character covering cell `column` of `text`, or len(text)."""
+    cell = 0
+    for i, size in enumerate(cell_widths(text)):
+        cell += size
+        if cell > column:
+            return i
+    return len(text)
+
+
+def rows_of(logical, physical):
+    """Yield (logical line, [(row index, first character of the row)]).
+
+    Rows are matched to the joined lines by their text, never by counted
+    width: tmux versions disagree on how wide some characters are (3.4 lays
+    out U+FE0F as wide, 3.2a and 3.6+ do not), and a miscounted row above a
+    click would open the reference of the row below it. capture-pane trims a
+    row's trailing spaces, so the spaces a wrapped line carried at the edge
+    are restored from the joined line."""
+    k = 0
+    for line in logical:
+        taken, used = [], 0
+        while k < len(physical):
+            row = physical[k]
+            if not line.startswith(row, used):
+                break
+            taken.append((k, used))
+            used += len(row)
+            k += 1
+            if line[used:].strip() == "":
+                break
+            while used < len(line) and line[used] == " " and not (
+                k < len(physical) and physical[k] and line.startswith(physical[k], used)
+            ):
+                used += 1
+        if not taken:
+            taken.append((k, 0))
+            k += 1
+        yield line, taken
+
+
+def vs16_wide():
+    option = tmux("show-options", "-gv", "variation-selector-always-wide")
+    if option is not None:
+        return option.strip() == "on"
+    version = (tmux("-V") or "").split()[-1:] or ["0"]
+    digits = "".join(c if c.isdigit() or c == "." else " " for c in version[0]).split()
+    parts = tuple(int(n) for n in digits[0].split(".")) if digits else (0,)
+    return parts >= (3, 4)
+
+
+def tmux_reference(pane, row, column, pane_width):
+    """The reference under a click in `pane`, or "" with the reason.
+
+    tmux stored the clicked row, as it stood at the click, in the pane option
+    @miadi_chronicle_click; the row itself never passes through a shell. When
+    the pane still shows that row, capture-pane -J joins a reference that
+    wrapped at the pane edge back into the line the program printed. When the
+    pane has moved since the click (output still streaming), only the stored
+    row is trusted, and a reference reaching the pane edge there may continue
+    on a row that is gone.
     """
+    clicked = (tmux("show-options", "-p", "-v", "-t", pane, CLICK_OPTION) or "").rstrip("\n")
+    now = (tmux("capture-pane", "-p", "-t", pane, "-S", str(row), "-E", str(row)) or "").rstrip("\n")
+    if clicked and clicked.rstrip() != now.rstrip():
+        ref, end = reference_span(clicked, column)
+        if ref and end >= pane_width:
+            return "", "the pane moved under the click; click the reference again"
+        return ref, ""
     start = max(0, row - 8)
-    result = subprocess.run(
-        ["tmux", "capture-pane", "-p", "-J", "-t", pane, "-S", str(start), "-E", str(row + 8)],
-        capture_output=True, text=True, timeout=10,
-    )
-    if result.returncode != 0:
-        return "", -1
-    physical = start
-    for line in result.stdout.split("\n"):
-        rows = max(1, math.ceil(width(line) / pane_width))
-        if physical <= row < physical + rows:
-            return line, (row - physical) * pane_width + column
-        physical += rows
-    return "", -1
+    span = ["-t", pane, "-S", str(start), "-E", str(row + 8)]
+    joined = tmux("capture-pane", "-p", "-J", *span)
+    shown = tmux("capture-pane", "-p", *span)
+    if joined is None or shown is None:
+        return "", ""
+    physical = shown.split("\n")
+    for line, taken in rows_of(joined.split("\n"), physical):
+        for index, first in taken:
+            if index == row - start:
+                at = first + char_at(physical[index], column)
+                for found in REFERENCE.finditer(line):
+                    ref = clean(found.group(0))
+                    if found.start() <= at < found.start() + len(ref):
+                        return ref, ""
+                return "", ""
+    return "", ""
 
 
 def say(message, opening, in_tmux):
@@ -195,9 +292,12 @@ def main(argv):
         row, pane_width = number(options.get("row")), number(options.get("width"))
         if refs or column is None or row is None or not pane_width:
             return 64
-        line, column = tmux_logical_cell(options["tmux"], row, column, pane_width)
-        ref = reference_at(line, column) if line else ""
+        global VS16_WIDE
+        VS16_WIDE = vs16_wide()
+        ref, reason = tmux_reference(options["tmux"], row, column, pane_width)
         if not ref:
+            if reason:
+                say(reason, opening, in_tmux)
             return 66
     elif "line" in options:
         if refs or column is None or options["line"] is None:

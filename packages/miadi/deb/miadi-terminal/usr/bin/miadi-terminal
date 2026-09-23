@@ -89,6 +89,12 @@ class Desktop:
         return bool(result and result.stdout.strip() == DESKTOP_FILE)
 
     def enable(self):
+        mimeapps = CONFIG_HOME / "mimeapps.list"
+        if mimeapps.exists():
+            backup = mimeapps.with_name("mimeapps.list.bak-miadi-terminal")
+            if not backup.exists():
+                shutil.copy2(mimeapps, backup)
+                print(f"  backup: {backup}")
         result = run("xdg-mime", "default", DESKTOP_FILE, SCHEME_MIME)
         if result and result.returncode == 0:
             print(f"desktop: {SCHEME_MIME} opens with {DESKTOP_FILE}")
@@ -112,17 +118,25 @@ def split_comment(line):
     return body, sep + comment
 
 
+SECTION = re.compile(r"^(\[+)\s*([^\]]*?)\s*\]+$")
+
+
 def plugins_line(lines):
-    """(index of enabled_plugins in [global_config], index of that header)."""
+    """(index of enabled_plugins in [global_config], index of that header).
+
+    ConfigObj reads `[ global_config ]` as `[global_config]` and `[[x]]` as a
+    subsection; only the top-level global_config counts."""
     section, header = None, None
     for i, line in enumerate(lines):
         body = split_comment(line)[0].strip()
-        if body.startswith("[") and not body.startswith("[["):
-            section = body
-            if body == "[global_config]" and header is None:
-                header = i
+        match = SECTION.match(body)
+        if match:
+            if len(match.group(1)) == 1:
+                section = match.group(2)
+                if section == "global_config" and header is None:
+                    header = i
             continue
-        if section == "[global_config]":
+        if section == "global_config":
             key, sep, _ = body.partition("=")
             if sep and key.strip() == "enabled_plugins":
                 return i, header

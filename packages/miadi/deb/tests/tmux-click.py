@@ -3,125 +3,177 @@
 
     python3 tests/tmux-click.py <tmux conf> <miadi-chronicle-open>
 
-Starts a private tmux server, prints a line holding a reference in a pane,
-attaches a client on a pseudo-terminal and writes SGR mouse press/release
-sequences into it — the bytes a terminal emulator (or Termux, for a tap) sends.
-A stub xdg-open records what the click opened. No real browser, no real
-server: it proves the binding, the column arithmetic and the URL.
+Each scenario starts a private tmux server, shows lines in a pane of a given
+width, attaches a client on a pseudo-terminal and writes SGR mouse
+press/release sequences into it: the bytes a terminal emulator (or Termux,
+for a tap) sends. A stub xdg-open records what each click opened. No real
+browser, no real server: it proves the binding, the cell arithmetic, the
+wrap join and the URL.
 """
 
+import fcntl
 import os
 import pty
 import select
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
+import termios
 import time
 
 conf, opener = sys.argv[1], os.path.abspath(sys.argv[2])
-work = tempfile.mkdtemp(prefix="miadi-tmux-click-")
-socket = f"miadi-click-{os.getpid()}"
-opened = os.path.join(work, "opened")
-stubs = os.path.join(work, "bin")
-os.makedirs(stubs)
-with open(os.path.join(stubs, "xdg-open"), "w") as fh:
-    fh.write(f"#!/bin/sh\nprintf '%s\\n' \"$1\" >> {opened}\n")
-os.chmod(os.path.join(stubs, "xdg-open"), 0o755)
-local_conf = os.path.join(work, "miadi-chronicle.conf")
-with open(conf) as src, open(local_conf, "w") as dst:
-    dst.write(src.read().replace("/usr/bin/miadi-chronicle-open", f"python3 {opener}"))
-
-env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}",
-           MIADI_CHRONICLE_OPEN_URL="https://front.test", TERM="xterm-256color",
-           LC_ALL="C.UTF-8")  # wide characters are two cells only in a UTF-8 tmux
-env.pop("TMUX", None)
-tmux = ["tmux", "-L", socket, "-f", "/dev/null"]
+FRONT = "https://front.test/api/chronicle/open?uri="
+results = []
 
 
-def run(*args):
-    subprocess.run(tmux + list(args), env=env, check=True)
+def tmux_version():
+    raw = subprocess.run(["tmux", "-V"], capture_output=True, text=True).stdout.split()[-1]
+    digits = "".join(c if c.isdigit() or c == "." else " " for c in raw).split()[0]
+    return raw, tuple(int(n) for n in digits.split("."))
 
 
+class Scenario:
+    """One private tmux server, one pane of `width` cells, one attached client."""
+
+    def __init__(self, width, program):
+        self.work = tempfile.mkdtemp(prefix="miadi-tmux-click-")
+        self.opened = os.path.join(self.work, "opened")
+        stubs = os.path.join(self.work, "bin")
+        os.makedirs(stubs)
+        with open(os.path.join(stubs, "xdg-open"), "w") as fh:
+            fh.write(f"#!/bin/sh\nprintf '%s\\n' \"$1\" >> {self.opened}\n")
+        os.chmod(os.path.join(stubs, "xdg-open"), 0o755)
+        local_conf = os.path.join(self.work, "miadi-chronicle.conf")
+        with open(conf) as src, open(local_conf, "w") as dst:
+            dst.write(src.read().replace("/usr/bin/miadi-chronicle-open", f"python3 {opener}"))
+        self.env = dict(os.environ, PATH=f"{stubs}:{os.environ['PATH']}", HOME=self.work,
+                        MIADI_CHRONICLE_OPEN_URL="https://front.test", TERM="xterm-256color",
+                        LC_ALL="C.UTF-8")  # wide characters are two cells only in a UTF-8 tmux
+        self.env.pop("TMUX", None)
+        self.env.pop("XDG_CACHE_HOME", None)
+        self.tmux = ["tmux", "-L", f"miadi-click-{os.getpid()}-{id(self)}", "-f", "/dev/null"]
+        self.run("new-session", "-d", "-s", "click", "-x", str(width), "-y", "20", program)
+        self.run("set", "-g", "mouse", "on")
+        self.run("set", "-g", "status", "off")
+        self.run("source-file", local_conf)
+        self.pid, self.fd = pty.fork()
+        if self.pid == 0:
+            os.execvpe("tmux", self.tmux + ["attach", "-t", "click"], self.env)
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", 20, width, 0, 0))
+        self.drain(1.5)
+
+    def run(self, *args):
+        subprocess.run(self.tmux + list(args), env=self.env, check=True)
+
+    def drain(self, seconds):
+        end = time.time() + seconds
+        while time.time() < end:
+            ready, _, _ = select.select([self.fd], [], [], 0.05)
+            if ready:
+                try:
+                    os.read(self.fd, 65536)
+                except OSError:
+                    return
+
+    def click(self, column, row=0, settle=0.8):  # 0-based cells; SGR mouse is 1-based
+        os.write(self.fd, f"\x1b[<0;{column + 1};{row + 1}M".encode())
+        self.drain(0.05)
+        os.write(self.fd, f"\x1b[<0;{column + 1};{row + 1}m".encode())
+        self.drain(settle)
+
+    def opened_lines(self):
+        try:
+            return open(self.opened).read().split()
+        except FileNotFoundError:
+            return []
+
+    def clicked_row(self):
+        """The row tmux stored as the click landed: what the reader saw."""
+        return subprocess.run(self.tmux + ["show-options", "-p", "-v", "-t", "click", "@miadi_chronicle_click"],
+                              env=self.env, capture_output=True, text=True).stdout.strip()
+
+    def close(self):
+        subprocess.run(self.tmux + ["kill-server"], env=self.env)
+        shutil.rmtree(self.work, ignore_errors=True)
+
+
+def lines_program(scenario_lines):
+    path = tempfile.mktemp(prefix="miadi-tmux-lines-")
+    with open(path, "w") as fh:
+        fh.write("\n".join(scenario_lines) + "\n")
+    return f"cat {path}; rm -f {path}; sleep 60"
+
+
+def check(name, got, want):
+    results.append((f"{name} (opened {got})", got == want))
+
+
+version, numbers = tmux_version()
+
+# A wide pane: beside, on, after wide characters, a ~ prompt, a double click.
 line = "see miadi-chronicle:092/126#scene=river, then 世界 miadi-chronicle:311."
 prompt = "~/src/Miadi main > echo miadi-chronicle:126"     # a shell would expand a leading ~
-wrapped = "x" * 79 + " miadi-chronicle:092/126 now"         # wraps at the 100-cell pane edge
-lines_file = os.path.join(work, "lines")
-with open(lines_file, "w") as fh:
-    fh.write("\n".join([line, prompt, wrapped]) + "\n")
-run("new-session", "-d", "-s", "click", "-x", "100", "-y", "20", f"cat {lines_file}; sleep 60")
-run("set", "-g", "mouse", "on")
-run("set", "-g", "status", "off")
-run("source-file", local_conf)
-
-pid, fd = pty.fork()
-if pid == 0:
-    os.execvpe("tmux", tmux + ["attach", "-t", "click"], env)
-
-
-def drain(seconds):
-    end = time.time() + seconds
-    while time.time() < end:
-        ready, _, _ = select.select([fd], [], [], 0.05)
-        if ready:
-            try:
-                os.read(fd, 65536)
-            except OSError:
-                return
-
-
-def click(column, row=0, settle=0.8):  # 0-based cells; SGR mouse is 1-based
-    os.write(fd, f"\x1b[<0;{column + 1};{row + 1}M".encode())
-    drain(0.05)
-    os.write(fd, f"\x1b[<0;{column + 1};{row + 1}m".encode())
-    drain(settle)
-
-
-def opened_lines():
-    try:
-        return open(opened).read().split()
-    except FileNotFoundError:
-        return []
-
-
-import fcntl, struct, termios
-fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 20, 100, 0, 0))
-drain(1.5)
-results = []
+s = Scenario(100, lines_program([line, prompt]))
 try:
-    click(1)                       # on "see": nothing
-    results.append(("click beside a reference opens nothing", opened_lines() == []))
-    click(12)                      # inside miadi-chronicle:092/126#scene=river
-    want = "https://front.test/api/chronicle/open?uri=miadi-chronicle%3A092%2F126%23scene%3Driver"
-    results.append(("click on a reference opens its open door", opened_lines() == [want]))
-    wide = line.index("世界")
-    click(wide + 2 + 3 + 2)        # after two wide cells, inside miadi-chronicle:311
-    want311 = "https://front.test/api/chronicle/open?uri=miadi-chronicle%3A311"
-    got = opened_lines()[-1:]
-    version = subprocess.run(["tmux", "-V"], capture_output=True, text=True).stdout.split()[-1]
-    if tuple(int(n) for n in "".join(c if c.isdigit() or c == "." else " " for c in version).split()[0].split(".")) < (3, 6):
-        # Measured on 3.2a and 3.4 (Ubuntu 22.04, 24.04): mouse_line ends at the first wide
-        # character, so a reference after one is not on the line tmux reports.
+    s.click(1)
+    check("a click beside a reference opens nothing", s.opened_lines(), [])
+    s.click(12)
+    check("a click on a reference opens its open door", s.opened_lines(),
+          [f"{FRONT}miadi-chronicle%3A092%2F126%23scene%3Driver"])
+    if numbers < (3, 6):
+        # Measured on 3.2a and 3.4 (Ubuntu 22.04, 24.04): mouse_line ends at the first wide character.
         print(f"  - wide characters skipped: tmux {version} cuts mouse_line at the first one")
     else:
-        results.append((f"columns count wide characters as two cells (opened {got})", got == [want311]))
-    click(prompt.index("miadi-chronicle") + 3, row=1)
-    want126 = "https://front.test/api/chronicle/open?uri=miadi-chronicle%3A126"
-    got = opened_lines()[-1:]
-    results.append((f"a prompt line starting with ~ keeps its columns (opened {got})", got == [want126]))
-    click(85, row=2)
-    want_wrapped = "https://front.test/api/chronicle/open?uri=miadi-chronicle%3A092%2F126"
-    got = opened_lines()[-1:]
-    results.append((f"a reference wrapped at the pane edge opens whole (opened {got})", got == [want_wrapped]))
-    before = len(opened_lines())
-    drain(1.6)                     # past the repeat window, then a double click
-    click(prompt.index("miadi-chronicle") + 3, row=1, settle=0.1)
-    click(prompt.index("miadi-chronicle") + 3, row=1)
-    got = opened_lines()[before:]
-    results.append((f"a double click opens once (opened {got})", got == [want126]))
+        s.click(line.index("世界") + 2 + 3 + 2)
+        check("columns count wide characters as two cells", s.opened_lines()[-1:], [f"{FRONT}miadi-chronicle%3A311"])
+    s.click(prompt.index("miadi-chronicle") + 3, row=1)
+    check("a prompt line starting with ~ keeps its columns", s.opened_lines()[-1:], [f"{FRONT}miadi-chronicle%3A126"])
+    before = len(s.opened_lines())
+    s.drain(1.6)                   # past the repeat window, then a double click
+    s.click(prompt.index("miadi-chronicle") + 3, row=1, settle=0.1)
+    s.click(prompt.index("miadi-chronicle") + 3, row=1)
+    check("a double click opens once", s.opened_lines()[before:], [f"{FRONT}miadi-chronicle%3A126"])
 finally:
-    subprocess.run(tmux + ["kill-server"], env=env)
-    shutil.rmtree(work, ignore_errors=True)
+    s.close()
+
+# A 20-cell pane, a phone's width: wraps, a split scheme, emoji variation selectors.
+s = Scenario(20, lines_program([
+    "see the room miadi-chronicle:092/126 now",   # the edge falls inside "miadi-chronicle:"
+    "✔️ tests pass, ship!!",                      # U+FE0F takes no cell: exactly 20 cells, one row
+    "a miadi-chronicle:1",
+    "b miadi-chronicle:2",
+]))
+try:
+    s.click(15)                    # row 0 ends "miadi-c": joined, the whole reference opens
+    check("a scheme split by the pane edge opens from its first row", s.opened_lines(),
+          [f"{FRONT}miadi-chronicle%3A092%2F126"])
+    s.drain(1.6)
+    s.click(3, row=1)              # row 1 is "hronicle:092/126 now": neither word, the documented limit
+    check("its second row, holding neither word, opens nothing", s.opened_lines()[1:], [])
+    s.click(4, row=2)              # after ✔️ on its own row: "tests" opens nothing, cells line up
+    check("a click on text after an emoji variation selector opens nothing", s.opened_lines()[1:], [])
+    s.click(5, row=4)              # below the ✔️ line, which tmux versions lay out in one row or two
+    shown = s.clicked_row()
+    want = [f"{FRONT}miadi-chronicle%3A{shown.split(':')[-1].strip()}"] if "miadi-chronicle:" in shown else ["?"]
+    check(f"below an emoji variation selector, the row the reader sees opens ({shown!r})",
+          s.opened_lines()[-1:], want)
+finally:
+    s.close()
+
+# A pane still printing: the click must open what was under it when it landed.
+s = Scenario(60, "i=0; while [ $i -lt 400 ]; do echo \"line miadi-chronicle:$i\"; i=$((i+1)); sleep 0.02; done; sleep 30")
+try:
+    s.drain(1.0)
+    s.click(6, row=5, settle=1.0)
+    # The row tmux stored as the click landed is the truth to compare with.
+    got = s.opened_lines()
+    clicked = s.clicked_row()
+    want = [f"{FRONT}{'miadi-chronicle%3A' + clicked.split(':')[-1]}"] if clicked else ["(no click stored)"]
+    check("a click in a streaming pane opens the row it landed on", got, want)
+finally:
+    s.close()
 
 for name, ok in results:
     print(f"  {'✓' if ok else '✗'} {name}")

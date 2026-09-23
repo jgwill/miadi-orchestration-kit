@@ -10,6 +10,7 @@ plugins() {
 		~/.config/terminator/config
 }
 mkdir -p ~/.config/terminator ~/bin ~/.config/environment.d
+printf '[Default Applications]\ntext/html=firefox.desktop\n' > ~/.config/mimeapps.list
 printf '[global_config] # mine\n  enabled_plugins = LaunchpadBugURLHandler, APTURLHandler  # keep these\n[plugins]\n  [[x]]\n    enabled_plugins = y\n' \
 	> ~/.config/terminator/config
 for f in ~/bin/miadi-chronicle-open ~/.config/environment.d/50-miadi-chronicle.conf; do
@@ -27,6 +28,7 @@ test -f ~/.local/share/miadi-terminal/legacy/miadi-chronicle-open
 test -f ~/.config/environment.d/50-miadi-chronicle.conf
 miadi-terminal status | grep -q 'earlier inquiry-weave environment file'
 test "$(xdg-mime query default x-scheme-handler/miadi-chronicle)" = miadi-chronicle-open.desktop
+grep -qx 'text/html=firefox.desktop' ~/.config/mimeapps.list.bak-miadi-terminal
 miadi-terminal enable terminator | grep -q 'already enabled'
 miadi-terminal status | grep -qx 'terminator: its application is not installed here'
 miadi-terminal disable terminator >/dev/null
@@ -40,7 +42,12 @@ grep -q '# mine' ~/.config/terminator/config.bak-miadi-terminal
 rm ~/.config/terminator/config
 miadi-terminal enable terminator >/dev/null
 test "$(plugins)" = LaunchpadBugURLHandler,LaunchpadCodeURLHandler,APTURLHandler,MiadiChronicleURLHandler
-echo "terminator: [global_config] only, comments kept, one-plugin lists stay lists, the first backup kept"
+rm ~/.config/terminator/config ~/.config/terminator/config.bak-miadi-terminal
+printf '[ global_config ]\n  title_hide_sizetext = True\n[profiles]\n' > ~/.config/terminator/config
+miadi-terminal enable terminator >/dev/null
+test "$(grep -c 'global_config' ~/.config/terminator/config)" = 1
+test "$(plugins)" = LaunchpadBugURLHandler,LaunchpadCodeURLHandler,APTURLHandler,MiadiChronicleURLHandler
+echo "terminator: [global_config] only (spaced header too), comments kept, one-plugin lists stay lists, the first backup kept; mimeapps.list backed up"
 
 printf 'set -g history-limit 5000\n#source-file -q /usr/share/miadi-terminal/tmux/miadi-chronicle.conf\nbind C source-file /usr/share/miadi-terminal/tmux/miadi-chronicle.conf\n' > ~/.tmux.conf
 miadi-terminal enable tmux > enable.out

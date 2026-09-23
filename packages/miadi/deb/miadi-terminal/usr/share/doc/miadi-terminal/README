@@ -23,7 +23,8 @@ enable changes only that user's configs: Terminator's enabled_plugins, one
 line in the tmux config, the scheme default in ~/.config/mimeapps.list. Each
 keeps a .bak-miadi-terminal copy of how it was before the first change. The
 plugin and wrapper an earlier `inquiry-weave terminal install` left are moved
-to ~/.local/share/miadi-terminal/legacy/.
+to ~/.local/share/miadi-terminal/legacy/. Without Terminator installed, the
+plugin link still creates Terminator's plugin directory; nothing loads it.
 
 Nothing is resolved on this machine. /usr/bin/miadi-chronicle-open turns the
 reference into <front>/api/chronicle/open?uri=<reference>, and the Miadi server
