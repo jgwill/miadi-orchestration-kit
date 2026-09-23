@@ -27,8 +27,9 @@ OPEN = '/usr/bin/miadi-chronicle-open'
 class MiadiChronicleURLHandler(plugin.URLHandler):
     capabilities = ['url_handler']
     handler_name = 'miadi_chronicle_uri'
-    # r'''...''' because the pattern contains a double quote.
-    match = r'''\bmiadi-chronicle:(?://)?[A-Za-z0-9._~/\-]+(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?'''
+    # r'''...''' because the pattern contains a double quote; (?i) because the
+    # scheme is case-insensitive (RFC 3986, and the Miadi parser).
+    match = r'''(?i)\bmiadi-chronicle:(?://)?[A-Za-z0-9._~/\-]+(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?'''
     nameopen = 'Open chronicle reference'
     namecopy = 'Copy miadi-chronicle reference'
 

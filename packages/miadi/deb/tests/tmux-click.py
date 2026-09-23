@@ -89,10 +89,14 @@ class Scenario:
         except FileNotFoundError:
             return []
 
-    def clicked_row(self):
-        """The row tmux stored as the click landed: what the reader saw."""
-        return subprocess.run(self.tmux + ["show-options", "-p", "-v", "-t", "click", "@miadi_chronicle_click"],
-                              env=self.env, capture_output=True, text=True).stdout.strip()
+    def snapshot(self):
+        """The pane as tmux captured it when the click landed: what the reader saw."""
+        return subprocess.run(self.tmux + ["show-buffer", "-b", "miadi-chronicle-shown"],
+                              env=self.env, capture_output=True, text=True).stdout.split("\n")
+
+    def clicked_row(self, row):
+        rows = self.snapshot()
+        return rows[row] if row < len(rows) else ""
 
     def close(self):
         subprocess.run(self.tmux + ["kill-server"], env=self.env)
@@ -155,25 +159,54 @@ try:
     s.click(4, row=2)              # after ✔️ on its own row: "tests" opens nothing, cells line up
     check("a click on text after an emoji variation selector opens nothing", s.opened_lines()[1:], [])
     s.click(5, row=4)              # below the ✔️ line, which tmux versions lay out in one row or two
-    shown = s.clicked_row()
+    shown = s.clicked_row(4)
     want = [f"{FRONT}miadi-chronicle%3A{shown.split(':')[-1].strip()}"] if "miadi-chronicle:" in shown else ["?"]
     check(f"below an emoji variation selector, the row the reader sees opens ({shown!r})",
           s.opened_lines()[-1:], want)
 finally:
     s.close()
 
-# A pane still printing: the click must open what was under it when it landed.
-s = Scenario(60, "i=0; while [ $i -lt 400 ]; do echo \"line miadi-chronicle:$i\"; i=$((i+1)); sleep 0.02; done; sleep 30")
+# Tabs (3.7 keeps them in what it captures) and an upper-case scheme.
+s = Scenario(60, lines_program(["a\tmiadi-chronicle:1\tmiadi-chronicle:2", "see MIADI-CHRONICLE:126 here"]))
 try:
-    s.drain(1.0)
-    s.click(6, row=5, settle=1.0)
-    # The row tmux stored as the click landed is the truth to compare with.
-    got = s.opened_lines()
-    clicked = s.clicked_row()
-    want = [f"{FRONT}{'miadi-chronicle%3A' + clicked.split(':')[-1]}"] if clicked else ["(no click stored)"]
-    check("a click in a streaming pane opens the row it landed on", got, want)
+    s.click(22)                    # a tab runs to cell 8: cells 8-24 are the first reference
+    check("a tab runs to the next stop of 8", s.opened_lines(), [f"{FRONT}miadi-chronicle%3A1"])
+    s.click(6, row=1)
+    check("an upper-case scheme opens", s.opened_lines()[1:], [f"{FRONT}MIADI-CHRONICLE%3A126"])
 finally:
     s.close()
+
+# Two clicks on different rows 30 ms apart: each opens its own reference.
+s = Scenario(60, lines_program(["a miadi-chronicle:1 here", "miadi-chronicle:2 miadi-chronicle:3"]))
+try:
+    s.click(5, settle=0.03)
+    s.click(25, row=1, settle=1.5)
+    check("two fast clicks each open their own reference", sorted(s.opened_lines()),
+          sorted([f"{FRONT}miadi-chronicle%3A1", f"{FRONT}miadi-chronicle%3A3"]))
+finally:
+    s.close()
+
+
+def streaming(width, name):
+    """A pane still printing: the click opens what was under it when it landed."""
+    s = Scenario(width, "i=0; while [ $i -lt 400 ]; do echo \"see miadi-chronicle:$i\"; i=$((i+1)); "
+                        "sleep 0.02; done; sleep 30")
+    try:
+        s.drain(1.0)
+        for row in (6, 7):         # at width 20 every other row is only the number
+            s.click(6, row=row, settle=1.0)
+            rows = s.snapshot()
+            if len(rows) > row + 1 and "miadi-chronicle:" in rows[row]:
+                break
+        line = rows[row] + (rows[row + 1] if rows[row].endswith(":") else "")
+        want = [f"{FRONT}miadi-chronicle%3A{line.split(':')[-1].strip()}"] if "miadi-chronicle:" in line else ["?"]
+        check(f"{name} ({line!r})", s.opened_lines(), want)
+    finally:
+        s.close()
+
+
+streaming(60, "a click in a streaming pane opens the row it landed on")
+streaming(20, "and when every reference wraps into rows that repeat")
 
 for name, ok in results:
     print(f"  {'✓' if ok else '✗'} {name}")

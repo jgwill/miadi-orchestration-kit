@@ -57,7 +57,8 @@ match = next(n.value.value for n in ast.walk(tree)
 pattern = re.compile(match)
 for text, want in [("see miadi-chronicle:126.", "miadi-chronicle:126"),
                    ("git log: miadi-chronicle://092/126#scene=river end", "miadi-chronicle://092/126#scene=river"),
-                   ("(miadi-chronicle:311/services-inventory)", "miadi-chronicle:311/services-inventory")]:
+                   ("(miadi-chronicle:311/services-inventory)", "miadi-chronicle:311/services-inventory"),
+                   ("see MIADI-CHRONICLE:126.", "MIADI-CHRONICLE:126")]:
     found = pattern.search(text)
     assert found, text
     assert found.group(0).rstrip(".,;:!?)]}\x27\"") == want, (found.group(0), want)

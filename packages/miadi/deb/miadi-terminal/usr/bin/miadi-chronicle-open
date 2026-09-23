@@ -8,7 +8,7 @@ Installed by miadi-terminal (jgwill/miadi-orchestration-kit).
     miadi-chronicle-open --open --line TEXT --column N
                                                       open the reference at
                                                       cell N of TEXT
-    miadi-chronicle-open --open --tmux PANE --row Y --column X --width W
+    miadi-chronicle-open --open --tmux PANE --row Y --column X
                                                       open the reference under
                                                       a click in a tmux pane
 
@@ -99,12 +99,21 @@ def cells(char):
 
 
 def cell_widths(text):
-    """The cells each character of `text` takes, U+FE0F's widening included."""
-    widths = [cells(c) for c in text]
-    if VS16_WIDE:
-        for i in range(1, len(text)):
-            if text[i] == "\ufe0f" and widths[i - 1] == 1:
-                widths[i - 1] = 2
+    """The cells each character of `text` takes on one terminal row: a tab runs
+    to the next stop of 8 (tmux 3.7 keeps tabs in what it captures, 3.2a
+    expands them), and U+FE0F widens the character before it where tmux does.
+    Other widths come from Python's Unicode tables; a character newer than
+    them can be counted a cell off."""
+    widths, cell = [], 0
+    for i, char in enumerate(text):
+        if char == "\t":
+            size = 8 - cell % 8
+        else:
+            size = cells(char)
+            if VS16_WIDE and size == 1 and text[i + 1: i + 2] == "\ufe0f":
+                size = 2
+        widths.append(size)
+        cell += size
     return widths
 
 
@@ -131,7 +140,10 @@ def reference_at(line, column):
     return reference_span(line, column)[0]
 
 
-CLICK_OPTION = "@miadi_chronicle_click"
+# Snapshots of the clicked pane, taken by the binding inside tmux as the click
+# lands (capture-pane -b), so output printed after the click cannot move them.
+SHOWN_BUFFER = "miadi-chronicle-shown"
+JOINED_BUFFER = "miadi-chronicle-joined"
 
 
 def tmux(*args):
@@ -153,11 +165,11 @@ def rows_of(logical, physical):
     """Yield (logical line, [(row index, first character of the row)]).
 
     Rows are matched to the joined lines by their text, never by counted
-    width: tmux versions disagree on how wide some characters are (3.4 lays
-    out U+FE0F as wide, 3.2a and 3.6+ do not), and a miscounted row above a
-    click would open the reference of the row below it. capture-pane trims a
-    row's trailing spaces, so the spaces a wrapped line carried at the edge
-    are restored from the joined line."""
+    width: tmux versions disagree on how wide some characters are (3.4 and
+    later lay out a character followed by U+FE0F as two cells, 3.2a as one),
+    and a miscounted row above a click would open the reference of the row
+    below it. capture-pane trims a row's trailing spaces, so the spaces a
+    wrapped line carried at the edge are restored from the joined line."""
     k = 0
     for line in logical:
         taken, used = [], 0
@@ -190,41 +202,32 @@ def vs16_wide():
     return parts >= (3, 4)
 
 
-def tmux_reference(pane, row, column, pane_width):
-    """The reference under a click in `pane`, or "" with the reason.
+def tmux_reference(pane, row, column):
+    """The reference under a click at cell `column` of row `row` in `pane`.
 
-    tmux stored the clicked row, as it stood at the click, in the pane option
-    @miadi_chronicle_click; the row itself never passes through a shell. When
-    the pane still shows that row, capture-pane -J joins a reference that
-    wrapped at the pane edge back into the line the program printed. When the
-    pane has moved since the click (output still streaming), only the stored
-    row is trusted, and a reference reaching the pane edge there may continue
-    on a row that is gone.
-    """
-    clicked = (tmux("show-options", "-p", "-v", "-t", pane, CLICK_OPTION) or "").rstrip("\n")
-    now = (tmux("capture-pane", "-p", "-t", pane, "-S", str(row), "-E", str(row)) or "").rstrip("\n")
-    if clicked and clicked.rstrip() != now.rstrip():
-        ref, end = reference_span(clicked, column)
-        if ref and end >= pane_width:
-            return "", "the pane moved under the click; click the reference again"
-        return ref, ""
-    start = max(0, row - 8)
-    span = ["-t", pane, "-S", str(start), "-E", str(row + 8)]
-    joined = tmux("capture-pane", "-p", "-J", *span)
-    shown = tmux("capture-pane", "-p", *span)
-    if joined is None or shown is None:
-        return "", ""
+    The binding captured the pane twice as the click landed, as shown and with
+    wrapped rows joined (-J), into two paste buffers; the pane's text never
+    passes through a shell. The joined line holding the clicked row carries a
+    reference that wrapped at the pane edge whole. Without the snapshots (a
+    binding from an older miadi-terminal), the pane is captured now."""
+    shown = tmux("show-buffer", "-b", SHOWN_BUFFER)
+    joined = tmux("show-buffer", "-b", JOINED_BUFFER)
+    if shown is None or joined is None:
+        shown = tmux("capture-pane", "-p", "-t", pane)
+        joined = tmux("capture-pane", "-p", "-J", "-t", pane)
+    if shown is None or joined is None:
+        return ""
     physical = shown.split("\n")
     for line, taken in rows_of(joined.split("\n"), physical):
         for index, first in taken:
-            if index == row - start:
+            if index == row:
                 at = first + char_at(physical[index], column)
                 for found in REFERENCE.finditer(line):
                     ref = clean(found.group(0))
                     if found.start() <= at < found.start() + len(ref):
-                        return ref, ""
-                return "", ""
-    return "", ""
+                        return ref
+                return ""
+    return ""
 
 
 def say(message, opening, in_tmux):
@@ -289,15 +292,13 @@ def main(argv):
     opening, in_tmux = options["open"], "tmux" in options
     column = number(options.get("column"))
     if in_tmux:
-        row, pane_width = number(options.get("row")), number(options.get("width"))
-        if refs or column is None or row is None or not pane_width:
+        row = number(options.get("row"))
+        if refs or column is None or row is None:
             return 64
         global VS16_WIDE
         VS16_WIDE = vs16_wide()
-        ref, reason = tmux_reference(options["tmux"], row, column, pane_width)
+        ref = tmux_reference(options["tmux"], row, column)
         if not ref:
-            if reason:
-                say(reason, opening, in_tmux)
             return 66
     elif "line" in options:
         if refs or column is None or options["line"] is None:
