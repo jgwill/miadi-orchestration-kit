@@ -121,6 +121,21 @@ export class SpokenLanguageTranscriber {
 
 const MAX_REPLY_CHARS = 20_000;
 
+// mia-listen writes a heartbeat per episode while a seat is listening. The page asks for
+// it, so William can see whether anyone is in the room before he speaks.
+const LISTENER_STALE_MS = 120_000;
+
+export function listenerState(dir, episode) {
+  try {
+    const beat = JSON.parse(readFileSync(join(dir, `${episode}.listening.json`), "utf8"));
+    if (Date.now() - Date.parse(beat.at) > LISTENER_STALE_MS) return false;
+    try { process.kill(beat.pid, 0); } catch { return false; }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function readJson(req, limit = 256 * 1024) {
   let body = "";
   for await (const chunk of req) {
@@ -187,7 +202,7 @@ function serializer() {
   };
 }
 
-export function createApp({ service, chronicleRoot, uploadsDir, repliesDir, voice = null, defaultEpisode = "" }) {
+export function createApp({ service, chronicleRoot, uploadsDir, repliesDir, listenerDir, voice = null, defaultEpisode = "" }) {
   const serial = serializer();
   const voicing = new Map(); // reply id → in-flight synthesis, so two taps make one voice
 
@@ -222,7 +237,7 @@ export function createApp({ service, chronicleRoot, uploadsDir, repliesDir, voic
       .reverse()
       .slice(0, 10)
       .map((reply) => publicReply(reply, repliesDir));
-    return { success: true, episode, replies };
+    return { success: true, episode, listening: listenerState(listenerDir, episode), replies };
   }
 
   // Mia's voice for one reply, through the Miadi voice layer (persona mia, bound to the
@@ -298,6 +313,7 @@ export function createApp({ service, chronicleRoot, uploadsDir, repliesDir, voic
           filename: stopped.filename,
           bytes: upload.bytes,
           bundle: assigned.bundle,
+          listening: listenerState(listenerDir, episode),
           registered: assigned.registered,
           english,
           ...(transcriptError ? { transcriptError } : {}),
@@ -422,6 +438,8 @@ async function main() {
     chronicleRoot,
     uploadsDir: join(stateDir, "uploads"),
     repliesDir: join(stateDir, "replies"),
+    listenerDir: process.env.MIADI_MIA_COMPANION_STATE_DIR
+      || join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "miadi-mia-companion"),
     voice: await voiceLayer(),
     defaultEpisode: process.env.MIADI_PHONE_CAPTURE_EPISODE || "",
   });

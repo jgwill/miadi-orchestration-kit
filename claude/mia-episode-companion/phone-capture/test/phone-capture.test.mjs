@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CaptureService, ConcatSegmentJoiner, FileImportDriver, resolveConfig } from "@miadi/capture-service";
-import { createApp, speakable, SpokenLanguageTranscriber } from "../server.mjs";
+import { createApp, listenerState, speakable, SpokenLanguageTranscriber } from "../server.mjs";
 
 const LISTENER = fileURLToPath(new URL("../../scripts/mia-listen.mjs", import.meta.url));
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
@@ -30,7 +30,7 @@ async function bridge({ transcriber, voice = null, language = "fr" } = {}) {
     transcriber,
     registryClient: { register: async (record) => { registrations.push(record); return { success: true, id: record.id ?? "capture:stub" }; } },
   });
-  const server = createServer(createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), voice, defaultEpisode: EPISODE }));
+  const server = createServer(createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE }));
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const url = `http://127.0.0.1:${server.address().port}`;
   return { base, chronicleRoot, url, registrations, close: () => server.close() };
@@ -182,6 +182,33 @@ test("spoken English gives one English transcript, not two files fighting over _
       encoding: "utf8", env: { ...process.env, MIADI_MIA_COMPANION_STATE_DIR: join(b.base, "listener") },
     });
     assert.match(shown, /Mia, I am speaking English\./);
+  } finally {
+    b.close();
+  }
+});
+
+test("the page is told whether a seat is listening on the episode", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const listeners = join(b.base, "listeners");
+    mkdirSync(listeners, { recursive: true });
+    const beat = (at, pid) => writeFileSync(join(listeners, `${EPISODE}.listening.json`), JSON.stringify({ pid, at, since: at }));
+
+    const quiet = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}`)).json();
+    assert.equal(quiet.listening, false, "no heartbeat means nobody is in the room");
+
+    beat(new Date().toISOString(), process.pid);
+    const heard = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}`)).json();
+    assert.equal(heard.listening, true);
+
+    beat(new Date(Date.now() - 5 * 60 * 1000).toISOString(), process.pid);
+    assert.equal(listenerState(listeners, EPISODE), false, "a stale heartbeat is not a listener");
+
+    beat(new Date().toISOString(), 2147480000);
+    assert.equal(listenerState(listeners, EPISODE), false, "a heartbeat from a dead process is not a listener");
+
+    const stored = await (await fetch(`${b.url}/api/takes`, { method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("bytes") })).json();
+    assert.equal(stored.listening, false, "the answer to a take says whether it will be heard");
   } finally {
     b.close();
   }

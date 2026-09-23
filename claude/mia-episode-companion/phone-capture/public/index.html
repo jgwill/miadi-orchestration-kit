@@ -14,6 +14,8 @@
   main { max-width: 520px; margin: 0 auto; display:flex; flex-direction:column; gap:16px; }
   h1 { font-size: 1.15rem; margin: 4px 0 0; }
   label { display:block; color:var(--gold); font-size:.8rem; font-weight:700; margin-bottom:6px; }
+  .listening { margin-top:8px; font-size:.82rem; color:var(--muted); }
+  .listening.none { color:var(--gold); }
   .matches { margin-top:8px; display:flex; flex-direction:column; gap:6px; max-height:46vh; overflow:auto; }
   .matches[hidden] { display:none; }
   .matches button { min-height:48px; padding:10px 12px; text-align:left; border:1px solid var(--line); border-radius:11px; background:var(--panel); color:var(--ink); font-size:.92rem; }
@@ -50,6 +52,7 @@
     <input id="filter" type="search" inputmode="search" placeholder="Filter by number or name" autocomplete="off">
     <select id="episode"><option value="">Loading episodes…</option></select>
     <div id="matches" class="matches" hidden></div>
+    <div id="listening" class="listening"></div>
   </div>
   <button id="record" class="record" type="button" disabled>Record</button>
   <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
@@ -91,6 +94,7 @@
   var autoplay = document.getElementById("autoplay");
   var filter = document.getElementById("filter");
   var matches = document.getElementById("matches");
+  var listening = document.getElementById("listening");
   var episodes = [];
   // A fraction of a second of silence: playing it inside a tap unlocks the element on iOS.
   var SILENT = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
@@ -163,9 +167,18 @@
     replyAudio.removeAttribute("src");
   }
 
+  function showListening(isListening) {
+    if (isListening === null || !select.value) { listening.textContent = ""; listening.className = "listening"; return; }
+    listening.textContent = isListening
+      ? "A session is listening on this episode."
+      : "No session is listening on this episode. A take you record waits here until one starts.";
+    listening.className = "listening" + (isListening ? "" : " none");
+  }
+
   async function replies(episode, take) {
     var query = "api/replies?episode=" + encodeURIComponent(episode) + (take ? "&take=" + take : "");
     var answer = await (await fetch(query)).json();
+    if (answer.success) showListening(answer.listening);
     return answer.success ? answer.replies : [];
   }
 
@@ -300,6 +313,7 @@
     urlKeepsState();
     setState(state);
     say("");
+    showListening(null);
     loadLatestReply();
   });
 
@@ -366,6 +380,7 @@
     urlKeepsState();
     setState(state);
     say("");
+    showListening(null);
     loadLatestReply();
   }
 
@@ -535,15 +550,18 @@
       var strong = document.createElement("strong");
       strong.textContent = "Take " + answer.take + " is in the episode.";
       resultHead.appendChild(strong);
+      showListening(answer.listening);
       resultHead.appendChild(document.createTextNode(answer.transcriptError
         ? " Transcription failed, so no session will wake yet: " + answer.transcriptError
-        : " The session listening there will hear it."));
+        : answer.listening
+          ? " The session listening there will hear it."
+          : " No session is listening on this episode, so it waits until one starts."));
       transcript.textContent = answer.english || "";
       result.hidden = false;
       say("");
       timer.textContent = "";
       setState("idle");
-      if (answer.transcriptError) releaseAudioHold(); else waitForReply(episode, answer.take);
+      if (answer.transcriptError || !answer.listening) releaseAudioHold(); else waitForReply(episode, answer.take);
     } catch (error) {
       pending = blob;
       releaseAudioHold();

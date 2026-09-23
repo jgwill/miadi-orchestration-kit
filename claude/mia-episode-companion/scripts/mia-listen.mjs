@@ -15,7 +15,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import {
-  existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, statSync, writeFileSync,
+  existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync,
 } from "node:fs";
 import { homedir, hostname, userInfo } from "node:os";
 import { join, posix, resolve, sep } from "node:path";
@@ -260,6 +260,25 @@ function statePath(episode) {
   return join(stateDir(), `${episode.folder}.json`);
 }
 
+// A heartbeat while this seat is listening, so the phone page can say whether anyone is
+// in the room before William speaks. Stale after two minutes; removed when await ends.
+export const HEARTBEAT_STALE_MS = 120_000;
+
+function heartbeatPath(episode) {
+  return join(stateDir(), `${episode.folder}.listening.json`);
+}
+
+function beat(episode, since) {
+  try {
+    mkdirSync(stateDir(), { recursive: true });
+    writeFileSync(heartbeatPath(episode), `${JSON.stringify({ pid: process.pid, since, at: new Date().toISOString() })}\n`, { mode: 0o600 });
+  } catch { /* a heartbeat that cannot be written must not stop the listening */ }
+}
+
+function stopBeating(episode) {
+  try { rmSync(heartbeatPath(episode), { force: true }); } catch { /* nothing to remove */ }
+}
+
 function loadState(episode) {
   try {
     const state = JSON.parse(readFileSync(statePath(episode), "utf8"));
@@ -293,6 +312,17 @@ function ensureState(episode, takes) {
   };
   saveState(episode, state);
   return { state, created: true };
+}
+
+export function listenerOf(episode) {
+  try {
+    const beat = JSON.parse(readFileSync(heartbeatPath(episode), "utf8"));
+    if (Date.now() - Date.parse(beat.at) > HEARTBEAT_STALE_MS) return null;
+    process.kill(beat.pid, 0); // a heartbeat from a process that died is not a listener
+    return beat;
+  } catch {
+    return null;
+  }
 }
 
 function unheard(state, takes) {
@@ -434,6 +464,7 @@ function printStatus(episode, state, scan, created) {
     `state: ${statePath(episode)}${created ? " (new baseline taken now)" : ""}`,
     `takes validated: ${scan.takes.length} · baseline ${state.baseline.length} · heard by this seat ${state.delivered.length}`,
     `last heard: ${lastDelivered ?? "none"}`,
+    `listening now: ${listenerOf(episode) ? "yes" : "no"}`,
     `unheard: ${pending.length ? pending.map((take) => `${take.takeId} (${take.source})`).join(", ") : "none"}`,
     ...scan.blockers.map((result) => `waiting: ${result.takeId}@${result.source}: ${result.blocker}`),
     ...scan.warnings.map((warning) => `warning: ${warning}`),
@@ -575,8 +606,14 @@ async function main() {
   const settling = new Map(); // key → signature seen on the previous poll (worktree only)
   let firstPoll = true;
   let lastWarning = "";
+  const listeningSince = new Date().toISOString();
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+    process.on(signal, () => { stopBeating(episode); process.exit(signal === "SIGINT" ? 130 : 143); });
+  }
+  process.on("exit", () => stopBeating(episode));
 
   for (;;) {
+    beat(episode, listeningSince);
     const scan = scanAll(episode, { fetch: args.fetch });
     const { state, created } = ensureState(episode, scan.takes);
     if (firstPoll) {

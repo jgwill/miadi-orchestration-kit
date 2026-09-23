@@ -36,8 +36,8 @@ function element(id) {
   };
 }
 
-function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake = false, replyDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
-  const ids = ["episode", "filter", "matches", "record", "timer", "status", "result", "resultHead", "transcript",
+function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake = false, replyDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard.", listening: true }, takeStatus = 200, neverStop = false } = {}) {
+  const ids = ["episode", "filter", "matches", "listening", "record", "timer", "status", "result", "resultHead", "transcript",
     "reply", "replyMeta", "replyText", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
   const elements = Object.fromEntries(ids.map((id) => [id, element(id)]));
   const made = [];
@@ -69,7 +69,7 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
     if (url.startsWith("api/replies")) {
       const sent = calls.find((c) => c.url.startsWith("api/takes"));
       const ready = replyAfterTake && sent && Date.now() - sent.at >= replyDelay;
-      return { json: async () => ({ success: true, replies: ready ? [{ id: "r1", take: "260922090000", text: "Heard you.", at: new Date().toISOString(), audio: null }] : [] }) };
+      return { json: async () => ({ success: true, listening: true, replies: ready ? [{ id: "r1", take: "260922090000", text: "Heard you.", at: new Date().toISOString(), audio: null }] : [] }) };
     }
     if (url.startsWith("api/takes")) {
       if (takeStatus !== 200) throw new Error("network down");
@@ -227,4 +227,15 @@ test("silence holds the audio open from Stop, so her reply plays without a tap",
   assert.match(String(h.elements.replyAudio.src), /api\/replies\/r1\/audio/, "the source swaps to her voice");
   assert.equal(h.elements.replyAudio.loop, false);
   assert.ok(h.elements.replyAudio.played >= 1, "it was playing already, so no tap was needed");
+});
+
+test("a take sent to an episode nobody listens on says so, and does not wait in silence", async () => {
+  const h = harness({ takeAnswer: { success: true, take: "260923030846", english: "Heard.", listening: false } });
+  await settle(30);
+  h.tap();
+  await settle(60);
+  h.tap();
+  await settle(150);
+  assert.match(h.elements.resultHead.appended.map((c) => c.text || c.textContent).join(" "), /No session is listening/);
+  assert.notEqual(String(h.elements.replyAudio.src), "data:audio/wav", "no silence is left looping for a reply that is not coming");
 });
