@@ -38,7 +38,7 @@
   .reply-actions button { flex:1; min-height:48px; border:0; border-radius:13px; font-weight:800; font-size:1rem; background:#263c34; color:var(--ink); }
   .reply-actions button.primary { background:var(--mint); color:#062117; }
   audio { width:100%; margin-top:10px; }
-  .autoplay { display:flex; align-items:center; gap:9px; margin-top:12px; color:var(--muted); font-size:.85rem; }
+  .autoplay { display:flex; align-items:center; gap:9px; margin:2px 0 0; color:var(--muted); font-size:.9rem; font-weight:400; }
   .autoplay input { width:22px; height:22px; accent-color:var(--mint); }
 </style>
 </head>
@@ -52,6 +52,7 @@
     <div id="matches" class="matches" hidden></div>
   </div>
   <button id="record" class="record" type="button" disabled>Record</button>
+  <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
   <div id="timer" class="timer" aria-live="off"></div>
   <div id="status" class="status" role="status" aria-live="polite"></div>
   <section id="result" class="result" hidden aria-live="polite">
@@ -65,7 +66,6 @@
       <button id="hearReply" class="primary" type="button">Hear Mia</button>
       <button id="copyReply" type="button">Copy</button>
     </div>
-    <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
     <audio id="replyAudio" controls preload="none" hidden></audio>
   </section>
   <div id="replyStatus" class="status" role="status" aria-live="polite"></div>
