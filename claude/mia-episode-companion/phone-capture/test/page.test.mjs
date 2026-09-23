@@ -37,7 +37,7 @@ function element(id) {
 }
 
 function harness({ search = "?episode=" + EPISODE, micDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
-  const ids = ["episode", "filter", "record", "timer", "status", "result", "resultHead", "transcript",
+  const ids = ["episode", "filter", "matches", "record", "timer", "status", "result", "resultHead", "transcript",
     "reply", "replyMeta", "replyText", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
   const elements = Object.fromEntries(ids.map((id) => [id, element(id)]));
   const made = [];
@@ -167,6 +167,24 @@ test("the link decides the reading: ?play=0 turns auto-play off, ?play=1 turns i
   const plain = harness();
   await settle(30);
   assert.equal(plain.elements.autoplay.checked, true, "on by default when the link says nothing");
+});
+
+test("typing 044 lists the episode as a tappable row, and tapping it selects it", async () => {
+  const h = harness({ search: "" });
+  await settle(30);
+  assert.equal(h.elements.episode.value, "");
+  h.elements.filter.value = "044";
+  await h.elements.filter.fire("input");
+  const rows = h.elements.matches.appended;
+  assert.equal(rows.length, 1, "the match is shown under the field");
+  assert.match(rows[0].textContent, /Episode 44 · teaching/);
+  assert.equal(h.elements.matches.hidden, false);
+
+  await rows[0].fire("click");
+  await settle(30);
+  assert.equal(h.elements.episode.value, "2026-06-10-episode-044-teaching-academic-foundations-of-miaco");
+  assert.equal(h.elements.filter.value, "", "the filter clears once an episode is picked");
+  assert.equal(h.elements.record.disabled, false, "Record is ready");
 });
 
 test("every episode is listed, and the filter finds an old one by number", async () => {

@@ -14,6 +14,10 @@
   main { max-width: 520px; margin: 0 auto; display:flex; flex-direction:column; gap:16px; }
   h1 { font-size: 1.15rem; margin: 4px 0 0; }
   label { display:block; color:var(--gold); font-size:.8rem; font-weight:700; margin-bottom:6px; }
+  .matches { margin-top:8px; display:flex; flex-direction:column; gap:6px; max-height:46vh; overflow:auto; }
+  .matches[hidden] { display:none; }
+  .matches button { min-height:48px; padding:10px 12px; text-align:left; border:1px solid var(--line); border-radius:11px; background:var(--panel); color:var(--ink); font-size:.92rem; }
+  .matches button:active { background:#1b3129; }
   #filter { width:100%; min-height:44px; margin-bottom:8px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.95rem; }
   select { width:100%; min-height:44px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.95rem; }
   .record { width:100%; min-height:120px; border:0; border-radius:22px; font-size:1.35rem; font-weight:800; background:var(--mint); color:#062117; }
@@ -45,6 +49,7 @@
     <label for="episode">Episode</label>
     <input id="filter" type="search" inputmode="search" placeholder="Filter by number or name" autocomplete="off">
     <select id="episode"><option value="">Loading episodes…</option></select>
+    <div id="matches" class="matches" hidden></div>
   </div>
   <button id="record" class="record" type="button" disabled>Record</button>
   <div id="timer" class="timer" aria-live="off"></div>
@@ -85,6 +90,7 @@
   var replyStatus = document.getElementById("replyStatus");
   var autoplay = document.getElementById("autoplay");
   var filter = document.getElementById("filter");
+  var matches = document.getElementById("matches");
   var episodes = [];
   // A fraction of a second of silence: playing it inside a tap unlocks the element on iOS.
   var SILENT = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
@@ -260,7 +266,10 @@
     setTimeout(function () { copyButton.textContent = "Copy"; }, 1500);
   });
 
-  filter.addEventListener("input", function () { showEpisodes(select.value); });
+  filter.addEventListener("input", function () {
+    showMatches((filter.value || "").trim().toLowerCase());
+    showEpisodes(select.value);
+  });
 
   select.addEventListener("change", function () {
     stopWaiting();
@@ -300,12 +309,49 @@
   }
 
   // Every episode is listed, so the filter is what makes a long list usable on a phone.
-  function showEpisodes(chosen) {
-    var needle = (filter.value || "").trim().toLowerCase();
-    var shown = episodes.filter(function (ep) {
-      if (!needle) return true;
-      return String(ep.number).indexOf(needle) === 0 || ep.path.toLowerCase().indexOf(needle) !== -1;
+  function label(ep) {
+    return "Episode " + ep.number + " · " + ep.path.replace(/^\d{4}-\d{2}-\d{2}-episode-\d+-/, "").replace(/-/g, " ");
+  }
+
+  function matching(needle) {
+    if (!needle) return episodes;
+    return episodes.filter(function (ep) {
+      return String(ep.number).indexOf(needle) === 0
+        || String(ep.number).padStart(3, "0").indexOf(needle) === 0
+        || ep.path.toLowerCase().indexOf(needle) !== -1;
     });
+  }
+
+  // Narrowing the native picker changes nothing a closed picker shows, so the matches
+  // are listed here as buttons William can tap.
+  function showMatches(needle) {
+    matches.textContent = "";
+    var found = needle ? matching(needle) : [];
+    found.slice(0, 25).forEach(function (ep) {
+      var row = document.createElement("button");
+      row.type = "button";
+      row.textContent = label(ep);
+      row.addEventListener("click", function () { pick(ep.path); });
+      matches.appendChild(row);
+    });
+    matches.hidden = found.length === 0;
+    if (needle && found.length === 0) say("No episode matches " + needle + ".");
+  }
+
+  function pick(path) {
+    filter.value = "";
+    showMatches("");
+    showEpisodes(path);
+    select.value = path;
+    remember("episode", path);
+    urlKeepsState();
+    setState(state);
+    say("");
+    loadLatestReply();
+  }
+
+  function showEpisodes(chosen) {
+    var shown = matching((filter.value || "").trim().toLowerCase());
     if (!shown.length) shown = episodes;
     select.textContent = "";
     if (!chosen) {
@@ -318,7 +364,7 @@
     shown.forEach(function (ep) {
       var option = document.createElement("option");
       option.value = ep.path;
-      option.textContent = "Episode " + ep.number + " · " + ep.path.replace(/^\d{4}-\d{2}-\d{2}-episode-\d+-/, "").replace(/-/g, " ");
+      option.textContent = label(ep);
       if (ep.path === chosen) option.selected = true;
       select.appendChild(option);
     });
