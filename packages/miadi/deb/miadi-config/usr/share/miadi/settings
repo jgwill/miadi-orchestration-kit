@@ -11,6 +11,9 @@ MIADI_REPOS_ROOT                 the cloned repositories (default $MIADI_WORK_DI
 MIADI_SRC                        the jgwill/Miadi checkout (default /src/Miadi)
 MIADI_URL_BASE                   this host's public URL; MIADI_WEBHOOK_URL and MIADI_PDE_WEBHOOK derive from it
 
+# Read by miadi-terminal, on a client
+MIADI_CHRONICLE_OPEN_URL         the Miadi front a clicked miadi-chronicle: reference opens on (default $MIADI_URL_BASE)
+
 # Read by the Miadi app (jgwill/Miadi)
 MIADI_API_URL                    the Miadi API the app and clients call (default http://127.0.0.1:3335)
 MIADI_CHRONICLE_ROOT             the chronicle episodes (default $MIADI_EPISODES_DIR/miadi-chronicle)

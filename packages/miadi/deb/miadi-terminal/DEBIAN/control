@@ -1,0 +1,18 @@
+Package: miadi-terminal
+Version: 0.1.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: python3, xdg-utils, miadi-config (>= 0.2.1)
+Recommends: libnotify-bin
+Suggests: terminator, tmux
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Clickable miadi-chronicle references on a Miadi client
+ A bare miadi-chronicle:126 in a terminal opens the episode in the browser.
+ Each integration is enabled per user with `miadi-terminal enable`:
+  desktop     the miadi-chronicle: scheme, for OSC 8 links and web pages
+  terminator  Ctrl+click a reference in Terminator
+  tmux        click a reference in a tmux pane
+ /usr/bin/miadi-chronicle-open builds <front>/api/chronicle/open?uri=... and
+ the Miadi server resolves it. Nothing is resolved on this machine.

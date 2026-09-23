@@ -1,0 +1,155 @@
+#!/usr/bin/python3
+"""miadi-chronicle-open — the URL that opens a miadi-chronicle: reference.
+
+Installed by miadi-terminal (jgwill/miadi-orchestration-kit).
+
+    miadi-chronicle-open miadi-chronicle:126          print the URL
+    miadi-chronicle-open --open miadi-chronicle:126   open it in the browser
+    miadi-chronicle-open --open --line TEXT --column N
+                                                      open the reference at
+                                                      column N of TEXT (tmux)
+
+The URL is <front>/api/chronicle/open?uri=<reference>. That door on the Miadi
+server resolves the reference and redirects to its page, so this machine needs
+no catalog, no node and no network call of its own.
+
+The front is MIADI_CHRONICLE_OPEN_URL, else MIADI_URL_BASE. Each is read
+through `miadi-config get` (the environment wins over miadi.env); where
+miadi-config is not installed, as on Termux, from the environment and then
+from $MIADI_ETC/miadi.env (default /etc/miadi/miadi.env).
+
+Exit: 0 ok · 64 usage · 65 not a chronicle reference · 66 no reference at
+that column · 78 no front configured
+"""
+
+import os
+import re
+import subprocess
+import sys
+import unicodedata
+from urllib.parse import quote
+
+SCHEME = "miadi-chronicle:"
+FRONT_SETTINGS = ("MIADI_CHRONICLE_OPEN_URL", "MIADI_URL_BASE")
+ETC_DEFAULT = "/etc/miadi"
+# The same pattern the Terminator plugin matches with. It stops at what ends a
+# URI in running text; trailing sentence punctuation is stripped after.
+REFERENCE = re.compile(r'''\bmiadi-chronicle:(?://)?[A-Za-z0-9._~/\-]+(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?''', re.I)
+TRAILING = ".,;:!?)]}'\""
+
+
+def from_miadi_env(name):
+    path = os.path.join(os.environ.get("MIADI_ETC") or ETC_DEFAULT, "miadi.env")
+    try:
+        with open(path) as fh:
+            for line in fh:
+                key, sep, value = line.strip().partition("=")
+                if sep and key == name:
+                    return value.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
+def setting(name):
+    try:
+        result = subprocess.run(
+            ["miadi-config", "get", name], capture_output=True, text=True, timeout=10,
+        )
+    except FileNotFoundError:
+        return os.environ.get(name, "") or from_miadi_env(name)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def front():
+    for name in FRONT_SETTINGS:
+        value = setting(name)
+        if value:
+            return value.rstrip("/")
+    return ""
+
+
+def clean(ref):
+    return ref.strip().rstrip(TRAILING)
+
+
+def cells(char):
+    if unicodedata.combining(char):
+        return 0
+    return 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+
+
+def reference_at(line, column):
+    """The reference covering terminal cell `column` (0-based) of `line`."""
+    offsets, cell = [], 0
+    for char in line:
+        offsets.append(cell)
+        cell += cells(char)
+    offsets.append(cell)
+    for found in REFERENCE.finditer(line):
+        ref = clean(found.group(0))
+        if offsets[found.start()] <= column < offsets[found.start() + len(ref)]:
+            return ref
+    return ""
+
+
+def notify(message):
+    """A click has no terminal to print to, so say it on the desktop."""
+    try:
+        subprocess.run(["notify-send", "miadi-chronicle", message], timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+def fail(code, message, opening):
+    print(message, file=sys.stderr)
+    if opening:
+        notify(message)
+    return code
+
+
+def parse(argv):
+    opening, line, column, refs = False, None, None, []
+    args = iter(argv)
+    for arg in args:
+        if arg == "--open":
+            opening = True
+        elif arg == "--line":
+            line = next(args, None)
+        elif arg == "--column":
+            column = next(args, None)
+        else:
+            refs.append(arg)
+    return opening, line, column, refs
+
+
+def main(argv):
+    opening, line, column, refs = parse(argv)
+    if line is not None:
+        if refs or column is None or not column.isdigit():
+            return fail(64, "usage: miadi-chronicle-open [--open] --line TEXT --column N", False)
+        ref = reference_at(line, int(column))
+        if not ref:
+            return 66
+    elif len(refs) == 1:
+        ref = clean(refs[0])
+    else:
+        return fail(64, "usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>]", False)
+
+    if not ref.lower().startswith(SCHEME):
+        return fail(65, f"not a chronicle reference: {ref}", False)
+    base = front()
+    if not base:
+        return fail(78, "no Miadi front to open on — set one:\n"
+                        "  miadi-terminal front https://<your Miadi>", opening)
+    url = f"{base}/api/chronicle/open?uri={quote(ref, safe='')}"
+    if opening:
+        return subprocess.call(["xdg-open", url])
+    print(url)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

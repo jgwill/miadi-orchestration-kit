@@ -1,0 +1,355 @@
+#!/usr/bin/python3
+"""miadi-terminal — clickable miadi-chronicle: references, per integration.
+
+Installed by miadi-terminal (jgwill/miadi-orchestration-kit).
+
+    miadi-terminal status                  what a click does here, per integration
+    miadi-terminal enable [INTEGRATION…]   turn them on for this user (default: every one present)
+    miadi-terminal disable [INTEGRATION…]  turn them off for this user
+    miadi-terminal front [URL]             show, or set, the Miadi a click opens on
+
+Integrations:
+    desktop     the miadi-chronicle: scheme opens in the browser from any
+                application — OSC 8 links in a terminal, links in a page
+    terminator  Ctrl+click a bare reference in Terminator's output
+    tmux        click (or tap, on Termux) a bare reference in a tmux pane
+
+The package installs system-wide. Each user enables what they use, because
+Terminator and tmux read only that user's own config.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+SHARE = Path("/usr/share/miadi-terminal")
+OPENER = "/usr/bin/miadi-chronicle-open"
+PLUGIN_CLASS = "MiadiChronicleURLHandler"
+PLUGIN_PATH = Path("/usr/lib/python3/dist-packages/terminatorlib/plugins/miadi_chronicle_url_handler.py")
+DESKTOP_FILE = "miadi-chronicle-open.desktop"
+SCHEME_MIME = "x-scheme-handler/miadi-chronicle"
+TMUX_CONF = SHARE / "tmux" / "miadi-chronicle.conf"
+TMUX_LINE = f"source-file -q {TMUX_CONF}  # miadi-terminal"
+# Terminator's own default, which a config that sets enabled_plugins replaces.
+TERMINATOR_DEFAULT_PLUGINS = ["LaunchpadBugURLHandler", "LaunchpadCodeURLHandler", "APTURLHandler"]
+# A file carrying this line was written by the installer this package replaces.
+LEGACY_MARKER = "packages/inquiry-weave/src/terminal-install.ts"
+
+HOME = Path.home()
+CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
+TERMINATOR_CONFIG = CONFIG_HOME / "terminator" / "config"
+SYSTEM_TERMINATOR_CONFIG = Path("/etc/xdg/terminator/config")
+LEGACY_FILES = [
+    CONFIG_HOME / "terminator" / "plugins" / "miadi_chronicle_url_handler.py",
+    HOME / "bin" / "miadi-chronicle-open",
+    CONFIG_HOME / "environment.d" / "50-miadi-chronicle.conf",
+]
+
+
+def run(*command):
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def backup_and_write(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        backup = path.with_name(path.name + ".bak-miadi-terminal")
+        shutil.copy2(path, backup)
+        print(f"  backup: {backup}")
+    path.write_text(text)
+
+
+# --- desktop -----------------------------------------------------------------
+
+class Desktop:
+    name = "desktop"
+
+    def installed(self):
+        return Path("/usr/share/applications", DESKTOP_FILE).exists()
+
+    def present(self):
+        return shutil.which("xdg-mime") is not None
+
+    def enabled(self):
+        result = run("xdg-mime", "query", "default", SCHEME_MIME)
+        return bool(result and result.stdout.strip() == DESKTOP_FILE)
+
+    def enable(self):
+        result = run("xdg-mime", "default", DESKTOP_FILE, SCHEME_MIME)
+        if result and result.returncode == 0:
+            print(f"desktop: {SCHEME_MIME} opens with {DESKTOP_FILE}")
+        else:
+            print(f"desktop: could not set {SCHEME_MIME}")
+
+    def disable(self):
+        print("desktop: the scheme handler stays registered system-wide; "
+              "other applications may claim it with xdg-mime")
+
+    def describe(self):
+        default = run("xdg-mime", "query", "default", SCHEME_MIME)
+        return default.stdout.strip() if default and default.stdout.strip() else "no default handler"
+
+
+# --- terminator --------------------------------------------------------------
+
+def plugin_list(config_text):
+    """The enabled_plugins values, or None when the line is absent."""
+    for line in config_text.splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key.strip() == "enabled_plugins":
+            return [v.strip() for v in value.split(",") if v.strip()]
+    return None
+
+
+def with_plugins(config_text, plugins):
+    """config_text with enabled_plugins set to plugins, in [global_config]."""
+    rendered = f"  enabled_plugins = {', '.join(plugins)}"
+    lines = config_text.splitlines()
+    for i, line in enumerate(lines):
+        key, sep, _ = line.partition("=")
+        if sep and key.strip() == "enabled_plugins":
+            lines[i] = rendered
+            return "\n".join(lines) + "\n"
+    for i, line in enumerate(lines):
+        if line.strip() == "[global_config]":
+            lines.insert(i + 1, rendered)
+            return "\n".join(lines) + "\n"
+    return "\n".join(["[global_config]", rendered, *lines]) + "\n"
+
+
+def terminator_config():
+    """The config Terminator reads for this user: theirs, else the system's."""
+    for path in (TERMINATOR_CONFIG, SYSTEM_TERMINATOR_CONFIG):
+        if path.exists():
+            return path.read_text()
+    return ""
+
+
+class Terminator:
+    name = "terminator"
+
+    def installed(self):
+        return PLUGIN_PATH.exists()
+
+    def present(self):
+        return shutil.which("terminator") is not None
+
+    def enabled(self):
+        return PLUGIN_CLASS in (plugin_list(terminator_config()) or [])
+
+    def enable(self):
+        text = terminator_config()
+        plugins = plugin_list(text)
+        if plugins is None:
+            plugins = list(TERMINATOR_DEFAULT_PLUGINS)
+        if PLUGIN_CLASS in plugins and TERMINATOR_CONFIG.exists():
+            print(f"terminator: already enabled in {TERMINATOR_CONFIG}")
+            return
+        if PLUGIN_CLASS not in plugins:
+            plugins.append(PLUGIN_CLASS)
+        backup_and_write(TERMINATOR_CONFIG, with_plugins(text, plugins))
+        print(f"terminator: enabled in {TERMINATOR_CONFIG}; restart Terminator")
+
+    def disable(self):
+        if not TERMINATOR_CONFIG.exists():
+            print("terminator: no config of yours, nothing to disable")
+            return
+        text = TERMINATOR_CONFIG.read_text()
+        plugins = plugin_list(text) or []
+        if PLUGIN_CLASS not in plugins:
+            print("terminator: not enabled")
+            return
+        backup_and_write(TERMINATOR_CONFIG, with_plugins(text, [p for p in plugins if p != PLUGIN_CLASS]))
+        print("terminator: disabled; restart Terminator")
+
+    def describe(self):
+        return f"Ctrl+click a reference; plugin {PLUGIN_PATH}"
+
+
+# --- tmux --------------------------------------------------------------------
+
+def tmux_config():
+    """The config tmux reads for this user, or where to create one."""
+    for path in (HOME / ".tmux.conf", CONFIG_HOME / "tmux" / "tmux.conf"):
+        if path.exists():
+            return path
+    return HOME / ".tmux.conf"
+
+
+class Tmux:
+    name = "tmux"
+
+    def installed(self):
+        return TMUX_CONF.exists()
+
+    def present(self):
+        return shutil.which("tmux") is not None
+
+    def enabled(self):
+        path = tmux_config()
+        return path.exists() and str(TMUX_CONF) in path.read_text()
+
+    def enable(self):
+        path = tmux_config()
+        text = path.read_text() if path.exists() else ""
+        if str(TMUX_CONF) in text:
+            print(f"tmux: already enabled in {path}")
+        else:
+            backup_and_write(path, text + ("" if not text or text.endswith("\n") else "\n") + TMUX_LINE + "\n")
+            print(f"tmux: enabled in {path}")
+            print(f"  a running tmux picks it up with: tmux source-file {path}")
+        self.mouse_note()
+
+    def disable(self):
+        path = tmux_config()
+        if not self.enabled():
+            print("tmux: not enabled")
+            return
+        kept = [line for line in path.read_text().splitlines() if str(TMUX_CONF) not in line]
+        backup_and_write(path, "\n".join(kept) + "\n")
+        print(f"tmux: disabled in {path}; the binding leaves a running tmux when it restarts")
+
+    def mouse_note(self):
+        result = run("tmux", "show-options", "-gv", "mouse")
+        if result and result.returncode == 0 and result.stdout.strip() != "on":
+            print("  tmux mouse is off, so clicks never reach tmux: add `set -g mouse on`")
+
+    def describe(self):
+        return f"click or tap a reference in a pane; {TMUX_CONF}"
+
+
+INTEGRATIONS = [Desktop(), Terminator(), Tmux()]
+
+
+# --- the whole ---------------------------------------------------------------
+
+def remove_legacy():
+    for path in LEGACY_FILES:
+        try:
+            if LEGACY_MARKER not in path.read_text(errors="replace"):
+                continue
+        except OSError:
+            continue
+        path.unlink()
+        print(f"removed the earlier inquiry-weave copy: {path}")
+        for cached in (path.parent / "__pycache__").glob(f"{path.stem}.*.pyc"):
+            cached.unlink()
+
+
+def chosen(names):
+    by_name = {i.name: i for i in INTEGRATIONS}
+    unknown = [n for n in names if n not in by_name]
+    if unknown:
+        raise SystemExit(f"miadi-terminal: unknown integration {', '.join(unknown)} "
+                         f"(choose from {', '.join(by_name)})")
+    if names:
+        return [by_name[n] for n in names]
+    return [i for i in INTEGRATIONS if i.installed() and i.present()]
+
+
+def enable(names):
+    targets = chosen(names)
+    if not targets:
+        print("miadi-terminal: nothing to enable here — install terminator or tmux, or xdg-utils")
+        return 1
+    for integration in targets:
+        if not integration.installed():
+            print(f"{integration.name}: not part of this build of miadi-terminal, skipped")
+            continue
+        integration.enable()
+    remove_legacy()
+    front_note()
+    return 0
+
+
+def disable(names):
+    for integration in chosen(names):
+        integration.disable()
+    return 0
+
+
+def front_note():
+    opened = run(OPENER, "miadi-chronicle:126")
+    if not opened or opened.returncode != 0:
+        print("no Miadi front yet: miadi-terminal front https://<your Miadi>")
+
+
+def front(args):
+    if not args:
+        opened = run(OPENER, "miadi-chronicle:126")
+        if opened and opened.returncode == 0:
+            print(opened.stdout.strip().split("/api/chronicle/open")[0])
+            return 0
+        print("no front set: miadi-terminal front https://<your Miadi>")
+        return 1
+    url = args[0].rstrip("/")
+    if not url.startswith(("https://", "http://")):
+        print("miadi-terminal: the front is a URL, https://…")
+        return 64
+    if shutil.which("miadi-config"):
+        # The host's own settings command owns /etc/miadi/miadi.env.
+        command = ["miadi-config", "set", "MIADI_CHRONICLE_OPEN_URL", url]
+        if os.geteuid() != 0:
+            command.insert(0, "sudo")
+        return subprocess.call(command)
+    # No miadi-config (Termux): the opener reads $MIADI_ETC/miadi.env itself.
+    path = Path(os.environ.get("MIADI_ETC") or "/etc/miadi") / "miadi.env"
+    lines = path.read_text().splitlines() if path.exists() else []
+    lines = [l for l in lines if not l.startswith("MIADI_CHRONICLE_OPEN_URL=")]
+    lines.append(f"MIADI_CHRONICLE_OPEN_URL={url}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n")
+    print(f"front: {url} (in {path})")
+    return 0
+
+
+def status():
+    sample = "miadi-chronicle:126"
+    opened = run(OPENER, sample)
+    if opened and opened.returncode == 0:
+        print(f"a click on {sample} opens: {opened.stdout.strip()}")
+    else:
+        reason = opened.stderr.strip() if opened else f"{OPENER} did not run"
+        print(f"a click on {sample} opens nothing: {reason}")
+    for integration in INTEGRATIONS:
+        if not integration.installed():
+            continue
+        if not integration.present():
+            state = "its application is not installed here"
+        elif integration.enabled():
+            state = "enabled"
+        else:
+            state = f"not enabled — miadi-terminal enable {integration.name}"
+        print(f"{integration.name}: {state}")
+        if integration.present():
+            print(f"  {integration.describe()}")
+    for path in LEGACY_FILES:
+        try:
+            if LEGACY_MARKER in path.read_text(errors="replace"):
+                print(f"earlier inquiry-weave copy still here: {path} — miadi-terminal enable removes it")
+        except OSError:
+            pass
+    return 0
+
+
+def main(argv):
+    command, args = (argv[0], argv[1:]) if argv else ("status", [])
+    if command == "status" and not args:
+        return status()
+    if command == "enable":
+        return enable(args)
+    if command == "disable":
+        return disable(args)
+    if command == "front" and len(args) <= 1:
+        return front(args)
+    print(__doc__.strip(), file=sys.stderr)
+    return 64
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

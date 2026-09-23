@@ -1,0 +1,14 @@
+Package: miadi-terminal
+Version: @VERSION@
+Section: misc
+Priority: optional
+Architecture: all
+Depends: python, tmux
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Clickable miadi-chronicle references in tmux on Termux
+ A tap on a bare miadi-chronicle:126 in a tmux pane opens the episode in the
+ Android browser. The Termux build of miadi-terminal: the opener and the tmux
+ integration, relocated under Termux's prefix. The Miadi server resolves the
+ reference; nothing is resolved on the phone. Run `miadi-terminal enable`
+ and `miadi-terminal front https://<your Miadi>` once.

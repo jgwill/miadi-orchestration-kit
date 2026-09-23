@@ -1,0 +1,15 @@
+#!/bin/sh
+# miadi-terminal postinst: say what each user still does. Nothing in a home
+# directory is written here; `miadi-terminal enable` does that, per user.
+set -e
+if [ "$1" = configure ]; then
+	if command -v update-desktop-database >/dev/null 2>&1; then
+		update-desktop-database -q /usr/share/applications || true
+	fi
+	if [ -z "$(miadi-config get MIADI_CHRONICLE_OPEN_URL 2>/dev/null)" ] &&
+		[ -z "$(miadi-config get MIADI_URL_BASE 2>/dev/null)" ]; then
+		echo "miadi-terminal: set the Miadi a click opens on: miadi-terminal front https://<your Miadi>"
+	fi
+	echo "miadi-terminal: each user runs 'miadi-terminal enable' once (desktop, terminator, tmux)"
+fi
+exit 0

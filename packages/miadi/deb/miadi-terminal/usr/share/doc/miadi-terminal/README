@@ -1,0 +1,28 @@
+miadi-terminal — clickable miadi-chronicle references on a Miadi client
+
+A bare miadi-chronicle:126 in a terminal opens that episode in the browser.
+
+  sudo apt install miadi-terminal
+  miadi-terminal front https://<your Miadi>   # only when MIADI_URL_BASE is not already it
+  miadi-terminal enable                       # once per user: every integration present
+  miadi-terminal status                       # what a click does here
+
+Integrations, each enabled per user (`miadi-terminal enable tmux`, …):
+
+  desktop     the miadi-chronicle: scheme opens in the browser from any
+              application: OSC 8 links in a terminal, links in a web page.
+              /usr/share/applications/miadi-chronicle-open.desktop
+  terminator  Ctrl+click a bare reference in Terminator's output.
+              /usr/share/miadi-terminal/terminator/, linked into Terminator's
+              plugin directory; enabling adds it to enabled_plugins.
+  tmux        click a bare reference in a tmux pane (tmux 3.2+, mouse on).
+              /usr/share/miadi-terminal/tmux/miadi-chronicle.conf; enabling
+              adds a source-file line to your tmux config.
+
+Nothing is resolved on this machine. /usr/bin/miadi-chronicle-open turns the
+reference into <front>/api/chronicle/open?uri=<reference>, and the Miadi server
+redirects to the page. The front is MIADI_CHRONICLE_OPEN_URL, else
+MIADI_URL_BASE, read through miadi-config.
+
+Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
+Spec:   https://github.com/jgwill/Miadi, rispecs/miadi-chronicle-dsl/SPEC-TERMINAL.md

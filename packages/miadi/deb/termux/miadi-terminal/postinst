@@ -1,0 +1,6 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -e
+if [ "$1" = configure ]; then
+	echo "miadi-terminal: run 'miadi-terminal enable' and 'miadi-terminal front https://<your Miadi>' once"
+fi
+exit 0

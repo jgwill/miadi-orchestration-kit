@@ -16,6 +16,7 @@ sudo apt update && sudo apt install miadi
 |---|---|---|
 | `miadi` | its dependencies (through 0.1.x it held the settings itself) | 0.1.0 |
 | `miadi-config` | the `MIADI_*` settings and the `miadi-config` command | 0.2.0 |
+| `miadi-terminal` | a client's clickable `miadi-chronicle:` references: desktop, Terminator, tmux | 0.1.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
 installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
@@ -55,11 +56,38 @@ edits through the upgrade without a prompt.
 Termux cannot install Ubuntu packages. There, set `MIADI_ETC` and source
 `miadi-config/usr/share/miadi/env.sh` from this checkout.
 
+## miadi-terminal
+
+For a machine that reads chronicle references, not one that serves them. A
+click turns `miadi-chronicle:126` into `<front>/api/chronicle/open?uri=…` and the
+Miadi server redirects to the room, so nothing is resolved here.
+
+```bash
+sudo apt install miadi-terminal
+miadi-terminal front https://<your Miadi>   # when MIADI_URL_BASE is not already it
+miadi-terminal enable                       # per user; or: enable desktop terminator tmux
+miadi-terminal status
+```
+
+| integration | a click is | file |
+|---|---|---|
+| `desktop` | an OSC 8 link or a page link carrying `miadi-chronicle:` | `/usr/share/applications/miadi-chronicle-open.desktop` |
+| `terminator` | Ctrl+click a bare reference | `/usr/share/miadi-terminal/terminator/`, linked into Terminator's plugin directory |
+| `tmux` | click, or tap on Termux, a bare reference in a pane | `/usr/share/miadi-terminal/tmux/miadi-chronicle.conf` |
+
+The package installs system-wide and writes nothing into a home directory;
+`enable` edits only the user's own Terminator `enabled_plugins` and tmux config,
+with a backup, and removes the per-user copy an earlier `inquiry-weave terminal
+install` left. The front is `MIADI_CHRONICLE_OPEN_URL`, else `MIADI_URL_BASE`.
+A Termux build of the same tree is made by `build.sh` (`termux/README.md`).
+Contract: jgwill/Miadi `rispecs/miadi-chronicle-dsl/SPEC-TERMINAL.md` §3.
+
 ## Build, test, install
 
 ```bash
 bash build.sh                               # -> dist/<package>_<version>_all.deb for each package
 bash test-install.sh dist/*_<version>_all.deb   # clean ubuntu:22.04 container
+python3 tests/tmux-click.py miadi-terminal/usr/share/miadi-terminal/tmux/miadi-chronicle.conf miadi-terminal/usr/bin/miadi-chronicle-open
 sudo apt install ./dist/*_<version>_all.deb
 ```
 
@@ -78,7 +106,11 @@ index never lists a `miadi` whose dependency is missing:
 publish=/workspace/repos/miadisabelle/mia-parallel-code/scripts/apt-publish.sh
 bash "$publish" dist/miadi-config_<version>_all.deb
 bash "$publish" dist/miadi_<version>_all.deb
+bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on
 ```
+
+The repository publishes `amd64` only, so the Termux build in `dist/termux/`
+is installed from the file.
 
 The Miadi umbrella packages (`packages/miadi/js`, `packages/miadi/py` in
 jgwill/Miadi) can join here later.
