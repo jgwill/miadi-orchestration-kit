@@ -30,7 +30,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import time
 import unicodedata
 from urllib.parse import quote
@@ -147,8 +146,13 @@ def say(message, opening, in_tmux):
 
 
 def repeated(url):
-    """True when this same URL was opened a moment ago (a double click)."""
-    path = os.path.join(tempfile.gettempdir(), f"miadi-chronicle-open-{os.getuid()}.last")
+    """True when this same URL was opened a moment ago (a double click).
+
+    The record lives in the user's own cache, never a shared /tmp path another
+    user could plant a symlink at.
+    """
+    cache = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    path = os.path.join(cache, "miadi-terminal", "last-open")
     now = time.time()
     try:
         with open(path) as fh:
@@ -158,6 +162,7 @@ def repeated(url):
     except (OSError, ValueError):
         pass
     try:
+        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
         with open(path, "w") as fh:
             fh.write(f"{url}\t{now}")
     except OSError:
