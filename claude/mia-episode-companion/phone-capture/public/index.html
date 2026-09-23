@@ -104,13 +104,39 @@
     return answer.success ? answer.replies : [];
   }
 
-  // Coming back later is a supported way to hear her: the latest reply is shown on open.
+  // Coming back later is a supported way to hear her: the latest reply is shown on open,
+  // and a new one appears on its own while the page is open.
   async function loadLatestReply() {
     if (!select.value || waiting) return;
     try {
       var found = await replies(select.value);
-      if (found.length) showReply(found[0]); else replyBox.hidden = true;
+      if (!found.length) { if (!current) replyBox.hidden = true; return; }
+      if (current && current.id === found[0].id) return; // never interrupt audio already playing
+      showReply(found[0]);
     } catch (_) {}
+  }
+
+  // The episode belongs in the URL, so a reload, a bookmark or a shared link comes back
+  // to the same episode instead of the default one.
+  function urlKeepsEpisode() {
+    if (!select.value) return;
+    try { history.replaceState(null, "", "?episode=" + encodeURIComponent(select.value)); } catch (_) {}
+  }
+
+  // A wait outlives a reload or iOS suspending the tab: it is written down, not held in a timer.
+  function rememberWait(episode, take) {
+    remember("waiting", episode && take ? JSON.stringify({ episode: episode, take: take, since: Date.now() }) : "");
+  }
+
+  function resumeWait() {
+    var saved = recall("waiting");
+    if (!saved) return false;
+    try {
+      var w = JSON.parse(saved);
+      if (!w.episode || w.episode !== select.value || Date.now() - w.since > WAIT_MS) { rememberWait(); return false; }
+      waitForReply(w.episode, w.take, w.since);
+      return true;
+    } catch (_) { return false; }
   }
 
   function stopWaiting() {
@@ -118,16 +144,18 @@
     waiting = null;
   }
 
-  function waitForReply(episode, take) {
+  function waitForReply(episode, take, startedAtMs) {
     stopWaiting();
     replyBox.hidden = true;
-    var since = Date.now();
+    var since = startedAtMs || Date.now();
+    rememberWait(episode, take);
     async function check() {
       var elapsed = Math.floor((Date.now() - since) / 1000);
       try {
         var found = await replies(episode, take);
         if (found.length) {
           stopWaiting();
+          rememberWait();
           replyStatus.textContent = "";
           showReply(found[0]);
           return;
@@ -135,7 +163,8 @@
       } catch (_) {}
       if (Date.now() - since > WAIT_MS) {
         stopWaiting();
-        replyStatus.textContent = "No reply after 15 minutes. It will show here when it comes; reopen this page later.";
+        rememberWait();
+        replyStatus.textContent = "No reply after 15 minutes. It will appear here on its own if it still comes.";
         return;
       }
       replyStatus.textContent = "Waiting for Mia… " + Math.floor(elapsed / 60) + ":" + String(elapsed % 60).padStart(2, "0");
@@ -183,7 +212,21 @@
     setTimeout(function () { copyButton.textContent = "Copy"; }, 1500);
   });
 
-  select.addEventListener("change", function () { stopWaiting(); replyStatus.textContent = ""; loadLatestReply(); });
+  select.addEventListener("change", function () {
+    stopWaiting();
+    rememberWait();
+    current = null;
+    replyBox.hidden = true;
+    replyStatus.textContent = "";
+    remember("episode", select.value);
+    urlKeepsEpisode();
+    loadLatestReply();
+  });
+
+  // Keep looking while the page is open, and the moment it comes back to the front:
+  // iOS stops timers in a backgrounded tab, which is how a reply was missed.
+  setInterval(function () { if (document.visibilityState === "visible") loadLatestReply(); }, 10000);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") loadLatestReply(); });
 
   function say(text, isError) { status.textContent = text; status.className = "status" + (isError ? " error" : ""); }
   function remember(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
@@ -218,7 +261,9 @@
       });
       button.disabled = !pickType();
       if (!pickType()) say("This browser cannot record audio/mp4. Use Safari on the iPhone.", true);
-      loadLatestReply();
+      remember("episode", select.value);
+      urlKeepsEpisode();
+      if (!resumeWait()) loadLatestReply();
     } catch (error) {
       select.innerHTML = "<option value=''>Episodes unavailable</option>";
       say("Could not reach gaia: " + error.message, true);
@@ -246,6 +291,7 @@
     select.disabled = true;
     result.hidden = true;
     stopWaiting();
+    rememberWait();
     replyStatus.textContent = "";
     say("Recording for " + select.options[select.selectedIndex].textContent);
   }
