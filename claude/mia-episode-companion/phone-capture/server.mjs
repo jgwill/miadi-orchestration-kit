@@ -56,8 +56,10 @@ function listEpisodes(chronicleRoot) {
     .filter((entry) => entry.isDirectory() && EPISODE_NAME.test(entry.name))
     .filter((entry) => existsSync(join(chronicleRoot, entry.name, "episode.yaml")))
     .map((entry) => ({ path: entry.name, number: Number(entry.name.match(EPISODE_NAME)[1]) }))
-    .sort((a, b) => b.path.localeCompare(a.path))
-    .slice(0, 80);
+    // Every episode that can receive a take, highest number first. A cap of 80 once hid
+    // everything below Episode 120, including the one William wanted. A folder without
+    // episode.yaml is not listed, because a take cannot be stored there.
+    .sort((a, b) => b.number - a.number || b.path.localeCompare(a.path));
 }
 
 function episodeDir(chronicleRoot, episode) {

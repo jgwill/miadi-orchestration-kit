@@ -13,13 +13,21 @@ const EPISODE = "2026-09-22-episode-900-page-fixture";
 function element(id) {
   const handlers = {};
   return {
-    id, textContent: "", value: "", checked: false, disabled: false, hidden: false, innerHTML: "",
+    id, value: "",
+    set textContent(v) { this._text = v; if (v === "") { this.appended = []; this.value = ""; } },
+    get textContent() { return this._text ?? ""; }, checked: false, disabled: false, hidden: false, innerHTML: "",
     options: [{ textContent: "Episode 900" }], selectedIndex: 0, attributes: {},
     classList: { toggle() {}, add() {}, remove() {} },
     style: {},
+    appended: [],
     addEventListener(name, fn) { (handlers[name] ||= []).push(fn); },
     fire(name, event) { return Promise.all((handlers[name] || []).map((fn) => fn(event))); },
-    appendChild() {}, removeAttribute(name) { delete this.attributes[name]; },
+    // Like a real <select>: the selected option sets the value, else the first one does.
+    appendChild(child) {
+      this.appended.push(child);
+      if (child.selected || this.appended.length === 1) this.value = child.value;
+    },
+    removeAttribute(name) { delete this.attributes[name]; },
     setAttribute(name, value) { this.attributes[name] = value; },
     getAttribute(name) { return this.attributes[name] ?? null; },
     set src(value) { this.attributes.src = value; }, get src() { return this.attributes.src; },
@@ -28,11 +36,10 @@ function element(id) {
   };
 }
 
-function harness({ search = "", micDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
-  const ids = ["episode", "record", "timer", "status", "result", "resultHead", "transcript",
+function harness({ search = "?episode=" + EPISODE, micDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
+  const ids = ["episode", "filter", "record", "timer", "status", "result", "resultHead", "transcript",
     "reply", "replyMeta", "replyText", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
   const elements = Object.fromEntries(ids.map((id) => [id, element(id)]));
-  elements.episode.value = EPISODE;
   const made = [];
   const stoppedTracks = { count: 0 };
   const store = new Map();
@@ -53,10 +60,11 @@ function harness({ search = "", micDelay = 0, takeAnswer = { success: true, take
     }
   }
 
+  const episodeList = [{ path: EPISODE, number: 900 }, { path: "2026-06-10-episode-044-teaching-academic-foundations-of-miaco", number: 44 }];
   const fetchStub = async (url, options) => {
     calls.push({ url, options });
     if (url.startsWith("api/episodes")) {
-      return { json: async () => ({ success: true, defaultEpisode: EPISODE, episodes: [{ path: EPISODE, number: 900 }] }) };
+      return { json: async () => ({ success: true, defaultEpisode: EPISODE, episodes: episodeList }) };
     }
     if (url.startsWith("api/replies")) return { json: async () => ({ success: true, replies: [] }) };
     if (url.startsWith("api/takes")) {
@@ -159,4 +167,24 @@ test("the link decides the reading: ?play=0 turns auto-play off, ?play=1 turns i
   const plain = harness();
   await settle(30);
   assert.equal(plain.elements.autoplay.checked, true, "on by default when the link says nothing");
+});
+
+test("every episode is listed, and the filter finds an old one by number", async () => {
+  const h = harness();
+  await settle(30);
+  assert.equal(h.elements.episode.appended.length, 2, "both episodes are offered, not a capped slice");
+  h.elements.filter.value = "44";
+  await h.elements.filter.fire("input");
+  assert.deepEqual(h.elements.episode.appended.map((o) => o.value), ["2026-06-10-episode-044-teaching-academic-foundations-of-miaco"]);
+});
+
+test("a link with no episode chooses none: William picks before anything records", async () => {
+  const h = harness({ search: "" });
+  await settle(30);
+  assert.equal(h.elements.episode.value, "", "nothing is preselected");
+  assert.equal(h.elements.record.disabled, true, "Record waits for a choice");
+  assert.match(h.elements.status.textContent, /Choose the episode/);
+  h.tap();
+  await settle(60);
+  assert.equal(h.made.length, 0, "a tap without an episode records nothing");
 });

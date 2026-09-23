@@ -14,6 +14,7 @@
   main { max-width: 520px; margin: 0 auto; display:flex; flex-direction:column; gap:16px; }
   h1 { font-size: 1.15rem; margin: 4px 0 0; }
   label { display:block; color:var(--gold); font-size:.8rem; font-weight:700; margin-bottom:6px; }
+  #filter { width:100%; min-height:44px; margin-bottom:8px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.95rem; }
   select { width:100%; min-height:44px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.95rem; }
   .record { width:100%; min-height:120px; border:0; border-radius:22px; font-size:1.35rem; font-weight:800; background:var(--mint); color:#062117; }
   .record.live { background:var(--live); color:#2b0906; }
@@ -42,6 +43,7 @@
   <h1>Speak to the episode</h1>
   <div>
     <label for="episode">Episode</label>
+    <input id="filter" type="search" inputmode="search" placeholder="Filter by number or name" autocomplete="off">
     <select id="episode"><option value="">Loading episodes…</option></select>
   </div>
   <button id="record" class="record" type="button" disabled>Record</button>
@@ -82,6 +84,8 @@
   var copyButton = document.getElementById("copyReply");
   var replyStatus = document.getElementById("replyStatus");
   var autoplay = document.getElementById("autoplay");
+  var filter = document.getElementById("filter");
+  var episodes = [];
   // A fraction of a second of silence: playing it inside a tap unlocks the element on iOS.
   var SILENT = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
   var recorder = null, stream = null, chunks = [], startedAt = 0, tick = null, wakeLock = null;
@@ -256,6 +260,8 @@
     setTimeout(function () { copyButton.textContent = "Copy"; }, 1500);
   });
 
+  filter.addEventListener("input", function () { showEpisodes(select.value); });
+
   select.addEventListener("change", function () {
     stopWaiting();
     rememberWait();
@@ -264,6 +270,8 @@
     replyStatus.textContent = "";
     remember("episode", select.value);
     urlKeepsState();
+    setState(state);
+    say("");
     loadLatestReply();
   });
 
@@ -291,20 +299,43 @@
     timer.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
   }
 
+  // Every episode is listed, so the filter is what makes a long list usable on a phone.
+  function showEpisodes(chosen) {
+    var needle = (filter.value || "").trim().toLowerCase();
+    var shown = episodes.filter(function (ep) {
+      if (!needle) return true;
+      return String(ep.number).indexOf(needle) === 0 || ep.path.toLowerCase().indexOf(needle) !== -1;
+    });
+    if (!shown.length) shown = episodes;
+    select.textContent = "";
+    if (!chosen) {
+      var placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Choose an episode…";
+      placeholder.selected = true;
+      select.appendChild(placeholder);
+    }
+    shown.forEach(function (ep) {
+      var option = document.createElement("option");
+      option.value = ep.path;
+      option.textContent = "Episode " + ep.number + " · " + ep.path.replace(/^\d{4}-\d{2}-\d{2}-episode-\d+-/, "").replace(/-/g, " ");
+      if (ep.path === chosen) option.selected = true;
+      select.appendChild(option);
+    });
+    if (chosen && select.value !== chosen && shown.length) select.value = shown[0].path;
+  }
+
   async function loadEpisodes() {
     try {
       var answer = await (await fetch("api/episodes")).json();
-      var chosen = new URLSearchParams(location.search).get("episode") || recall("episode") || answer.defaultEpisode;
-      select.textContent = "";
-      answer.episodes.forEach(function (ep) {
-        var option = document.createElement("option");
-        option.value = ep.path;
-        option.textContent = "Episode " + ep.number + " · " + ep.path.replace(/^\d{4}-\d{2}-\d{2}-episode-\d+-/, "").replace(/-/g, " ");
-        if (ep.path === chosen) option.selected = true;
-        select.appendChild(option);
-      });
+      // Only the link chooses an episode. Without one, William picks: a remembered
+      // episode would quietly aim the next take at whatever he recorded last.
+      var chosen = new URLSearchParams(location.search).get("episode") || "";
+      episodes = answer.episodes;
+      showEpisodes(chosen);
       setState("idle");
       if (!pickType()) say("This browser cannot record audio/mp4. Use Safari on the iPhone.", true);
+      else if (!select.value) say("Choose the episode this take belongs to.");
       remember("episode", select.value);
       var asked = askedToPlay(); // the link wins over what this browser remembers
       autoplay.checked = asked === null ? recall("autoplay") !== "0" : asked;
@@ -327,7 +358,7 @@
       recording: "Stop & send", sending: "Sending…", retry: "Send again",
     }[next];
     button.classList.toggle("live", next === "recording");
-    button.disabled = !pickType() || next === "loading" || next === "starting" || next === "sending";
+    button.disabled = !pickType() || !select.value || next === "loading" || next === "starting" || next === "sending";
     select.disabled = next === "starting" || next === "recording" || next === "sending";
   }
 
@@ -455,6 +486,7 @@
   }
 
   button.addEventListener("click", function () {
+    if (!select.value) { say("Choose the episode this take belongs to.", true); return; }
     primeAudio(); // this tap is what lets her reply play by itself when it lands
     if (state === "recording") stop();
     else if (state === "retry" && pending) send(pending);
