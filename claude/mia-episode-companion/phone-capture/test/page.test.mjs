@@ -28,7 +28,7 @@ function element(id) {
   };
 }
 
-function harness({ micDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
+function harness({ search = "", micDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
   const ids = ["episode", "record", "timer", "status", "result", "resultHead", "transcript",
     "reply", "replyMeta", "replyText", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
   const elements = Object.fromEntries(ids.map((id) => [id, element(id)]));
@@ -89,7 +89,7 @@ function harness({ micDelay = 0, takeAnswer = { success: true, take: "2609220900
     setInterval: (fn, ms) => { const handle = setInterval(fn, ms); handle.unref?.(); return handle; },
     clearInterval: (handle) => clearInterval(handle),
     setTimeout: (fn, ms) => { const handle = setTimeout(fn, ms); handle.unref?.(); return handle; },
-    location: { search: "" },
+    location: { search },
   };
   const run = new Function(...Object.keys(context), SCRIPT);
   run(...Object.values(context));
@@ -145,4 +145,18 @@ test("a recorder that never reports stopped does not hang the page", async () =>
   assert.equal(h.elements.record.textContent, "Record", "the page came back on its own");
   assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes")).length, 1);
   assert.equal(h.stoppedTracks.count, 1);
+});
+
+test("the link decides the reading: ?play=0 turns auto-play off, ?play=1 turns it on", async () => {
+  const off = harness({ search: "?episode=" + EPISODE + "&play=0" });
+  await settle(30);
+  assert.equal(off.elements.autoplay.checked, false);
+
+  const on = harness({ search: "?episode=" + EPISODE + "&play=1" });
+  await settle(30);
+  assert.equal(on.elements.autoplay.checked, true);
+
+  const plain = harness();
+  await settle(30);
+  assert.equal(plain.elements.autoplay.checked, true, "on by default when the link says nothing");
 });

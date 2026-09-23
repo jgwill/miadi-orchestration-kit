@@ -156,11 +156,19 @@
     } catch (_) {}
   }
 
-  // The episode belongs in the URL, so a reload, a bookmark or a shared link comes back
-  // to the same episode instead of the default one.
-  function urlKeepsEpisode() {
+  // The episode and the auto-play choice belong in the URL, so a reload, a bookmark or a
+  // shared link comes back the way William left it: ?episode=<folder>&play=1|0.
+  function urlKeepsState() {
     if (!select.value) return;
-    try { history.replaceState(null, "", "?episode=" + encodeURIComponent(select.value)); } catch (_) {}
+    try {
+      history.replaceState(null, "", "?episode=" + encodeURIComponent(select.value) + "&play=" + (autoplay.checked ? "1" : "0"));
+    } catch (_) {}
+  }
+
+  function askedToPlay() {
+    var asked = new URLSearchParams(location.search).get("play");
+    if (asked === null) return null;
+    return !/^(0|no|off|false)$/i.test(asked);
   }
 
   // A wait outlives a reload or iOS suspending the tab: it is written down, not held in a timer.
@@ -228,6 +236,7 @@
 
   autoplay.addEventListener("change", function () {
     remember("autoplay", autoplay.checked ? "1" : "0");
+    urlKeepsState();
     if (autoplay.checked) primeAudio();
   });
 
@@ -254,7 +263,7 @@
     replyBox.hidden = true;
     replyStatus.textContent = "";
     remember("episode", select.value);
-    urlKeepsEpisode();
+    urlKeepsState();
     loadLatestReply();
   });
 
@@ -297,8 +306,10 @@
       setState("idle");
       if (!pickType()) say("This browser cannot record audio/mp4. Use Safari on the iPhone.", true);
       remember("episode", select.value);
-      autoplay.checked = recall("autoplay") !== "0"; // on unless William turned it off
-      urlKeepsEpisode();
+      var asked = askedToPlay(); // the link wins over what this browser remembers
+      autoplay.checked = asked === null ? recall("autoplay") !== "0" : asked;
+      remember("autoplay", autoplay.checked ? "1" : "0");
+      urlKeepsState();
       if (!resumeWait()) loadLatestReply();
     } catch (error) {
       select.innerHTML = "<option value=''>Episodes unavailable</option>";
