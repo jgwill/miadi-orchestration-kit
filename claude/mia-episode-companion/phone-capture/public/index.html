@@ -126,6 +126,7 @@
   // before: priming it on the Record tap is what earns that.
   function playReply() {
     if (!current) return;
+    replyAudio.loop = false;
     var src = "api/replies/" + current.id + "/audio";
     if (replyAudio.getAttribute("src") !== src) replyAudio.src = src;
     replyAudio.hidden = false;
@@ -140,12 +141,26 @@
     }
   }
 
-  function primeAudio() {
+  // Recording takes over the audio session, and iOS then refuses a play() that no tap
+  // asked for: her reply was rendered and sat waiting for a tap. So from the Stop tap
+  // onward the element plays silence on a loop. When the reply lands, only the source
+  // changes, and an element already playing is allowed to keep playing.
+  function holdAudioOpen() {
+    if (!autoplay.checked) return;
     try {
+      replyAudio.loop = true;
       replyAudio.src = SILENT;
+      replyAudio.hidden = true;
       var started = replyAudio.play();
-      if (started && started.then) started.then(function () { replyAudio.pause(); replyAudio.removeAttribute("src"); }).catch(function () {});
+      if (started && started.catch) started.catch(function () {});
     } catch (_) {}
+  }
+
+  function releaseAudioHold() {
+    if (replyAudio.loop !== true) return;
+    replyAudio.loop = false;
+    try { replyAudio.pause(); } catch (_) {}
+    replyAudio.removeAttribute("src");
   }
 
   async function replies(episode, take) {
@@ -202,6 +217,9 @@
     waiting = null;
   }
 
+  // A recording that never reaches a reply must not leave silence looping.
+  window.addEventListener("pagehide", function () { releaseAudioHold(); });
+
   function waitForReply(episode, take, startedAtMs) {
     stopWaiting();
     replyBox.hidden = true;
@@ -221,6 +239,7 @@
       } catch (_) {}
       if (Date.now() - since > WAIT_MS) {
         stopWaiting();
+        releaseAudioHold();
         rememberWait();
         replyStatus.textContent = "No reply after 15 minutes. It will appear here on its own if it still comes.";
         return;
@@ -247,7 +266,7 @@
   autoplay.addEventListener("change", function () {
     remember("autoplay", autoplay.checked ? "1" : "0");
     urlKeepsState();
-    if (autoplay.checked) primeAudio();
+    if (!autoplay.checked) releaseAudioHold();
   });
 
   copyButton.addEventListener("click", async function () {
@@ -483,6 +502,7 @@
     if (state !== "recording") return;
     setState("sending");
     tickOff();
+    holdAudioOpen();
     var blob = await lastBlob();
     releaseMic();
     releaseScreen();
@@ -523,9 +543,10 @@
       say("");
       timer.textContent = "";
       setState("idle");
-      if (!answer.transcriptError) waitForReply(episode, answer.take);
+      if (answer.transcriptError) releaseAudioHold(); else waitForReply(episode, answer.take);
     } catch (error) {
       pending = blob;
+      releaseAudioHold();
       setState("retry");
       say("Not stored: " + error.message + " Your recording is kept — tap Send again.", true);
     }
@@ -533,7 +554,6 @@
 
   button.addEventListener("click", function () {
     if (!select.value) { say("Choose the episode this take belongs to.", true); return; }
-    primeAudio(); // this tap is what lets her reply play by itself when it lands
     if (state === "recording") stop();
     else if (state === "retry" && pending) send(pending);
     else start();

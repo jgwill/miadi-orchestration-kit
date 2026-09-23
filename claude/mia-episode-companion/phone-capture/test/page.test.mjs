@@ -36,7 +36,7 @@ function element(id) {
   };
 }
 
-function harness({ search = "?episode=" + EPISODE, micDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
+function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake = false, replyDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard." }, takeStatus = 200, neverStop = false } = {}) {
   const ids = ["episode", "filter", "matches", "record", "timer", "status", "result", "resultHead", "transcript",
     "reply", "replyMeta", "replyText", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
   const elements = Object.fromEntries(ids.map((id) => [id, element(id)]));
@@ -62,11 +62,15 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, takeAnswer = { 
 
   const episodeList = [{ path: EPISODE, number: 900 }, { path: "2026-06-10-episode-044-teaching-academic-foundations-of-miaco", number: 44 }];
   const fetchStub = async (url, options) => {
-    calls.push({ url, options });
+    calls.push({ url, options, at: Date.now() });
     if (url.startsWith("api/episodes")) {
       return { json: async () => ({ success: true, defaultEpisode: EPISODE, episodes: episodeList }) };
     }
-    if (url.startsWith("api/replies")) return { json: async () => ({ success: true, replies: [] }) };
+    if (url.startsWith("api/replies")) {
+      const sent = calls.find((c) => c.url.startsWith("api/takes"));
+      const ready = replyAfterTake && sent && Date.now() - sent.at >= replyDelay;
+      return { json: async () => ({ success: true, replies: ready ? [{ id: "r1", take: "260922090000", text: "Heard you.", at: new Date().toISOString(), audio: null }] : [] }) };
+    }
     if (url.startsWith("api/takes")) {
       if (takeStatus !== 200) throw new Error("network down");
       return { status: takeStatus, json: async () => takeAnswer };
@@ -205,4 +209,22 @@ test("a link with no episode chooses none: William picks before anything records
   h.tap();
   await settle(60);
   assert.equal(h.made.length, 0, "a tap without an episode records nothing");
+});
+
+test("silence holds the audio open from Stop, so her reply plays without a tap", async () => {
+  const h = harness({ replyAfterTake: true, replyDelay: 400 });
+  await settle(30);
+  h.tap();
+  await settle(60);
+  assert.equal(h.elements.autoplay.checked, true);
+
+  h.tap(); // Stop: the hold starts inside this tap
+  await settle(40);
+  assert.match(String(h.elements.replyAudio.src), /^data:audio\/wav/, "silence is playing while the reply is made");
+  assert.equal(h.elements.replyAudio.loop, true);
+
+  await settle(4600); // the page polls for a reply every 4 seconds
+  assert.match(String(h.elements.replyAudio.src), /api\/replies\/r1\/audio/, "the source swaps to her voice");
+  assert.equal(h.elements.replyAudio.loop, false);
+  assert.ok(h.elements.replyAudio.played >= 1, "it was playing already, so no tap was needed");
 });
