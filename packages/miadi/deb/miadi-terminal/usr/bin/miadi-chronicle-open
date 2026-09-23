@@ -7,7 +7,10 @@ Installed by miadi-terminal (jgwill/miadi-orchestration-kit).
     miadi-chronicle-open --open miadi-chronicle:126   open it in the browser
     miadi-chronicle-open --open --line TEXT --column N
                                                       open the reference at
-                                                      column N of TEXT (tmux)
+                                                      cell N of TEXT
+    miadi-chronicle-open --open --tmux PANE --row Y --column X --width W
+                                                      open the reference under
+                                                      a click in a tmux pane
 
 The URL is <front>/api/chronicle/open?uri=<reference>. That door on the Miadi
 server resolves the reference and redirects to its page, so this machine needs
@@ -19,13 +22,16 @@ miadi-config is not installed, as on Termux, from the environment and then
 from $MIADI_ETC/miadi.env (default /etc/miadi/miadi.env).
 
 Exit: 0 ok · 64 usage · 65 not a chronicle reference · 66 no reference at
-that column · 78 no front configured
+that cell · 78 no front configured
 """
 
+import math
 import os
 import re
 import subprocess
 import sys
+import tempfile
+import time
 import unicodedata
 from urllib.parse import quote
 
@@ -36,6 +42,8 @@ ETC_DEFAULT = "/etc/miadi"
 # URI in running text; trailing sentence punctuation is stripped after.
 REFERENCE = re.compile(r'''\bmiadi-chronicle:(?://)?[A-Za-z0-9._~/\-]+(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?''', re.I)
 TRAILING = ".,;:!?)]}'\""
+# A double click is two clicks; the second must not open the same page again.
+REPEAT_SECONDS = 1.5
 
 
 def from_miadi_env(name):
@@ -76,9 +84,13 @@ def clean(ref):
 
 
 def cells(char):
-    if unicodedata.combining(char):
+    if unicodedata.combining(char) or unicodedata.category(char) == "Cf":
         return 0
     return 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+
+
+def width(text):
+    return sum(cells(c) for c in text)
 
 
 def reference_at(line, column):
@@ -95,60 +107,121 @@ def reference_at(line, column):
     return ""
 
 
-def notify(message):
-    """A click has no terminal to print to, so say it on the desktop."""
+def tmux_logical_cell(pane, row, column, pane_width):
+    """The logical line under a click in `pane`, and the click's cell in it.
+
+    tmux reports one screen row, so a reference wrapped at the pane edge
+    arrives cut in two. capture-pane -J joins wrapped rows back into the line
+    the program printed; a joined line of W cells took ceil(W / width) rows.
+    The line itself never passes through a shell.
+    """
+    start = max(0, row - 8)
+    result = subprocess.run(
+        ["tmux", "capture-pane", "-p", "-J", "-t", pane, "-S", str(start), "-E", str(row + 8)],
+        capture_output=True, text=True, timeout=10,
+    )
+    if result.returncode != 0:
+        return "", -1
+    physical = start
+    for line in result.stdout.split("\n"):
+        rows = max(1, math.ceil(width(line) / pane_width))
+        if physical <= row < physical + rows:
+            return line, (row - physical) * pane_width + column
+        physical += rows
+    return "", -1
+
+
+def say(message, opening, in_tmux):
+    """A click has no terminal to print to: say it where the reader looks."""
+    print(message, file=sys.stderr)
+    if not opening:
+        return
+    if in_tmux:
+        subprocess.run(["tmux", "display-message", f"miadi-chronicle: {message.splitlines()[0]}"],
+                       capture_output=True, timeout=5)
+        return
     try:
         subprocess.run(["notify-send", "miadi-chronicle", message], timeout=5)
     except (OSError, subprocess.TimeoutExpired):
         pass
 
 
-def fail(code, message, opening):
-    print(message, file=sys.stderr)
-    if opening:
-        notify(message)
-    return code
+def repeated(url):
+    """True when this same URL was opened a moment ago (a double click)."""
+    path = os.path.join(tempfile.gettempdir(), f"miadi-chronicle-open-{os.getuid()}.last")
+    now = time.time()
+    try:
+        with open(path) as fh:
+            last_url, _, last_time = fh.read().rpartition("\t")
+        if last_url == url and now - float(last_time) < REPEAT_SECONDS:
+            return True
+    except (OSError, ValueError):
+        pass
+    try:
+        with open(path, "w") as fh:
+            fh.write(f"{url}\t{now}")
+    except OSError:
+        pass
+    return False
 
 
 def parse(argv):
-    opening, line, column, refs = False, None, None, []
+    options, refs = {"open": False}, []
     args = iter(argv)
     for arg in args:
         if arg == "--open":
-            opening = True
-        elif arg == "--line":
-            line = next(args, None)
-        elif arg == "--column":
-            column = next(args, None)
+            options["open"] = True
+        elif arg in ("--line", "--column", "--tmux", "--row", "--width"):
+            options[arg[2:]] = next(args, None)
         else:
             refs.append(arg)
-    return opening, line, column, refs
+    return options, refs
+
+
+def number(value):
+    return int(value) if value is not None and value.isdigit() else None
 
 
 def main(argv):
-    opening, line, column, refs = parse(argv)
-    if line is not None:
-        if refs or column is None or not column.isdigit():
-            return fail(64, "usage: miadi-chronicle-open [--open] --line TEXT --column N", False)
-        ref = reference_at(line, int(column))
+    options, refs = parse(argv)
+    opening, in_tmux = options["open"], "tmux" in options
+    column = number(options.get("column"))
+    if in_tmux:
+        row, pane_width = number(options.get("row")), number(options.get("width"))
+        if refs or column is None or row is None or not pane_width:
+            return 64
+        line, column = tmux_logical_cell(options["tmux"], row, column, pane_width)
+        ref = reference_at(line, column) if line else ""
+        if not ref:
+            return 66
+    elif "line" in options:
+        if refs or column is None or options["line"] is None:
+            print("usage: miadi-chronicle-open [--open] --line TEXT --column N", file=sys.stderr)
+            return 64
+        ref = reference_at(options["line"], column)
         if not ref:
             return 66
     elif len(refs) == 1:
         ref = clean(refs[0])
     else:
-        return fail(64, "usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>]", False)
+        print("usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>]", file=sys.stderr)
+        return 64
 
     if not ref.lower().startswith(SCHEME):
-        return fail(65, f"not a chronicle reference: {ref}", False)
+        print(f"not a chronicle reference: {ref}", file=sys.stderr)
+        return 65
     base = front()
     if not base:
-        return fail(78, "no Miadi front to open on — set one:\n"
-                        "  miadi-terminal front https://<your Miadi>", opening)
+        say("no Miadi front to open on — set one: miadi-terminal front https://<your Miadi>",
+            opening, in_tmux)
+        return 78
     url = f"{base}/api/chronicle/open?uri={quote(ref, safe='')}"
-    if opening:
-        return subprocess.call(["xdg-open", url])
-    print(url)
-    return 0
+    if not opening:
+        print(url)
+        return 0
+    if repeated(url):
+        return 0
+    return subprocess.call(["xdg-open", url])
 
 
 if __name__ == "__main__":

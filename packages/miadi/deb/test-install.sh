@@ -68,38 +68,10 @@ PY
     grep -q "x-scheme-handler/miadi-chronicle=miadi-chronicle-open.desktop" /usr/share/applications/mimeinfo.cache
     echo "the scheme handler is valid and registered"
 
-    apt-get install -y -qq tmux >/dev/null 2>&1
+    apt-get install -y -qq tmux python3-configobj >/dev/null 2>&1
     useradd -m reader
-    su reader -s /bin/bash -c "
-      set -eu
-      mkdir -p ~/.config/terminator ~/bin
-      printf \"[global_config]\n  enabled_plugins = APTURLHandler\n[profiles]\n\" > ~/.config/terminator/config
-      printf \"# jgwill/Miadi packages/inquiry-weave/src/terminal-install.ts\n\" > ~/bin/miadi-chronicle-open
-      miadi-terminal enable desktop terminator >/dev/null
-      grep -qx \"  enabled_plugins = APTURLHandler, MiadiChronicleURLHandler\" ~/.config/terminator/config
-      test -f ~/.config/terminator/config.bak-miadi-terminal
-      test ! -e ~/bin/miadi-chronicle-open
-      test \"\$(xdg-mime query default x-scheme-handler/miadi-chronicle)\" = miadi-chronicle-open.desktop
-      miadi-terminal enable terminator | grep -q \"already enabled\"
-      miadi-terminal status | grep -qx \"terminator: its application is not installed here\"
-      miadi-terminal disable terminator >/dev/null
-      grep -qx \"  enabled_plugins = APTURLHandler\" ~/.config/terminator/config
-      rm ~/.config/terminator/config
-      miadi-terminal enable terminator >/dev/null
-      grep -qx \"  enabled_plugins = LaunchpadBugURLHandler, LaunchpadCodeURLHandler, APTURLHandler, MiadiChronicleURLHandler\" ~/.config/terminator/config
-
-      printf \"set -g history-limit 5000\" > ~/.tmux.conf
-      miadi-terminal enable >/dev/null
-      grep -qx \"source-file -q /usr/share/miadi-terminal/tmux/miadi-chronicle.conf  # miadi-terminal\" ~/.tmux.conf
-      grep -qx \"set -g history-limit 5000\" ~/.tmux.conf
-      tmux -L check new-session -d -s c \"sleep 5\"
-      tmux -L check list-keys -T root | grep -q \"MouseUp1Pane .*miadi-chronicle-open\"
-      tmux -L check kill-server
-      miadi-terminal status | grep -qx \"tmux: enabled\"
-      miadi-terminal disable tmux >/dev/null
-      ! grep -q miadi-terminal ~/.tmux.conf
-    "
-    echo "enable and disable edit only enabled_plugins and one tmux line, keep a backup, and remove the earlier inquiry-weave copy"
+    install -m 0755 /tmp/tests/reader-enable.sh /usr/local/bin/reader-enable.sh
+    su reader -s /bin/bash -c /usr/local/bin/reader-enable.sh
     python3 /tmp/tests/tmux-click.py /usr/share/miadi-terminal/tmux/miadi-chronicle.conf /usr/bin/miadi-chronicle-open
     miadi-terminal front https://front.test >/dev/null && unset MIADI_CHRONICLE_OPEN_URL
     test "$(miadi-chronicle-open miadi-chronicle:126)" = "https://front.test/api/chronicle/open?uri=miadi-chronicle%3A126"

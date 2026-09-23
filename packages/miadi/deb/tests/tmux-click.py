@@ -44,8 +44,12 @@ def run(*args):
 
 
 line = "see miadi-chronicle:092/126#scene=river, then 世界 miadi-chronicle:311."
-run("new-session", "-d", "-s", "click", "-x", "100", "-y", "20",
-    f"printf '%s\\n' '{line}'; sleep 60")
+prompt = "~/src/Miadi main > echo miadi-chronicle:126"     # a shell would expand a leading ~
+wrapped = "x" * 79 + " miadi-chronicle:092/126 now"         # wraps at the 100-cell pane edge
+lines_file = os.path.join(work, "lines")
+with open(lines_file, "w") as fh:
+    fh.write("\n".join([line, prompt, wrapped]) + "\n")
+run("new-session", "-d", "-s", "click", "-x", "100", "-y", "20", f"cat {lines_file}; sleep 60")
 run("set", "-g", "mouse", "on")
 run("set", "-g", "status", "off")
 run("source-file", local_conf)
@@ -66,11 +70,11 @@ def drain(seconds):
                 return
 
 
-def click(column):  # column is 0-based, SGR mouse is 1-based
-    os.write(fd, f"\x1b[<0;{column + 1};1M".encode())
-    drain(0.1)
-    os.write(fd, f"\x1b[<0;{column + 1};1m".encode())
-    drain(0.8)
+def click(column, row=0, settle=0.8):  # 0-based cells; SGR mouse is 1-based
+    os.write(fd, f"\x1b[<0;{column + 1};{row + 1}M".encode())
+    drain(0.05)
+    os.write(fd, f"\x1b[<0;{column + 1};{row + 1}m".encode())
+    drain(settle)
 
 
 def opened_lines():
@@ -101,6 +105,20 @@ try:
         print(f"  - wide characters skipped: tmux {version} cuts mouse_line at the first one")
     else:
         results.append((f"columns count wide characters as two cells (opened {got})", got == [want311]))
+    click(prompt.index("miadi-chronicle") + 3, row=1)
+    want126 = "https://front.test/api/chronicle/open?uri=miadi-chronicle%3A126"
+    got = opened_lines()[-1:]
+    results.append((f"a prompt line starting with ~ keeps its columns (opened {got})", got == [want126]))
+    click(85, row=2)
+    want_wrapped = "https://front.test/api/chronicle/open?uri=miadi-chronicle%3A092%2F126"
+    got = opened_lines()[-1:]
+    results.append((f"a reference wrapped at the pane edge opens whole (opened {got})", got == [want_wrapped]))
+    before = len(opened_lines())
+    drain(1.6)                     # past the repeat window, then a double click
+    click(prompt.index("miadi-chronicle") + 3, row=1, settle=0.1)
+    click(prompt.index("miadi-chronicle") + 3, row=1)
+    got = opened_lines()[before:]
+    results.append((f"a double click opens once (opened {got})", got == [want126]))
 finally:
     subprocess.run(tmux + ["kill-server"], env=env)
     shutil.rmtree(work, ignore_errors=True)

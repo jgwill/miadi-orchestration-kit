@@ -75,10 +75,14 @@ miadi-terminal status
 | `terminator` | Ctrl+click a bare reference | `/usr/share/miadi-terminal/terminator/`, linked into Terminator's plugin directory |
 | `tmux` | click, or tap on Termux, a bare reference in a pane | `/usr/share/miadi-terminal/tmux/miadi-chronicle.conf` |
 
-The package installs system-wide and writes nothing into a home directory;
-`enable` edits only the user's own Terminator `enabled_plugins` and tmux config,
-with a backup, and removes the per-user copy an earlier `inquiry-weave terminal
-install` left. The front is `MIADI_CHRONICLE_OPEN_URL`, else `MIADI_URL_BASE`.
+The package installs system-wide; its maintainer scripts write nothing into a
+home directory. `enable`, run by the user, changes that user's Terminator
+`enabled_plugins`, adds one line to their tmux config, and sets the scheme
+default in `~/.config/mimeapps.list`. Each config it changes keeps a
+`.bak-miadi-terminal` copy of how it was before the first change. The plugin
+and wrapper an earlier `inquiry-weave terminal install` left are moved to
+`~/.local/share/miadi-terminal/legacy/`; its environment drop-in stays, since
+the session may read its values. The front is `MIADI_CHRONICLE_OPEN_URL`, else `MIADI_URL_BASE`.
 A Termux build of the same tree is made by `build.sh` (`termux/README.md`).
 Contract: jgwill/Miadi `rispecs/miadi-chronicle-dsl/SPEC-TERMINAL.md` §3.
 

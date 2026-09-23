@@ -19,6 +19,7 @@ Terminator and tmux read only that user's own config.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -39,13 +40,19 @@ LEGACY_MARKER = "packages/inquiry-weave/src/terminal-install.ts"
 
 HOME = Path.home()
 CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
+DATA_HOME = Path(os.environ.get("XDG_DATA_HOME") or HOME / ".local" / "share")
 TERMINATOR_CONFIG = CONFIG_HOME / "terminator" / "config"
 SYSTEM_TERMINATOR_CONFIG = Path("/etc/xdg/terminator/config")
+# What the old installer wrote that this package replaces: its plugin, which
+# duplicates ours, and its wrapper, which shadows ours on PATH. Moved aside,
+# never deleted.
 LEGACY_FILES = [
     CONFIG_HOME / "terminator" / "plugins" / "miadi_chronicle_url_handler.py",
     HOME / "bin" / "miadi-chronicle-open",
-    CONFIG_HOME / "environment.d" / "50-miadi-chronicle.conf",
 ]
+LEGACY_PARKED = DATA_HOME / "miadi-terminal" / "legacy"
+# Its environment drop-in is left alone: the session may read its MIADI_* values.
+LEGACY_ENVIRONMENT = CONFIG_HOME / "environment.d" / "50-miadi-chronicle.conf"
 
 
 def run(*command):
@@ -56,11 +63,13 @@ def run(*command):
 
 
 def backup_and_write(path, text):
+    """Write `path`, keeping its state before miadi-terminal first touched it."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         backup = path.with_name(path.name + ".bak-miadi-terminal")
-        shutil.copy2(path, backup)
-        print(f"  backup: {backup}")
+        if not backup.exists():
+            shutil.copy2(path, backup)
+            print(f"  backup: {backup}")
     path.write_text(text)
 
 
@@ -97,29 +106,64 @@ class Desktop:
 
 # --- terminator --------------------------------------------------------------
 
+def split_comment(line):
+    """(body, comment): ConfigObj comments run from '#' to the end of the line."""
+    body, sep, comment = line.partition("#")
+    return body, sep + comment
+
+
+def plugins_line(lines):
+    """(index of enabled_plugins in [global_config], index of that header)."""
+    section, header = None, None
+    for i, line in enumerate(lines):
+        body = split_comment(line)[0].strip()
+        if body.startswith("[") and not body.startswith("[["):
+            section = body
+            if body == "[global_config]" and header is None:
+                header = i
+            continue
+        if section == "[global_config]":
+            key, sep, _ = body.partition("=")
+            if sep and key.strip() == "enabled_plugins":
+                return i, header
+    return None, header
+
+
 def plugin_list(config_text):
-    """The enabled_plugins values, or None when the line is absent."""
-    for line in config_text.splitlines():
-        key, sep, value = line.partition("=")
-        if sep and key.strip() == "enabled_plugins":
-            return [v.strip() for v in value.split(",") if v.strip()]
-    return None
+    """The enabled_plugins values in [global_config], or None when absent."""
+    lines = config_text.splitlines()
+    i, _ = plugins_line(lines)
+    if i is None:
+        return None
+    value = split_comment(lines[i])[0].partition("=")[2]
+    return [v.strip().strip("'\"") for v in value.split(",") if v.strip()]
+
+
+def render(plugins):
+    # ConfigObj reads a value without a comma as a string, which Terminator
+    # rejects: one plugin takes a trailing comma, none is a lone comma.
+    if not plugins:
+        return ","
+    if len(plugins) == 1:
+        return f"{plugins[0]},"
+    return ", ".join(plugins)
 
 
 def with_plugins(config_text, plugins):
     """config_text with enabled_plugins set to plugins, in [global_config]."""
-    rendered = f"  enabled_plugins = {', '.join(plugins)}"
+    newline = "\r\n" if "\r\n" in config_text else "\n"
     lines = config_text.splitlines()
-    for i, line in enumerate(lines):
-        key, sep, _ = line.partition("=")
-        if sep and key.strip() == "enabled_plugins":
-            lines[i] = rendered
-            return "\n".join(lines) + "\n"
-    for i, line in enumerate(lines):
-        if line.strip() == "[global_config]":
-            lines.insert(i + 1, rendered)
-            return "\n".join(lines) + "\n"
-    return "\n".join(["[global_config]", rendered, *lines]) + "\n"
+    i, header = plugins_line(lines)
+    if i is not None:
+        line = lines[i]
+        indent = line[: len(line) - len(line.lstrip())]
+        comment = split_comment(line)[1]
+        lines[i] = f"{indent}enabled_plugins = {render(plugins)}" + (f"  {comment}" if comment else "")
+    elif header is not None:
+        lines.insert(header + 1, f"  enabled_plugins = {render(plugins)}")
+    else:
+        lines = ["[global_config]", f"  enabled_plugins = {render(plugins)}", *lines]
+    return newline.join(lines) + newline
 
 
 def terminator_config():
@@ -173,6 +217,12 @@ class Terminator:
 
 # --- tmux --------------------------------------------------------------------
 
+def sources_ours(line):
+    """An uncommented source-file line naming our tmux config."""
+    body = line.strip()
+    return body.startswith("source-file") and str(TMUX_CONF) in split_comment(body)[0]
+
+
 def tmux_config():
     """The config tmux reads for this user, or where to create one."""
     for path in (HOME / ".tmux.conf", CONFIG_HOME / "tmux" / "tmux.conf"):
@@ -192,12 +242,12 @@ class Tmux:
 
     def enabled(self):
         path = tmux_config()
-        return path.exists() and str(TMUX_CONF) in path.read_text()
+        return path.exists() and any(sources_ours(line) for line in path.read_text().splitlines())
 
     def enable(self):
         path = tmux_config()
         text = path.read_text() if path.exists() else ""
-        if str(TMUX_CONF) in text:
+        if any(sources_ours(line) for line in text.splitlines()):
             print(f"tmux: already enabled in {path}")
         else:
             backup_and_write(path, text + ("" if not text or text.endswith("\n") else "\n") + TMUX_LINE + "\n")
@@ -207,16 +257,26 @@ class Tmux:
 
     def disable(self):
         path = tmux_config()
-        if not self.enabled():
-            print("tmux: not enabled")
-            return
-        kept = [line for line in path.read_text().splitlines() if str(TMUX_CONF) not in line]
-        backup_and_write(path, "\n".join(kept) + "\n")
-        print(f"tmux: disabled in {path}; the binding leaves a running tmux when it restarts")
+        lines = path.read_text().splitlines() if path.exists() else []
+        kept = [line for line in lines if line.strip() != TMUX_LINE]
+        if len(kept) == len(lines):
+            print("tmux: the line miadi-terminal adds is not in your tmux config")
+        else:
+            backup_and_write(path, "\n".join(kept) + "\n")
+            print(f"tmux: disabled in {path}; the binding leaves a running tmux when it restarts")
+        for line in kept:
+            if sources_ours(line):
+                print(f"  your own line still sources it, left in place: {line.strip()}")
 
     def mouse_note(self):
         result = run("tmux", "show-options", "-gv", "mouse")
-        if result and result.returncode == 0 and result.stdout.strip() != "on":
+        if result and result.returncode == 0:
+            on = result.stdout.strip() == "on"
+        else:  # no server running: read the config it will start from
+            path = tmux_config()
+            text = path.read_text() if path.exists() else ""
+            on = re.search(r"^\s*set(-option)?\s+(-\w+\s+)*mouse\s+on\b", text, re.M) is not None
+        if not on:
             print("  tmux mouse is off, so clicks never reach tmux: add `set -g mouse on`")
 
     def describe(self):
@@ -228,15 +288,22 @@ INTEGRATIONS = [Desktop(), Terminator(), Tmux()]
 
 # --- the whole ---------------------------------------------------------------
 
-def remove_legacy():
+def legacy(path):
+    try:
+        return LEGACY_MARKER in path.read_text(errors="replace")
+    except OSError:
+        return False
+
+
+def park_legacy():
+    """Move the old installer's plugin and wrapper aside, where they shadow nothing."""
     for path in LEGACY_FILES:
-        try:
-            if LEGACY_MARKER not in path.read_text(errors="replace"):
-                continue
-        except OSError:
+        if not legacy(path):
             continue
-        path.unlink()
-        print(f"removed the earlier inquiry-weave copy: {path}")
+        LEGACY_PARKED.mkdir(parents=True, exist_ok=True)
+        parked = LEGACY_PARKED / path.name
+        shutil.move(str(path), parked)
+        print(f"moved the earlier inquiry-weave copy aside: {path} -> {parked}")
         for cached in (path.parent / "__pycache__").glob(f"{path.stem}.*.pyc"):
             cached.unlink()
 
@@ -262,7 +329,7 @@ def enable(names):
             print(f"{integration.name}: not part of this build of miadi-terminal, skipped")
             continue
         integration.enable()
-    remove_legacy()
+    park_legacy()
     front_note()
     return 0
 
@@ -329,11 +396,11 @@ def status():
         if integration.present():
             print(f"  {integration.describe()}")
     for path in LEGACY_FILES:
-        try:
-            if LEGACY_MARKER in path.read_text(errors="replace"):
-                print(f"earlier inquiry-weave copy still here: {path} — miadi-terminal enable removes it")
-        except OSError:
-            pass
+        if legacy(path):
+            print(f"earlier inquiry-weave copy still here: {path} — miadi-terminal enable moves it aside")
+    if legacy(LEGACY_ENVIRONMENT):
+        print(f"earlier inquiry-weave environment file, read at login: {LEGACY_ENVIRONMENT}")
+        print("  its MIADI_URL_BASE wins over miadi.env in GUI sessions; delete it to use the host's")
     return 0
 
 

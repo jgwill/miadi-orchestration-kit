@@ -21,5 +21,8 @@ miadi-terminal enable
 miadi-terminal front https://<your Miadi>
 ```
 
+A tap reaches tmux only with `set -g mouse on` in `~/.tmux.conf`; `enable`
+says so when it is off. Reload a running server with `tmux source-file ~/.tmux.conf`.
+
 The Sanctuaire apt repository publishes one architecture (`amd64`), so the
 Termux build is installed from the file for now.
