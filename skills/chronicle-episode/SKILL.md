@@ -1,6 +1,6 @@
 ---
 name: chronicle-episode
-description: The one entry point for Miadi Chronicle episode work on any host and from any agent. Mint a vessel with mkepisode or the episode API, prove the five stages (created, committed, pushed, registered, receipt-verified), register on the chronicle medicine wheel, relate and sync an inquiry with inquiry-weave, author lineage, raise and answer Attention items, redeem receipts, reconcile drift, adopt a manifest-less directory. Use for mkepisode, episode vessels, episode rooms, chronicle registration, closure, attention.json, inquiry weave, lineage, or any write into the chronicle.
+description: The one entry point for Miadi Chronicle episode work on any host and from any agent. Mint a vessel with mkepisode or the episode API, prove the five stages (created, committed, pushed, registered, receipt-verified), register on the chronicle medicine wheel, relate and sync an inquiry with inquiry-weave, author lineage, raise and answer Attention items, open a ceremony (a talking circle by default) held in a circle of people and bound to an episode, seat the circle, speak and witness turns, close the ceremony, redeem receipts, reconcile drift, adopt a manifest-less directory. Use for mkepisode, episode vessels, episode rooms, chronicle registration, closure, attention.json, inquiry weave, lineage, "a new ceremony", "talking circle", "open a circle", ceremony turns, or any write into the chronicle.
 ---
 
 # Chronicle Episode
@@ -37,6 +37,7 @@ A `git -C` pointed anywhere but `$GIT_ROOT` reports a clean tree for a chronicle
 | `MIADI_INQUIRY_DIR` | the artefact shelf (`inquiry-weave` reads it before `MIADI_INQUIRY_ROOT`, env.ts:38-44) | `.` does not mean cwd here, see S7 |
 | `MIADI_API_URL` | the Miadi app: the episode door (`/api/chronicle/episodes`) and the Attention door | not the wheel |
 | `MIADI_API_TOKEN_WRITER` | writer authority for POSTs from outside loopback or the tailnet | never inline it; `GET …/episodes` reports `capabilities.mint` for the caller you are |
+| `MIADI_PERSON_TOKEN` | the token of the person the agent acts for (Miadi community identity), named here on 2026-09-23 | circles, ceremonies and turns read a person, not a host (S15); never inline it |
 | `MIADI_SRC` | the Miadi checkout | source-run fallback, S3 |
 | `MIADI_URL_BASE_INTERNAL`, `MIADI_URL_BASE`, `MIADI_WEB_URL` | the room's doors, read by `inquiry-weave resolve` | ask `resolve`, do not compose room URLs |
 
@@ -157,6 +158,7 @@ Exit 0 written and verified, 3 written but the wheel leg is pending, 1 refused (
   attention.json, .mw-attention.json
   inquiry/weave.yaml, inquiry/<artefact>/     inquiry-weave
   captures/<stem>/capture.json, transcription*.json|txt     the capture family; raw media stays out of git
+  ceremonies/<id>/notes.md     Miadi or gmtermux: one per ceremony and per closing, never overwritten (S15)
   episode.mp3, chapter-NN.mp3  rendered voice, tracked
 ```
 
@@ -169,8 +171,9 @@ The room reads filenames (episodeRoom.ts `classify()` 142-152, `segmentKey()` 16
 3. The bytes a wheel card points at (`metadata.relative_path`): the wheel holds the card, not the vessel.
 4. `git` for stages 2 and 3 when the vessel was minted by CLI or by voice; the episode API lands them itself.
 5. Redeem and reconcile: the scripts read the disk and the index.
+6. Ceremony notes: `ceremonies/<id>/notes.md`, written by the app when a ceremony bound to an episode opens or closes. `POST …/land` does not carry them (`vesselPaths`, mint.ts:400-410), so they are committed by path (S15 step 5).
 
-Everything else (mint, number check, status, relate and sync, lineage, register and redeem, attention) has an HTTP door on the Miadi app and a tool on `inquiry-weave-mcp` since 2026-09-05.
+Everything else (mint, number check, status, relate and sync, lineage, register and redeem, attention) has an HTTP door on the Miadi app and a tool on `inquiry-weave-mcp` since 2026-09-05. Circles and ceremonies have an HTTP door only (S15).
 
 ## S13. Kin: what this skill does not do
 
@@ -184,6 +187,7 @@ Everything else (mint, number check, status, relate and sync, lineage, register 
 | voice bound to an episode, playback, TTS | `miadi-voice` skill, miadi-voice MCP |
 | which host, repo, or service a name points to | `miadi-stack-map` |
 | verifying any command in a pipeline | `pipeline-masks-the-exit` |
+| people, roles, grants, who may do what in the community | `/admin` on the Miadi app, `@medicine-wheel/community-identity` |
 | the portable `miadi-chronicle:<N>[/artifact]` name | `inquiry-weave resolve`; the `chronicle-reference` skill both lineages cite exists on no host measured 2026-09-04 |
 | the chronicle's own operating law | `$MIADI_CHRONICLE_ROOT/AGENTS.md`, `$GIT_ROOT/CLAUDE.md` |
 
@@ -210,5 +214,37 @@ Everything else (mint, number check, status, relate and sync, lineage, register 
 - 2026-09-04: stages 2 and 3 belong to the minting tool or API, safe rebase first (William); `closing.ts:11` is stale.
 - 2026-09-04: `closing.ts:278` names `chronicle-episode-closing/redeem-receipt.sh`, a directory that no longer exists; an owed action that points nowhere is owed twice (amended in jgwill/Miadi 9e59e946).
 - 2026-09-05: the episode door landed (jgwill/Miadi 123446ec, 24 library tests and 7 route tests); rebase is impossible on the chronicle because its reference-transaction hook refuses non-fast-forward moves of main, so the door merges and says so. `@miadi/inquiry-weave` 0.9.0, `@miadi/voice-mcp` 0.4.1, and `passages` 0.3.2 published the same day; `ep348` was the door's first real mint.
+- 2026-09-23: "I want a new ceremony with a talking circle" had no reading here while Miadi had held circles, bound ceremonies and spoken turns since 2026-09-18 (jgwill/Miadi#647). A door the skill does not name does not exist for an agent (jgwill/miadi-orchestration-kit#51, S15).
+
+## S15. Ceremonies and circles: "a new ceremony with a talking circle"
+
+Read the ask as three records, all on the chronicle wheel, all reached through the Miadi app and never written to the wheel directly. Reconciled 2026-09-23 against `app/api/circles/**`, `app/api/ceremony/**` and `app/api/chronicle/episodes/[ref]/wheel` in jgwill/Miadi (`dcefdd06`; jgwill/Miadi#647, jgwill/medicine-wheel#141).
+
+| word | record | door |
+|---|---|---|
+| ceremony | `CeremonyLog`, type `talking_circle` unless told otherwise (`opening`, `smudging`, `spirit_feeding`; `closing` is made by close); `episode_path`, `circle_id`, `closes` typed on the record | `POST /api/circles/<circle>/ceremonies` |
+| circle | a `circle` node; members are `member_of` edges with role `facilitator` or `member` | `POST /api/circles` |
+| talking circle | the turns: one beat per spoken turn, carrying `speaker` and `witnesses` | `POST /api/ceremony/<id>/turns` |
+
+Identity. These routes read a person: `Authorization: Bearer $MIADI_PERSON_TOKEN`. Loopback and the tailnet admit nothing here. The writer token resolves to `system:writer`: opening a circle, speaking, witnessing and joining refuse it ("Sign in as a person"), and a ceremony it opens is opened by nobody. Act with the token of the person who asked. When it is unset, say so and stop: the person issues one at `/me` or `POST /api/identity/tokens` (their node needs `api_access`), or an admin hands one. `GET $MIADI_API_URL/api/identity/me` says who the token is and what it may do; read it before the first write. No MCP tool and no CLI carries this door.
+
+1. Episode. Bind the ceremony to the episode the conversation is in. `episode_path` is the directory name, never a number. `GET $MIADI_API_URL/api/chronicle/episodes/<N>/wheel` answers `.episode.path` together with everything step 2 needs. A ceremony without an episode is legal; leave `episode_path` out only when the person says so.
+2. Where. From the same answer: `.hosts[]` are the circles where this person may hold a ceremony now (`opened_for` this episode, `seated`); `.circles[]` are those already gathered for the episode; `.can.create_circle` and `.can.freestanding` say what else is open. Use the circle the person named, else a host `opened_for` this episode. A seated circle of another episode is used only when named. When neither exists, "with a talking circle" asks for a new circle: step 3.
+3. Circle. `POST $MIADI_API_URL/api/circles` with `{name, intention, episode_path, direction?, circle_type?: ongoing|seasonal|one_time, capacity?, is_public?}` → 201 `{circle, facilitator}`. Needs `create_circles` (admin, ceremony_facilitator, firekeeper). The opener becomes facilitator; an admin may pass `facilitator_id` to open it for someone else. Names on the wheel read `Episode <N> <purpose> circle`. Seat people before step 4, because a ceremony's participants are the circle's members at the moment it opens. The facilitator or an admin seats directly with `POST /api/circles/<id>/members {person_id, role?}` (ids from `GET /api/identity/people?search=<name>`). Anyone else is invited: `POST /api/circles/<id>/invite {intended_for?, max_uses?, expires_at?}` → `{invitation}` whose code the person redeems at `POST /api/circles/<id>/join {code}`.
+4. Open. `POST $MIADI_API_URL/api/circles/<circle>/ceremonies` with `{intention: "<what this ceremony holds>", type: "talking_circle", direction: "east", episode_path}` → 201 `{ceremony, note}`. The intention is required, and it is the person's words. The wheel mints the id. The facilitator and an admin open by their seat; another member needs `facilitate_ceremony`. An inactive circle answers 409. With no circle at all (only when the person says "no circle"): `POST /api/ceremony/list {type, direction, intentions[], episode_path}` under writer authority. It carries no members and no seat.
+5. Land the note. `note.written: true` means `ceremonies/<id>/notes.md` now sits uncommitted in the vessel on the host that serves `$MIADI_API_URL`. Commit it there the S5 way, by path, with the episode's source issue as `Ref:`. `note.written: false` with a `reason` (no `MIADI_CHRONICLE_ROOT`, no vessel) means the ceremony exists on the wheel only. Report that; do not write the note by hand.
+6. Prove and hand over. `GET $MIADI_API_URL/api/ceremony/<id>` → `.ceremony.type`, `.episode`, `.circle.members`, `.turns`, `.closed`, `.can`. `curl -sf -o /dev/null -w '%{http_code}\n' "$MIADI_CHRONICLE_MW_URL/api/ceremonies/<id>"` → 200. The episode's `…/wheel` lists it in `.ceremonies`. Give the person the page `/ceremony/<id>` on the Miadi front they use. The room's wheel panel links it from there.
+
+In the circle, after it opens:
+
+- Speak. `POST /api/ceremony/<id>/turns {said, title?, learnings?[]}` → `{turn}`. Needs `create_beats` and a seat. A closed ceremony answers 409. The token's person is the speaker, so post only words that person said, verbatim. An agent seated as its own person (Mia is one, jgwill/Miadi#647) speaks with its own token, never with the human's.
+- Witness. `POST /api/ceremony/<id>/turns/<beatId>/witness` with no body. Needs `witness`. A speaker cannot witness their own turn (409).
+- Diary. `POST /api/ceremony/<id>/diary {content, phase?, entryType?}`. `phase` is one of `miigwechiwendam`, `nindokendaan` (default), `ningwaab`, `nindoodam`, `migwech`. `entryType` is one of `intention`, `observation`, `hypothesis`, `data`, `synthesis`, `action`, `reflection` (default), `learning`.
+- Close, on the facilitator's word only. `POST /api/ceremony/<id>/close {learnings?[]}` → 201 `{closing, note}`: a `closing` record whose `closes` names the ceremony. A second call answers `{closing, already: true}`. The facilitator or an admin closes. The closing writes its own note, which is landed as in step 5.
+
+Not the door:
+
+- The wheel MCP's `mw_ceremony_open` and `log_ceremony_with_memory` take neither `circle_id` nor `episode_path` (schemas measured 2026-09-23). A ceremony born through them has no circle, no episode, no note and no audit. Read with `get_ceremony` and `list_ceremonies`; open through Miadi.
+- `medicine_wheel_ceremony_id` in `episode.yaml` (10 manifests carry it) is read by no Miadi code. The binding of record is the ceremony's `episode_path`. The manifest key is not proof.
 
 🌸: One skill that names no host is the difference between an agent that can close an episode wherever it is running and one that has to be told, again, which machine it is on.
