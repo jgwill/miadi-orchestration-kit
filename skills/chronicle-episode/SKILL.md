@@ -37,7 +37,7 @@ A `git -C` pointed anywhere but `$GIT_ROOT` reports a clean tree for a chronicle
 | `MIADI_INQUIRY_DIR` | the artefact shelf (`inquiry-weave` reads it before `MIADI_INQUIRY_ROOT`, env.ts:38-44) | `.` does not mean cwd here, see S7 |
 | `MIADI_API_URL` | the Miadi app: the episode door (`/api/chronicle/episodes`) and the Attention door | not the wheel |
 | `MIADI_API_TOKEN_WRITER` | writer authority for POSTs from outside loopback or the tailnet | never inline it; `GET …/episodes` reports `capabilities.mint` for the caller you are |
-| `MIADI_PERSON_TOKEN` | the token of the person the agent acts for (Miadi community identity), named here on 2026-09-23 | circles, ceremonies and turns read a person, not a host (S15); never inline it |
+| `MIADI_PERSON_TOKEN` | the Miadi sign-in token of the person the agent acts for, named here on 2026-09-23 | needed to open a circle or speak in one (S15); an admin's token also opens every episode door; never inline it |
 | `MIADI_SRC` | the Miadi checkout | source-run fallback, S3 |
 | `MIADI_URL_BASE_INTERNAL`, `MIADI_URL_BASE`, `MIADI_WEB_URL` | the room's doors, read by `inquiry-weave resolve` | ask `resolve`, do not compose room URLs |
 
@@ -158,7 +158,7 @@ Exit 0 written and verified, 3 written but the wheel leg is pending, 1 refused (
   attention.json, .mw-attention.json
   inquiry/weave.yaml, inquiry/<artefact>/     inquiry-weave
   captures/<stem>/capture.json, transcription*.json|txt     the capture family; raw media stays out of git
-  ceremonies/<id>/notes.md     Miadi or gmtermux: one per ceremony and per closing, never overwritten (S15)
+  ceremonies/<id>/notes.md     Miadi or gmtermux: one per ceremony and per closing; landed by the door (S15)
   episode.mp3, chapter-NN.mp3  rendered voice, tracked
 ```
 
@@ -171,9 +171,9 @@ The room reads filenames (episodeRoom.ts `classify()` 142-152, `segmentKey()` 16
 3. The bytes a wheel card points at (`metadata.relative_path`): the wheel holds the card, not the vessel.
 4. `git` for stages 2 and 3 when the vessel was minted by CLI or by voice; the episode API lands them itself.
 5. Redeem and reconcile: the scripts read the disk and the index.
-6. Ceremony notes: `ceremonies/<id>/notes.md`, written by the app when a ceremony bound to an episode opens or closes. `POST …/land` does not carry them (`vesselPaths`, mint.ts:400-410), so they are committed by path (S15 step 5).
+6. Anything under `ceremonies/<id>/` other than `notes.md` (a report, a ledger): the door lands only the note.
 
-Everything else (mint, number check, status, relate and sync, lineage, register and redeem, attention) has an HTTP door on the Miadi app and a tool on `inquiry-weave-mcp` since 2026-09-05. Circles and ceremonies have an HTTP door only (S15).
+Everything else (mint, number check, status, relate and sync, lineage, register and redeem, attention) has an HTTP door on the Miadi app and a tool on `inquiry-weave-mcp` since 2026-09-05. A talking circle that people sit in has an HTTP door only (S15).
 
 ## S13. Kin: what this skill does not do
 
@@ -215,6 +215,7 @@ Everything else (mint, number check, status, relate and sync, lineage, register 
 - 2026-09-04: `closing.ts:278` names `chronicle-episode-closing/redeem-receipt.sh`, a directory that no longer exists; an owed action that points nowhere is owed twice (amended in jgwill/Miadi 9e59e946).
 - 2026-09-05: the episode door landed (jgwill/Miadi 123446ec, 24 library tests and 7 route tests); rebase is impossible on the chronicle because its reference-transaction hook refuses non-fast-forward moves of main, so the door merges and says so. `@miadi/inquiry-weave` 0.9.0, `@miadi/voice-mcp` 0.4.1, and `passages` 0.3.2 published the same day; `ep348` was the door's first real mint.
 - 2026-09-23: "I want a new ceremony with a talking circle" had no reading here while Miadi had held circles, bound ceremonies and spoken turns since 2026-09-18 (jgwill/Miadi#647). A door the skill does not name does not exist for an agent (jgwill/miadi-orchestration-kit#51, S15).
+- 2026-09-23: three doors disagreed on how a ceremony belongs to its episode. The MCP wrote no binding, gmtermux read only the legacy `research_context` string and showed 1 of Episode 349's 10 ceremonies, and the episode door left ceremony notes for a hand to commit. Each was fixed where it lives: jgwill/medicine-wheel#144 (0.15.3), miadisabelle/gmtermux#89, jgwill/Miadi#678.
 
 ## S15. Ceremonies and circles: "a new ceremony with a talking circle"
 
@@ -226,13 +227,13 @@ Read the ask as three records, all on the chronicle wheel, all reached through t
 | circle | a `circle` node; members are `member_of` edges with role `facilitator` or `member` | `POST /api/circles` |
 | talking circle | the turns: one beat per spoken turn, carrying `speaker` and `witnesses` | `POST /api/ceremony/<id>/turns` |
 
-Identity. These routes read a person: `Authorization: Bearer $MIADI_PERSON_TOKEN`. Loopback and the tailnet admit nothing here. The writer token resolves to `system:writer`: opening a circle, speaking, witnessing and joining refuse it ("Sign in as a person"), and a ceremony it opens is opened by nobody. Act with the token of the person who asked. When it is unset, say so and stop: the person issues one at `/me` or `POST /api/identity/tokens` (their node needs `api_access`), or an admin hands one. `GET $MIADI_API_URL/api/identity/me` says who the token is and what it may do; read it before the first write. No MCP tool and no CLI carries this door.
+Identity. A circle is opened by someone, and a turn is spoken by someone, so these routes need the Miadi token of the person the agent acts for: `Authorization: Bearer $MIADI_PERSON_TOKEN`. The shared writer token is refused for opening a circle, speaking, witnessing and joining ("Sign in as a person"). Loopback and the tailnet do not stand in for a person either. An admin's own token also passes every episode door as the writer, so one credential carries the whole sequence. When no token is at hand, ask the person for theirs once; they issue one at `/me`. Before the first write, `GET $MIADI_API_URL/api/identity/me` says whose token it is and what it may do.
 
 1. Episode. Bind the ceremony to the episode the conversation is in. `episode_path` is the directory name, never a number. `GET $MIADI_API_URL/api/chronicle/episodes/<N>/wheel` answers `.episode.path` together with everything step 2 needs. A ceremony without an episode is legal; leave `episode_path` out only when the person says so.
 2. Where. From the same answer: `.hosts[]` are the circles where this person may hold a ceremony now (`opened_for` this episode, `seated`); `.circles[]` are those already gathered for the episode; `.can.create_circle` and `.can.freestanding` say what else is open. Use the circle the person named, else a host `opened_for` this episode. A seated circle of another episode is used only when named. When neither exists, "with a talking circle" asks for a new circle: step 3.
 3. Circle. `POST $MIADI_API_URL/api/circles` with `{name, intention, episode_path, direction?, circle_type?: ongoing|seasonal|one_time, capacity?, is_public?}` → 201 `{circle, facilitator}`. Needs `create_circles` (admin, ceremony_facilitator, firekeeper). The opener becomes facilitator; an admin may pass `facilitator_id` to open it for someone else. Names on the wheel read `Episode <N> <purpose> circle`. Seat people before step 4, because a ceremony's participants are the circle's members at the moment it opens. The facilitator or an admin seats directly with `POST /api/circles/<id>/members {person_id, role?}` (ids from `GET /api/identity/people?search=<name>`). Anyone else is invited: `POST /api/circles/<id>/invite {intended_for?, max_uses?, expires_at?}` → `{invitation}` whose code the person redeems at `POST /api/circles/<id>/join {code}`.
 4. Open. `POST $MIADI_API_URL/api/circles/<circle>/ceremonies` with `{intention: "<what this ceremony holds>", type: "talking_circle", direction: "east", episode_path}` → 201 `{ceremony, note}`. The intention is required, and it is the person's words. The wheel mints the id. The facilitator and an admin open by their seat; another member needs `facilitate_ceremony`. An inactive circle answers 409. With no circle at all (only when the person says "no circle"): `POST /api/ceremony/list {type, direction, intentions[], episode_path}` under writer authority. It carries no members and no seat.
-5. Land the note. `note.written: true` means `ceremonies/<id>/notes.md` now sits uncommitted in the vessel on the host that serves `$MIADI_API_URL`. Commit it there the S5 way, by path, with the episode's source issue as `Ref:`. `note.written: false` with a `reason` (no `MIADI_CHRONICLE_ROOT`, no vessel) means the ceremony exists on the wheel only. Report that; do not write the note by hand.
+5. Land the note. `note.written: true` means `ceremonies/<id>/notes.md` now sits in the vessel uncommitted. `POST $MIADI_API_URL/api/chronicle/episodes/<ref>/land` commits and pushes it with the vessel (jgwill/Miadi#678, `@miadi/inquiry-weave` 0.11.2). `note.written: false` with a `reason` (no `MIADI_CHRONICLE_ROOT`, no vessel) means the ceremony exists on the wheel only. Report that; do not write the note by hand.
 6. Prove and hand over. `GET $MIADI_API_URL/api/ceremony/<id>` → `.ceremony.type`, `.episode`, `.circle.members`, `.turns`, `.closed`, `.can`. `curl -sf -o /dev/null -w '%{http_code}\n' "$MIADI_CHRONICLE_MW_URL/api/ceremonies/<id>"` → 200. The episode's `…/wheel` lists it in `.ceremonies`. Give the person the page `/ceremony/<id>` on the Miadi front they use. The room's wheel panel links it from there.
 
 In the circle, after it opens:
@@ -242,9 +243,10 @@ In the circle, after it opens:
 - Diary. `POST /api/ceremony/<id>/diary {content, phase?, entryType?}`. `phase` is one of `miigwechiwendam`, `nindokendaan` (default), `ningwaab`, `nindoodam`, `migwech`. `entryType` is one of `intention`, `observation`, `hypothesis`, `data`, `synthesis`, `action`, `reflection` (default), `learning`.
 - Close, on the facilitator's word only. `POST /api/ceremony/<id>/close {learnings?[]}` → 201 `{closing, note}`: a `closing` record whose `closes` names the ceremony. A second call answers `{closing, already: true}`. The facilitator or an admin closes. The closing writes its own note, which is landed as in step 5.
 
-Not the door:
+Other doors, and what each one is for:
 
-- The wheel MCP's `mw_ceremony_open` and `log_ceremony_with_memory` take neither `circle_id` nor `episode_path` (schemas measured 2026-09-23). A ceremony born through them has no circle, no episode, no note and no audit. Read with `get_ceremony` and `list_ceremonies`; open through Miadi.
+- The wheel MCP (`@medicine-wheel/mcp` 4.15.3 and later, jgwill/medicine-wheel#144). `mw_ceremony_open` takes `type`, `episode_path` and `circle_id`; `mw_ceremony_close` writes `closes`; `log_ceremony_with_memory` takes the binding. The wheel then lists the record under its episode and circle. The MCP checks no seat, writes no note and keeps no audit, so it is the door for an agent's own ceremony. A talking circle that people sit in opens through Miadi. Below 4.15.3 these tools drop the binding: read `npm ls -g @medicine-wheel/mcp` before relying on them.
+- gmtermux's episode recorder (`:3768`, "Open a new ceremony in this episode"). It opens an `opening` in the east with no circle and no people, writes directly to the wheel, and edits `notes.md` in the room under a revision guard. Since miadisabelle/gmtermux#89 it lists the ceremonies a Miadi circle holds for the episode and posts the typed binding. A host that runs an older build lists only its own.
 - `medicine_wheel_ceremony_id` in `episode.yaml` (10 manifests carry it) is read by no Miadi code. The binding of record is the ceremony's `episode_path`. The manifest key is not proof.
 
 🌸: One skill that names no host is the difference between an agent that can close an episode wherever it is running and one that has to be told, again, which machine it is on.
