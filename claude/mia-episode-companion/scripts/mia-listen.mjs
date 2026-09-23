@@ -25,6 +25,8 @@ const SCRIPT = fileURLToPath(import.meta.url);
 const CAPTURE_SCHEMA = "miadi.episode-capture.v1";
 const STATE_VERSION = 1;
 const STABILITY_POLL_MS = 3_000;
+// A take this fresh at a first baseline is waiting for the seat starting now.
+const CATCH_UP_MS = 15 * 60 * 1000;
 
 const EXIT_NO_EPISODE = 2;
 const EXIT_UNDELIVERED = 3;
@@ -275,15 +277,18 @@ function saveState(episode, state) {
 }
 
 // Takes already present when a seat first listens are its baseline: heard by
-// someone before, never a wake for this seat.
+// someone before, never a wake for this seat. Except a take from the last few
+// minutes: William records, then starts the session in that episode, and that
+// take is meant for it. Only a first baseline is affected.
 function ensureState(episode, takes) {
   const existing = loadState(episode);
   if (existing) return { state: existing, created: false };
+  const fresh = Date.now() - CATCH_UP_MS;
   const state = {
     version: STATE_VERSION,
     episode: episode.folder,
     createdAt: new Date().toISOString(),
-    baseline: takes.map((take) => take.key),
+    baseline: takes.filter((take) => !(Date.parse(take.capturedAt) > fresh)).map((take) => take.key),
     delivered: [],
   };
   saveState(episode, state);

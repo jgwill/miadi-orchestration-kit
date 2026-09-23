@@ -14,7 +14,7 @@ const FOLDER = "2026-01-01-episode-900-fixture";
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 const git = (cwd, ...args) => execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
-function writeTake(episodeRoot, takeId, english, { corruptHash = false } = {}) {
+function writeTake(episodeRoot, takeId, english, { corruptHash = false, when = "2026-01-01T00:00:00.000Z" } = {}) {
   const dir = join(episodeRoot, "captures", takeId);
   mkdirSync(dir, { recursive: true });
   const enName = `transcription_${takeId}_EN.txt`;
@@ -24,7 +24,7 @@ function writeTake(episodeRoot, takeId, english, { corruptHash = false } = {}) {
     episode: { path: FOLDER, number: 900 },
     source: { filename: `${takeId}.m4a` },
     transcription: {
-      timestamp: "2026-01-01T00:00:00.000Z",
+      timestamp: when,
       outputs: [{
         language: "en",
         filename: enName,
@@ -179,4 +179,16 @@ test("show prints a take without marking it heard", () => {
   assert.doesNotMatch(shown.stdout, /re-arm/);
   const state = JSON.parse(readFileSync(join(fx.state, `${FOLDER}.json`), "utf8"));
   assert.equal(state.delivered.length, 0);
+});
+
+test("a take recorded minutes before the first listen is not swallowed by the baseline", () => {
+  const fx = fixture();
+  writeTake(fx.episodeRoot, "260101000005", "I recorded this, then started the session here.\n", { when: new Date().toISOString() });
+  const status = run(fx, ["status", "--no-fetch"]);
+  assert.match(status.stdout, /new baseline taken now/);
+  assert.match(status.stdout, /unheard: 260101000005 \(worktree\)/);
+  const woke = run(fx, ["await", "--no-fetch", "--timeout", "30", "--interval", "5"]);
+  assert.equal(woke.code, 0);
+  assert.match(woke.stdout, /I recorded this, then started the session here\./);
+  assert.match(run(fx, ["status", "--no-fetch"]).stdout, /unheard: none/);
 });
