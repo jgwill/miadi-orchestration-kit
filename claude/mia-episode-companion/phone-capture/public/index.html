@@ -85,6 +85,7 @@
   // A fraction of a second of silence: playing it inside a tap unlocks the element on iOS.
   var SILENT = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
   var recorder = null, stream = null, chunks = [], startedAt = 0, tick = null, wakeLock = null;
+  var state = "loading", pending = null;
   var current = null, waiting = null;
   var WAIT_MS = 15 * 60 * 1000;
 
@@ -226,7 +227,7 @@
   });
 
   autoplay.addEventListener("change", function () {
-    remember("autoplay", autoplay.checked ? "1" : "");
+    remember("autoplay", autoplay.checked ? "1" : "0");
     if (autoplay.checked) primeAudio();
   });
 
@@ -293,10 +294,10 @@
         if (ep.path === chosen) option.selected = true;
         select.appendChild(option);
       });
-      button.disabled = !pickType();
+      setState("idle");
       if (!pickType()) say("This browser cannot record audio/mp4. Use Safari on the iPhone.", true);
       remember("episode", select.value);
-      autoplay.checked = recall("autoplay") === "1";
+      autoplay.checked = recall("autoplay") !== "0"; // on unless William turned it off
       urlKeepsEpisode();
       if (!resumeWait()) loadLatestReply();
     } catch (error) {
@@ -305,59 +306,124 @@
     }
   }
 
+  // One state machine owns the recorder. Every action begins with a guard on the state,
+  // which is what makes a double tap harmless: two taps during the microphone prompt used
+  // to start two recorders and two clocks, and only the second clock was ever stopped.
+  function setState(next) {
+    state = next;
+    button.textContent = {
+      loading: "Record", idle: "Record", starting: "Opening the mic…",
+      recording: "Stop & send", sending: "Sending…", retry: "Send again",
+    }[next];
+    button.classList.toggle("live", next === "recording");
+    button.disabled = !pickType() || next === "loading" || next === "starting" || next === "sending";
+    select.disabled = next === "starting" || next === "recording" || next === "sending";
+  }
+
+  function tickOn() { tickOff(); startedAt = Date.now(); clock(); tick = setInterval(clock, 500); }
+  function tickOff() { if (tick) clearInterval(tick); tick = null; }
+
+  function releaseMic() {
+    if (stream) { try { stream.getTracks().forEach(function (track) { track.stop(); }); } catch (_) {} }
+    stream = null;
+    recorder = null;
+  }
+
+  async function holdScreen() { try { if (navigator.wakeLock && !wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {} }
+  async function releaseScreen() { if (wakeLock) { try { await wakeLock.release(); } catch (_) {} wakeLock = null; } }
+
   async function start() {
-    var type = pickType();
+    if (state !== "idle" && state !== "retry") return;
+    pending = null;
+    setState("starting");
+    var media;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      media = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (error) {
+      setState("idle");
       say("Microphone refused: " + error.message, true);
       return;
     }
+    if (state !== "starting") { media.getTracks().forEach(function (track) { track.stop(); }); return; }
+    stream = media;
     chunks = [];
-    recorder = new MediaRecorder(stream, { mimeType: type });
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: pickType() });
+    } catch (error) {
+      releaseMic();
+      setState("idle");
+      say("This browser refused to record: " + error.message, true);
+      return;
+    }
     recorder.ondataavailable = function (event) { if (event.data && event.data.size) chunks.push(event.data); };
+    recorder.onerror = function () {
+      tickOff();
+      releaseMic();
+      releaseScreen();
+      setState("idle");
+      say("The recording stopped with an error. Nothing was sent.", true);
+    };
     recorder.start(1000);
-    startedAt = Date.now();
-    clock();
-    tick = setInterval(clock, 500);
-    try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request("screen"); } catch (_) {}
-    button.textContent = "Stop & send";
-    button.classList.add("live");
-    select.disabled = true;
+    tickOn();
+    holdScreen();
     result.hidden = true;
     stopWaiting();
     rememberWait();
     replyStatus.textContent = "";
+    setState("recording");
     say("Recording for " + select.options[select.selectedIndex].textContent);
   }
 
-  function stopped() {
+  // Stop, and take what the recorder has even if onstop never fires: a stuck recorder
+  // must not leave the page counting forever.
+  function lastBlob() {
     return new Promise(function (done) {
-      recorder.onstop = function () { done(new Blob(chunks, { type: recorder.mimeType || "audio/mp4" })); };
-      recorder.stop();
+      var settled = false;
+      var give = function () {
+        if (settled) return;
+        settled = true;
+        done(new Blob(chunks, { type: (recorder && recorder.mimeType) || "audio/mp4" }));
+      };
+      var guard = setTimeout(give, 3000);
+      if (!recorder) { clearTimeout(guard); give(); return; }
+      recorder.onstop = function () { clearTimeout(guard); give(); };
+      try { recorder.stop(); } catch (_) { clearTimeout(guard); give(); }
     });
   }
 
-  async function finish() {
-    button.disabled = true;
-    clearInterval(tick);
-    var blob = await stopped();
-    stream.getTracks().forEach(function (track) { track.stop(); });
-    if (wakeLock) { try { await wakeLock.release(); } catch (_) {} wakeLock = null; }
-    button.textContent = "Record";
-    button.classList.remove("live");
+  async function stop() {
+    if (state !== "recording") return;
+    setState("sending");
+    tickOff();
+    var blob = await lastBlob();
+    releaseMic();
+    releaseScreen();
+    if (!blob || blob.size === 0) {
+      timer.textContent = "";
+      setState("idle");
+      say("Nothing was recorded. Try again.", true);
+      return;
+    }
+    await send(blob);
+  }
+
+  // A recording whose upload failed is kept, so a dropped connection never loses what
+  // William said. The button becomes Send again.
+  async function send(blob) {
+    setState("sending");
     var episode = select.value;
     remember("episode", episode);
     say("Sending " + (blob.size / 1024 / 1024).toFixed(1) + " MB, then transcribing and storing on gaia…");
     try {
       var response = await fetch("api/takes?episode=" + encodeURIComponent(episode), {
         method: "POST",
-        headers: { "content-type": blob.type.split(";")[0] || "audio/mp4" },
+        headers: { "content-type": (blob.type || "audio/mp4").split(";")[0] },
         body: blob,
       });
       var answer = await response.json();
       if (!answer.success) throw new Error(answer.error || ("HTTP " + response.status));
-      resultHead.innerHTML = "";
+      pending = null;
+      resultHead.textContent = "";
       var strong = document.createElement("strong");
       strong.textContent = "Take " + answer.take + " is in the episode.";
       resultHead.appendChild(strong);
@@ -368,19 +434,28 @@
       result.hidden = false;
       say("");
       timer.textContent = "";
+      setState("idle");
       if (!answer.transcriptError) waitForReply(episode, answer.take);
     } catch (error) {
-      say("Not stored: " + error.message, true);
-    } finally {
-      button.disabled = false;
-      select.disabled = false;
+      pending = blob;
+      setState("retry");
+      say("Not stored: " + error.message + " Your recording is kept — tap Send again.", true);
     }
   }
 
   button.addEventListener("click", function () {
     primeAudio(); // this tap is what lets her reply play by itself when it lands
-    if (recorder && recorder.state === "recording") finish(); else start();
+    if (state === "recording") stop();
+    else if (state === "retry" && pending) send(pending);
+    else start();
   });
+
+  // iOS drops a screen lock when the page goes to the back; take it again on return.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && state === "recording") holdScreen();
+  });
+  window.addEventListener("pagehide", function () { tickOff(); releaseMic(); });
+
   loadEpisodes();
 })();
 </script>
