@@ -11,7 +11,7 @@ MIADI_REPOS_ROOT                 the cloned repositories (default $MIADI_WORK_DI
 MIADI_SRC                        the jgwill/Miadi checkout (default /src/Miadi)
 MIADI_URL_BASE                   this host's public URL, the base of links that leave it (emailed invitations, QR codes); MIADI_WEBHOOK_URL and MIADI_PDE_WEBHOOK derive from it
 MIADI_NGROK_MCP_API_URLX         a public door to the medicine wheel (or MCP server) for cloud agents, open only while the host's owner starts it (gaia: ngrok http --url excited-ostrich-superb.ngrok-free.app 8040); offline is its normal state, never remove it as stale
-MIADI_WEBHOOK_URL                where repository webhooks are pointed (default $MIADI_URL_BASE/api/workflow/webhook); set it on its own while webhooks still arrive through another front (gaia 2026-09-24: an ngrok URL, still hard-coded in binscripts fn_github.sh and bash_aliases_common instead of read from here)
+MIADI_WEBHOOK_URL                where repository webhooks are pointed (default $MIADI_URL_BASE/api/workflow/webhook); the intended name for it; set it on its own while webhooks still arrive through another front. Not read yet (2026-09-24): binscripts' add_webhook OWNER REPO [URL] (bash_aliases_common, fn_github.sh) reads WEBHOOK_URL, else a hard-coded ngrok URL, and should read this instead
 
 # Read by miadi-terminal, on a client
 MIADI_CHRONICLE_OPEN_URL         the Miadi front a clicked miadi-chronicle: reference opens on; unset, miadi-chronicle-open uses MIADI_URL_BASE
