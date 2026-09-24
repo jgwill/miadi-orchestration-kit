@@ -9,7 +9,8 @@ MIADI_DATA_DIR                   the host's Miadi data (default /srv/miadi)
 MIADI_WORK_DIR                   where repositories and wikis are cloned (default /workspace)
 MIADI_REPOS_ROOT                 the cloned repositories (default $MIADI_WORK_DIR/repos)
 MIADI_SRC                        the jgwill/Miadi checkout (default /src/Miadi)
-MIADI_URL_BASE                   this host's public URL; MIADI_WEBHOOK_URL and MIADI_PDE_WEBHOOK derive from it
+MIADI_URL_BASE                   this host's public URL, the base of links that leave it (emailed invitations, QR codes); MIADI_WEBHOOK_URL and MIADI_PDE_WEBHOOK derive from it
+MIADI_WEBHOOK_URL                where repository webhooks are pointed (default $MIADI_URL_BASE/api/workflow/webhook); set it on its own while webhooks still arrive through another front (gaia 2026-09-24: an ngrok URL, still hard-coded in binscripts fn_github.sh and bash_aliases_common instead of read from here)
 
 # Read by miadi-terminal, on a client
 MIADI_CHRONICLE_OPEN_URL         the Miadi front a clicked miadi-chronicle: reference opens on; unset, miadi-chronicle-open uses MIADI_URL_BASE
@@ -32,5 +33,7 @@ MIADI_TRUST_TAILNET_SERVICE      hostname of the Tailscale Service that fronts t
 MIADI_TAILNET_LOGINS             comma-separated Tailscale logins granted reader and writer over that service
 MIADI_FLOWISE_ENABLED            1 re-enables the Flowise proxy; off when unset
 MIADI_STEER_DEV_BYPASS           1 lets /api/tide/steer run without a writer token outside production; off when unset
+MIADI_MAIL_FROM                  the sender of the mail Miadi sends, e.g. Miadi <miadi@your-domain>; with MIADI_SMTP_URL unset, no mail leaves
+MIADI_SMTP_URL                   secret, the SMTP relay with its credential (smtps://user:password@host:465); kept in the service's env file, never in miadi.env
 MIADI_API_TOKEN_WRITER           secret, read and write; kept in ~/.env or the service's env file, never in miadi.env
 MIADI_API_TOKEN_READER           secret, read only; kept in ~/.env or the service's env file, never in miadi.env
