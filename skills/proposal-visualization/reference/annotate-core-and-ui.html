@@ -1,0 +1,1292 @@
+<title>Annotate Core and UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --bg: #ffffff;
+  --fg: #0a0a0a;
+  --card: #ffffff;
+  --sec: #f5f5f5;
+  --border: #e5e5e5;
+  --muted: #5f5f5f;
+  --accent: #735800;
+  --ring: #ffd700;
+  --core-fill: #fff4b8;
+  --core-line: #9c7f00;
+  --ui-fill: #e4ecfb;
+  --ui-line: #2f5fbf;
+  --tide-fill: #def2e5;
+  --tide-line: #23784a;
+  --host-fill: #f0f0f0;
+  --host-line: #8a8a8a;
+  --danger: #b42318;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1a1a; --fg: #fafafa; --card: #1f1f1f; --sec: #262626; --border: #333333;
+    --muted: #a3a3a3; --accent: #ffd700;
+    --core-fill: #3a3212; --core-line: #ffd700; --ui-fill: #18253b; --ui-line: #7aa6f5;
+    --tide-fill: #15301f; --tide-line: #63c98d; --host-fill: #2a2a2a; --host-line: #8a8a8a;
+    --danger: #f97066;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1a1a; --fg: #fafafa; --card: #1f1f1f; --sec: #262626; --border: #333333;
+  --muted: #a3a3a3; --accent: #ffd700;
+  --core-fill: #3a3212; --core-line: #ffd700; --ui-fill: #18253b; --ui-line: #7aa6f5;
+  --tide-fill: #15301f; --tide-line: #63c98d; --host-fill: #2a2a2a; --host-line: #8a8a8a;
+  --danger: #f97066;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--mono); font-size: 0.9em; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--ring); outline-offset: 2px;
+}
+.eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.lede { font-size: 18px; line-height: 1.55; max-width: 62ch; }
+.muted { color: var(--muted); }
+
+/* header */
+header.top { padding-block: 48px 28px; display: grid; gap: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--card); color: var(--fg);
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ring); box-shadow: 0 0 0 1px var(--core-line); }
+.pkgrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
+.pkg {
+  border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; background: var(--card);
+}
+.pkg--core { background: var(--core-fill); border-color: var(--core-line); border-width: 1.5px; }
+.pkg--ui { background: var(--ui-fill); border-color: var(--ui-line); }
+.pkg--tide { background: var(--tide-fill); border-color: var(--tide-line); }
+.pkg__name { font-family: var(--mono); font-weight: 600; font-size: 14px; }
+.pkg__ver { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.pkg p { font-size: 14px; line-height: 1.5; }
+
+/* nav */
+nav.toc {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-block: 1px solid var(--border);
+}
+nav.toc .wrap { display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; scrollbar-width: thin; }
+nav.toc a {
+  font-family: var(--mono); font-size: 12px; color: var(--muted); text-decoration: none; white-space: nowrap;
+  padding: 4px 10px; border-radius: 6px;
+}
+nav.toc a:hover { color: var(--fg); background: var(--sec); }
+
+section.s { padding-block: 52px 8px; display: grid; gap: 20px; scroll-margin-top: 56px; }
+section.s > header { display: grid; gap: 8px; }
+.hint {
+  border: 1px dashed var(--core-line); border-radius: 10px; padding: 12px 16px; font-size: 14px; background: var(--card);
+}
+.rev { border: 1.5px solid var(--core-line); background: var(--core-fill); border-radius: 10px; padding: 14px 18px; display: grid; gap: 8px; }
+.rev ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+.item--done .code { background: var(--tide-fill); border-color: var(--tide-line); }
+.item .status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 2px; }
+.item--n .code { background: var(--ui-fill); border-color: var(--ui-line); }
+
+/* audience cards */
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.card { border: 1px solid var(--border); border-radius: 10px; padding: 18px; background: var(--card); display: grid; gap: 10px; align-content: start; }
+.card h3 { font-size: 16px; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+.card .today { font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px; }
+.candidates { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.cand { border: 1px dashed var(--border); border-radius: 8px; padding: 12px 14px; font-size: 14px; display: grid; gap: 4px; }
+.cand code { font-weight: 600; }
+
+/* tension */
+.tension { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: stretch; }
+.tension .col { border: 1px solid var(--border); border-radius: 10px; padding: 18px; background: var(--card); display: grid; gap: 10px; align-content: start; }
+.tension .col--want { border-color: var(--core-line); border-width: 1.5px; }
+.tension ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
+.tension .arrow { align-self: center; font-family: var(--mono); color: var(--muted); font-size: 22px; }
+
+/* figures */
+figure { margin: 0; display: grid; gap: 10px; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 72ch; }
+figcaption b { color: var(--fg); font-weight: 600; }
+.fig-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 12px; }
+.fig-scroll svg { display: block; width: 100%; height: auto; min-width: 620px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pair .fig-scroll svg { min-width: 440px; }
+.panel-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+svg.dg { color: var(--fg); font-family: var(--mono); font-size: 11px; }
+svg.dg .b-host { fill: var(--host-fill); stroke: var(--host-line); stroke-width: 1.2; }
+svg.dg .b-core { fill: var(--core-fill); stroke: var(--core-line); stroke-width: 1.8; }
+svg.dg .b-ui { fill: var(--ui-fill); stroke: var(--ui-line); stroke-width: 1.2; }
+svg.dg .b-tide { fill: var(--tide-fill); stroke: var(--tide-line); stroke-width: 1.2; }
+svg.dg .b-chip { fill: var(--card); stroke: var(--border); stroke-width: 1; }
+svg.dg .b-win { fill: var(--core-fill); stroke: var(--core-line); stroke-width: 1.2; }
+svg.dg .t { fill: var(--fg); }
+svg.dg .tm { fill: var(--muted); }
+svg.dg .td { fill: var(--danger); }
+svg.dg .tb { fill: var(--fg); font-family: var(--sans); font-weight: 600; font-size: 13px; }
+svg.dg .ln { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+svg.dg .ln-m { stroke: var(--muted); stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
+svg.dg .ln-d { stroke: var(--danger); stroke-width: 1.3; fill: none; stroke-dasharray: 4 3; }
+svg.dg .ah { fill: var(--fg); }
+svg.dg .ah-m { fill: var(--muted); }
+svg.dg .ah-d { fill: var(--danger); }
+
+/* type nesting */
+.nest-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.nest { border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; align-content: start; }
+.nest--tide { background: var(--tide-fill); border: 1.2px solid var(--tide-line); }
+.nest--core { background: var(--core-fill); border: 1.8px solid var(--core-line); }
+.nest--plain { background: var(--card); border: 1px solid var(--border); }
+.nest-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.nest-head .who { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.nest-head code { font-weight: 600; font-size: 14px; }
+.fields { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-family: var(--mono); font-size: 12.5px; }
+.fields li span { color: var(--muted); display: block; padding-left: 12px; font-size: 12px; }
+.fields .req { color: var(--danger); font-weight: 600; }
+
+/* author + request diff */
+.rank { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rank li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; background: var(--card); font-size: 14px; }
+.rank .n { font-family: var(--mono); font-weight: 600; font-size: 13px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--core-line); background: var(--core-fill); }
+.rank .refuse { color: var(--danger); font-weight: 600; }
+.diff { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.diff .side { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: var(--card); display: grid; gap: 8px; align-content: start; }
+.diff .side--bad { border-color: var(--danger); }
+.diff .side--good { border-color: var(--core-line); border-width: 1.5px; }
+.diff .tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.diff .side--bad .tag { color: var(--danger); }
+.diff .side--good .tag { color: var(--accent); }
+pre.code {
+  margin: 0; background: var(--sec); color: var(--fg); border-radius: 8px; padding: 12px 14px;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.55; overflow-x: auto; white-space: pre;
+}
+pre.code .c { color: var(--muted); }
+
+/* wireframe */
+.wf-bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.toggle input { width: 18px; height: 18px; accent-color: #d4a843; }
+.wf-stage { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.wf-col { display: grid; gap: 8px; }
+.wf-cap { font-size: 13px; color: var(--muted); }
+.wf {
+  --w-bg: #111111; --w-block: #0b0b0b; --w-border: #2a2a2a; --w-text: #d0d0d0; --w-label: #8a8a8a;
+  --w-accent: #d4a843; --w-sel: #161308; --w-on-accent: #1c1c1c; --w-good: #6fbf82;
+  background: var(--w-bg); color: var(--w-text); border-radius: 18px; border: 1px solid #2f2f2f;
+  padding: 16px 14px 18px; font-family: var(--mono); font-size: 12px; line-height: 1.5;
+  display: grid; gap: 16px; color-scheme: dark;
+}
+.wf--gm {
+  --w-bg: #0d1b17; --w-block: #0a1512; --w-border: #23413a; --w-text: #d6e4dc; --w-label: #9db0a5;
+  --w-accent: #8fd6bf; --w-sel: #10261f; --w-on-accent: #0d1b17;
+  border-color: #23413a; border-radius: 10px;
+}
+.wf-region { position: relative; display: grid; gap: 8px; border-radius: 6px; }
+.wf.owners .wf-region { outline: 1.5px dashed var(--o, #b8b8b8); outline-offset: 5px; margin-top: 6px; }
+.wf.owners .wf-region::before {
+  content: attr(data-owner); position: absolute; top: -17px; right: 0; z-index: 1;
+  font-size: 10px; letter-spacing: 0.02em; color: var(--o, #b8b8b8); background: var(--w-bg);
+  border: 1px solid var(--o, #b8b8b8); border-radius: 4px; padding: 0 6px; line-height: 16px; white-space: nowrap;
+}
+.wf-region[data-kind="core"] { --o: #ffd700; }
+.wf-region[data-kind="host"] { --o: #b8b8b8; }
+.wf-region[data-kind="data"] { --o: #9fc2ff; }
+.wf-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.wf-head b { color: #f0f0f0; font-weight: 600; }
+.wf--gm .wf-head b { color: #eef6f1; }
+.wf-pill { font-size: 10px; border: 1px solid var(--w-border); border-radius: 999px; padding: 0 8px; color: var(--w-label); }
+.wf-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--w-label); }
+.wf-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wf-btn {
+  font-family: var(--mono); font-size: 11px; border: 1px solid #404040; background: none; color: #bdbdbd;
+  border-radius: 6px; padding: 6px 12px; cursor: pointer; min-height: 32px;
+}
+.wf--gm .wf-btn { border-color: #2f5a4f; color: var(--w-text); }
+.wf-btn--sm { padding: 2px 8px; font-size: 10px; min-height: 26px; }
+.wf-btn--accent { color: var(--w-accent); }
+.wf-btn--primary { background: var(--w-accent); border-color: var(--w-accent); color: var(--w-on-accent); font-weight: 700; min-width: 104px; }
+.wf-btn:disabled { opacity: 0.55; cursor: default; }
+.wf-blocks { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.wf-block {
+  text-align: left; background: var(--w-block); border: 1px solid var(--w-border); border-radius: 8px;
+  padding: 8px 10px; cursor: pointer; color: var(--w-text);
+}
+.wf-block:hover { border-color: #4a4a4a; }
+.wf-block.is-selected { border-color: var(--w-accent); background: var(--w-sel); }
+.wf-block .k { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--w-label); display: flex; gap: 8px; margin-bottom: 4px; }
+.wf-block pre { margin: 0; font-family: var(--mono); font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.wf-quote { color: var(--w-accent); max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.wf-small { font-size: 10px; color: var(--w-label); }
+.wf-note {
+  width: 100%; background: var(--w-block); border: 1px solid #333; border-radius: 8px; color: #f0f0f0;
+  font-family: var(--mono); font-size: 12px; padding: 8px 10px; resize: vertical; min-height: 54px;
+}
+.wf-select { font-family: var(--mono); font-size: 11px; background: var(--w-block); color: var(--w-text); border: 1px solid #404040; border-radius: 6px; padding: 6px 8px; min-height: 32px; }
+.wf-box { background: #0a0a0a; border: 1px solid var(--w-border); border-radius: 8px; padding: 8px 12px; display: grid; gap: 4px; }
+.wf--gm .wf-box { background: #091310; }
+.wf-mark { font-size: 11px; }
+.wf-mark .by { color: var(--w-accent); }
+.wf-mark .q { color: var(--w-label); }
+.wf-review { margin: 0; font-family: var(--mono); font-size: 10px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto; color: var(--w-text); }
+.wf-err { background: #2a1a1a; border: 1px solid #5a1a1a; border-radius: 6px; padding: 6px 10px; color: #f5a3a3; font-size: 11px; }
+.wf-ok { color: var(--w-good); font-size: 11px; }
+.wf-check { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; }
+.wf-check input { width: 16px; height: 16px; accent-color: #d4a843; }
+.wf-foot { font-size: 10px; color: var(--w-label); word-break: break-all; }
+.wf-example { font-size: 10px; color: var(--w-label); border: 1px dashed #3a3a3a; border-radius: 4px; padding: 0 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 18px; height: 0; border-top: 2px dashed; display: inline-block; }
+.themevars { font-family: var(--mono); font-size: 12px; background: var(--sec); border-radius: 8px; padding: 10px 12px; line-height: 1.6; }
+
+/* api tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab {
+  font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); background: var(--card); color: var(--muted);
+  border-radius: 6px; padding: 6px 12px; cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--fg); border-color: var(--core-line); background: var(--core-fill); font-weight: 600; }
+
+/* coded lists */
+.codes { display: grid; gap: 10px; }
+.item {
+  display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: start;
+  border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--card); scroll-margin-top: 64px;
+}
+.item .code {
+  font-family: var(--mono); font-weight: 600; font-size: 13px; text-align: center; border-radius: 6px; padding: 3px 0;
+  background: var(--sec); border: 1px solid var(--border);
+}
+.item--d .code { background: var(--core-fill); border-color: var(--core-line); }
+.item--r .code { color: var(--danger); border-color: var(--danger); background: var(--card); }
+.item h3 { font-size: 15px; margin-bottom: 4px; }
+.item p { font-size: 14px; }
+.item .ev { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 6px; display: block; word-break: break-word; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* steps */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.step { display: grid; grid-template-columns: 52px 1fr; gap: 14px; position: relative; padding-bottom: 18px; }
+.step::before { content: ""; position: absolute; left: 25px; top: 30px; bottom: 0; border-left: 2px solid var(--border); }
+.step:last-child::before { display: none; }
+.step .code {
+  font-family: var(--mono); font-weight: 600; font-size: 13px; width: 52px; height: 30px; display: grid; place-items: center;
+  border-radius: 6px; border: 1.5px solid var(--core-line); background: var(--core-fill); position: relative; z-index: 1;
+}
+.step h3 { font-size: 15px; }
+.step p { font-size: 14px; }
+.step .gate { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+
+.stays { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.stays .card ul { font-size: 13.5px; }
+
+footer.end { padding-block: 48px 64px; border-top: 1px solid var(--border); margin-top: 48px; font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+
+@media (max-width: 900px) {
+  .pkgrow, .grid3, .candidates, .nest-grid { grid-template-columns: 1fr; }
+  .pair, .diff, .stays, .cols2 { grid-template-columns: 1fr; }
+  .tension { grid-template-columns: 1fr; }
+  .tension .arrow { transform: rotate(90deg); justify-self: center; }
+  .wf-stage { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .wrap { padding-inline: 16px; }
+  .item, .step { grid-template-columns: 44px 1fr; gap: 10px; }
+  .step .code { width: 44px; }
+  .step::before { left: 21px; }
+  .wf-btn { min-height: 44px; }
+  .wf-note { font-size: 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+</style>
+
+<header class="top wrap">
+  <div class="eyebrow">Proposal · jgwill/Miadi · tide reply annotator · 2026-09-24</div>
+  <h1>Annotate Core and UI</h1>
+  <p class="lede">The cockpit's reply annotator becomes two published packages that any app in the ecosystem can mount, with or without React. Miadi keeps only what belongs to a tmux pane.</p>
+  <div class="chips">
+    <span class="chip"><span class="dot"></span>Go received (D4) · build starts when the review-in-episode agent finishes</span>
+    <span class="chip">Revision 2 · 2026-09-24</span>
+    <span class="chip">Draft by Claude Opus 5.5</span>
+    <span class="chip">Reviewed by Claude Fable 5.1</span>
+    <span class="chip">Every cited file and line checked against the repo</span>
+  </div>
+  <div class="pkgrow" aria-label="Packages in this proposal">
+    <div class="pkg pkg--core">
+      <div class="pkg__name">@miadi/annotate-core</div>
+      <div class="pkg__ver">new · 0.1.0 · no dependencies</div>
+      <p>Types, state model, HTML renderer, DOM mount with the iPhone selection fix, HTTP transport, stylesheet.</p>
+    </div>
+    <div class="pkg pkg--ui">
+      <div class="pkg__name">@miadi/annotate-ui</div>
+      <div class="pkg__ver">new · 0.1.0 · React ≥18 peer</div>
+      <p>The same annotator as a React component. It renders the same HTML as core, and a parity test checks that.</p>
+    </div>
+    <div class="pkg pkg--tide">
+      <div class="pkg__name">@miadi/tide</div>
+      <div class="pkg__ver">0.4.0 → 0.5.0 · Node</div>
+      <p>Keeps the plannotator adapter and the pane-specific types, now built on core's types.</p>
+    </div>
+  </div>
+  <p class="hint"><b>How to respond.</b> Each decision, question, risk and step below has a code (D2, Q4, R1, A6). Comment on its card, or cite the code in a comment anywhere on the page. Every decision is now settled. Comment on any card you want changed before the build reaches it.</p>
+  <div class="rev" id="revision-2">
+    <div class="eyebrow">Revision 2 · what your comments changed</div>
+    <ul>
+      <li><b>Figure 1, before:</b> kept as drawn.</li>
+      <li><b>Figure 1, after:</b> the page's pattern is now a skill any agent can load, <code>proposal-visualization</code> in jgwill/miadi-orchestration-kit (tracked in jgwill/miadi-orchestration-kit#53).</li>
+      <li><b>/chronicle:</b> linking annotations to an episode is recorded as a later phase, <a href="#N1">N1</a>.</li>
+      <li><b>D1</b> approved. <b>D2</b> and <b>Q5</b> decided: <code>resolveAuthor</code> lives in core.</li>
+      <li><b>Q1</b> researched: plannotator marks the first occurrence. That changed <a href="#D3">D3</a> and added <a href="#N2">N2</a>.</li>
+      <li><b>Q2</b> decided: the route types stay out of <code>@miadi/tide-contract</code>.</li>
+      <li><b>Q3</b> follows your direction: minimal wiring in gmtermux, plus an issue there listing what the packages make possible (<a href="#A10">A10</a>).</li>
+      <li><b>Q4</b> answered: the 1500 ms was chosen, not measured. It becomes <code>MIADI_TIDE_ANNOTATE_GRACE_MS</code> on the server (<a href="#A8">A8</a>).</li>
+      <li><b>D4</b> go, from your message. The build starts when the agent working on review-in-episode in Miadi finishes, so the two don't edit the same tree at once.</li>
+    </ul>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <div class="wrap">
+    <a href="#enables">What it gives</a>
+    <a href="#tension">Today → after</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#types">Types</a>
+    <a href="#loop">Review loop</a>
+    <a href="#author">Authorship</a>
+    <a href="#ios">iPhone fix</a>
+    <a href="#wireframe">Wireframe</a>
+    <a href="#api">API</a>
+    <a href="#changes">Review changes</a>
+    <a href="#order">Build order</a>
+    <a href="#risks">Risks</a>
+    <a href="#decide">Decided</a>
+    <a href="#later">Later</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<section class="s" id="enables">
+  <header>
+    <div class="eyebrow">What it gives</div>
+    <h2>Who gets what</h2>
+  </header>
+  <div class="grid3">
+    <div class="card">
+      <h3>People marking an agent's reply</h3>
+      <ul>
+        <li>Mark a whole block, or the exact words you selected, from a phone or a desk.</li>
+        <li>Every mark shows who made it, including marks other people made with their own token.</li>
+        <li>The iPhone selection fix ships inside the package, so no new host brings the old bug back.</li>
+      </ul>
+      <div class="today">Today: only in the tide cockpit's pane inspector.</div>
+    </div>
+    <div class="card">
+      <h3>Other apps in the ecosystem</h3>
+      <ul>
+        <li>gmtermux or any plain page mounts <code>./dom</code> with one module import. No React, no build step.</li>
+        <li>The host supplies the URLs, the identity and the colours. The package holds no token and knows no URL of its own.</li>
+        <li>Theme through CSS custom properties, as <code>attention-core</code> already does.</li>
+      </ul>
+      <div class="today">Today: gmtermux cannot load any of it.</div>
+    </div>
+    <div class="card">
+      <h3>The Miadi platform</h3>
+      <ul>
+        <li>One set of types between the routes, <code>@miadi/tide</code> and the UI. The copy that dropped <code>source</code> and <code>reopened</code> goes away.</li>
+        <li>The route and the UI share one function that decides who wrote a mark.</li>
+        <li><code>ReplyAnnotator</code> shrinks to a wrapper around a tested component.</li>
+      </ul>
+      <div class="today">Today: 486 lines in one file, with no tests of its own.</div>
+    </div>
+  </div>
+  <div class="eyebrow" style="margin-top:8px">Where else it could mount in Miadi · not part of this build (Q6)</div>
+  <div class="candidates">
+    <div class="cand"><code>/chronicle</code><span class="muted">Mark an episode file or a chapter draft, with the vessel as the document. Chosen as the second Miadi surface, with the marks tied to the episode: <a href="#N1">N1</a>.</span></div>
+    <div class="cand"><code>/pde</code><span class="muted">Mark a decomposition before it becomes issues.</span></div>
+    <div class="cand"><code>gmtermux episode recorder</code><span class="muted">The first non-React host (A10). What it marks is Q3.</span></div>
+  </div>
+</section>
+
+<section class="s" id="tension">
+  <header>
+    <div class="eyebrow">Current reality → desired outcome</div>
+    <h2>What exists now, and what will exist</h2>
+  </header>
+  <div class="tension">
+    <div class="col">
+      <div class="eyebrow">Today</div>
+      <ul>
+        <li>The annotator is one 486-line React component in <code>components/tide/</code>.</li>
+        <li>It declares its own copies of the server types, and they already lack <code>source</code> and <code>reopened</code>.</li>
+        <li>Five fetch URLs and one storage key are written into it.</li>
+        <li>The iPhone selection fix lives only inside that component (<code>:208-241</code>).</li>
+        <li><code>@miadi/tide@0.4.0</code> on npm ships raw <code>.ts</code> and was published before the annotate adapter existed.</li>
+        <li>gmtermux has no React, and the annotator is not available to it.</li>
+      </ul>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="col col--want">
+      <div class="eyebrow">After</div>
+      <ul>
+        <li>A framework-free core with types, model, HTML renderer, DOM mount, HTTP transport and CSS.</li>
+        <li>A React layer that renders the same HTML, with a parity test that proves it.</li>
+        <li><code>@miadi/tide</code> 0.5.0 builds its pane types on core's types.</li>
+        <li>The Miadi cockpit and a gmtermux page run the same annotator, each with its own transport and footer.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="architecture">
+  <header>
+    <div class="eyebrow">Figure 1 · Architecture</div>
+    <h2>Before and after</h2>
+  </header>
+  <figure>
+    <div class="pair">
+      <div>
+        <div class="panel-label">Before</div>
+        <div class="fig-scroll">
+          <svg class="dg" viewBox="0 0 520 384" role="img" aria-label="Before: one React file holds every concern, gmtermux cannot load it, and its types are a drifted copy of @miadi/tide's.">
+            <defs>
+              <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+              <marker id="a1m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-m"/></marker>
+              <marker id="a1d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-d"/></marker>
+            </defs>
+            <rect x="40" y="16" width="300" height="196" rx="8" class="b-host"/>
+            <text x="56" y="38" class="tb">reply-annotator.tsx</text>
+            <text x="324" y="38" text-anchor="end" class="tm">486 lines</text>
+            <rect x="56" y="50" width="268" height="22" rx="4" class="b-chip"/>
+            <text x="66" y="65" class="t">pane id, Enter toggle, turn-follow</text>
+            <rect x="56" y="78" width="268" height="22" rx="4" class="b-chip"/>
+            <text x="66" y="93" class="t">state, markup, CSS in one string</text>
+            <rect x="56" y="106" width="268" height="22" rx="4" class="b-chip"/>
+            <text x="66" y="121" class="t">iOS selection capture</text>
+            <rect x="56" y="134" width="268" height="22" rx="4" class="b-chip"/>
+            <text x="66" y="149" class="t">5 fetch URLs + 1 storage key</text>
+            <rect x="56" y="162" width="268" height="22" rx="4" class="b-chip"/>
+            <text x="66" y="177" class="t">types copied from @miadi/tide</text>
+
+            <rect x="370" y="16" width="130" height="46" rx="8" class="b-host"/>
+            <text x="435" y="36" text-anchor="middle" class="tb">gmtermux page</text>
+            <text x="435" y="52" text-anchor="middle" class="tm">no React, no TS</text>
+            <path d="M370,39 H344" class="ln-d" marker-end="url(#a1d)"/>
+            <text x="435" y="80" text-anchor="middle" class="td">✕ cannot load it</text>
+
+            <path d="M125,212 V298" class="ln" marker-end="url(#a1)"/>
+            <text x="133" y="258" class="t">fetch() ×5</text>
+
+            <rect x="40" y="300" width="170" height="46" rx="8" class="b-host"/>
+            <text x="125" y="320" text-anchor="middle" class="tb">Next routes</text>
+            <text x="125" y="336" text-anchor="middle" class="tm">/api/tide/annotate/*</text>
+
+            <path d="M210,323 H328" class="ln" marker-end="url(#a1)"/>
+            <text x="270" y="316" text-anchor="middle" class="t">calls</text>
+
+            <rect x="330" y="300" width="170" height="46" rx="8" class="b-tide"/>
+            <text x="415" y="320" text-anchor="middle" class="tb">@miadi/tide 0.4.0</text>
+            <text x="415" y="336" text-anchor="middle" class="tm">Node adapter</text>
+
+            <path d="M415,300 V173 H326" class="ln-m" marker-end="url(#a1m)"/>
+            <text x="423" y="236" class="tm">copied,</text>
+            <text x="423" y="250" class="tm">now drifted</text>
+
+            <text x="500" y="364" text-anchor="end" class="tm">npm 0.4.0 ships raw .ts</text>
+            <text x="500" y="378" text-anchor="end" class="tm">and predates annotate</text>
+          </svg>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label">After</div>
+        <div class="fig-scroll">
+          <svg class="dg" viewBox="0 0 520 384" role="img" aria-label="After: annotate-core sits under both hosts and under @miadi/tide; annotate-ui renders it for React; gmtermux mounts its DOM entry directly.">
+            <defs>
+              <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+            </defs>
+            <rect x="40" y="16" width="170" height="46" rx="8" class="b-host"/>
+            <text x="125" y="36" text-anchor="middle" class="tb">ReplyAnnotator</text>
+            <text x="125" y="52" text-anchor="middle" class="tm">Miadi wrapper</text>
+
+            <rect x="330" y="16" width="170" height="46" rx="8" class="b-host"/>
+            <text x="415" y="36" text-anchor="middle" class="tb">gmtermux page</text>
+            <text x="415" y="52" text-anchor="middle" class="tm">plain JS, no React</text>
+
+            <path d="M125,62 V108" class="ln" marker-end="url(#a2)"/>
+            <text x="133" y="90" class="t">renders &lt;Annotator&gt;</text>
+
+            <rect x="40" y="110" width="170" height="46" rx="8" class="b-ui"/>
+            <text x="125" y="130" text-anchor="middle" class="tb">@miadi/annotate-ui</text>
+            <text x="125" y="146" text-anchor="middle" class="tm">React ≥18</text>
+
+            <path d="M125,156 V198" class="ln" marker-end="url(#a2)"/>
+            <text x="133" y="182" class="t">model + ./dom</text>
+
+            <path d="M415,62 V198" class="ln" marker-end="url(#a2)"/>
+            <text x="407" y="126" text-anchor="end" class="t">mounts ./dom</text>
+            <text x="407" y="140" text-anchor="end" class="tm">via express.static</text>
+
+            <rect x="40" y="200" width="460" height="72" rx="8" class="b-core"/>
+            <text x="56" y="222" class="tb">@miadi/annotate-core</text>
+            <text x="484" y="222" text-anchor="end" class="tm">no deps · ESM dist</text>
+            <rect x="56" y="236" width="150" height="24" rx="4" class="b-chip"/>
+            <text x="131" y="252" text-anchor="middle" class="t">. types·model·html</text>
+            <rect x="214" y="236" width="80" height="24" rx="4" class="b-chip"/>
+            <text x="254" y="252" text-anchor="middle" class="t">./dom</text>
+            <rect x="302" y="236" width="80" height="24" rx="4" class="b-chip"/>
+            <text x="342" y="252" text-anchor="middle" class="t">./http</text>
+            <rect x="390" y="236" width="96" height="24" rx="4" class="b-chip"/>
+            <text x="438" y="252" text-anchor="middle" class="t">./styles.css</text>
+
+            <path d="M40,39 H22 V343 H38" class="ln" marker-end="url(#a2)"/>
+            <text x="15" y="190" text-anchor="middle" class="t" transform="rotate(-90 15 190)">transport: HTTP</text>
+
+            <rect x="40" y="320" width="170" height="46" rx="8" class="b-host"/>
+            <text x="125" y="340" text-anchor="middle" class="tb">Next routes</text>
+            <text x="125" y="356" text-anchor="middle" class="tm">/api/tide/annotate/*</text>
+
+            <path d="M210,343 H328" class="ln" marker-end="url(#a2)"/>
+            <text x="270" y="336" text-anchor="middle" class="t">calls</text>
+
+            <rect x="330" y="320" width="170" height="46" rx="8" class="b-tide"/>
+            <text x="415" y="340" text-anchor="middle" class="tb">@miadi/tide 0.5.0</text>
+            <text x="415" y="356" text-anchor="middle" class="tm">Node adapter</text>
+
+            <path d="M415,320 V274" class="ln" marker-end="url(#a2)"/>
+            <text x="423" y="302" class="t">imports types</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Two things change.</b> The arrow from gmtermux now reaches something it can load. The types flow down from core to <code>@miadi/tide</code> instead of being copied up into the component.</figcaption>
+  </figure>
+  <div class="stays">
+    <div class="card">
+      <h3>Stays in Miadi</h3>
+      <ul>
+        <li><code>ReplyAnnotator</code> keeps the same props, so <code>pane-inspector.tsx:648</code> does not change.</li>
+        <li>The transport built from <code>paneId</code> and <code>/api/tide/annotate/*</code>.</li>
+        <li><code>/api/identity/me</code> supplies who is signed in. The storage key stays <code>tide.annotate.author</code>.</li>
+        <li>Turn-follow: reload after the agent answers, through <code>controller.load()</code>, guarded by <code>hasUndelivered</code>.</li>
+        <li>The held/redeliver notice and the <code>11-plannotator-tmux-review.sh</code> footer.</li>
+        <li><code>use-autogrow.ts</code>, which the steer box also uses.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Not packaged now</h3>
+      <ul>
+        <li><code>PaneCard</code>, <code>PaneInspector</code>, <code>DomainBadge</code>: specific to the cockpit, and they import <code>@/lib/tide-pane-identity</code>. They can be reconsidered as <code>@miadi/tide-ui</code> once annotate-ui exists.</li>
+        <li><code>components/sheet/drag-sheet.tsx</code>: not tied to tide. A separate candidate.</li>
+        <li><code>@miadi/tide-contract</code>: unchanged. Whether the route types belong there is Q2.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="types">
+  <header>
+    <div class="eyebrow">Figure 2 · Where the types live</div>
+    <h2>Core holds what any document has. Tide adds what only a pane has.</h2>
+  </header>
+  <figure>
+    <div class="nest-grid">
+      <div class="nest nest--tide">
+        <div class="nest-head"><span class="who">@miadi/tide</span><code>FetchedReply</code></div>
+        <div class="nest nest--core">
+          <div class="nest-head"><span class="who">annotate-core</span><code>AnnotateDocument</code></div>
+          <ul class="fields"><li>id</li><li>text</li><li>blocks: AnnotateBlock[]</li><li>reopened?</li></ul>
+        </div>
+        <ul class="fields">
+          <li>target</li>
+          <li>vessel, doc</li>
+          <li>source: SourceIdentity<span>pane_id, pane_pid, agent_pid, host, cwd</span></li>
+          <li>log: string[]</li>
+        </ul>
+      </div>
+      <div class="nest nest--tide">
+        <div class="nest-head"><span class="who">@miadi/tide</span><code>DeliverResult</code></div>
+        <div class="nest nest--core">
+          <div class="nest-head"><span class="who">annotate-core</span><code>DeliverOutcome</code></div>
+          <ul class="fields"><li>delivered, submitted</li><li>count</li><li>held: string | null</li><li>redeliver?</li></ul>
+        </div>
+        <ul class="fields">
+          <li>target, doc</li>
+          <li>source: SourceIdentity</li>
+          <li>review, log</li>
+          <li>redeliver: a shell command<span>11-plannotator-tmux-review.sh …</span></li>
+        </ul>
+      </div>
+      <div class="nest nest--plain">
+        <div class="nest-head"><span class="who">the one that differs</span><code>MarkInput ≠ MarkRequest</code></div>
+        <div class="nest nest--tide">
+          <div class="nest-head"><span class="who">server · @miadi/tide</span><code>MarkInput</code></div>
+          <ul class="fields"><li>block? · quote?: string</li><li>text · kind?</li><li class="req">author: MarkAuthor (required)</li></ul>
+        </div>
+        <div class="nest nest--core">
+          <div class="nest-head"><span class="who">client · annotate-core</span><code>MarkRequest</code></div>
+          <ul class="fields"><li>block? · quote?: QuoteSelector</li><li>text · kind?</li><li>author?: MarkAuthor<span>left out when signed in</span></li></ul>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Why the split runs here.</b> A document, its blocks and a delivery outcome mean the same thing in any host. A tmux pane id, a pane pid and a shell command only mean something in tide. Moving those into core would force every other host to invent a pane (C2).</figcaption>
+  </figure>
+</section>
+
+<section class="s" id="loop">
+  <header>
+    <div class="eyebrow">Figure 3 · The review loop</div>
+    <h2>Who owns each step</h2>
+  </header>
+  <figure>
+    <div class="fig-scroll">
+      <svg class="dg" viewBox="0 0 760 214" role="img" aria-label="The review loop: load, select, mark, review, deliver, then back to load when the agent answers. Core owns select, mark and review; the host owns load's URLs, the deliver footer and the reload.">
+        <defs>
+          <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+        </defs>
+        <rect x="16" y="24" width="110" height="48" rx="8" class="b-chip"/>
+        <text x="71" y="45" text-anchor="middle" class="tb">load</text>
+        <text x="71" y="61" text-anchor="middle" class="tm">doc + blocks</text>
+        <rect x="168" y="24" width="110" height="48" rx="8" class="b-chip"/>
+        <text x="223" y="45" text-anchor="middle" class="tb">select</text>
+        <text x="223" y="61" text-anchor="middle" class="tm">block or words</text>
+        <rect x="320" y="24" width="110" height="48" rx="8" class="b-chip"/>
+        <text x="375" y="45" text-anchor="middle" class="tb">mark</text>
+        <text x="375" y="61" text-anchor="middle" class="tm">note + kind</text>
+        <rect x="472" y="24" width="110" height="48" rx="8" class="b-chip"/>
+        <text x="527" y="45" text-anchor="middle" class="tb">review</text>
+        <text x="527" y="61" text-anchor="middle" class="tm">numbered notes</text>
+        <rect x="624" y="24" width="120" height="48" rx="8" class="b-chip"/>
+        <text x="684" y="45" text-anchor="middle" class="tb">deliver</text>
+        <text x="684" y="61" text-anchor="middle" class="tm">to the target</text>
+
+        <path d="M126,48 H166" class="ln" marker-end="url(#a3)"/>
+        <path d="M278,48 H318" class="ln" marker-end="url(#a3)"/>
+        <path d="M430,48 H470" class="ln" marker-end="url(#a3)"/>
+        <path d="M582,48 H622" class="ln" marker-end="url(#a3)"/>
+
+        <rect x="16" y="84" width="110" height="38" rx="6" class="b-host"/>
+        <text x="71" y="100" text-anchor="middle" class="t">host transport</text>
+        <text x="71" y="114" text-anchor="middle" class="tm">load()</text>
+        <rect x="168" y="84" width="110" height="38" rx="6" class="b-core"/>
+        <text x="223" y="100" text-anchor="middle" class="t">core ./dom</text>
+        <text x="223" y="114" text-anchor="middle" class="tm">captureSelection</text>
+        <rect x="320" y="84" width="110" height="38" rx="6" class="b-core"/>
+        <text x="375" y="100" text-anchor="middle" class="t">core model</text>
+        <text x="375" y="114" text-anchor="middle" class="tm">markRequest()</text>
+        <rect x="472" y="84" width="110" height="38" rx="6" class="b-core"/>
+        <text x="527" y="100" text-anchor="middle" class="t">core render</text>
+        <text x="527" y="114" text-anchor="middle" class="tm">html renderer</text>
+        <rect x="624" y="84" width="120" height="38" rx="6" class="b-host"/>
+        <text x="684" y="100" text-anchor="middle" class="t">host slot</text>
+        <text x="684" y="114" text-anchor="middle" class="tm">renderFooter</text>
+
+        <path d="M684,122 V160 H71 V124" class="ln" marker-end="url(#a3)"/>
+        <text x="378" y="180" text-anchor="middle" class="t">the agent answers → the host calls controller.load() again</text>
+        <text x="378" y="196" text-anchor="middle" class="tm">marks not yet delivered are kept (hasUndelivered)</text>
+      </svg>
+    </div>
+    <figcaption><b>Gold is core, grey is the host.</b> Core owns the three steps that are the same everywhere. The host owns the ends: where the document comes from, where the review goes, and when to reload.</figcaption>
+  </figure>
+</section>
+
+<section class="s" id="author">
+  <header>
+    <div class="eyebrow">Authorship · ep019's P3</div>
+    <h2>Who wrote a mark, decided in one place</h2>
+    <p class="muted">The route already applies this order (<code>app/api/tide/annotate/mark/route.ts:63-67</code>, and <code>:87</code> for the refusal). Core exports it as <code>resolveAuthor()</code>, so the route and every other host apply the same rule. The evidence (a token, a tailnet header) stays with each host.</p>
+  </header>
+  <ol class="rank">
+    <li><span class="n">1</span><div><b>Signed token.</b> The person the token belongs to is the author. A different author in the body is <span class="refuse">refused with 409</span>.</div></li>
+    <li><span class="n">2</span><div><b>Asserted by the host.</b> In Miadi, a tailnet identity on the request.</div></li>
+    <li><span class="n">3</span><div><b>Typed in the form.</b> Remembered per browser, used only when it is a valid <code>{ id, name }</code>.</div></li>
+    <li><span class="n">4</span><div><b>None of these.</b> <span class="refuse">Refused with 400</span>, "author required". Marks made before attribution existed show as "unsigned".</div></li>
+  </ol>
+  <figure>
+    <div class="diff">
+      <div class="side side--bad">
+        <div class="tag">First draft · C3</div>
+<pre class="code">transport.mark(doc, input: MarkInput)
+// MarkInput.author is required, so it is always sent
+
+// signed in as Mia, stale typed author "william@gaia"
+POST /api/tide/annotate/mark
+{ "author": { "id": "william@gaia", ... } }
+→ 409 on every mark</pre>
+      </div>
+      <div class="side side--good">
+        <div class="tag">Revised</div>
+<pre class="code">transport.mark(markRequest(state, identity))
+// markRequest leaves author out when signedAs is set
+
+// signed in as Mia, same stale typed author
+POST /api/tide/annotate/mark
+{ "text": "...", "quote": { "exact": "..." } }
+→ 200, author = Mia (from the token)</pre>
+      </div>
+    </div>
+    <figcaption><b>The one bug the review found in the draft.</b> Today's component already leaves the author out when signed in (<code>reply-annotator.tsx:288</code>). The draft's transport signature would have lost that.</figcaption>
+  </figure>
+</section>
+
+<section class="s" id="ios">
+  <header>
+    <div class="eyebrow">Figure 4 · The iPhone selection fix</div>
+    <h2>Why the fix belongs in core</h2>
+    <p class="muted">iOS clears a text selection as soon as anything outside it is touched, so by the time a button's click runs, <code>getSelection()</code> is already empty. Today's fix (<code>reply-annotator.tsx:208-241</code>) is plain DOM: a <code>selectionchange</code> listener, a containment check and a grace window. Core exports it as <code>captureSelection()</code> so a non-React page gets it too (P1, C5).</p>
+  </header>
+  <figure>
+    <div class="fig-scroll">
+      <svg class="dg" viewBox="0 0 760 200" role="img" aria-label="Timeline: the selection is recorded while it is made, the tap collapses it and stamps clearedAt, and take() still returns the words if it runs within graceMs of that stamp.">
+        <defs>
+          <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+        </defs>
+        <rect x="300" y="106" width="300" height="28" rx="4" class="b-win"/>
+        <text x="450" y="124" text-anchor="middle" class="t">graceMs · default 1500 (Q4)</text>
+        <path d="M30,120 H736" class="ln" marker-end="url(#a4)"/>
+        <text x="736" y="146" text-anchor="end" class="tm">time</text>
+
+        <path d="M90,112 V128" class="ln"/>
+        <text x="90" y="40" text-anchor="middle" class="tb">drag over words</text>
+        <text x="90" y="58" text-anchor="middle" class="tm">selectionchange:</text>
+        <text x="90" y="74" text-anchor="middle" class="tm">text kept</text>
+        <path d="M90,82 V108" class="ln-m"/>
+
+        <path d="M300,112 V128" class="ln"/>
+        <text x="300" y="40" text-anchor="middle" class="tb">tap the button</text>
+        <text x="300" y="58" text-anchor="middle" class="tm">iOS collapses it:</text>
+        <text x="300" y="74" text-anchor="middle" class="tm">clearedAt = now</text>
+        <path d="M300,82 V104" class="ln-m"/>
+
+        <path d="M380,112 V128" class="ln"/>
+        <text x="380" y="164" text-anchor="middle" class="tb">click runs take()</text>
+        <text x="380" y="182" text-anchor="middle" class="tm">inside window → quote set</text>
+
+        <path d="M680,112 V128" class="ln"/>
+        <text x="680" y="40" text-anchor="middle" class="tb">too late</text>
+        <text x="680" y="58" text-anchor="middle" class="tm">take() → null:</text>
+        <text x="680" y="74" text-anchor="middle" class="tm">"select words first"</text>
+        <path d="M680,82 V108" class="ln-m"/>
+      </svg>
+    </div>
+    <figcaption><b>What a host gets for free.</b> <code>captureSelection(container, { graceMs })</code> returns <code>take()</code>. The button must also cancel <code>pointerdown</code> so a desktop selection survives the press. A jsdom test covers the window (A5). In Miadi, <code>MIADI_TIDE_ANNOTATE_GRACE_MS</code> sets it on the server (Q4). You can try it in the wireframe below.</figcaption>
+  </figure>
+</section>
+
+<section class="s" id="wireframe">
+  <header>
+    <div class="eyebrow">Wireframe · clickable</div>
+    <h2>One annotator, two hosts</h2>
+    <p class="muted">The left frame follows the cockpit as it looks today. Click a block, or select words inside the reply and press "use selected words", then mark. All data is example data, and nothing is sent.</p>
+  </header>
+  <div class="wf-bar">
+    <label class="toggle" for="owners"><input type="checkbox" id="owners" checked> Show who owns each region</label>
+    <div class="legend" aria-label="Legend">
+      <span><i style="color:#c9a400"></i>annotate-core renders it</span>
+      <span><i style="color:#8a8a8a"></i>the host supplies it</span>
+      <span><i style="color:#5b8def"></i>host data shown by core</span>
+    </div>
+  </div>
+  <div class="wf-stage">
+    <div class="wf-col">
+      <div class="wf owners" id="wf-miadi">
+        <div class="wf-region" data-kind="host" data-owner="host · cockpit inspector">
+          <div class="wf-head"><b>%56 · claude · Miadi-18</b><span class="wf-pill">idle</span></div>
+        </div>
+
+        <div class="wf-region" data-kind="core" data-owner="core · <Annotator> / renderAnnotatorHtml">
+          <div class="wf-row">
+            <span class="wf-label">Annotate last reply</span>
+            <button class="wf-btn wf-btn--sm wf-btn--accent" id="wf-fetch" type="button">↺ fetch again</button>
+            <span class="wf-small">4 blocks</span>
+            <span class="wf-example">example</span>
+          </div>
+          <div class="wf-blocks" id="wf-blocks">
+            <div class="wf-block" role="button" tabindex="0" data-i="0" data-row="0"><div class="k"><span>#0</span><span>heading</span><span>line 1</span></div><pre>## Package the annotator as two packages</pre></div>
+            <div class="wf-block" role="button" tabindex="0" data-i="1" data-row="2"><div class="k"><span>#1</span><span>paragraph</span><span>line 3</span></div><pre>Core holds the types, the state model, the HTML renderer and the DOM mount. It has no dependencies, so gmtermux can serve it as static files.</pre></div>
+            <div class="wf-block" role="button" tabindex="0" data-i="2" data-row="5"><div class="k"><span>#2</span><span>list</span><span>line 6</span></div><pre>- annotate-ui renders the same HTML with React.
+- @miadi/tide 0.5.0 builds its pane types on core.</pre></div>
+            <div class="wf-block" role="button" tabindex="0" data-i="3" data-row="8"><div class="k"><span>#3</span><span>code</span><span>line 9</span></div><pre>mountAnnotator(root, { transport, identity })</pre></div>
+          </div>
+
+          <div class="wf-row">
+            <span class="wf-small" id="wf-target">select a block, or select words then</span>
+            <span class="wf-quote" id="wf-quote" hidden></span>
+            <button class="wf-btn wf-btn--sm" id="wf-use" type="button">use selected words</button>
+            <button class="wf-btn wf-btn--sm" id="wf-clear" type="button" hidden>clear quote</button>
+          </div>
+          <div class="wf-region" data-kind="data" data-owner="host data · identity.signedAs">
+            <div class="wf-small">marks are signed as <span style="color:#e0e0e0">Mia</span></div>
+          </div>
+          <label for="wf-note" class="wf-small">Note</label>
+          <textarea id="wf-note" class="wf-note" rows="2" placeholder="Your note on this block…  (⌘/Ctrl + Enter to mark)"></textarea>
+          <div class="wf-row">
+            <select id="wf-kind" class="wf-select" aria-label="Mark kind">
+              <option value="comment">comment</option>
+              <option value="looks_good">looks good</option>
+              <option value="delete">delete</option>
+            </select>
+            <button class="wf-btn wf-btn--primary" id="wf-mark" type="button" disabled>mark</button>
+            <span class="wf-small" id="wf-kindneeds" hidden style="color:#d4a843">that kind needs selected words</span>
+          </div>
+          <div class="wf-err" id="wf-err" hidden></div>
+
+          <div class="wf-box">
+            <div class="wf-row"><span class="wf-label" id="wf-markcount">Marks · 1</span></div>
+            <div id="wf-marks">
+              <div class="wf-mark"><span class="by">William</span> · say which static-file route gmtermux uses <span class="q">— “serve it as static files”</span></div>
+            </div>
+          </div>
+          <div class="wf-box">
+            <div class="wf-label" id="wf-reviewcount">Review · 1 mark</div>
+<pre class="wf-review" id="wf-review"># Annotations on reply.md
+
+## Annotation 1 (line 3)
+Comment on: "serve it as static files"
+&gt; say which static-file route gmtermux uses</pre>
+          </div>
+        </div>
+
+        <div class="wf-region" data-kind="host" data-owner="host slot · renderFooter">
+          <div class="wf-row">
+            <button class="wf-btn wf-btn--primary" id="wf-deliver" type="button">deliver 1 → %56</button>
+            <label class="wf-check" for="wf-enter"><input type="checkbox" id="wf-enter" checked> ⏎ press Enter after paste</label>
+          </div>
+          <div class="wf-ok" id="wf-delivered" hidden></div>
+          <div class="wf-foot">vessel ~/.local/state/plannotator-tmux-review/web/…/reply.md · finish in a terminal: <code>11-plannotator-tmux-review.sh %56 --from-file …</code></div>
+        </div>
+      </div>
+      <div class="wf-cap">Miadi · tide cockpit · <code>@miadi/annotate-ui</code></div>
+    </div>
+
+    <div class="wf-col">
+      <div class="wf wf--gm owners" id="wf-gm">
+        <div class="wf-region" data-kind="host" data-owner="host · episode page">
+          <div class="wf-head"><b>ep019 · chapter-01-who-vouches-for-a-mark</b><span class="wf-pill">draft</span></div>
+        </div>
+        <div class="wf-region" data-kind="core" data-owner="core · mountAnnotator (./dom)">
+          <div class="wf-row"><span class="wf-label">Annotate document</span><span class="wf-small">2 blocks</span><span class="wf-example">example</span></div>
+          <div class="wf-blocks">
+            <div class="wf-block is-selected"><div class="k"><span>#0</span><span>paragraph</span><span>line 39</span></div><pre>Mia: No, and that's its flaw. The most valuable part is the iPhone fix.</pre></div>
+            <div class="wf-block"><div class="k"><span>#1</span><span>paragraph</span><span>line 105</span></div><pre>Ava: Then does annotate core say anything about who vouches for a mark?</pre></div>
+          </div>
+          <div class="wf-small">block #0</div>
+          <div class="wf-note" style="min-height:40px;color:#9db0a5">note on this block…</div>
+          <div class="wf-row"><span class="wf-select">comment ▾</span><span class="wf-btn wf-btn--primary" style="display:inline-flex;align-items:center">mark</span></div>
+          <div class="wf-box"><div class="wf-label">Marks · 0</div></div>
+        </div>
+        <div class="wf-region" data-kind="host" data-owner="host slot · footerHtml">
+          <div class="wf-row"><span class="wf-btn wf-btn--primary" style="display:inline-flex;align-items:center">save marks to episode</span><span class="wf-small">what this does is Q3</span></div>
+        </div>
+      </div>
+      <div class="wf-cap">gmtermux · episode page · <code>/vendor/annotate-core/dom.js</code>, no React</div>
+      <div class="themevars" aria-label="Theme variables for this host">
+        --ann-bg: #0d1b17;<br>
+        --ann-text: #d6e4dc;<br>
+        --ann-muted: #9db0a5;<br>
+        --ann-accent: #8fd6bf;
+      </div>
+      <p class="wf-cap">Same core, same markup, different host: its own document, its own colours through CSS custom properties, its own footer. The variable names are illustrative. The final set comes out of A5.</p>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="api">
+  <header>
+    <div class="eyebrow">Public API · as reviewed</div>
+    <h2>What each entry point exports</h2>
+  </header>
+  <div class="tabs" role="tablist" aria-label="Entry points">
+    <button class="tab" role="tab" id="t-core" aria-selected="true" aria-controls="p-core" type="button">annotate-core</button>
+    <button class="tab" role="tab" id="t-dom" aria-selected="false" aria-controls="p-dom" type="button">annotate-core/dom</button>
+    <button class="tab" role="tab" id="t-http" aria-selected="false" aria-controls="p-http" type="button">annotate-core/http</button>
+    <button class="tab" role="tab" id="t-ui" aria-selected="false" aria-controls="p-ui" type="button">annotate-ui</button>
+    <button class="tab" role="tab" id="t-tide" aria-selected="false" aria-controls="p-tide" type="button">@miadi/tide 0.5.0</button>
+    <button class="tab" role="tab" id="t-wrap" aria-selected="false" aria-controls="p-wrap" type="button">Miadi wrapper</button>
+  </div>
+<pre class="code" role="tabpanel" id="p-core" aria-labelledby="t-core">// vocabulary: what any annotated document has
+type MarkKind = "comment" | "looks_good" | "delete"
+interface MarkAuthor { id: string; name: string }
+interface AnnotateBlock { index: number; kind: string; row: number; text: string }
+interface QuoteSelector { exact: string; prefix?: string; suffix?: string }
+interface AnnotateDocument { id: string; text: string; blocks: AnnotateBlock[]; reopened?: boolean }
+interface MarkRequest { block?: number; quote?: QuoteSelector; text: string; kind?: MarkKind; author?: MarkAuthor }
+interface StoredMark { id: string; author: string | null; author_name: string | null; text: string; quote: string; created_at: string | null }
+interface MarkOutcome { review: string; count: number; stamped?: number }
+interface DeliverOutcome { delivered: boolean; submitted: boolean; count: number; held: string | null; redeliver?: string }
+
+// the seam every host fills
+interface AnnotateTransport {
+  load(): Promise&lt;AnnotateDocument&gt;
+  mark(req: MarkRequest): Promise&lt;MarkOutcome&gt;
+  marks(): Promise&lt;StoredMark[]&gt;
+  deliver?(opts: { submit: boolean }): Promise&lt;DeliverOutcome&gt;
+}
+
+// state model: pure functions, no DOM
+interface AnnotatorIdentity { signedAs: MarkAuthor | null; typed: MarkAuthor }
+function initialState(): AnnotatorState
+function reduce(state: AnnotatorState, action: AnnotatorAction): AnnotatorState
+function canMark(s: AnnotatorState): boolean
+function kindNeedsQuote(s: AnnotatorState): boolean
+function hasUndelivered(s: AnnotatorState): boolean
+function markRequest(s: AnnotatorState, id: AnnotatorIdentity): MarkRequest   // leaves author out when signed
+function resolveAuthor(e: { signed?: MarkAuthor | null; asserted?: MarkAuthor | null; typed?: unknown }):
+  { author: MarkAuthor | null; refused?: string }
+function resolveQuote(text: string, q: QuoteSelector):          // D3: finds exactly one place, or says why not
+  { start: number; end: number } | { ambiguous: number } | { missing: true }
+function renderAnnotatorHtml(input: AnnotatorHtmlInput): string</pre>
+<pre class="code" role="tabpanel" id="p-dom" aria-labelledby="t-dom" hidden>// browser only; holds no token and knows no URL
+function captureSelection(container: HTMLElement, opts?: { graceMs?: number }):
+  { take(): QuoteSelector | null; destroy(): void }   // exact + up to 32 chars of prefix and suffix
+function autoGrow(el: HTMLTextAreaElement, maxVh?: number): void
+function authorMemory(storage: Storage | null, key: string):
+  { load(): MarkAuthor; save(a: MarkAuthor): void }
+function mountAnnotator(root: HTMLElement, opts: AnnotatorMountOptions): AnnotatorController
+
+interface AnnotatorMountOptions {
+  transport: AnnotateTransport
+  identity: AnnotatorIdentity
+  labels?: Partial&lt;AnnotatorLabels&gt;
+  theme?: Partial&lt;AnnotatorTheme&gt;
+  authorKey?: string
+  graceMs?: number                                   // selection grace window, default 1500
+  onDelivered?(o: DeliverOutcome): void
+  footerHtml?(s: AnnotatorState): string
+}
+interface AnnotatorController {
+  load(): Promise&lt;void&gt;
+  state(): AnnotatorState
+  update(o: Partial&lt;AnnotatorMountOptions&gt;): void
+  destroy(): void
+}</pre>
+<pre class="code" role="tabpanel" id="p-http" aria-labelledby="t-http" hidden>// reads only the { error, message } envelope; the host supplies every URL and body
+function httpAnnotateTransport(o: {
+  urls: { load: string; mark: string; marks(docId: string): string; deliver?: string }
+  bodies?: { load?: unknown; deliver?(submit: boolean): unknown }
+  headers?(): Record&lt;string, string&gt;
+}): AnnotateTransport
+// mark and deliver add { doc }, the id that load() returned</pre>
+<pre class="code" role="tabpanel" id="p-ui" aria-labelledby="t-ui" hidden>// React ≥18 peer; renders the same HTML as renderAnnotatorHtml (parity test, A7)
+function Annotator(props: AnnotatorMountOptions &amp; {
+  renderFooter?(s: AnnotatorState): ReactNode
+  controllerRef?: Ref&lt;AnnotatorController&gt;
+}): JSX.Element
+function useSelectionCapture(ref: RefObject&lt;HTMLElement&gt;, opts?: { graceMs?: number }): () =&gt; QuoteSelector | null
+function useAuthorMemory(key: string): [MarkAuthor, (a: MarkAuthor) =&gt; void]
+
+// "./styles.css" is copied from core at build time (as attention-ui does)</pre>
+<pre class="code" role="tabpanel" id="p-tide" aria-labelledby="t-tide" hidden>// @miadi/tide 0.5.0: dependency on @miadi/annotate-core via workspace:^
+// moved names are re-exported as aliases, so routes and tests do not change
+export type { AnnotateBlock as ReplyBlock, StoredMark as MarkRecord, MarkKind, MarkAuthor } from "@miadi/annotate-core"
+export { MARK_KINDS, isMarkAuthor } from "@miadi/annotate-core"
+
+interface FetchedReply extends AnnotateDocument { target; vessel; doc; source: SourceIdentity; log: string[] }
+interface DeliverResult extends DeliverOutcome { target; doc; source: SourceIdentity; review; log; redeliver: string }
+interface MarkInput { block?; quote?: string; text; kind?; author: MarkAuthor }   // stays server-side, author required
+
+// app/api/tide/annotate/mark/route.ts calls resolveAuthor({ signed, asserted, typed })
+// and resolveQuote(doc text, quote): a quote found more than once is refused with
+// "these words appear N times in the reply; select a longer phrase" (D3)</pre>
+<pre class="code" role="tabpanel" id="p-wrap" aria-labelledby="t-wrap" hidden>// components/tide/reply-annotator.tsx after A8 (sketch): same props as today
+export function ReplyAnnotator({ paneId, accent, onDelivered, replyEpoch = 0, following = false }: Props) {
+  const transport = useMemo(() =&gt; httpAnnotateTransport({
+    urls: {
+      load: "/api/tide/annotate/resolve",
+      mark: "/api/tide/annotate/mark",
+      marks: doc =&gt; `/api/tide/annotate/marks?doc=${encodeURIComponent(doc)}`,
+      deliver: "/api/tide/annotate/deliver",
+    },
+    bodies: { load: { pane: paneId }, deliver: submit =&gt; ({ pane: paneId, submit }) },
+  }), [paneId])
+  const identity = useCockpitIdentity()     // Miadi: /api/identity/me + "tide.annotate.author"
+  const { graceMs } = useTideConfig()       // Miadi: MIADI_TIDE_ANNOTATE_GRACE_MS, read on the server per request
+  const ctl = useRef&lt;AnnotatorController&gt;(null)
+  useTurnFollow(ctl, replyEpoch)            // Miadi: reload until the text changes, keep undelivered marks
+  return &lt;Annotator transport={transport} identity={identity} theme={{ accent }} graceMs={graceMs} controllerRef={ctl}
+    onDelivered={o =&gt; o.submitted &amp;&amp; onDelivered?.()}
+    renderFooter={s =&gt; &lt;DeliverFooter paneId={paneId} state={s} following={following} /&gt;} /&gt;
+}</pre>
+</section>
+
+<section class="s" id="changes">
+  <header>
+    <div class="eyebrow">What the review changed</div>
+    <h2>Corrections to the first draft</h2>
+    <p class="muted">C1–C8 are the Fable 5.1 reviewer's corrections. P1–P3 are the points the ep019 chapter raised (commit <code>7442de6</code>). Before the review, I predicted that the reviewer would ask for a framework-free core, quote context, the author as a claim the host checks, and a pure model. I did not predict C1, C2, C3, C6 or C8.</p>
+  </header>
+  <div class="cols2">
+    <div class="codes">
+      <div class="item" id="C1"><span class="code">C1</span><div><h3>The reason for moving the types was wrong</h3><p><code>import type</code> would compile. The real blocker is that npm serves <code>@miadi/tide@0.4.0</code> as raw TypeScript, which a plain page cannot load.</p><span class="ev">npm view @miadi/tide@0.4.0 main → ./src/index.ts · gmtermux web/pixel/routes/episodes.js:141</span></div></div>
+      <div class="item" id="C2"><span class="code">C2</span><div><h3>Too much moved into core</h3><p>The pane identity and the shell command stay in tide. Core takes the generic subset, which is what the component's local types already were.</p><span class="ev">packages/tide/src/annotate.ts:107, :145</span></div></div>
+      <div class="item" id="C3"><span class="code">C3</span><div><h3>The transport made the author required</h3><p>A signed-in person with a stale saved author would get a 409 on every mark.</p><span class="ev">app/api/tide/annotate/mark/route.ts:63-66</span></div></div>
+      <div class="item" id="C4"><span class="code">C4</span><div><h3>Identity was a transport verb</h3><p><code>whoami()</code> is removed. The host passes <code>signedAs</code> in as data.</p><span class="ev">packages/episode-ui/src/index.ts:13</span></div></div>
+      <div class="item" id="C5"><span class="code">C5</span><div><h3>The iPhone fix was React-only</h3><p>As a hook, gmtermux would not get it. It moves to <code>./dom</code>.</p><span class="ev">gmtermux web/pixel/views/episode-recorder.js:240</span></div></div>
+    </div>
+    <div class="codes">
+      <div class="item" id="C6"><span class="code">C6</span><div><h3>The stylesheet was in the React package</h3><p>Core owns it, and annotate-ui copies it at build time.</p><span class="ev">packages/attention-ui/scripts/copy-core-css.mjs</span></div></div>
+      <div class="item" id="C7"><span class="code">C7</span><div><h3>useAutoGrow is Miadi-wide</h3><p>The steer box uses it too. Core gets a DOM <code>autoGrow()</code>, and Miadi keeps its hook.</p><span class="ev">components/tide/pane-inspector.tsx:218</span></div></div>
+      <div class="item" id="C8"><span class="code">C8</span><div><h3>The release order was incomplete</h3><p>The tide 0.5.0 bump, a parity test, named regression tests, and a controller handle for turn-follow were missing.</p><span class="ev">packages/attention-ui/test/parity.test.mjs · tests/annotate-routes.test.mjs</span></div></div>
+      <div class="item" id="P1"><span class="code">P1</span><div><h3>iPhone fix in core: accepted</h3><p>The grace period becomes a parameter with a jsdom test.</p></div></div>
+      <div class="item" id="P2"><span class="code">P2</span><div><h3>Quote context: refined</h3><p><code>QuoteSelector</code> goes in core now. Miadi's transport drops the prefix and suffix, because plannotator anchors on exact text only.</p><span class="ev">packages/tide/src/annotate.ts:297</span></div></div>
+      <div class="item" id="P3"><span class="code">P3</span><div><h3>Who vouches for a mark: refined</h3><p>The precedence rule travels in core as <code>resolveAuthor()</code>. The evidence stays with each host.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="order">
+  <header>
+    <div class="eyebrow">Build order</div>
+    <h2>Steps, each with the check that closes it</h2>
+    <p class="muted">A1 stands from the first draft. A5–A10 replace A2–A4.</p>
+  </header>
+  <ol class="steps">
+    <li class="step" id="A1"><span class="code">A1</span><div><h3>Open the issue in jgwill/Miadi</h3><p>Context, desired state, action steps, structural tension, related work. Every later commit cites it.</p><div class="gate">go received (D4) · starts when the review-in-episode agent in Miadi finishes</div></div></li>
+    <li class="step" id="A5"><span class="code">A5</span><div><h3>Build @miadi/annotate-core</h3><p>Types, model, <code>resolveAuthor</code>, <code>resolveQuote</code>, HTML renderer, <code>./dom</code>, <code>./http</code>, stylesheet.</p><div class="gate">check: jsdom test of the grace window · resolveQuote tests for one, many and no matches · contrast test of every theme colour against every surface</div></div></li>
+    <li class="step" id="A6"><span class="code">A6</span><div><h3>Move @miadi/tide to 0.5.0 on core</h3><p>Dependency through <code>workspace:^</code>, moved names re-exported as aliases. The mark route calls <code>resolveAuthor</code>, and refuses a quote that plannotator would anchor in the wrong place (D3).</p><div class="gate">check: packages/tide/test/annotate*.test.ts and tests/annotate-routes.test.mjs pass unchanged</div></div></li>
+    <li class="step" id="A7"><span class="code">A7</span><div><h3>Build @miadi/annotate-ui</h3><p>React layer, stylesheet copied from core.</p><div class="gate">check: parity test against renderAnnotatorHtml</div></div></li>
+    <li class="step" id="A8"><span class="code">A8</span><div><h3>Rebuild ReplyAnnotator on it</h3><p>Same props, turn-follow through the controller, <code>MIADI_TIDE_ANNOTATE_GRACE_MS</code> read on the server (0–10000, anything else falls back to 1500), deployed on :3335.</p><div class="gate">check: mark and deliver from a phone on the live cockpit</div></div></li>
+    <li class="step" id="A9"><span class="code">A9</span><div><h3>Publish core, then tide, then ui</h3><p>With <code>pnpm publish</code>, so the <code>workspace:</code> specifiers are rewritten.</p><div class="gate">check: scripts/ops/verify-published-deps.mjs</div></div></li>
+    <li class="step" id="A10"><span class="code">A10</span><div><h3>Wire it into gmtermux, minimally</h3><p>Add the dependency and serve <code>/vendor/annotate-core/</code> through <code>express.static</code>, as attention-core already is, with one page mounting it. Open an issue in miadisabelle/gmtermux that lists what the packages make possible there, for a later choice (Q3). Then upgrade ilex.</p><div class="gate">check: scripts/gmtermux-upgrade.sh on ilex · the page loads the module and renders the annotator</div></div></li>
+  </ol>
+</section>
+
+<section class="s" id="risks">
+  <header>
+    <div class="eyebrow">Risks</div>
+    <h2>What could go wrong, and what prevents it</h2>
+  </header>
+  <div class="cols2">
+    <div class="item item--r" id="R1"><span class="code">R1</span><div><h3>Wrong publish order</h3><p>npm's <code>@miadi/tide@0.4.0</code> predates annotate. Publishing tide before core, or reusing 0.4.0, ships a package that points at the wrong code. Prevented by the A9 order and its verify step.</p></div></div>
+    <div class="item item--r" id="R2"><span class="code">R2</span><div><h3>The two renderers drift</h3><p>React output and plain HTML could diverge over time. Prevented by the parity test in A7, as attention-ui already does.</p></div></div>
+    <div class="item item--r" id="R3"><span class="code">R3</span><div><h3>Quote context promises more than the server does</h3><p><code>plannotator-tui --annotate</code> marks the first occurrence (Q1). Handled by D3: a quote whose place is not the first occurrence is refused, never misplaced, until N2 lands.</p></div></div>
+    <div class="item item--r" id="R4"><span class="code">R4</span><div><h3>Scope growth</h3><p>Packaging the pane cards or the inspector at the same time would double the work. They stay out, as listed under Architecture.</p></div></div>
+  </div>
+</section>
+
+<section class="s" id="decide">
+  <header>
+    <div class="eyebrow">Decided · revision 2</div>
+    <h2>Decisions and answers</h2>
+    <p class="muted">Each card says who decided it. D1 and D4 are yours. The others you left to me, and each card gives the reasoning so you can overrule any of them before the build reaches it.</p>
+  </header>
+  <div class="codes">
+    <div class="item item--d item--done" id="D1"><span class="code">D1</span><div><span class="status">approved by you</span><h3>Package names</h3><p><code>@miadi/annotate-core</code> and <code>@miadi/annotate-ui</code>. Both were free on npm when checked on 2026-09-23.</p></div></div>
+    <div class="item item--d item--done" id="D2"><span class="code">D2</span><div><span class="status">decided by Claude, as you asked</span><h3>resolveAuthor lives in core</h3><p>The rule is short, pure and security-relevant, so it should exist once. The Miadi route imports it, and <code>markRequest</code> on the client is built from the same rule, so the two sides cannot disagree about who wrote a mark. Evidence (the token, the tailnet header) never enters core. It stays with each host. This also answers Q5.</p></div></div>
+    <div class="item item--d item--done" id="D3"><span class="code">D3</span><div><span class="status">decided by Claude, from the Q1 research</span><h3>Quotes carry context, and an ambiguous quote is refused</h3><p><code>QuoteSelector</code> (exact, prefix, suffix, as in the W3C annotation model) goes in core now, and <code>captureSelection</code> fills in the prefix and suffix from the selection. <code>resolveQuote</code> finds exactly one place or says why not. Until plannotator can take a range (N2), Miadi passes a quote only when its place is the first occurrence. Otherwise the mark is refused with "these words appear N times in the reply; select a longer phrase". A mark is never silently attached to the wrong sentence.</p></div></div>
+    <div class="item item--d item--done" id="D4"><span class="code">D4</span><div><span class="status">go from you · waiting on the review agent</span><h3>Go</h3><p>A1 (the issue) and A5 start when the agent working on review-in-episode in Miadi finishes. That agent is editing <code>lib/review-ceremony.ts</code> and the chronicle routes in the same checkout right now.</p></div></div>
+  </div>
+  <div class="cols2">
+    <div class="codes">
+      <div class="item item--done" id="Q1"><span class="code">Q1</span><div><span class="status">answered by research</span><h3>plannotator marks the first occurrence</h3><p><code>add_quote_annotation</code> runs <code>source.find(quote)</code>, so a repeated phrase always lands on its first occurrence. Its internal <code>annotate(range)</code> already takes a byte range, so exposing a range on the command line is a small upstream change (N2).</p><span class="ev">miadisabelle/mia-plannotator-tui crates/plannotator-tui/src/app/mod.rs:550-555 · plannotator-tui 0.6.0</span></div></div>
+      <div class="item item--done" id="Q2"><span class="code">Q2</span><div><span class="status">decided by Claude, as you asked</span><h3>The route types stay out of tide-contract</h3><p>A contract package should cover one boundary between parties that deploy separately. <code>@miadi/tide-contract</code> is the Miadi ↔ IronSilk runtime contract, with a schema and a drift check. The annotate routes are Miadi's own HTTP surface over plannotator, and IronSilk doesn't implement them. Their vocabulary lives in annotate-core. Revisit only if the IronSilk runtime starts serving annotate.</p></div></div>
+      <div class="item item--done" id="Q3"><span class="code">Q3</span><div><span class="status">your direction</span><h3>gmtermux gets the minimum</h3><p>The work goes into making the packages reusable and published. gmtermux gets only the wiring that proves it can load them, plus an issue there listing what they make possible, so the choice of what to annotate is made later (A10).</p></div></div>
+    </div>
+    <div class="codes">
+      <div class="item item--done" id="Q4"><span class="code">Q4</span><div><span class="status">answered · decided by Claude, as you asked</span><h3>1500 ms was chosen, and it becomes a server setting</h3><p>It came from the phone fix in commit <code>6d6cb033</code> (jgwill/Miadi#381, 2026-09-13), which says "kept for 1.5s". No measurement is recorded. Core takes <code>graceMs</code> (default 1500). Miadi reads <code>MIADI_TIDE_ANNOTATE_GRACE_MS</code> on the server for each request, so a restart changes it without a rebuild. Values outside 0–10000 fall back to 1500. The name is your <code>…GRACE_PERIOD</code> with the unit in place of "period", so nobody has to guess whether it means seconds or milliseconds.</p></div></div>
+      <div class="item item--done" id="Q5"><span class="code">Q5</span><div><span class="status">answered by D2</span><h3>resolveAuthor is exported from core</h3><p>See D2.</p></div></div>
+      <div class="item item--done" id="Q6"><span class="code">Q6</span><div><span class="status">answered from your /chronicle comment</span><h3>/chronicle is the second Miadi surface</h3><p>It comes after gmtermux has proved that core loads, with the marks tied to an episode: N1.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="later">
+  <header>
+    <div class="eyebrow">Later phases · N = next-phase outcome</div>
+    <h2>Kept so they aren't lost, not built now</h2>
+  </header>
+  <div class="cols2">
+    <div class="item item--n" id="N1"><span class="code">N1</span><div><h3>Annotations belong to an episode</h3><p>From your /chronicle comment: marks made on a reply or a chapter can be attached to an episode and read from its vessel, optionally. The packages already carry what this needs (<code>AnnotateDocument.id</code>, <code>StoredMark</code> with its author). The episode link belongs in <code>@miadi/episode-vessel</code> and the chronicle, not in annotate-core.</p></div></div>
+    <div class="item item--n" id="N2"><span class="code">N2</span><div><h3>plannotator takes a range</h3><p>An <code>--annotate-range</code> flag (or equivalent) in miadisabelle/mia-plannotator-tui, opened as an issue in that repo first. Then <code>resolveQuote</code>'s position is passed straight through, and D3's refusal is lifted for repeated phrases.</p></div></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="end wrap">
+  <div>Sources: <code>components/tide/reply-annotator.tsx</code>, <code>packages/tide/src/annotate.ts</code>, <code>app/api/tide/annotate/*/route.ts</code>, <code>packages/attention-core</code>, <code>packages/attention-ui</code>, <code>packages/episode-ui</code>, gmtermux <code>web/pixel/</code>, <code>foundations/annotation-as-coordination/</code>, ep019 chapter 1.</div>
+  <div>Draft by Claude Opus 5.5, reviewed by Claude Fable 5.1. Checked against jgwill/Miadi main on 2026-09-23. Revision 2 on 2026-09-24 from the owner's comments; plannotator-tui 0.6.0 source read the same day.</div>
+</footer>
+
+<script>
+(function () {
+  // Colour comments in the code panels.
+  document.querySelectorAll("pre.code").forEach(function (pre) {
+    var esc = function (s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+    pre.innerHTML = pre.textContent.split("\n").map(function (line) {
+      var i = line.indexOf("//");
+      if (i === -1) return esc(line);
+      return esc(line.slice(0, i)) + '<span class="c">' + esc(line.slice(i)) + "</span>";
+    }).join("\n");
+  });
+
+  // Tabs.
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+  function select(tab) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute("aria-selected", on ? "true" : "false");
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    });
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener("click", function () { select(t); });
+    t.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        var n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+        select(n); n.focus(); e.preventDefault();
+      }
+    });
+  });
+
+  // Ownership overlay.
+  var owners = document.getElementById("owners");
+  owners.addEventListener("change", function () {
+    ["wf-miadi", "wf-gm"].forEach(function (id) { document.getElementById(id).classList.toggle("owners", owners.checked); });
+  });
+
+  // The wireframe runs the proposed core behaviour on example data.
+  function captureSelection(container, opts) {
+    var graceMs = (opts && opts.graceMs) || 1500;
+    var last = { text: "", clearedAt: null };
+    function on() {
+      var sel = window.getSelection();
+      var text = sel ? sel.toString().trim() : "";
+      var inside = !!(sel && sel.anchorNode && container.contains(sel.anchorNode));
+      if (text && inside) last = { text: text, clearedAt: null };
+      else if (last.text && last.clearedAt === null) last = { text: last.text, clearedAt: Date.now() };
+    }
+    document.addEventListener("selectionchange", on);
+    return {
+      take: function () {
+        var t = last.text, c = last.clearedAt;
+        last = { text: "", clearedAt: null };
+        return t && (c === null || Date.now() - c < graceMs) ? t : null;
+      },
+      destroy: function () { document.removeEventListener("selectionchange", on); }
+    };
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var blocksEl = $("wf-blocks");
+  var blockEls = Array.prototype.slice.call(blocksEl.querySelectorAll(".wf-block"));
+  var capture = captureSelection(blocksEl, { graceMs: 1500 });
+  var initialMarks = [{ author: "William", text: "say which static-file route gmtermux uses", quote: "serve it as static files", kind: "comment", line: 3 }];
+  var st;
+  function reset() {
+    st = { selected: null, quote: null, marks: initialMarks.slice(), delivered: null, error: null };
+    $("wf-note").value = "";
+    $("wf-kind").value = "comment";
+    render();
+  }
+  function blockText(i) { return blockEls[i].querySelector("pre").textContent; }
+  function blockRow(i) { return Number(blockEls[i].getAttribute("data-row")); }
+  function lineOfQuote(q) {
+    for (var i = 0; i < blockEls.length; i++) if (blockText(i).indexOf(q) !== -1) return blockRow(i) + 1;
+    return 1;
+  }
+  var kindWord = { comment: "Comment on", looks_good: "Looks good", delete: "Delete" };
+  function reviewText() {
+    if (!st.marks.length) return "No annotations.";
+    return "# Annotations on reply.md\n\n" + st.marks.map(function (m, i) {
+      return "## Annotation " + (i + 1) + " (line " + m.line + ")\n" + kindWord[m.kind] + ': "' + m.quote + '"\n> ' + m.text;
+    }).join("\n\n");
+  }
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function render() {
+    blockEls.forEach(function (b, i) { b.classList.toggle("is-selected", st.selected === i); });
+    $("wf-target").textContent = st.quote ? "quote:" : st.selected !== null ? "block #" + st.selected : "select a block, or select words then";
+    $("wf-quote").hidden = !st.quote;
+    $("wf-quote").textContent = st.quote ? "“" + st.quote + "”" : "";
+    $("wf-clear").hidden = !st.quote;
+    var kind = $("wf-kind").value;
+    var needs = kind !== "comment" && !st.quote;
+    $("wf-kindneeds").hidden = !needs;
+    var can = $("wf-note").value.trim().length > 0 && (st.selected !== null || !!st.quote) && !needs;
+    $("wf-mark").disabled = !can;
+    $("wf-err").hidden = !st.error;
+    $("wf-err").textContent = st.error || "";
+    $("wf-markcount").textContent = "Marks · " + st.marks.length;
+    $("wf-marks").innerHTML = st.marks.map(function (m) {
+      var q = m.quote.length > 80 ? m.quote.slice(0, 80) + "…" : m.quote;
+      return '<div class="wf-mark"><span class="by">' + esc(m.author) + "</span> · " + esc(m.text) + ' <span class="q">— “' + esc(q) + "”</span></div>";
+    }).join("");
+    $("wf-reviewcount").textContent = "Review · " + st.marks.length + " mark" + (st.marks.length === 1 ? "" : "s");
+    $("wf-review").textContent = reviewText();
+    $("wf-deliver").textContent = "deliver " + st.marks.length + " → %56";
+    $("wf-deliver").disabled = st.marks.length === 0;
+    $("wf-delivered").hidden = !st.delivered;
+    $("wf-delivered").textContent = st.delivered || "";
+  }
+  blockEls.forEach(function (b, i) {
+    b.addEventListener("click", function () { st.selected = i; st.error = null; render(); });
+    b.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); st.selected = i; st.error = null; render(); }
+    });
+  });
+  $("wf-use").addEventListener("pointerdown", function (e) { e.preventDefault(); });
+  $("wf-use").addEventListener("click", function () {
+    var t = capture.take();
+    if (t) { st.quote = t; st.error = null; }
+    else st.error = "select words inside the reply above first, then tap “use selected words”";
+    render();
+  });
+  $("wf-clear").addEventListener("click", function () { st.quote = null; render(); });
+  $("wf-kind").addEventListener("change", render);
+  $("wf-note").addEventListener("input", render);
+  function mark() {
+    if ($("wf-mark").disabled) return;
+    var q = st.quote || blockText(st.selected).replace(/\s+/g, " ").slice(0, 60);
+    st.marks.push({
+      author: "Mia",
+      text: $("wf-note").value.trim(),
+      quote: q,
+      kind: st.quote ? $("wf-kind").value : "comment",
+      line: st.quote ? lineOfQuote(st.quote) : blockRow(st.selected) + 1
+    });
+    st.quote = null; st.delivered = null;
+    $("wf-note").value = ""; $("wf-kind").value = "comment";
+    render();
+  }
+  $("wf-mark").addEventListener("click", mark);
+  $("wf-note").addEventListener("keydown", function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); mark(); }
+  });
+  $("wf-deliver").addEventListener("click", function () {
+    var n = st.marks.length;
+    st.delivered = "✓ " + n + " mark" + (n === 1 ? "" : "s") + " pasted into %56" +
+      ($("wf-enter").checked ? " and submitted" : " — Enter is yours") + " (example: nothing was sent)";
+    render();
+  });
+  $("wf-fetch").addEventListener("click", reset);
+  reset();
+})();
+</script>
