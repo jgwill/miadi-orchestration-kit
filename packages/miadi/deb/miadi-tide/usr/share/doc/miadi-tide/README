@@ -1,0 +1,35 @@
+miadi-tide — the tide review loop and runtime on a Miadi host
+
+Client
+  tan <tmux-target>           review the last reply of the agent in that pane;
+                              the review is typed back into the pane when you
+                              submit. TANS=0 tan <target> opens it without
+                              delivering. Other options: plannotator-tmux-review --help
+  plannotator-tmux-review     the loop; /usr/lib/miadi-tide/plannotator-tmux-review.sh
+                              with its pane-write guard beside it (it will not type
+                              into a pane whose human is mid-sentence)
+  plannotator-tui             the annotator (terminal UI and --blocks/--export/--annotate)
+  tide                        the tide runtime CLI (tide --help)
+  /usr/share/miadi-tide/node/@miadi/tide, @miadi/tide-contract
+                              the Node client of the runtime, as it would be published
+
+Server
+  tide-runtime.service        the context daemon (tide daemon --interval 60), one per
+                              user, off until that user enables it:
+      systemctl --user enable --now tide-runtime.service tide-store-prune.timer
+  tide-store-prune.timer      keeps the daemon's store (~/.miadi/navigator/context/)
+                              to 7 days; MIADI_TIDE_KEEP_DAYS changes it
+  A user's own ~/.config/systemd/user/tide-runtime.service (for example one
+  written by `tide service install`) replaces the packaged unit.
+
+The runtime venv
+  /usr/lib/miadi-tide/tide-runtime is built at install from the wheels in
+  /usr/share/miadi-tide/wheels, with --no-index and the pinned constraints.txt
+  there. It uses the first Python 3.11+ with venv it finds (python3.13, 3.12,
+  3.11, python3). If it goes missing: sudo dpkg-reconfigure miadi-tide
+
+Reviews are kept in ~/.local/state/plannotator-tmux-review/ (PLANNOTATOR_TMUX_REVIEW_DIR),
+annotations in ~/.plannotator/ (per user).
+
+/usr/share/miadi-tide/SOURCE names the commit each part was built from.
+https://github.com/jgwill/miadi-orchestration-kit/issues/55

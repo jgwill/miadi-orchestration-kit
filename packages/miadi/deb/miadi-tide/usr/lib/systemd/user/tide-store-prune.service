@@ -1,0 +1,11 @@
+[Unit]
+Description=Prune the tide runtime snapshot store (miadi-tide)
+Documentation=https://github.com/jgwill/Miadi/issues/265
+
+[Service]
+Type=oneshot
+# The daemon appends ~23 MB a day and keeps nothing bounded itself.
+Environment=MIADI_TIDE_PYTHON=/usr/lib/miadi-tide/tide-runtime/bin/python
+ExecStart=/usr/lib/miadi-tide/tide-store-prune.sh
+Nice=15
+IOWeight=20

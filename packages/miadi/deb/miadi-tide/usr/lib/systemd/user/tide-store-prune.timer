@@ -1,0 +1,10 @@
+[Unit]
+Description=Prune the tide runtime snapshot store daily (miadi-tide)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

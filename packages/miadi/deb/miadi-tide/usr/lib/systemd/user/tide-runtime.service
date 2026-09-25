@@ -1,0 +1,31 @@
+# The server half of tide: the context daemon that @miadi/tide and the Miadi
+# cockpit read through $MIADI_HOME/daemon.sock. It observes one user's tmux, so
+# it is a user unit, off until that user turns it on:
+#   systemctl --user enable --now tide-runtime.service tide-store-prune.timer
+# The name is the one ironsilk's own `tide service install` writes, so a user's
+# ~/.config/systemd/user/tide-runtime.service overrides this one instead of
+# running beside it. Run one daemon per MIADI_HOME: on a host where an older
+# unit (hermes-navigator.service) runs it, stop that one first.
+[Unit]
+Description=Tide runtime context daemon (miadi-tide)
+Documentation=https://github.com/jgwill/miadi-orchestration-kit/issues/55 https://github.com/jgwill/Miadi/issues/265
+# A missing module or a missing tmux is permanent: fail visibly and stay failed.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+Environment=MIADI_HOME=%h/.miadi/navigator
+# 60s: one tick costs 1.3-3.7s of CPU on gaia, and its readers use a cached snapshot.
+ExecStart=/usr/bin/tide daemon --interval 60.0
+Restart=on-failure
+RestartSec=30
+# An observer must not compete with the panes it observes.
+Nice=10
+CPUWeight=20
+CPUQuota=15%
+MemoryMax=512M
+IOWeight=50
+
+[Install]
+WantedBy=default.target

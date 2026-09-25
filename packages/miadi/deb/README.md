@@ -17,6 +17,7 @@ sudo apt update && sudo apt install miadi
 | `miadi` | its dependencies (through 0.1.x it held the settings itself) | 0.1.0 |
 | `miadi-config` | the `MIADI_*` settings and the `miadi-config` command | 0.2.0 |
 | `miadi-terminal` | a client's clickable `miadi-chronicle:` references: desktop, Terminator, tmux | 0.1.0 |
+| `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
 installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
@@ -86,11 +87,57 @@ the session may read its values. The front is `MIADI_CHRONICLE_OPEN_URL`, else `
 A Termux build of the same tree is made by `build.sh` (`termux/README.md`).
 Contract: jgwill/Miadi `rispecs/miadi-chronicle-dsl/SPEC-TERMINAL.md` §3.
 
+## miadi-tide
+
+The terminal half of Miadi's review loop and the tide runtime, as one
+`amd64` package. It is built from sources pinned in other repositories and is
+neither an npm nor a PyPI release (jgwill/miadi-orchestration-kit#55).
+
+| installed | what it is | client or server |
+|---|---|---|
+| `/usr/bin/tan <target>` | review the last reply of the agent in a tmux pane, deliver on submit | client |
+| `/usr/bin/plannotator-tmux-review` | the loop itself; the script and its pane-write guard sit in `/usr/lib/miadi-tide/` | client |
+| `/usr/bin/plannotator-tui` | the annotator, built from `miadisabelle/mia-plannotator-tui` at jgwill/Miadi's `runtime/plannotator-tui` pin | client |
+| `/usr/bin/tide` | the tide CLI, from the runtime venv | client |
+| `/usr/share/miadi-tide/node/@miadi/{tide,tide-contract}` | the Node client, as `pnpm pack` would publish it | client |
+| `/usr/lib/systemd/user/tide-runtime.service` | `tide daemon --interval 60`, the context daemon the cockpit reads through `$MIADI_HOME/daemon.sock` | server |
+| `/usr/lib/systemd/user/tide-store-prune.{service,timer}` | keeps the daemon's snapshot store to 7 days | server |
+| `/usr/share/miadi-tide/SOURCE` | the repository and commit each part was built from | |
+
+The tide runtime (`ironsilk`) runs in its own venv, `/usr/lib/miadi-tide/tide-runtime`,
+which `postinst` builds from the wheels in the package with `--no-index`. Its
+dependencies are pinned in `prep/miadi-tide.constraints.txt`, and it reads nothing
+from system site-packages or a user's conda. It needs a Python 3.11 or newer with
+`venv`. That is `python3-venv` on Ubuntu 24.04. On 22.04, add the deadsnakes PPA
+first so apt can install `python3.12-venv`:
+
+```bash
+sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt update
+sudo apt install miadi-tide
+```
+
+The daemon observes one user's tmux, so it is a user unit that each user turns on.
+Its name is the one `ironsilk`'s `tide service install` writes, so a user's own
+`~/.config/systemd/user/tide-runtime.service` replaces it instead of running
+beside it:
+
+```bash
+systemctl --user enable --now tide-runtime.service tide-store-prune.timer
+```
+
+`build.sh` runs `prep/miadi-tide.sh` to add what git does not keep: the binary
+(rustup's cargo), the wheels (`pip`), and the packed Node sources (`pnpm`). It reads
+`MIADI_SRC` (default `/a/src/Miadi`), `GAIA_SRC` (`/a/src/gaia`, for the review
+script) and `PANE_WRITE_GUARD_SRC`, and caches builds under `MIADI_DEB_CACHE`
+(`~/.cache/miadi-deb`).
+
 ## Build, test, install
 
 ```bash
-bash build.sh                               # -> dist/<package>_<version>_all.deb for each package
-bash test-install.sh dist/*_<version>_all.deb   # clean ubuntu:22.04 container
+bash build.sh                               # -> dist/<package>_<version>_<arch>.deb for each package
+bash build.sh miadi-tide                    # one package
+bash test-install.sh dist/*_<version>_*.deb     # clean ubuntu:22.04 container
+IMAGE=ubuntu:24.04 bash test-install.sh dist/miadi-tide_<version>_amd64.deb
 python3 tests/tmux-click.py miadi-terminal/usr/share/miadi-terminal/tmux/miadi-chronicle.conf miadi-terminal/usr/bin/miadi-chronicle-open
 sudo apt install ./dist/*_<version>_all.deb
 ```
@@ -111,6 +158,7 @@ publish=/workspace/repos/miadisabelle/mia-parallel-code/scripts/apt-publish.sh
 bash "$publish" dist/miadi-config_<version>_all.deb
 bash "$publish" dist/miadi_<version>_all.deb
 bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on
+bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it
 ```
 
 The repository publishes `amd64` only, so the Termux build in `dist/termux/`

@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Build every package here (a directory with DEBIAN/control) into dist/.
 # Each gets /usr/share/doc/<package>/copyright from LICENSE.
-#   bash build.sh            -> dist/<package>_<version>_all.deb, one path per line
+#   bash build.sh            -> dist/<package>_<version>_<arch>.deb, one path per line
+#   bash build.sh <package>  -> only that package
+# <arch> is the control file's Architecture. A package with prep/<package>.sh
+# has it run as `prep/<package>.sh <stage>` after the tree's modes are set, to
+# add what is built rather than kept in git (a binary, wheels); it sets its own
+# file modes.
 # A package with a directory under termux/ also gets a Termux build,
 #   -> dist/termux/<package>_<version>_all.deb (termux/README.md).
 set -euo pipefail
@@ -17,10 +22,13 @@ copyright() { # copyright <package>: the Debian copyright file, from LICENSE
 	sed -n '/^Permission/,$p' "$here/LICENSE" | sed 's/^$/./; s/^/ /'
 }
 
+only=${1:-}
 for control in "$here"/*/DEBIAN/control; do
 	root=$(dirname "$(dirname "$control")")
 	package=$(sed -n 's/^Package: //p' "$control")
+	[ -z "$only" ] || [ "$package" = "$only" ] || continue
 	version=$(sed -n 's/^Version: //p' "$control")
+	arch=$(sed -n 's/^Architecture: //p' "$control")
 	stage=$(mktemp -d)
 	cp -a "$root/." "$stage/"
 	find "$stage" -type d -exec chmod 0755 {} +
@@ -29,11 +37,16 @@ for control in "$here"/*/DEBIAN/control; do
 	for script in preinst postinst prerm postrm; do
 		if [ -f "$stage/DEBIAN/$script" ]; then chmod 0755 "$stage/DEBIAN/$script"; fi
 	done
+	if [ -f "$here/prep/$package.sh" ]; then
+		bash "$here/prep/$package.sh" "$stage" >&2
+		# Directories prep created carry the builder's umask (007 on gaia): make them traversable.
+		find "$stage" -type d -exec chmod 0755 {} +
+	fi
 	mkdir -p "$stage/usr/share/doc/$package"
 	copyright "$package" > "$stage/usr/share/doc/$package/copyright"
 	chmod 0755 "$stage/usr/share/doc" "$stage/usr/share/doc/$package"
 	chmod 0644 "$stage/usr/share/doc/$package/copyright"
-	out="$here/dist/${package}_${version}_all.deb"
+	out="$here/dist/${package}_${version}_${arch}.deb"
 	dpkg-deb --root-owner-group --build "$stage" "$out" >/dev/null
 	rm -rf "$stage"
 	echo "$out"
@@ -46,6 +59,7 @@ for control in "$here"/termux/*/control; do
 	[ -f "$control" ] || continue
 	variant=$(dirname "$control")
 	package=$(basename "$variant")
+	[ -z "$only" ] || [ "$package" = "$only" ] || continue
 	version=$(sed -n 's/^Version: //p' "$here/$package/DEBIAN/control")
 	stage=$(mktemp -d)
 	mkdir -p "$stage/DEBIAN" "$stage$PREFIX"

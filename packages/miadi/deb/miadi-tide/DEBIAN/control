@@ -1,0 +1,24 @@
+Package: miadi-tide
+Version: 0.1.0
+Section: misc
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.35), tmux, jq, python3-venv (>= 3.11) | python3.12-venv | python3.11-venv
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: The tide review loop and runtime on a Miadi host
+ Review an agent's last reply in a tmux pane, annotate it, and hand the
+ review back to the agent:
+  tan <target>              review and deliver on submit
+  plannotator-tmux-review   the loop itself (options: --help)
+  plannotator-tui           the annotator, built from the Miadi fork
+ The tide runtime (ironsilk, the `tide` CLI) runs in its own venv,
+ /usr/lib/miadi-tide/tide-runtime, built at install only from the pinned
+ wheels in the package. It needs Python 3.11 or newer: python3-venv on
+ Ubuntu 24.04, python3.12-venv from the deadsnakes PPA on 22.04. The
+ @miadi/tide and @miadi/tide-contract sources are in
+ /usr/share/miadi-tide/node/.
+ .
+ Client: tide, tan, plannotator-tmux-review, plannotator-tui, @miadi/tide.
+ Server: `tide daemon`, as the user units tide-runtime.service and
+ tide-store-prune.timer, off until a user enables them.

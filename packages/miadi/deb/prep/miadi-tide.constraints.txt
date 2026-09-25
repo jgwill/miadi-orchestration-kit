@@ -1,0 +1,10 @@
+# The tide runtime's Python dependencies, as the gaia daemon venv runs them
+# (/home/mia/.local/share/tide-runtime/venv, 2026-09-25). prep/miadi-tide.sh
+# bundles exactly these wheels; postinst installs with them as constraints.
+aiosqlite==0.22.1
+click==8.4.2
+markdown-it-py==4.2.0
+mdurl==0.1.2
+Pygments==2.20.0
+PyYAML==6.0.3
+rich==15.0.0

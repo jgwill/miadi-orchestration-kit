@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# The review loop lives in /usr/lib/miadi-tide beside its pane-write guard.
+exec /usr/lib/miadi-tide/plannotator-tmux-review.sh "$@"

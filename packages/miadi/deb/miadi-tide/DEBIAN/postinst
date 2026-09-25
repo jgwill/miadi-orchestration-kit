@@ -1,0 +1,28 @@
+#!/bin/sh
+# The tide runtime gets its own venv, built only from the pinned wheels in the
+# package (--no-index): nothing from system site-packages, a user's conda, or
+# PyPI. Control's Depends guarantees a Python >= 3.11 with venv.
+set -e
+# Every user runs tide from this venv, whatever root's umask is.
+umask 022
+venv=/usr/lib/miadi-tide/tide-runtime
+wheels=/usr/share/miadi-tide/wheels
+case "$1" in
+configure)
+	py=
+	for c in python3.13 python3.12 python3.11 python3; do
+		p=$(command -v "$c" 2>/dev/null) || continue
+		if "$p" -c 'import sys, ensurepip, venv; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then py=$p; break; fi
+	done
+	if [ -z "$py" ]; then
+		echo "miadi-tide: no Python 3.11+ with venv (python3-venv >= 3.11, python3.12-venv or python3.11-venv)" >&2
+		exit 1
+	fi
+	rm -rf "$venv"
+	"$py" -m venv "$venv"
+	PIP_DISABLE_PIP_VERSION_CHECK=1 "$venv/bin/pip" install -q --no-cache-dir --no-index \
+		--find-links "$wheels" -c "$wheels/constraints.txt" ironsilk
+	echo "miadi-tide: tide runtime $("$venv/bin/pip" show ironsilk | sed -n 's/^Version: //p') in $venv ($("$py" -V 2>&1))" >&2
+	;;
+esac
+exit 0
