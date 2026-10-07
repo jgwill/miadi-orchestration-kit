@@ -61,6 +61,7 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     test "$(bash -lc "echo \$MIADI_DATA_DIR")" = /srv/miadi && echo "a login shell loads it"
     test "$(miadi-config get MIADI_WEBHOOK_URL)" = https://example.test/api/workflow/webhook && echo "miadi-config get resolves"
     miadi-config settings | grep -q "^MIADI_CHRONICLE_OPEN_URL " && echo "miadi-config knows MIADI_CHRONICLE_OPEN_URL"
+    miadi-config settings | grep -q "^MIADI_MUSIC_SOUNDFONT " && echo "miadi-config knows the miadi-music settings"
   fi
 
   if dpkg -s miadi-tmux >/dev/null 2>&1; then

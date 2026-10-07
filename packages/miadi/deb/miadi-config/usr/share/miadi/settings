@@ -16,6 +16,10 @@ MIADI_WEBHOOK_URL                where repository webhooks are pointed (default 
 # Read by miadi-terminal, on a client
 MIADI_CHRONICLE_OPEN_URL         the Miadi front a clicked miadi-chronicle: reference opens on; unset, miadi-chronicle-open uses MIADI_URL_BASE
 
+# Read by miadi-music, on a host that makes music
+MIADI_MUSIC_SOUNDFONT            the General MIDI soundfont fluidsynth renders with; unset, JAMAI_SOUNDFONT, else /usr/share/sounds/sf2/FluidR3_GM.sf2 (fluid-soundfont-gm)
+MIADI_MUSIC_PYTHON               the Python that measures music; unset, /usr/lib/miadi-music/venv/bin/python3 (miadi-music-measure)
+
 # Read by the Miadi app (jgwill/Miadi)
 MIADI_API_URL                    the Miadi API the app and clients call (default http://127.0.0.1:3335)
 MIADI_CHRONICLE_ROOT             the chronicle episodes (default $MIADI_EPISODES_DIR/miadi-chronicle)
