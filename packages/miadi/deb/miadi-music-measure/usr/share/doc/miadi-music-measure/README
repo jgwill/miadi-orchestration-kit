@@ -1,0 +1,17 @@
+miadi-music-measure — the Python that measures music on a Miadi host
+
+  /usr/lib/miadi-music/venv/bin/python3    NumPy, SciPy and Pillow, pinned
+  /usr/share/miadi-music/wheels/           the wheels it is built from, and constraints.txt
+
+postinst builds the venv from the wheels with --no-index, using the first
+Python with venv (python3, python3.12, python3.11, python3.10) whose version
+has wheels in the package, then checks that NumPy and SciPy import together
+without a warning and that scipy.signal runs. Removing the package removes
+the venv.
+
+Why a venv: on a host where pip put a newer NumPy in /usr/local, the
+distribution's SciPy imports with a version warning and is not a supported
+pair. This venv reads neither /usr/local nor the distribution's packages.
+
+The pins are in prep/miadi-music-measure.constraints.txt of
+jgwill/miadi-orchestration-kit packages/miadi/deb.

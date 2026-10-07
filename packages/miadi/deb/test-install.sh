@@ -195,6 +195,19 @@ PY
     test ! -e $venv && echo "remove takes the venv with it"
   fi
 
+  if dpkg -s miadi-music >/dev/null 2>&1; then
+    dpkg -s miadi-music | sed -n "s/^Version: /installed miadi-music /p"
+    grep "^miadi-music-measure:" /tmp/install.log
+    miadi-music check
+    test "$(miadi-music python -c "import sys; print(sys.prefix)")" = /usr/lib/miadi-music/venv && echo "miadi-music python runs the venv"
+    printf "X:1\nT:check\nM:4/4\nL:1/4\nK:C\nCDEF|G4|]\n" > /tmp/check.abc
+    abc2midi /tmp/check.abc -o /tmp/check.mid >/dev/null
+    fluidsynth -ni -F /tmp/check.wav -r 44100 "$(miadi-music env | sed -n "s/^MIADI_MUSIC_SOUNDFONT=//p")" /tmp/check.mid >/dev/null 2>&1
+    miadi-music python -c "import wave, numpy; w = wave.open(\"/tmp/check.wav\"); x = numpy.frombuffer(w.readframes(w.getnframes()), dtype=numpy.int16); assert numpy.abs(x).max() > 1000; print(\"an ABC tune renders to sound:\", round(w.getnframes() / w.getframerate(), 1), \"s\")"
+    apt-get remove -y -qq miadi-music-measure >/dev/null 2>&1
+    test ! -e /usr/lib/miadi-music/venv && echo "remove takes the venv with it"
+  fi
+
   if dpkg -s miadi-config >/dev/null 2>&1; then
     apt-get remove -y -qq miadi-config >/dev/null 2>&1 && test -f /etc/miadi/miadi.env && echo "remove keeps the edited conffile"
   fi

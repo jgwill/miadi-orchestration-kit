@@ -23,6 +23,10 @@ sudo apt update && sudo apt install miadi
 | `miadi-tmux` | `/usr/bin/tmux` 3.7c built from the upstream release, replacing the distribution's tmux (3.2a on 22.04): one tmux version on a host, since a client cannot attach to a server of another version | 3.7c-1 |
 | `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` and `miadi-foundation:` (0.2.2) references, and bare circle ids (0.1.4): desktop, Terminator, tmux | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
+| `miadi-music` | music on the host, for an album or an episode's score: brings the three below and the `miadi-music` command | 0.1.0 |
+| `miadi-music-render` | ABC to MIDI, audio and the engraved page: abcmidi, abcm2ps, fluidsynth with the FluidR3 soundfont, ffmpeg | 0.1.0 |
+| `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv | 0.1.0 |
+| `miadi-music-video` | score videos for an episode: ImageMagick and ffmpeg beside the two above (recommended by `miadi-music`) | 0.1.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
 installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
@@ -142,6 +146,39 @@ systemctl --user enable --now tide-runtime.service tide-store-prune.timer
 script) and `PANE_WRITE_GUARD_SRC`, and caches builds under `MIADI_DEB_CACHE`
 (`~/.cache/miadi-deb`).
 
+## miadi-music
+
+Music on a Miadi host, installed beside the platform. The parts are split by
+what a host makes, so an album workstation and a host scoring episodes each
+install only what they use:
+
+| package | an album | an episode's score |
+|---|---|---|
+| `miadi-music-render` | yes | yes |
+| `miadi-music-measure` | yes | yes |
+| `miadi-music-video` | no | yes |
+
+```bash
+sudo apt install miadi miadi-music                          # the platform, and music with score video
+sudo apt install --no-install-recommends miadi-music        # an album host: render and measure only
+miadi-music check                                           # every tool each part needs, and its package
+miadi-music python script.py                                # run under the measuring Python
+```
+
+`miadi-music-measure` follows `miadi-tide`: its `postinst` builds
+`/usr/lib/miadi-music/venv` from the wheels in the package with `--no-index`,
+using the first Python whose version has wheels (cp310 for 22.04, cp311,
+cp312 for 24.04), and checks that NumPy and SciPy import together without a
+warning. A NumPy that pip put in `/usr/local` cannot pair with the
+distribution's SciPy there. The pins are in
+`prep/miadi-music-measure.constraints.txt`. The wheels make the package about
+175 MB.
+
+`miadi-music` itself carries the watch tools (rsync, ssh, jq, curl, file) and
+`/usr/bin/miadi-music`. `MIADI_MUSIC_SOUNDFONT` (else `JAMAI_SOUNDFONT`) and
+`MIADI_MUSIC_PYTHON` override its defaults. The `atelier-jerry` plugin
+(jgwill/miadi-orchestration-kit#44) tries the venv first for its measurements.
+
 ## Build, test, install
 
 ```bash
@@ -171,6 +208,10 @@ bash "$publish" dist/miadi-config_<version>_all.deb
 bash "$publish" dist/miadi_<version>_all.deb
 bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on
 bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it
+bash "$publish" dist/miadi-music-render_<version>_all.deb
+bash "$publish" dist/miadi-music-measure_<version>_amd64.deb
+bash "$publish" dist/miadi-music-video_<version>_all.deb   # after the two it depends on
+bash "$publish" dist/miadi-music_<version>_all.deb         # last
 ```
 
 The repository publishes `amd64` only, so the Termux build in `dist/termux/`

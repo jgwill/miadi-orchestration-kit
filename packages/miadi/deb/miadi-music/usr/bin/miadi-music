@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# miadi-music: what this host can do with music, and the Python that measures it.
+#   miadi-music check        every tool each part needs, and the package that brings it
+#   miadi-music python ARGS  the measuring Python (NumPy, SciPy, Pillow), from miadi-music-measure
+#   miadi-music env          the values the music tools read, as KEY=VALUE
+# A value in the environment wins: MIADI_MUSIC_SOUNDFONT (else JAMAI_SOUNDFONT)
+# and MIADI_MUSIC_PYTHON.
+set -euo pipefail
+VENV=/usr/lib/miadi-music/venv
+PY=${MIADI_MUSIC_PYTHON:-$VENV/bin/python3}
+SOUNDFONT=${MIADI_MUSIC_SOUNDFONT:-${JAMAI_SOUNDFONT:-/usr/share/sounds/sf2/FluidR3_GM.sf2}}
+
+usage() { sed -n '2,7s/^# \{0,1\}//p' "$0"; }
+
+installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'; }
+
+check() {
+	local failed=0 p
+	# tool <part> <command> <package> <without it>
+	tool() {
+		if p=$(command -v "$2" 2>/dev/null); then
+			printf 'ok       %-8s %-13s %s\n' "$1" "$2" "$p"
+		else
+			printf 'MISSING  %-8s %-13s apt install %s — %s\n' "$1" "$2" "$3" "$4"
+			failed=$((failed + 1))
+		fi
+	}
+	tool render abc2midi abcmidi "nothing renders"
+	tool render abcm2ps abcm2ps "no engraved score"
+	tool render rsvg-convert librsvg2-bin "no score image"
+	tool render fluidsynth fluidsynth "no audio"
+	tool render ffmpeg ffmpeg "no encoding, mixing or crops"
+	tool render ffprobe ffmpeg "no duration or stream probe"
+	tool render lame lame "no MP3"
+	if [ -r "$SOUNDFONT" ]; then
+		printf 'ok       %-8s %-13s %s\n' render soundfont "$SOUNDFONT"
+	else
+		printf 'MISSING  %-8s %-13s apt install fluid-soundfont-gm, or set MIADI_MUSIC_SOUNDFONT — no audio (%s)\n' render soundfont "$SOUNDFONT"
+		failed=$((failed + 1))
+	fi
+	if p=$(command -v rubberband 2>/dev/null); then
+		printf 'ok       %-8s %-13s %s\n' render rubberband "$p"
+	else
+		printf 'absent   %-8s %-13s apt install rubberband-cli — no pitch-shifted sample instrument (recommended)\n' render rubberband
+	fi
+	if [ -x "$PY" ] && "$PY" -W error -c 'import numpy, PIL; from scipy.signal import find_peaks; assert find_peaks(numpy.array([0.0, 1.0, 0.0]))[0].tolist() == [1]' >/dev/null 2>&1; then
+		printf 'ok       %-8s %-13s %s (%s)\n' measure python "$PY" "$("$PY" -c 'import numpy, scipy, PIL; print("numpy", numpy.__version__, "scipy", scipy.__version__, "pillow", PIL.__version__)')"
+	else
+		printf 'MISSING  %-8s %-13s apt install miadi-music-measure — no pitch, spectrum or onset measurement (%s)\n' measure python "$PY"
+		failed=$((failed + 1))
+	fi
+	if installed miadi-music-video; then
+		tool video convert imagemagick "no score frames"
+	else
+		printf 'absent   %-8s %-13s apt install miadi-music-video — no score videos for an episode (an album host can leave it out)\n' video package
+	fi
+	tool watch rsync rsync "no studio sync"
+	tool watch ssh openssh-client "no studio sync"
+	tool watch jq jq "no capture or manifest reading"
+	tool watch curl curl "no portal calls"
+	tool watch file file "no type detection of a deposit"
+	if [ "$failed" -gt 0 ]; then
+		printf '\n%d missing. Install the package named on each line, or: apt install miadi-music\n' "$failed" >&2
+		return 1
+	fi
+	if installed miadi-music-video; then
+		printf '\nThis host can render, measure and score to picture.\n'
+	else
+		printf '\nThis host can render and measure.\n'
+	fi
+}
+
+case "${1:-check}" in
+check) check ;;
+python)
+	shift
+	[ -x "$PY" ] || { echo "miadi-music: no measuring Python at $PY (apt install miadi-music-measure)" >&2; exit 1; }
+	exec "$PY" "$@" ;;
+env)
+	printf 'MIADI_MUSIC_PYTHON=%s\nMIADI_MUSIC_SOUNDFONT=%s\n' "$PY" "$SOUNDFONT" ;;
+-h|--help|help) usage ;;
+*) usage >&2; exit 2 ;;
+esac

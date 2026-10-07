@@ -1,0 +1,18 @@
+miadi-music — music on a Miadi host
+
+This package installs the parts a Miadi host needs to make music. Each part
+is its own package and joins as a dependency or a recommendation:
+
+  miadi-music-render   ABC to MIDI, audio and the engraved page      album and episode
+  miadi-music-measure  NumPy, SciPy and Pillow in their own venv     album and episode
+  miadi-music-video    score videos cut to picture                   episode (recommended)
+
+An album-only host: apt install --no-install-recommends miadi-music
+A host scoring episodes: apt install miadi-music
+Beside the platform:     apt install miadi miadi-music
+
+  miadi-music check        every tool each part needs, and the package that brings it
+  miadi-music python ARGS  run ARGS under the measuring Python
+  miadi-music env          MIADI_MUSIC_PYTHON and MIADI_MUSIC_SOUNDFONT
+
+The watch tools (rsync, ssh, jq, curl, file) come with this package itself.

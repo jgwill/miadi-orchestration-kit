@@ -1,0 +1,18 @@
+Package: miadi-music
+Version: 0.1.0
+Section: sound
+Priority: optional
+Architecture: all
+Depends: miadi-music-render (>= 0.1.0), miadi-music-measure (>= 0.1.0), rsync, openssh-client, jq, curl, file
+Recommends: miadi-music-video
+Suggests: miadi
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Music on a Miadi host: render, measure, and score to picture
+ Installs the parts a Miadi host needs to make music, for an album or for
+ the score of an interactive episode. Each part is its own package:
+  miadi-music-render   ABC to MIDI, audio and the engraved page
+  miadi-music-measure  NumPy, SciPy and Pillow in their own venv
+  miadi-music-video    score videos for an episode (recommended)
+ `miadi-music check` reports every tool each part needs and which package
+ brings it. Install it alongside miadi: `apt install miadi miadi-music`.

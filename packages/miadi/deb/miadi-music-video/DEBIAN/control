@@ -1,0 +1,13 @@
+Package: miadi-music-video
+Version: 0.1.0
+Section: sound
+Priority: optional
+Architecture: all
+Depends: miadi-music-render (>= 0.1.0), miadi-music-measure (>= 0.1.0), imagemagick, ffmpeg
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Music to picture on a Miadi host: score videos for an episode
+ What an episode's music needs beyond an album track: the engraved score cut
+ into frames under a scrolling playhead, composited with ImageMagick and
+ Pillow, and muxed with its audio by ffmpeg into a clip the episode plays.
+ An album-only host leaves this package out.

@@ -1,0 +1,15 @@
+Package: miadi-music-measure
+Version: 0.1.0
+Section: sound
+Priority: optional
+Architecture: amd64
+Depends: python3 (>= 3.10), python3-venv
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: The Python that measures music on a Miadi host, in its own venv
+ NumPy, SciPy and Pillow, pinned, in /usr/lib/miadi-music/venv. The venv is
+ built at install from the wheels in this package, never from PyPI, so a
+ NumPy in /usr/local, a conda install or a distribution SciPy cannot pair
+ with it wrongly. Pitch tracking, spectral share, onset detection and score
+ images run under /usr/lib/miadi-music/venv/bin/python3, or
+ `miadi-music python` (package miadi-music).

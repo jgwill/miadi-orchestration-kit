@@ -1,0 +1,6 @@
+# The measuring venv's Python packages. prep/miadi-music-measure.sh bundles
+# exactly these wheels for CPython 3.10 (Ubuntu 22.04), 3.11 (deadsnakes) and
+# 3.12 (Ubuntu 24.04); postinst installs with them as constraints.
+numpy==1.26.4
+scipy==1.13.1
+pillow==10.4.0

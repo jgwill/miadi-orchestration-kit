@@ -1,0 +1,10 @@
+miadi-music-render — score to sound on a Miadi host
+
+This package brings the rendering chain as dependencies and installs no
+program of its own:
+
+  score.abc --abc2midi--> score.mid --fluidsynth + FluidR3_GM.sf2--> score.wav --ffmpeg/lame--> score.mp3
+  score.abc --abcm2ps--> score.svg --rsvg-convert--> score.png
+
+The soundfont is /usr/share/sounds/sf2/FluidR3_GM.sf2. `miadi-music check`
+(package miadi-music) reports each tool and what stops working without it.

@@ -1,0 +1,9 @@
+miadi-music-video — music to picture on a Miadi host
+
+This package brings what score videos need as dependencies and installs no
+program of its own yet: the engraved page from miadi-music-render, Pillow and
+NumPy from miadi-music-measure's venv, ImageMagick, and ffmpeg. The JamAI
+score-video tools (jamai-defile, jamai-clip) run on a host that has it.
+
+Install it on a host that makes music for episodes. An album-only host
+installs miadi-music without it.

@@ -1,0 +1,17 @@
+Package: miadi-music-render
+Version: 0.1.0
+Section: sound
+Priority: optional
+Architecture: all
+Depends: abcmidi, abcm2ps, librsvg2-bin, fluidsynth, fluid-soundfont-gm, ffmpeg, lame
+Recommends: rubberband-cli, sox
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Score to sound on a Miadi host: ABC, MIDI, audio and the engraved page
+ The tools every Miadi music workflow renders through, for an album track
+ as for the score of an episode:
+  abc2midi      an ABC score to MIDI
+  abcm2ps       an ABC score to an engraved page; rsvg-convert makes the PNG
+  fluidsynth    MIDI to audio, with the FluidR3 General MIDI soundfont
+  ffmpeg, lame  probing, crops, mixing and MP3
+ rubberband-cli (pitch-shifted sample instruments) and sox are recommended.
