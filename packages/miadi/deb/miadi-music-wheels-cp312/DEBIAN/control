@@ -1,0 +1,13 @@
+Package: miadi-music-wheels-cp312
+Version: 0.1.0
+Section: sound
+Priority: optional
+Architecture: amd64
+Depends: python3 (>= 3.12), python3 (<< 3.13)
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: NumPy, SciPy and Pillow wheels for Python 3.12, for miadi-music-measure
+ The pinned wheels miadi-music-measure builds its venv from, for a host whose
+ python3 is 3.12 (Ubuntu 24.04). It depends on that python3, so apt installs only the
+ set the host can use; miadi-music-measure accepts any one of them. Each set is
+ its own package so that none exceeds the apt repository's 100 MB limit.

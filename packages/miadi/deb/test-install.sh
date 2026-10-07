@@ -30,7 +30,18 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     apt-get install -y -qq tmux >/dev/null 2>&1
     echo "before: $(tmux -V) from the distribution"
   fi
-  apt-get install -y -qq /tmp/debs/*.deb >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
+  if ls /tmp/debs/miadi-music-wheels-*.deb >/dev/null 2>&1; then
+    # Only one wheels set fits a host, and apt picks it. Serve the debs as a local repository and
+    # install the packages by name, so apt makes the choice, as on a host.
+    apt-get install -y -qq apt-utils >/dev/null 2>&1
+    mkdir /tmp/repo && cp /tmp/debs/*.deb /tmp/repo/ && (cd /tmp/repo && apt-ftparchive packages . > Packages)
+    echo "deb [trusted=yes] file:/tmp/repo ./" > /etc/apt/sources.list.d/local-debs.list
+    apt-get update -qq >/dev/null
+    names=$(for d in /tmp/repo/*.deb; do dpkg-deb -f "$d" Package; done | grep -v "^miadi-music-wheels-")
+    apt-get install -y -qq $names >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
+  else
+    apt-get install -y -qq /tmp/debs/*.deb >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
+  fi
   grep "^miadi-tide:" /tmp/install.log || true
   if [ -f /etc/miadi/miadi.env ]; then printf "MIADI_URL_BASE=https://example.test\n" >> /etc/miadi/miadi.env; fi
 
@@ -198,12 +209,17 @@ PY
   if dpkg -s miadi-music >/dev/null 2>&1; then
     dpkg -s miadi-music | sed -n "s/^Version: /installed miadi-music /p"
     grep "^miadi-music-measure:" /tmp/install.log
+    tag=$(python3 -c "import sys; print(\"cp%d%d\" % sys.version_info[:2])")
+    test "$(dpkg -l "miadi-music-wheels-*" | awk "/^ii/ {print \$2}")" = "miadi-music-wheels-$tag" && echo "apt chose miadi-music-wheels-$tag, the set for this python3, and no other"
     miadi-music check
     test "$(miadi-music python -c "import sys; print(sys.prefix)")" = /usr/lib/miadi-music/venv && echo "miadi-music python runs the venv"
     printf "X:1\nT:check\nM:4/4\nL:1/4\nK:C\nCDEF|G4|]\n" > /tmp/check.abc
     abc2midi /tmp/check.abc -o /tmp/check.mid >/dev/null
     fluidsynth -ni -F /tmp/check.wav -r 44100 "$(miadi-music env | sed -n "s/^MIADI_MUSIC_SOUNDFONT=//p")" /tmp/check.mid >/dev/null 2>&1
     miadi-music python -c "import wave, numpy; w = wave.open(\"/tmp/check.wav\"); x = numpy.frombuffer(w.readframes(w.getnframes()), dtype=numpy.int16); assert numpy.abs(x).max() > 1000; print(\"an ABC tune renders to sound:\", round(w.getnframes() / w.getframerate(), 1), \"s\")"
+    apt-get install --reinstall -y -qq "miadi-music-wheels-$tag" >/tmp/reinstall.log 2>&1
+    grep -q "^miadi-music-measure: numpy" /tmp/reinstall.log && miadi-music python -c "import scipy.signal" \
+      && echo "a wheels package replaced triggers the venv rebuild"
     apt-get remove -y -qq miadi-music-measure >/dev/null 2>&1
     test ! -e /usr/lib/miadi-music/venv && echo "remove takes the venv with it"
   fi

@@ -1,23 +1,25 @@
 #!/bin/sh
-# The measuring Python gets its own venv, built only from the pinned wheels in
-# the package (--no-index): nothing from /usr/local, a user's conda, or PyPI.
-# The first Python with venv whose version has wheels in the package is used.
+# The measuring Python gets its own venv, built only from the pinned wheels of the
+# miadi-music-wheels-cp<NN> package installed for this host's python3 (--no-index):
+# nothing from /usr/local, a user's conda, or PyPI. The first Python with venv
+# whose version has a wheels set is used. A wheels package installed, upgraded or
+# replaced (a new python3 after a release upgrade) triggers a rebuild.
 set -e
 # Every user runs the measuring tools from this venv, whatever root's umask is.
 umask 022
 venv=/usr/lib/miadi-music/venv
-wheels=/usr/share/miadi-music/wheels
+wheels_root=/usr/share/miadi-music/wheels
 case "$1" in
-configure)
+configure|triggered)
 	py=
 	for c in python3 python3.12 python3.11 python3.10; do
 		p=$(command -v "$c" 2>/dev/null) || continue
 		tag=$("$p" -c 'import sys; print("cp%d%d" % sys.version_info[:2])' 2>/dev/null) || continue
 		"$p" -c 'import ensurepip, venv' 2>/dev/null || continue
-		if ls "$wheels"/numpy-*-"$tag"-*.whl >/dev/null 2>&1; then py=$p; break; fi
+		if ls "$wheels_root/$tag"/numpy-*-"$tag"-*.whl >/dev/null 2>&1; then py=$p; wheels=$wheels_root/$tag; break; fi
 	done
 	if [ -z "$py" ]; then
-		echo "miadi-music-measure: no Python with venv for the bundled wheels ($(ls "$wheels" | sed -n 's/^numpy-[^-]*-\(cp[0-9]*\)-.*/\1/p' | sort -u | tr '\n' ' '))" >&2
+		echo "miadi-music-measure: no Python with venv for an installed wheels set ($(ls "$wheels_root" 2>/dev/null | tr '\n' ' '))" >&2
 		exit 1
 	fi
 	rm -rf "$venv"

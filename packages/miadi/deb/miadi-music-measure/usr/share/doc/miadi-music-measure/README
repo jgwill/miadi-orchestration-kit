@@ -1,13 +1,20 @@
 miadi-music-measure — the Python that measures music on a Miadi host
 
   /usr/lib/miadi-music/venv/bin/python3    NumPy, SciPy and Pillow, pinned
-  /usr/share/miadi-music/wheels/           the wheels it is built from, and constraints.txt
+  /usr/share/miadi-music/wheels/cp<NN>/    the wheels it is built from, and constraints.txt,
+                                           from miadi-music-wheels-cp<NN>
 
-postinst builds the venv from the wheels with --no-index, using the first
-Python with venv (python3, python3.12, python3.11, python3.10) whose version
-has wheels in the package, then checks that NumPy and SciPy import together
-without a warning and that scipy.signal runs. Removing the package removes
-the venv.
+The wheels come in one package per Python: miadi-music-wheels-cp310 (Ubuntu
+22.04), -cp311 (Debian 12) and -cp312 (Ubuntu 24.04). Each depends on its
+python3, so apt installs only the set this host can use, and each stays under
+the apt repository's 100 MB limit.
+
+postinst builds the venv from them with --no-index, using the first Python
+with venv (python3, python3.12, python3.11, python3.10) that has a wheels set,
+then checks that NumPy and SciPy import together
+without a warning and that scipy.signal runs. A wheels package installed,
+upgraded or replaced rebuilds the venv (a dpkg trigger), as after a release
+upgrade changes python3. Removing the package removes the venv.
 
 Why a venv: on a host where pip put a newer NumPy in /usr/local, the
 distribution's SciPy imports with a version warning and is not a supported

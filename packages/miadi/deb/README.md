@@ -25,7 +25,8 @@ sudo apt update && sudo apt install miadi
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
 | `miadi-music` | music on the host, for an album or an episode's score: brings the three below and the `miadi-music` command | 0.1.0 |
 | `miadi-music-render` | ABC to MIDI, audio and the engraved page: abcmidi, abcm2ps, fluidsynth with the FluidR3 soundfont, ffmpeg | 0.1.0 |
-| `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv | 0.1.0 |
+| `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
+| `miadi-music-wheels-cp310`, `-cp311`, `-cp312` | the wheels for that venv, one package per Python (Ubuntu 22.04, Debian 12, Ubuntu 24.04); apt installs the one matching `python3` | 0.1.0 |
 | `miadi-music-video` | score videos for an episode: ImageMagick and ffmpeg beside the two above (recommended by `miadi-music`) | 0.1.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
@@ -166,13 +167,20 @@ miadi-music python script.py                                # run under the meas
 ```
 
 `miadi-music-measure` follows `miadi-tide`: its `postinst` builds
-`/usr/lib/miadi-music/venv` from the wheels in the package with `--no-index`,
-using the first Python whose version has wheels (cp310 for 22.04, cp311,
-cp312 for 24.04), and checks that NumPy and SciPy import together without a
-warning. A NumPy that pip put in `/usr/local` cannot pair with the
-distribution's SciPy there. The pins are in
-`prep/miadi-music-measure.constraints.txt`. The wheels make the package about
-175 MB.
+`/usr/lib/miadi-music/venv` with `--no-index` from the wheels in
+`/usr/share/miadi-music/wheels/cp<NN>/`, and checks that NumPy and SciPy import
+together without a warning. A NumPy that pip put in `/usr/local` cannot pair with
+the distribution's SciPy there. The pins are in
+`prep/miadi-music-measure.constraints.txt`.
+
+The wheels for all three Pythons came to about 175 MB, over the repository's
+100 MB limit for a `.deb`. They are three packages instead, about 55 MB each,
+built by `prep/miadi-music-wheels.sh`. Each `miadi-music-wheels-cp<NN>` depends on
+the `python3` of its version, and `miadi-music-measure` depends on any one of them,
+so apt installs only the set the host can use. A wheels package installed,
+upgraded or replaced triggers `miadi-music-measure` (`DEBIAN/triggers`), which
+rebuilds the venv: after a release upgrade changes `python3`, apt swaps the
+wheels package and the venv follows.
 
 `miadi-music` itself carries the watch tools (rsync, ssh, jq, curl, file) and
 `/usr/bin/miadi-music`. `MIADI_MUSIC_SOUNDFONT` (else `JAMAI_SOUNDFONT`) and
@@ -209,13 +217,16 @@ bash "$publish" dist/miadi_<version>_all.deb
 bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on
 bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it
 bash "$publish" dist/miadi-music-render_<version>_all.deb
-bash "$publish" dist/miadi-music-measure_<version>_amd64.deb
+for w in dist/miadi-music-wheels-cp3*_<version>_amd64.deb; do bash "$publish" "$w"; done
+bash "$publish" dist/miadi-music-measure_<version>_all.deb   # after the wheels it depends on
 bash "$publish" dist/miadi-music-video_<version>_all.deb   # after the two it depends on
 bash "$publish" dist/miadi-music_<version>_all.deb         # last
 ```
 
 The repository publishes `amd64` only, so the Termux build in `dist/termux/`
-is installed from the file.
+is installed from the file. It is a Cloudflare Worker over R2, and an uploaded
+`.deb` must stay under 100 MB: split a package that grows past it, as the music
+wheels are split by Python.
 
 The Miadi umbrella packages (`packages/miadi/js`, `packages/miadi/py` in
 jgwill/Miadi) can join here later.
