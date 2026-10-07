@@ -2,7 +2,7 @@
   "mcpServers": {
     "inquiry-weave": {
       "command": "npx",
-      "args": ["-y", "-p", "${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.16.4}", "inquiry-weave-mcp"],
+      "args": ["-y", "-p", "${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.16.5}", "inquiry-weave-mcp"],
       "env": {
         "MIADI_EPISODE_DOOR": "http",
         "MIADI_INQUIRY_API_BASE": "${MIADI_API_URL:-https://miadi.tail3b11eb.ts.net}",
