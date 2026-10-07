@@ -33,7 +33,7 @@ computer rebooted."
 |---|---|---|
 | binding line | each Claude session's id, tmux `session:window.pane`, pane id, command line, name history, team, chronicle episode | this plugin's `hooks/claude_hooks/terminal_binding.sh`, written to `<root>/data/terminal_bindings.jsonl` |
 | tmux save and restore | layout, folders, visible screens, saved every 15 minutes by `tmux-save.timer`; the server started at boot by `tmux-server.service` | `jgwill/gaia` `linux_migration/14-tmux-resurrect.sh` and its two hooks; on a new machine `miadi-terminal enable restore` (apt) |
-| tide | the agent in each pane, every 60 s, and the relaunch after a restore | `ironsilk` 0.9.39 and later (claude, hermes, pi), `tide agents list`, `tide agents restore`; apt `miadi-tide` |
+| tide | the agent in each pane, every 60 s, and the relaunch after a restore | `ironsilk` 0.9.40 and later (claude, hermes, pi), `tide agents list`, `tide agents restore`; apt `miadi-tide` |
 | one tmux | 3.7c everywhere: a client of another version cannot attach | apt `miadi-tmux` |
 | recovery list | what each pane probably held, when the three above had nothing | built by hand as in "After a crash" below |
 
@@ -59,8 +59,11 @@ session name changes with `/rename`, and every change is a `session.rename` line
    last save: panes in their folders, with their visible screens.
 2. The `post-restore-all` hook (`tmux-restore-agents.sh`) starts `tide agents restore`.
 3. tide reads its last snapshot with panes from before this tmux server started. It relaunches
-   the agents that were running, with their launch alias and `--resume <id>`, 10 seconds apart,
-   the most recently active first, while 16 GiB of memory stays available. An agent that had
+   the agents that were running, with their launch alias and `--resume <id>`, 10 seconds apart.
+   The most recently active ones that fit above 16 GiB of available memory (512 MiB counted
+   each, `--agent-memory-mb`) start, oldest of them first, so the last one resumed is the one
+   that was active last and the session list on William's phone keeps its order (ironsilk
+   0.9.40, 2026-10-07). The others get their command typed without Enter. An agent that had
    exited starts nothing and gets nothing typed: its pane keeps a note (the pane option
    `@miadi-resume`), `tide agents list` shows it `exited`, and `tide agents resume [pane]`
    brings it back when the human chooses (William, 2026-10-07).
