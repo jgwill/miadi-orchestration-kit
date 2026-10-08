@@ -33,7 +33,7 @@ Added 2026-10-08 (version 0.2), from William at the end of the Episode 140 scree
 
 1. **What this screenwalk is about.** The whole recording in the order it happened, each turn of the work in two or three sentences, in the person's own vocabulary. Keep apart the things the person keeps apart; a flattened term is a correction waiting to happen.
 2. **The title.** Two forms: a human title under 100 characters for YouTube, and the slug that names the file, `ep<N>-screenwalk-<yymmdd>-<seat>-<topics>` (precedent: `ep550-screenwalk-261001-mino-smcraft-stateloom-laskmi-trading`).
-3. **The description.** Three or four short paragraphs a viewer reads under the video, and which a Miadi review can use as its source summary.
+3. **The description.** Three or four short paragraphs a viewer reads under the video, and which a Miadi review can use as its source summary. It says what happens in the recording. It never states as done, or as existing, what the person only wants: on 2026-10-08 "It closes on how the work is funded" claimed a funding that does not exist.
 4. **A note for the agents who will observe this session.** Who the seat is, what to expect from it, and what it will do next, in the imperative.
 5. **What comes next**, as the next screenwalk.
 
@@ -47,7 +47,7 @@ A closing that lives only on the phone page and in the transcript is lost to the
 
 1. Commit the closing in the episode as the screenwalk's record: `captures/<slug>/closing.md`, holding the title, the slug, the description and the note for observing agents.
 2. Give the title and the description at upload, as the video's title and description.
-3. Once the review exists, import a version whose `## Intent` carries the title and description as the author's own, and correct the generated text against them (`miadi-review-academic-fields`, step 1).
+3. Once the review exists, give it the closing's title as its own title, and correct the generated text against the closing (`miadi-review-academic-fields`, step 1). The description does not go into the review: it belongs under the video. The review's `## Intent` says what the person wants the work to bring about, drawn from their own words, as the `miadi-review` skill describes. Never paste the description there. William, on the review of 2026-10-08 that did: "that is not an intent".
 
 Source: a branch of the Episode 140 Mia session, asked through `miadi-fork ask` (session-fork skill), 2026-10-08. Its full answer is in `<sessiondata>/41fd21fc-44c3-4c1c-993f-bc2e12644433/fork-ask.md`.
 
