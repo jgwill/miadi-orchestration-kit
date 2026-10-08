@@ -317,4 +317,5 @@ test("after the take is sent, the reply that waited is offered, not played, and 
   const first = h.elements.thread.appended[0].appended[0];
   assert.equal(first.appended[0].textContent, "Mia", "newest first: the reply that waited sits right under the controls");
   assert.equal(h.elements.thread.appended[0].appended[1].textContent, "Arrived mid-take.");
+  assert.equal(h.elements.transcript.textContent, "", "the take's words are in the conversation, not printed again above it");
 });

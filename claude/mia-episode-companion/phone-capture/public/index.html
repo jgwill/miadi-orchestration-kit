@@ -86,12 +86,12 @@
     <div id="replyStatus" class="status" role="status" aria-live="polite"></div>
     <div id="replyNotice" class="notice" role="status" aria-live="polite"></div>
   </div>
-  <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
   <section id="result" class="result" hidden aria-live="polite">
     <div id="resultHead"></div>
     <div id="transcript" class="transcript"></div>
   </section>
   <section id="thread" class="thread" hidden aria-live="polite"></section>
+  <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
   <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Your takes and Mia's replies stay here as one conversation, newest first. A reply that arrives while you record waits, silent, until you have sent your take. Keep the screen on while you speak.</small>
 </main>
 <script>
@@ -758,7 +758,9 @@
           answering: " Mia is answering an earlier take. She hears this one next.",
           answered: " The session there hears it as soon as it listens again.",
         }[seen.state] || " No session is listening yet. It waits here, and her reply appears on this page when a session answers it."));
-      transcript.textContent = answer.english || "";
+      // The words are in the conversation just below, newest first. Printing them here too
+      // pushed her reply out of sight while it played (William, 2026-10-08, 08:04).
+      transcript.textContent = "";
       result.hidden = false;
       say("");
       timer.textContent = "";
