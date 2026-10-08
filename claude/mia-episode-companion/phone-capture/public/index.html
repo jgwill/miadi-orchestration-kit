@@ -92,7 +92,7 @@
     <div id="transcript" class="transcript"></div>
   </section>
   <section id="thread" class="thread" hidden aria-live="polite"></section>
-  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Your takes and Mia's replies stay here as one conversation. A reply that arrives while you record waits, silent, until you have sent your take. Keep the screen on while you speak.</small>
+  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Your takes and Mia's replies stay here as one conversation, newest first. A reply that arrives while you record waits, silent, until you have sent your take. Keep the screen on while you speak.</small>
 </main>
 <script>
 (function () {
@@ -147,7 +147,7 @@
     if (isNew) loadThread();
     if (isNew && busy()) {
       unheard[reply.id] = true;
-      replyNotice.textContent = "Mia replied at " + when(reply.at) + ". It waits, silent, until you have sent your take.";
+      replyNotice.textContent = "Mia replied at " + when(reply.at) + ". Read it just below. Her voice waits until you have sent your take.";
     }
     if (isNew && !busy()) {
       replyAudio.pause();
@@ -233,8 +233,10 @@
     return "Waiting for Mia… ";
   }
 
-  // One conversation: William's takes and Mia's replies, oldest first, newest at the
-  // bottom. It is rebuilt only when something new arrived, so reading is not disturbed.
+  // One conversation: William's takes and Mia's replies, newest first, right under the
+  // controls. Oldest-first put a reply that landed mid-take at the bottom of forty entries,
+  // where William could not read it while speaking (take 261008074903). It is rebuilt only
+  // when something new arrived, so reading is not disturbed.
   async function loadThread() {
     var episode = select.value;
     if (!episode) { thread.hidden = true; return; }
@@ -251,7 +253,7 @@
 
   function renderThread(items) {
     thread.textContent = "";
-    items.forEach(function (item) {
+    items.slice().reverse().forEach(function (item) {
       var mia = item.kind === "reply";
       var entry = document.createElement("div");
       entry.className = "entry " + (mia ? "mia" : "take") + (mia && unheard[item.id] ? " unheard" : "");
@@ -285,7 +287,6 @@
       thread.appendChild(entry);
     });
     thread.hidden = items.length === 0;
-    try { thread.lastChild && thread.lastChild.scrollIntoView && !busy() && thread.lastChild.scrollIntoView({ block: "nearest" }); } catch (_) {}
   }
 
   // The page tells gaia while the microphone is open, so a seat that posts a reply learns

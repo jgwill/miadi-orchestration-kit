@@ -283,7 +283,7 @@ test("a reply that arrives while William records stays silent, says it is waitin
   assert.equal(h.made[0].state, "recording", "the recorder is still recording");
   assert.equal(h.elements.record.textContent, "Stop & send");
   assert.equal(h.elements.replyAudio.played || 0, playedBefore, "nothing played under the take");
-  assert.match(h.elements.replyNotice.textContent, /Mia replied at .*waits, silent, until you have sent your take/);
+  assert.match(h.elements.replyNotice.textContent, /Mia replied at .*Read it just below\. Her voice waits until you have sent your take/);
   assert.deepEqual(h.recorderPosts.slice(0, 1), [true], "gaia was told the microphone is open");
 });
 
@@ -314,4 +314,7 @@ test("after the take is sent, the reply that waited is offered, not played, and 
   assert.doesNotMatch(String(h.elements.replyAudio.src || ""), /api\/replies\/r-new/, "the waiting reply is offered, not played");
   assert.equal(h.elements.thread.hidden, false, "the conversation is on the page after the take is sent");
   assert.equal(h.elements.thread.appended.length, 3, "every take and reply is in it");
+  const first = h.elements.thread.appended[0].appended[0];
+  assert.equal(first.appended[0].textContent, "Mia", "newest first: the reply that waited sits right under the controls");
+  assert.equal(h.elements.thread.appended[0].appended[1].textContent, "Arrived mid-take.");
 });
