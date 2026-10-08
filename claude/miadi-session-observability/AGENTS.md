@@ -12,6 +12,8 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   its name history, the team and the episode).
 - `hooks/secret_capture_sanitizer.sh`, `hooks/git_command_validator.sh`: bundled copies.
 - `skills/session-continuity/`: T1's practice.
+- `scripts/miadi-fork.mjs` and `skills/session-fork/`: branch a session from its binding line
+  (`ask`, `open`, `list`), with `scripts/miadi-fork.test.mjs`, 8 checks (jgwill/miadi-orchestration-kit#61).
 - `tests/team-resolution.sh`: the team rules, 13 checks.
 - `tests/episode-resolution.sh`: the episode rules, 13 checks.
 - `tests/transcript-archive.sh`: the transcript archive rules, 25 checks.

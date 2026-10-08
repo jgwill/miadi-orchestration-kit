@@ -1,7 +1,7 @@
 {
   "name": "miadi-session-observability",
   "description": "Session capture for Miadi hosts, installed once per host instead of hand-wired into settings.json. Every Claude Code event is written under <root>/<session_id>/ exactly as /opt/binscripts/hooks/claude_hooks writes it, so the token counter, the /token-usage page and the session observers keep working. Every session start, end and rename also writes a binding line: the session id, the tmux pane it runs in (session:window.pane), its command line, its name history and its team. The session-continuity skill carries the T1 practice: binding, tmux save and restore, tide bringing agents back, and rebuilding what each pane held after a crash.",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "author": {
     "name": "jgwill"
   },
