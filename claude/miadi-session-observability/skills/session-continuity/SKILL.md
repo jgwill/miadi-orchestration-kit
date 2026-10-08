@@ -67,6 +67,11 @@ session name changes with `/rename`, and every change is a `session.rename` line
    exited starts nothing and gets nothing typed: its pane keeps a note (the pane option
    `@miadi-resume`), `tide agents list` shows it `exited`, and `tide agents resume [pane]`
    brings it back when the human chooses (William, 2026-10-07).
+   A session closed after the last save comes back from it as a shell. When tide's snapshot
+   is newer than the save and no longer names the session, tide closes it again, unless a
+   pane runs something other than a shell or the session shares a folder with a snapshot
+   session that did not come back (a rename). ironsilk 0.9.42 (William, 2026-10-08: no dead
+   bodies).
 4. It runs once per tmux server start. A second hook call answers "already restored".
 
 Try it without touching anything: `tide agents restore --dry-run --force`.
@@ -98,9 +103,10 @@ Try it without touching anything: `tide agents restore --dry-run --force`.
    that names the tmux session, and any `--resume <id>` in the tmux save. Call them candidates. A
    shared folder cannot tell which pane held which session.
 4. Compare the snapshot with what tmux restored. Sessions created after the last save are
-   missing, and sessions closed before the crash come back. Closing or recreating them is the
-   human's decision. Panes the restore itself added, idle shells that no snapshot names, are
-   yours to remove.
+   missing, and recreating them is the human's decision. Sessions closed before the crash came
+   back from the save, and tide 0.9.42 closes them again (its restore log says `closed`); the
+   ones it skipped say why. Panes the restore itself added, idle shells that no snapshot names,
+   are yours to remove.
 
 When tmux did not come back by itself (2026-10-03, jgwill/gaia#90):
 
