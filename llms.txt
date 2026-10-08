@@ -62,12 +62,18 @@ GitHub Pages serves this repository through Jekyll:
 
 ## Claude Code plugins
 
-Marketplace: `.claude-plugin/marketplace.json` lists `miadi-chronicle-episode-kit` and `mia-episode-companion`. Any plugin loads with `claude --plugin-dir <kit>/claude/<plugin>`.
+Marketplace: `.claude-plugin/marketplace.json` lists `miadi-chronicle-episode-kit`, `mia-episode-companion`, `ava-companion`, `miadi-session-observability`, `miadi-witness`, `miadi-stateloom`, `miadi-deepdiver` and `miadi-operator-desk`. Add it with `claude plugin marketplace add jgwill/miadi-orchestration-kit`, install with `claude plugin install <plugin>@miadi-orchestration-kit`. Any plugin loads with `claude --plugin-dir <kit>/claude/<plugin>`.
 
 | Plugin | Use when you need | Path |
 | --- | --- | --- |
 | `miadi-chronicle-episode-kit` | the chronicle-episode skill, plus a PreToolUse hook that refuses `mkdir` under the chronicle root and returns the `mkepisode` invocation | [`claude/miadi-chronicle-episode-kit`](claude/miadi-chronicle-episode-kit/README.md) |
 | `mia-episode-companion` | Mia as a companion seat bound to one episode: a phone voice take wakes the session, answers go through draft, developmental editor, and revision | [`claude/mia-episode-companion`](claude/mia-episode-companion/README.md) |
+| `ava-companion` | Ava in any session: `/ava` invites her, a SessionStart hook brings her presence back after a resume or compaction, her diary is written from the transcript | [`claude/ava-companion`](claude/ava-companion/README.md) |
+| `miadi-session-observability` | T1: every Claude Code event under `<root>/<session_id>/`, a binding line per session (tmux pane, command line, names, team, episode), the session-continuity skill | [`claude/miadi-session-observability`](claude/miadi-session-observability/README.md) |
+| `miadi-witness` | T3: threads by team and seat, the asks ledger, the editor pass, the session inventory with team fit, first impressions, screenwalk presence | [`claude/miadi-witness`](claude/miadi-witness/README.md) |
+| `miadi-stateloom` | the stateloom MCP server and design skills: ERD, state machines and scenarios as one system, checked and replayed | [`claude/miadi-stateloom`](claude/miadi-stateloom/README.md) |
+| `miadi-deepdiver` | T6: Miadi reviews and screenwalk videos into a Gemini Notebook, cited answers, media kept with a manifest | [`claude/miadi-deepdiver`](claude/miadi-deepdiver/README.md) |
+| `miadi-operator-desk` | T7: questions about how the factory works, answered from the owning team's text, kept in the desk ledger | [`claude/miadi-operator-desk`](claude/miadi-operator-desk/README.md) |
 | `miadi-pi-network` | a Claude Code session joining the Pi Network hub as a peer | [`claude/miadi-pi-network`](claude/miadi-pi-network/README.md) |
 | `miadi-session-orchestrator` | review role for plan-insight pipelines: gap reports, revision prompts, audit contracts | `claude/miadi-session-orchestrator` |
 | `miette` | a Two-Eyed Seeing check on output: structural eye (🧠 Mia) and relational eye (🌸 Miette) | [`claude/miette`](claude/miette/README.md) |
@@ -92,6 +98,10 @@ Per-host authoring rules: [`claude/AGENTS.md`](claude/AGENTS.md), [`codex/AGENTS
 | `chronicle-episode` | the one entry point for Chronicle episode work on any host: mint, register, relate, redeem receipts, reconcile drift | [`skills/chronicle-episode/SKILL.html`](skills/chronicle-episode/SKILL.html), `redeem-receipt.sh`, `reconcile.py` |
 | `install-chronicle-skill.sh` | point every skill layer on a host at the one kit copy of `chronicle-episode` instead of a diverging copy | [`scripts/install-chronicle-skill.sh`](scripts/install-chronicle-skill.sh) |
 | `miadi-agent` | launch Pi or Claude Code as a named peer on an existing Pi Network room | [`scripts/miadi-agent`](scripts/miadi-agent) |
+| `chart-path` | T4: how a structural tension chart reaches Asterion, and the words the teams use for it | [`skills/chart-path/SKILL.md`](skills/chart-path/SKILL.md) |
+| `proposal-visualization` | a proposal, plan or architecture as one HTML page to read, comment on and approve | [`skills/proposal-visualization/SKILL.md`](skills/proposal-visualization/SKILL.md) |
+| `miadi-react` | the emoji reactions on GitHub issues as Miadi stores them, and what a reaction could hand to a tmux lane | [`skills/miadi-react/SKILL.md`](skills/miadi-react/SKILL.md) |
+| `kit-mcp-upgrade.sh` | move every plugin's pinned MCP packages to the registry version, bump, prove the servers connect, push | [`scripts/kit-mcp-upgrade.sh`](scripts/kit-mcp-upgrade.sh) |
 | `deep-search` | multi-agent research decomposition and synthesis pattern | `skills/deep-search/` |
 | `mcp-remote-qmd` | companion agents reaching remote QMD over SSH | `skills/mcp-remote-qmd/` |
 | `use-design-bundle-integration-kit` | conducting a design-bundle integration wave | `skills/use-design-bundle-integration-kit/` |
