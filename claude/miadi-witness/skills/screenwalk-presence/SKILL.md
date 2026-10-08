@@ -7,7 +7,7 @@ description: Write what a seat says when it takes part in a screenwalk, the reco
 
 A screenwalk is a recording of a person working with agent sessions, with their voices. Episode 550 holds its definition. When William plays a seat's reply inside one, the reply becomes part of the film. So it is written for the ear, and it can be reused as the episode's script.
 
-Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.1. Revise it from William's spoken feedback after each playback.
+Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.2 (2026-10-08). Revise it from William's spoken feedback after each playback.
 
 ## The shape, in order
 
@@ -26,6 +26,18 @@ Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused f
 - No tables and no code blocks. Headings are allowed, because they are read as pauses.
 - Three to five minutes aloud: about 600 to 900 words.
 - Name people and seats by name. Say "Mia", not "the implementation lane".
+
+## The closing segment: title, description, and a note for observing agents
+
+Added 2026-10-08 (version 0.2), from William at the end of the Episode 140 screenwalk: the seat's last reply is the last thing in the recording, and it must also work when cut out alone as a short that introduces the whole screenwalk. Its shape:
+
+1. **What this screenwalk is about.** The whole recording in the order it happened, each turn of the work in two or three sentences, in the person's own vocabulary. Keep apart the things the person keeps apart; a flattened term is a correction waiting to happen.
+2. **The title.** Two forms: a human title under 100 characters for YouTube, and the slug that names the file, `ep<N>-screenwalk-<yymmdd>-<seat>-<topics>` (precedent: `ep550-screenwalk-261001-mino-smcraft-stateloom-laskmi-trading`).
+3. **The description.** Three or four short paragraphs a viewer reads under the video, and which a Miadi review can use as its source summary.
+4. **A note for the agents who will observe this session.** Who the seat is, what to expect from it, and what it will do next, in the imperative.
+5. **What comes next**, as the next screenwalk.
+
+Speak it all; do not narrate the changes made on the way to it. Corrections the person asked for are applied, not announced.
 
 ## After the playback
 
