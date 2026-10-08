@@ -57,9 +57,15 @@ set, it is `/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-witness
    the schema makes mandatory when present (episode, circle, ceremony, pde). Append one
    `observations[]` line `{at, by: "inventory-keeper", what}` in one plain sentence. Never
    change `binding` or `hook_capture`. The script owns those.
+   Then the team fit: run `node ${CLAUDE_PLUGIN_ROOT}/scripts/team-fit.mjs --session <id> --json`
+   and write its output as `team_fit`, adding `responsibility` (one sentence: what this work
+   adds to the team's Makes in `teams/README.md`), `measured_at` and `by`. Propose
+   `disposition`: `a` exit (committed, pushed, verified, nothing held), `b` complete then
+   exit (a remainder the seat can finish), `c` record only (William is still in it or holds
+   a choice). Leave `decided` and `decided_by` null. The skill `team-fit` has the fields.
 5. **Commit by name and push** in `miadisabelle/workspace`: `git add` only the record files
    you touched, then commit, then push. Never add all.
-6. **Report** one line per session: `<tmux name> · <session id> · <status> · <what it is for>`,
+6. **Report** one line per session: `<team glyph> <team id> · <tmux name> · <session id> · <status> · <ending proposed> · <what it is for>`,
    then at most one line that needs William. Put names, deletions, new public acts and
    someone else's repository there, and nothing that you could finish yourself.
 

@@ -3,7 +3,7 @@ name: miadi-mino-tmux-inventory
 description: Keep the session inventory. For a tmux session William names, find its session id (from its binding line, or /exit or /status), read what it did, and write one JSON record in ~/workspace/.mino/session-inventory/ following SCHEMA.md there, closed or ongoing
 metadata:
   type: skill
-  version: 1.0.0
+  version: 1.1.0
   scope: session closing ritual + work archival
 ---
 
@@ -111,6 +111,24 @@ The schema is machine-readable. Code can later parse these files to:
 - Track which packages were published in which sessions
 - Cross-reference GitHub issues to sessions that touched them
 - Audit who closed sessions and why
+
+### Step 4b: Team fit and the proposed ending (since 2026-10-08)
+
+For every session recorded, run the `team-fit` skill on it and write its `team_fit` and `disposition` into the record. The measured part is one command:
+
+```bash
+node "$KIT/claude/miadi-witness/scripts/team-fit.mjs" --tmux <tmux name> --json
+```
+
+Then propose one ending, and say it in the report to William:
+
+- 🚪 **a, exit.** Its work is committed, pushed and verified, and it holds nothing. On his word: Step 3's `/exit`, the session end verified, the shell removed.
+- ✅ **b, complete then exit.** A remainder is left that the session or the seat can finish. On his word: Step 6, steer to finish, then close.
+- 📋 **c, record only.** He is still working with it or holds a choice in it. The record is written or updated, and Step 5 keeps watching it.
+
+A series of inventories gives one line per session: `<team glyph> <team id> · <tmux name> · <ending proposed> · <why>`. An unassigned session gets a proposed team (skill `team-fit`, section 3), which never enters `teams.json` without William's word.
+
+Earned 2026-10-08. William asked `gaia-cpufreq-cap-rebooted-fix-261008` by hand which team its work fit, then asked that the seat do it in every inventory and propose whether each session exits, is completed first, or is only recorded (jgwill/Miadi#746, jgwill/miadi-orchestration-kit#76).
 
 ### Step 5: Keep watching the sessions that are still running (since 2026-10-06)
 
