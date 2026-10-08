@@ -13,7 +13,7 @@ script, a remembered alias, a remembered folder and a hand-made tmux name. jgwil
 ```bash
 F="node ${CLAUDE_PLUGIN_ROOT}/scripts/miadi-fork.mjs"   # or $MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-session-observability/scripts/miadi-fork.mjs
 $F ask  <session> "<question>"                  # headless branch, no tools, no MCP; prints the answer
-$F open <session> --topic "<words>" [--add-plugin miadi-witness]... [--dry-run]
+$F open <session> --topic "<words>" [--episode <N>] [--add-plugin miadi-witness]... [--dry-run]
 $F open <branch-id> --same                       # talk to a branch an `ask` made
 $F list [<session>]
 ```
@@ -30,7 +30,9 @@ the parent's binding line in `$CLAUDE_SESSIONDATA_ROOT/data/terminal_bindings.js
   command line. `--add-plugin <kit plugin>` adds one.
 - **Names the tmux session `ep<N>-<yymmdd>-fork-<NN>-<topic>`.** It has no `:`, because
   William found that sessions named with one did not come back after gaia rebooted. The episode comes first, so the name points at
-  miadi-chronicle://N. The parent, episode and team are set as tmux options `@miadi-parent`,
+  miadi-chronicle://N. The episode is the one the parent's folder is in, or `--episode`. The
+  binding line's "declared" episode is ignored: it comes from `MIADI_CHRONICLE_PROD_EPISODE`,
+  which every shell exports. The parent, episode and team are set as tmux options `@miadi-parent`,
   `@miadi-episode` and `@miadi-team`.
 - **Records every branch** in `data/session_forks.jsonl`. The capture hook writes the branch's own
   binding line with source `fork`, which the witness service reads as lineage.

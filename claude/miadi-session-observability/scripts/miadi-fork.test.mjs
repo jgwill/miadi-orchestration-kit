@@ -62,3 +62,11 @@ test("opening an ask branch again takes the flags of the session it was asked fr
   assert.match(plan.launch, /--plugin-dir \/kit\/claude\/mia-episode-companion .*--resume aaaaaaaa-\S+ -n /);
   assert.doesNotMatch(plan.launch, /--tools|--strict-mcp-config| -p /);
 });
+
+test("the production episode every shell exports does not name a branch; a folder or --episode does", () => {
+  const here = { ...parent, episode: { id: "2026-06-28-episode-103-film-preprod-report-phase-2", source: "declared" } };
+  const date = new Date(2026, 9, 8);
+  assert.equal(planOpen(here, { topic: "x", date }).name, "261008-fork-01-x");
+  assert.equal(planOpen(here, { topic: "x", date, episode: "551" }).name, "ep551-261008-fork-01-x");
+  assert.ok(!planOpen(here, { topic: "x", date }).commands.some((c) => c.includes("@miadi-episode")));
+});

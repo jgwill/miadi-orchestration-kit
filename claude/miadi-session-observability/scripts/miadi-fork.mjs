@@ -105,6 +105,13 @@ export function episodeNumber(episodeId) {
   return String(episodeId ?? "").match(/-episode-0*(\d+)-/)?.[1] ?? null;
 }
 
+// The binding hook falls back to MIADI_CHRONICLE_PROD_EPISODE, which every shell exports and which
+// names the episode in production, not the one the session works in. Only a folder counts.
+export function workedEpisode(binding) {
+  const e = binding?.episode;
+  return e?.id && e.source !== "declared" ? e.id : null;
+}
+
 // ep<N>-<yymmdd>-fork-<NN>-<topic>: no ":" (sessions named with one did not come back after
 // gaia rebooted, William 2026-10-08), the episode first
 // so the name opens miadi-chronicle://<N>, NN one past the highest fork number of the day.
@@ -159,9 +166,10 @@ function runAsk(plan, root) {
 
 // ---------- open ----------
 
-export function planOpen(parent, { topic, addPlugins = [], same = false, id = randomUUID(), existing = [], kitRoot, date, flagsFrom = parent } = {}) {
+export function planOpen(parent, { topic, addPlugins = [], same = false, id = randomUUID(), existing = [], kitRoot, date, flagsFrom = parent, episode: given } = {}) {
   if (!parent.cwd) throw new Error(`the binding line of ${parent.session_id} has no cwd`);
-  const episode = episodeNumber(parent.episode?.id);
+  const episodeId = workedEpisode(parent);
+  const episode = given ? String(given).replace(/^ep/, "") : episodeNumber(episodeId);
   const name = forkName({ episode, topic: topic ?? parent.name?.name ?? parent.session_id.slice(0, 8), existing, date });
   const flags = withPlugins(parentFlags(flagsFrom.argv), addPlugins, kitRoot);
   const branch = same ? ["--resume", parent.session_id] : ["--resume", parent.session_id, "--fork-session", "--session-id", id];
@@ -170,12 +178,12 @@ export function planOpen(parent, { topic, addPlugins = [], same = false, id = ra
   const commands = [
     ["tmux", "new-session", "-d", "-s", name, "-c", parent.cwd],
     ["tmux", "set-option", "-t", name, "@miadi-parent", parent.session_id],
-    ...(parent.episode?.id ? [["tmux", "set-option", "-t", name, "@miadi-episode", parent.episode.id]] : []),
+    ...(episodeId ? [["tmux", "set-option", "-t", name, "@miadi-episode", episodeId]] : []),
     ...(team ? [["tmux", "set-option", "-t", name, "@miadi-team", team]] : []),
     // the pane keeps a shell after claude exits, so its last screen and resume line stay readable
     ["tmux", "respawn-pane", "-k", "-t", `${name}:0.0`, "-c", parent.cwd, `bash -ic ${shellQuote(`${launch}; exec bash -i`)}`],
   ];
-  return { mode: same ? "continue" : "open", parent: parent.session_id, fork: same ? parent.session_id : id, name, cwd: parent.cwd, episode: parent.episode?.id ?? null, team, launch, commands };
+  return { mode: same ? "continue" : "open", parent: parent.session_id, fork: same ? parent.session_id : id, name, cwd: parent.cwd, episode: episodeId ?? (episode ? `ep${episode}` : null), team, launch, commands };
 }
 
 function runOpen(plan, root) {
@@ -214,6 +222,7 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--topic") opts.topic = argv[++i];
+    else if (a === "--episode") opts.episode = argv[++i];
     else if (a === "--add-plugin") opts.addPlugins.push(argv[++i]);
     else if (a === "--same") opts.same = true;
     else if (a === "--dry-run") opts.dryRun = true;
@@ -224,7 +233,7 @@ function parseArgs(argv) {
 }
 
 const USAGE = `miadi-fork ask  <session> "<question>"
-miadi-fork open <session> [--topic <words>] [--add-plugin <kit-plugin|dir>]... [--same] [--dry-run]
+miadi-fork open <session> [--topic <words>] [--episode <N>] [--add-plugin <kit-plugin|dir>]... [--same] [--dry-run]
 miadi-fork list [<session>]`;
 
 function main(argv) {
