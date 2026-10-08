@@ -1,0 +1,17 @@
+Package: miadi-chronicle-client
+Version: 0.1.0
+Section: utils
+Priority: optional
+Architecture: all
+Depends: miadi-node (>= 24.21.0-1), miadi-node (<< 25)
+Recommends: miadi-config (>= 0.2.0)
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: The Miadi chronicle's commands and MCP servers, for agents and people
+ The client half: what a machine runs to read, relate and write the Miadi
+ chronicle through its API. Pinned npm releases, run by miadi-node:
+  inquiry-weave, inquiry-weave-mcp   @miadi/inquiry-weave (episodes, relations)
+  passages, mkepisode                passages (episode vessels)
+  miadi-voice-mcp                    @miadi/voice-mcp
+  medicine-wheel-mcp                 @medicine-wheel/mcp (the chronicle wheel)
+ /usr/share/miadi-chronicle-client/SOURCE lists every version installed.

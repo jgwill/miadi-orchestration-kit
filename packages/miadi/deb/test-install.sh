@@ -246,6 +246,45 @@ PY
     apt-get remove -y -qq miadi-perms >/dev/null 2>&1 && test ! -e /usr/bin/miadi-perms && echo "remove takes the command and units with it"
   fi
 
+  if dpkg -s miadi-node >/dev/null 2>&1; then
+    dpkg -s miadi-node | sed -n "s/^Version: /installed miadi-node /p"
+    test "$(/usr/lib/miadi-node/bin/node --version)" = "v$(dpkg -s miadi-node | sed -n "s/^Version: \([^-]*\)-.*/\1/p")"
+    ! command -v node >/dev/null && ! command -v npm >/dev/null && echo "miadi-node runs from /usr/lib/miadi-node and puts no node or npm on PATH"
+  fi
+
+  if dpkg -s miadi-chronicle-client >/dev/null 2>&1; then
+    dpkg -s miadi-chronicle-client | sed -n "s/^Version: /installed miadi-chronicle-client /p"
+    for cmd in inquiry-weave passages mkepisode; do "$cmd" --help >/dev/null; done
+    init="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test-install\",\"version\":\"0\"}}}"
+    for mcp in inquiry-weave-mcp miadi-voice-mcp medicine-wheel-mcp; do
+      (printf "%s\n" "$init"; sleep 3) | timeout 30 "$mcp" 2>/dev/null | grep -q "\"serverInfo\"" || { echo "$mcp did not answer initialize"; exit 1; }
+    done
+    echo "the client commands answer, and inquiry-weave-mcp, miadi-voice-mcp and medicine-wheel-mcp complete an initialize handshake"
+  fi
+
+  if dpkg -s miadi-chronicle-server >/dev/null 2>&1; then
+    dpkg -s miadi-chronicle-server | sed -n "s/^Version: /installed miadi-chronicle-server /p"
+    for cmd in miadi-hooks-interpret plan-insight-register miadi-transcription miadi-episode-capture; do "$cmd" --help >/dev/null; done
+    { miadi-hooks --help 2>&1 || true; } | grep -q "usage: miadi-hooks"
+    grep -q "^ExecStart=/bin/bash -c .*/usr/bin/miadi-capture-service" /usr/lib/systemd/user/miadi-capture-service.service
+    inbox=$(mktemp -d)
+    MIADI_CAPTURE_HOST=127.0.0.1 MIADI_CAPTURE_PORT=8799 MIADI_CAPTURE_INBOX=$inbox miadi-capture-service >/tmp/capture.log 2>&1 &
+    capture=$!
+    for i in $(seq 1 40); do (exec 3<>/dev/tcp/127.0.0.1/8799) 2>/dev/null && break; sleep 0.5; done
+    exec 3<>/dev/tcp/127.0.0.1/8799
+    printf "GET /api/captures HTTP/1.0\r\nHost: test\r\n\r\n" >&3
+    head -1 <&3 | grep -q " 200 " || { cat /tmp/capture.log; exit 1; }
+    exec 3>&-
+    kill $capture
+    echo "the server commands answer, and miadi-capture-service serves /api/captures"
+  fi
+
+  if dpkg -s miadi-node >/dev/null 2>&1; then
+    installed=$(for p in miadi-chronicle-client miadi-chronicle-server miadi-node; do dpkg -s $p >/dev/null 2>&1 && echo $p; done)
+    apt-get remove -y -qq $installed >/dev/null 2>&1
+    test ! -e /usr/lib/miadi-node && test ! -e /usr/lib/miadi-chronicle-client && test ! -e /usr/lib/miadi-chronicle-server && echo "remove takes /usr/lib/miadi-node and both halves with it"
+  fi
+
   if dpkg -s miadi-config >/dev/null 2>&1; then
     apt-get remove -y -qq miadi-config >/dev/null 2>&1 && test -f /etc/miadi/miadi.env && echo "remove keeps the edited conffile"
   fi

@@ -24,6 +24,9 @@ sudo apt update && sudo apt install miadi
 | `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` and `miadi-foundation:` (0.2.2) references, and bare circle ids (0.1.4): desktop, Terminator, tmux | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
 | `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
+| `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
+| `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases: `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` | 0.1.0 |
+| `miadi-chronicle-server` | the chronicle's host services: `miadi-capture-service` (a per-user unit, not started), `miadi-episode-capture`, `miadi-transcription`, `miadi-hooks`, `miadi-hooks-interpret`, `plan-insight-register` (`miadi` depends on it since 0.4.0) | 0.1.0 |
 | `miadi-music` | music on the host, for an album or an episode's score: brings the three below and the `miadi-music` command | 0.1.0 |
 | `miadi-music-render` | ABC to MIDI, audio and the engraved page: abcmidi, abcm2ps, fluidsynth with the FluidR3 soundfont, ffmpeg | 0.1.0 |
 | `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
@@ -169,6 +172,39 @@ It replaces the `sudo chmod -R g+rw /workspace/repos/ /src/_sessiondata` that
 jgwill/Miadi's `.github-hooks/push` ran on every push until 2026-10-08: that
 walked 3 million files per push, and push bursts started several at once.
 
+## miadi-node, miadi-chronicle-client, miadi-chronicle-server
+
+The chronicle's commands are npm packages from jgwill/Miadi `packages/*`. These
+three packages put them on a machine without npm, npx or a Node of its own
+(jgwill/miadi-orchestration-kit#77). They split as a client and a server half
+around one private runtime:
+
+| package | half | for |
+|---|---|---|
+| `miadi-node` | runtime | Node.js 24 LTS from nodejs.org, sha256-checked, at `/usr/lib/miadi-node/bin/node`. Nothing on `PATH`, so a system or nvm `node` is left alone |
+| `miadi-chronicle-client` | client | any machine an agent or a person works from: reads, relates and writes the chronicle through the Miadi API |
+| `miadi-chronicle-server` | server | the host where sessions run and takes are recorded; `miadi` (the host) depends on it and recommends the client |
+
+```bash
+sudo apt install miadi-chronicle-client          # a client: brings miadi-node
+inquiry-weave --help
+systemctl --user enable --now miadi-capture-service   # on a host, per user
+```
+
+Each half installs its pinned npm releases (`prep/<half>.packages`) under
+`/usr/lib/<half>` with the npm of the same Node it runs on, and gets a
+`/usr/bin` wrapper for every command those packages declare. Install scripts
+are not run; no package in either list has a native module. `SOURCE` in
+`/usr/share/<half>/` lists the pins and the resolved tree. The MCP servers are
+pinned at the versions the `miadi-chronicle-episode-kit` plugin runs with
+`npx`, so an MCP config can call `/usr/bin/miadi-voice-mcp` instead, with no
+npm cache and no network at session start. A user's own npm install, earlier
+on `PATH`, still wins.
+
+To move a pin: change `prep/<half>.packages`, bump the half's `Version:`,
+build, test, publish. A Node release is a new `miadi-node` Version
+(`24.21.0-1` names `v24.21.0`); the halves accept any 24.x.
+
 ## miadi-music
 
 Music on a Miadi host, installed beside the platform. The parts are split by
@@ -236,6 +272,9 @@ index never lists a `miadi` whose dependency is missing:
 publish=/workspace/repos/miadisabelle/mia-parallel-code/scripts/apt-publish.sh
 bash "$publish" dist/miadi-config_<version>_all.deb
 bash "$publish" dist/miadi-perms_<version>_all.deb    # after miadi-config, before the miadi that depends on it
+bash "$publish" dist/miadi-node_<version>_amd64.deb   # before the two halves that run on it
+bash "$publish" dist/miadi-chronicle-client_<version>_all.deb
+bash "$publish" dist/miadi-chronicle-server_<version>_all.deb   # before the miadi that depends on it
 bash "$publish" dist/miadi_<version>_all.deb
 bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on
 bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it

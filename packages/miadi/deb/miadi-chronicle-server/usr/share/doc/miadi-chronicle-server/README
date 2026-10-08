@@ -1,0 +1,31 @@
+miadi-chronicle-server — the Miadi chronicle's host services
+
+  sudo apt install miadi-chronicle-server    # miadi, the host package, brings it
+
+The server half: what runs on the host where agent sessions happen and takes
+are recorded. Each command is a pinned npm release under
+/usr/lib/miadi-chronicle-server, run by miadi-node:
+
+  miadi-capture-service   the capture service (@miadi/capture-service)
+  miadi-episode-capture   bundles takes into an episode (@miadi/episode-capture)
+  miadi-transcription     a composition's transcriptions (@miadi/transcription)
+  miadi-hooks             agent hook events into session capture (@miadi/hooks-core)
+  miadi-hooks-interpret   reads a captured session (@miadi/hooks-interpreter)
+  plan-insight-register   registers a plan's perspective on the wheel (@miadi/plan-insight)
+
+The capture service runs per user, because it reads GROQ_API_KEY from that
+user's environment or ~/.env and writes takes that user owns. The package
+installs the unit and starts nothing:
+
+  systemctl --user enable --now miadi-capture-service
+  journalctl --user -u miadi-capture-service
+
+The unit loads /usr/share/miadi/env.sh first (miadi-config), so
+MIADI_CHRONICLE_ROOT and the host's other values apply. By default the
+service listens on 0.0.0.0:8770 (MIADI_CAPTURE_HOST, MIADI_CAPTURE_PORT) and
+keeps takes in $MIADI_CHRONICLE_ROOT/capture-inbox (MIADI_CAPTURE_INBOX).
+
+SOURCE lists each pinned package and the resolved tree.
+
+Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
+Pins:   prep/miadi-chronicle-server.packages (jgwill/miadi-orchestration-kit#77)

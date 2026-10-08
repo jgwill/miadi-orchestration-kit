@@ -1,0 +1,14 @@
+Package: miadi-node
+Version: 24.21.0-1
+Section: interpreters
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.28), libstdc++6 (>= 5.2), libgcc-s1
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Node.js 24 LTS for Miadi's packages, private to them
+ The Node.js release from nodejs.org (linux-x64), checked against its
+ SHASUMS256.txt, at /usr/lib/miadi-node/bin/node. It runs the commands
+ miadi-chronicle-client and miadi-chronicle-server install, so they need
+ no Node on the host and never use the host's. Nothing goes on PATH: a
+ system or nvm node is left as it is. No npm, npx or corepack.

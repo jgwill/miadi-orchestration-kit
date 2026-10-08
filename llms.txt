@@ -33,7 +33,8 @@ curl -fsSL https://apt.sanctuaireagentique.com/sanctuaire-agentique.gpg \
 echo "deb [signed-by=/usr/share/keyrings/sanctuaire-agentique.gpg] https://apt.sanctuaireagentique.com stable main" \
   | sudo tee /etc/apt/sources.list.d/sanctuaire-agentique.list
 sudo apt update && sudo apt install miadi     # a host
-sudo apt install miadi-terminal                # a client
+sudo apt install miadi-terminal                # a client: clickable references
+sudo apt install miadi-chronicle-client        # a client: the chronicle's commands and MCP servers
 ```
 
 | Package | Gives the machine | Commands |
@@ -42,8 +43,12 @@ sudo apt install miadi-terminal                # a client
 | `miadi-config` | `/etc/miadi/miadi.env`, the defaults in `/usr/share/miadi/env.sh`, loaded into login shells | `miadi-config [get\|set\|unset\|check\|settings]` |
 | `miadi-terminal` | clickable references: `miadi-chronicle:126`, `miadi-circle:<id>`, `miadi-ceremony:<id>`, and a bare `circle:1790787727155:2slscw`, from the desktop scheme handler, Terminator and tmux; a Termux build installs from the file | `miadi-terminal [status\|enable\|disable\|front]`, `miadi-chronicle-open <reference>` |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, a per-user `tide-runtime.service`); needs Python 3.11+ (on Ubuntu 22.04, the deadsnakes PPA first) | `tan`, `plannotator-tmux-review`, `plannotator-tui`, `tide` |
+| `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below; nothing on `PATH`, no npm | — |
+| `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases, run by `miadi-node`; no Node or npx needed on the machine | `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` |
+| `miadi-chronicle-server` | the chronicle's host services, run by `miadi-node`; `miadi` depends on it. The capture service is a per-user unit, `systemctl --user enable --now miadi-capture-service` | `miadi-capture-service`, `miadi-episode-capture`, `miadi-transcription`, `miadi-hooks`, `miadi-hooks-interpret`, `plan-insight-register` |
 
 - `miadi-terminal` resolves nothing on the client: it opens `<front>/api/chronicle/open?uri=<reference>`, where the front is `MIADI_CHRONICLE_OPEN_URL`, else `MIADI_URL_BASE`. Each user runs `miadi-terminal enable` once, and again for `desktop` after an upgrade that adds a scheme.
+- An MCP config on a machine with `miadi-chronicle-client` can call `/usr/bin/miadi-voice-mcp` (or `inquiry-weave-mcp`, `medicine-wheel-mcp`) in place of `npx -y <package>`; the versions match the `miadi-chronicle-episode-kit` plugin's pins.
 - Confirm what the repository serves with `apt-cache policy <package>` before recommending a package or a version.
 - Reference grammar: jgwill/Miadi `rispecs/miadi-chronicle-dsl/SPEC.md` §9 and `SPEC-TERMINAL.md` §3.
 

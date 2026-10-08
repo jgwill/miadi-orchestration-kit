@@ -1,0 +1,20 @@
+miadi-node — the Node.js that runs Miadi's packaged commands
+
+  sudo apt install miadi-node    # usually brought by miadi-chronicle-client or -server
+
+Installs Node.js 24 LTS, the linux-x64 release from nodejs.org, at
+/usr/lib/miadi-node/bin/node. The build checks the tarball against the
+release's SHASUMS256.txt and keeps only bin/node and its LICENSE
+(LICENSE.node here). SOURCE names the release.
+
+Nothing goes on PATH and there is no npm, npx or corepack: a system node, an
+nvm node or a global npm install stays exactly as it was. The commands of
+miadi-chronicle-client and miadi-chronicle-server call this node by its path,
+so they run the same way on a host with no Node and on one with an old Node.
+
+The Version is the Node release plus a package revision (24.21.0-1). The two
+halves depend on miadi-node (>= 24.21.0-1) and (<< 25), so a Node 25 package
+would reach them only with a new release of each.
+
+Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
+Build:  prep/miadi-node.sh, with prep/node-release.sh (jgwill/miadi-orchestration-kit#77)

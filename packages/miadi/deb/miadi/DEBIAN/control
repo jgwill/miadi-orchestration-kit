@@ -1,14 +1,18 @@
 Package: miadi
-Version: 0.3.2
+Version: 0.4.0
 Section: misc
 Priority: optional
 Architecture: all
-Depends: miadi-config (>= 0.2.0), miadi-tide (>= 0.1.1), miadi-tmux (>= 3.7c), miadi-perms (>= 0.1.0)
+Depends: miadi-config (>= 0.2.0), miadi-tide (>= 0.1.1), miadi-tmux (>= 3.7c), miadi-perms (>= 0.1.0), miadi-chronicle-server (>= 0.1.0)
+Recommends: miadi-chronicle-client (>= 0.1.0)
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
 Description: Miadi host platform
  Installs the parts of a Miadi host. Each part is its own package and joins
  as a dependency here: miadi-config, the host's MIADI_* settings,
  miadi-tide, the review loop and the tide runtime, miadi-tmux, one
- tmux (3.7c) in place of the distribution's, and miadi-perms, group read
- and write on the shared session capture every 4 hours.
+ tmux (3.7c) in place of the distribution's, miadi-perms, group read
+ and write on the shared session capture every 4 hours, and
+ miadi-chronicle-server, the chronicle's host services (capture, hooks,
+ plan insight). It recommends miadi-chronicle-client, the chronicle's
+ commands and MCP servers for the agents that run on the host.

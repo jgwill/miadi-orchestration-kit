@@ -1,0 +1,15 @@
+# miadi-capture-service: the capture service, for one user (it reads GROQ_API_KEY from that
+# user's environment or ~/.env, and writes takes they own). Installed by miadi-chronicle-server,
+# not started. Turn it on with: systemctl --user enable --now miadi-capture-service
+# It listens on MIADI_CAPTURE_HOST:MIADI_CAPTURE_PORT, 0.0.0.0:8770 unless miadi.env says otherwise.
+[Unit]
+Description=Miadi capture service (takes into the chronicle's capture inbox)
+Documentation=https://github.com/jgwill/miadi-orchestration-kit/blob/main/packages/miadi/deb/README.md
+
+[Service]
+# The host's MIADI_* values and their defaults (MIADI_CHRONICLE_ROOT among them), as a login shell has them.
+ExecStart=/bin/bash -c 'if [ -r /usr/share/miadi/env.sh ]; then . /usr/share/miadi/env.sh; fi; exec /usr/bin/miadi-capture-service'
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

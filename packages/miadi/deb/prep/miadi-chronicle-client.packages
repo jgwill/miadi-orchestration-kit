@@ -1,0 +1,6 @@
+# The npm packages miadi-chronicle-client carries, exact versions. The MCP servers match the
+# miadi-chronicle-episode-kit plugin's pins (claude/miadi-chronicle-episode-kit/.mcp.json).
+@miadi/inquiry-weave@0.16.5
+passages@0.3.11
+@miadi/voice-mcp@0.4.5
+@medicine-wheel/mcp@4.17.5

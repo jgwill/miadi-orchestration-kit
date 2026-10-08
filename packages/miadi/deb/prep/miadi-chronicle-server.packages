@@ -1,0 +1,7 @@
+# The npm packages miadi-chronicle-server carries, exact versions.
+@miadi/capture-service@0.3.2
+@miadi/plan-insight@0.3.6
+@miadi/hooks-core@0.5.2
+@miadi/hooks-interpreter@0.3.2
+@miadi/episode-capture@0.1.3
+@miadi/transcription@0.3.3

@@ -1,0 +1,28 @@
+miadi-chronicle-client — the Miadi chronicle's commands and MCP servers
+
+  sudo apt install miadi-chronicle-client
+
+The client half: what an agent or a person runs on any machine to read,
+relate and write the chronicle through the Miadi API. Each command is a
+pinned npm release under /usr/lib/miadi-chronicle-client, run by miadi-node:
+
+  inquiry-weave        episodes, relations, the chronicle catalog (@miadi/inquiry-weave)
+  inquiry-weave-mcp    the same as an MCP server
+  passages, mkepisode  episode vessels (passages)
+  miadi-voice-mcp      voice for an episode, as an MCP server (@miadi/voice-mcp)
+  medicine-wheel-mcp   the chronicle wheel, as an MCP server (@medicine-wheel/mcp)
+
+The MCP servers are the ones the miadi-chronicle-episode-kit Claude Code
+plugin runs with npx, at the same versions. An MCP config can name the
+command instead: "command": "/usr/bin/miadi-voice-mcp", with the same env.
+That needs no npm cache and no network when a session starts.
+
+They read the same settings as their npm form (MIADI_API_URL,
+MIADI_API_TOKEN_WRITER, MIADI_CHRONICLE_MW_URL, ...), from the environment;
+miadi-config holds the host's values.
+
+SOURCE lists each pinned package and the resolved tree. A user's own npm
+install (nvm, /usr/local) comes first on PATH and wins over /usr/bin.
+
+Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
+Pins:   prep/miadi-chronicle-client.packages (jgwill/miadi-orchestration-kit#77)
