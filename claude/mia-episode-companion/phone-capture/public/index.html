@@ -49,6 +49,17 @@
   audio { width:100%; margin-top:10px; }
   .autoplay { display:flex; align-items:center; gap:9px; margin:2px 0 0; color:var(--muted); font-size:.9rem; font-weight:400; }
   .autoplay input { width:22px; height:22px; accent-color:var(--mint); }
+  .notice { color:var(--gold); font-size:.92rem; min-height:0; }
+  .thread { display:flex; flex-direction:column; gap:10px; }
+  .thread[hidden] { display:none; }
+  .entry { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:11px 13px; }
+  .entry.mia { border-color:#477b65; }
+  .entry.unheard { border-color:var(--gold); }
+  .entry .who { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:.8rem; color:var(--muted); }
+  .entry.mia .who strong { color:var(--gold); }
+  .entry.take .who strong { color:var(--mint); }
+  .entry .text { white-space:pre-wrap; margin-top:6px; color:var(--ink); font-size:.92rem; }
+  .entry button { min-height:36px; padding:0 14px; border:0; border-radius:10px; font-weight:800; background:#263c34; color:var(--ink); }
 </style>
 </head>
 <body>
@@ -73,17 +84,15 @@
       <audio id="replyAudio" controls preload="none" hidden></audio>
     </div>
     <div id="replyStatus" class="status" role="status" aria-live="polite"></div>
+    <div id="replyNotice" class="notice" role="status" aria-live="polite"></div>
   </div>
   <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
   <section id="result" class="result" hidden aria-live="polite">
     <div id="resultHead"></div>
     <div id="transcript" class="transcript"></div>
   </section>
-  <section id="reply" class="result reply" hidden aria-live="polite">
-    <div class="reply-head"><strong>Mia</strong><small id="replyMeta"></small></div>
-    <div id="replyText" class="transcript"></div>
-  </section>
-  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Mia's reply appears here. Keep the screen on while you speak.</small>
+  <section id="thread" class="thread" hidden aria-live="polite"></section>
+  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Your takes and Mia's replies stay here as one conversation. A reply that arrives while you record waits, silent, until you have sent your take. Keep the screen on while you speak.</small>
 </main>
 <script>
 (function () {
@@ -95,10 +104,9 @@
   var result = document.getElementById("result");
   var resultHead = document.getElementById("resultHead");
   var transcript = document.getElementById("transcript");
-  var replyBox = document.getElementById("reply");
   var replyControls = document.getElementById("replyControls");
-  var replyMeta = document.getElementById("replyMeta");
-  var replyText = document.getElementById("replyText");
+  var replyNotice = document.getElementById("replyNotice");
+  var thread = document.getElementById("thread");
   var replyAudio = document.getElementById("replyAudio");
   var hearButton = document.getElementById("hearReply");
   var copyButton = document.getElementById("copyReply");
@@ -113,16 +121,21 @@
   var recorder = null, stream = null, chunks = [], startedAt = 0, tick = null, wakeLock = null;
   var state = "loading", pending = null;
   var current = null, waiting = null, presence = null, needsTap = false;
+  var threadKey = "", unheard = {}, heartbeat = null;
   var WAIT_MS = 15 * 60 * 1000;
+  var RECORDER_BEAT_MS = 15000;
+
+  // While the microphone is open nothing plays. On 2026-10-08 a reply arrived mid-take,
+  // started playing, and iOS gave the audio session to it: the take was cut (Episode 339).
+  function busy() { return state === "starting" || state === "recording"; }
 
   function when(iso) {
     var d = new Date(iso);
     return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
-  // The reply's words scroll with the page; its controls sit in the dock beside Record.
+  // The words live in the thread; the controls for the latest reply sit in the dock.
   function showReplyBox(visible) {
-    replyBox.hidden = !visible;
     replyControls.hidden = !visible;
   }
 
@@ -131,9 +144,12 @@
   function showReply(reply, arrived) {
     var isNew = !current || current.id !== reply.id;
     current = reply;
-    replyText.textContent = reply.text;
-    replyMeta.textContent = (reply.take ? "take " + reply.take + " · " : "") + when(reply.at);
-    if (isNew) {
+    if (isNew) loadThread();
+    if (isNew && busy()) {
+      unheard[reply.id] = true;
+      replyNotice.textContent = "Mia replied at " + when(reply.at) + ". It waits, silent, until you have sent your take.";
+    }
+    if (isNew && !busy()) {
       replyAudio.pause();
       replyAudio.removeAttribute("src");
       replyAudio.hidden = true;
@@ -148,14 +164,16 @@
       return;
     }
     if (isNew) replyStatus.textContent = "";
-    if (isNew && autoplay.checked && arrived !== false) playReply();
+    if (isNew && autoplay.checked && arrived !== false && !busy() && !unheard[reply.id]) playReply();
   }
 
   // The audio renders on demand, so play() starts inside the tap and needs no second one.
   // On arrival there is no tap, so Safari allows it only if this element was played
   // before: priming it on the Record tap is what earns that.
   function playReply() {
-    if (!current) return;
+    if (!current || busy()) return;
+    delete unheard[current.id];
+    replyNotice.textContent = "";
     replyAudio.loop = false;
     var src = "api/replies/" + current.id + "/audio";
     if (replyAudio.getAttribute("src") !== src) replyAudio.src = src;
@@ -213,6 +231,89 @@
     if (state === "away") return "Waiting for a session to hear it… ";
     if (state === "answering" && (presence.takes || []).indexOf(take) !== -1) return "Mia is answering… ";
     return "Waiting for Mia… ";
+  }
+
+  // One conversation: William's takes and Mia's replies, oldest first, newest at the
+  // bottom. It is rebuilt only when something new arrived, so reading is not disturbed.
+  async function loadThread() {
+    var episode = select.value;
+    if (!episode) { thread.hidden = true; return; }
+    try {
+      var answer = await (await fetch("api/thread?episode=" + encodeURIComponent(episode))).json();
+      if (!answer.success || episode !== select.value) return;
+      var items = answer.items || [];
+      var key = episode + "|" + items.map(function (item) { return (item.id || item.take) + ":" + (item.text || "").length + (unheard[item.id] ? "u" : ""); }).join(",");
+      if (key === threadKey) return;
+      threadKey = key;
+      renderThread(items);
+    } catch (_) {}
+  }
+
+  function renderThread(items) {
+    thread.textContent = "";
+    items.forEach(function (item) {
+      var mia = item.kind === "reply";
+      var entry = document.createElement("div");
+      entry.className = "entry " + (mia ? "mia" : "take") + (mia && unheard[item.id] ? " unheard" : "");
+      var who = document.createElement("div");
+      who.className = "who";
+      var name = document.createElement("strong");
+      name.textContent = mia ? "Mia" : "You";
+      who.appendChild(name);
+      var meta = document.createElement("span");
+      meta.textContent = (mia ? "" : "take " + item.take + " · ") + when(item.at);
+      who.appendChild(meta);
+      if (mia && !item.unvoiced) {
+        var hear = document.createElement("button");
+        hear.type = "button";
+        hear.textContent = unheard[item.id] ? "▶ New" : "▶";
+        hear.addEventListener("click", function () {
+          if (busy()) { replyNotice.textContent = "Send your take first. Then tap ▶ to hear her."; return; }
+          current = item;
+          showReplyBox(true);
+          playReply();
+          threadKey = "";
+          loadThread();
+        });
+        who.appendChild(hear);
+      }
+      entry.appendChild(who);
+      var text = document.createElement("div");
+      text.className = "text";
+      text.textContent = item.text || (mia ? "" : "(no transcript yet)");
+      entry.appendChild(text);
+      thread.appendChild(entry);
+    });
+    thread.hidden = items.length === 0;
+    try { thread.lastChild && thread.lastChild.scrollIntoView && !busy() && thread.lastChild.scrollIntoView({ block: "nearest" }); } catch (_) {}
+  }
+
+  // The page tells gaia while the microphone is open, so a seat that posts a reply learns
+  // that William is recording. The heartbeat keeps it true; silence lets it lapse.
+  function tellRecorder(recording) {
+    var episode = select.value;
+    if (!episode) return;
+    try {
+      fetch("api/recorder", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ episode: episode, recording: recording }),
+      }).catch(function () {});
+    } catch (_) {}
+  }
+
+  function recorderOn() {
+    tellRecorder(true);
+    if (heartbeat) clearInterval(heartbeat);
+    heartbeat = setInterval(function () { tellRecorder(true); }, RECORDER_BEAT_MS);
+  }
+
+  function recorderOff() {
+    if (heartbeat) clearInterval(heartbeat);
+    heartbeat = null;
+    tellRecorder(false);
+    var waitingIds = Object.keys(unheard);
+    if (waitingIds.length) replyNotice.textContent = "Mia replied while you were recording. Tap ▶ New in the conversation when you are ready.";
   }
 
   async function replies(episode, take) {
@@ -291,7 +392,6 @@
 
   function waitForReply(episode, take, startedAtMs) {
     stopWaiting();
-    showReplyBox(false);
     var since = startedAtMs || Date.now();
     rememberWait(episode, take);
     async function check() {
@@ -320,7 +420,10 @@
     check();
   }
 
-  hearButton.addEventListener("click", function () { playReply(); });
+  hearButton.addEventListener("click", function () {
+    if (busy()) { replyNotice.textContent = "Send your take first. Then tap Hear Mia."; return; }
+    playReply();
+  });
 
   replyAudio.addEventListener("playing", function () {
     hearButton.textContent = "Hear Mia";
@@ -377,20 +480,24 @@
     stopWaiting();
     rememberWait();
     current = null;
+    unheard = {};
+    threadKey = "";
     showReplyBox(false);
     replyStatus.textContent = "";
+    replyNotice.textContent = "";
     remember("episode", select.value);
     urlKeepsState();
     setState(state);
     say("");
     showListening(null);
     loadLatestReply();
+    loadThread();
   });
 
   // Keep looking while the page is open, and the moment it comes back to the front:
   // iOS stops timers in a backgrounded tab, which is how a reply was missed.
-  setInterval(function () { if (document.visibilityState === "visible") loadLatestReply(); }, 10000);
-  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") loadLatestReply(); });
+  setInterval(function () { if (document.visibilityState === "visible") { loadLatestReply(); loadThread(); } }, 10000);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") { loadLatestReply(); loadThread(); } });
 
   function say(text, isError) { status.textContent = text; status.className = "status" + (isError ? " error" : ""); }
   function remember(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
@@ -452,6 +559,7 @@
     say("");
     showListening(null);
     loadLatestReply();
+    loadThread();
   }
 
   function showEpisodes(chosen) {
@@ -492,6 +600,7 @@
       remember("autoplay", autoplay.checked ? "1" : "0");
       urlKeepsState();
       if (!resumeWait()) loadLatestReply();
+      loadThread();
     } catch (error) {
       select.innerHTML = "<option value=''>Episodes unavailable</option>";
       say("Could not reach gaia: " + error.message, true);
@@ -527,12 +636,16 @@
   async function start() {
     if (state !== "idle" && state !== "retry") return;
     pending = null;
+    try { replyAudio.pause(); } catch (_) {}
+    releaseAudioHold();
     setState("starting");
+    recorderOn();
     var media;
     try {
       media = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (error) {
       setState("idle");
+      recorderOff();
       say("Microphone refused: " + error.message, true);
       return;
     }
@@ -544,6 +657,7 @@
     } catch (error) {
       releaseMic();
       setState("idle");
+      recorderOff();
       say("This browser refused to record: " + error.message, true);
       return;
     }
@@ -553,6 +667,7 @@
       releaseMic();
       releaseScreen();
       setState("idle");
+      recorderOff();
       say("The recording stopped with an error. Nothing was sent.", true);
     };
     recorder.start(1000);
@@ -586,6 +701,7 @@
   async function stop() {
     if (state !== "recording") return;
     setState("sending");
+    recorderOff();
     tickOff();
     holdAudioOpen();
     var blob = await lastBlob();
@@ -634,6 +750,7 @@
       say("");
       timer.textContent = "";
       setState("idle");
+      loadThread();
       // Wait even when nobody is listening: a session can start at any moment, and her
       // reply should still play by itself when it comes.
       if (answer.transcriptError) releaseAudioHold(); else waitForReply(episode, answer.take);
@@ -656,7 +773,7 @@
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible" && state === "recording") holdScreen();
   });
-  window.addEventListener("pagehide", function () { tickOff(); releaseMic(); });
+  window.addEventListener("pagehide", function () { tickOff(); releaseMic(); if (heartbeat) recorderOff(); });
 
   loadEpisodes();
 })();

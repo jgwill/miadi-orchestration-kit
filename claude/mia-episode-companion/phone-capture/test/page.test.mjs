@@ -32,13 +32,15 @@ function element(id) {
     getAttribute(name) { return this.attributes[name] ?? null; },
     set src(value) { this.attributes.src = value; }, get src() { return this.attributes.src; },
     play() { this.played = (this.played || 0) + 1; return Promise.resolve(); },
-    pause() {},
+    pause() { this.pauses = (this.pauses || 0) + 1; },
   };
 }
 
-function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake = false, replyDelay = 0, takeAnswer = { success: true, take: "260922090000", english: "Heard.", listening: true }, takeStatus = 200, neverStop = false, presence = () => ({ state: "listening" }) } = {}) {
+function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake = false, replyDelay = 0, replyAnytime = 0, extraReplies = () => [], pollEvery = 0, thread = () => [], takeAnswer = { success: true, take: "260922090000", english: "Heard.", listening: true }, takeStatus = 200, neverStop = false, presence = () => ({ state: "listening" }) } = {}) {
+  const started = Date.now();
+  const recorderPosts = [];
   const ids = ["episode", "filter", "matches", "listening", "record", "timer", "status", "result", "resultHead", "transcript",
-    "reply", "replyControls", "replyMeta", "replyText", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
+    "replyControls", "replyNotice", "thread", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
   const elements = Object.fromEntries(ids.map((id) => [id, element(id)]));
   const made = [];
   const stoppedTracks = { count: 0 };
@@ -69,7 +71,17 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
     if (url.startsWith("api/replies")) {
       const sent = calls.find((c) => c.url.startsWith("api/takes"));
       const ready = replyAfterTake && sent && Date.now() - sent.at >= replyDelay;
-      return { json: async () => ({ success: true, listening: true, presence: presence(), replies: ready ? [{ id: "r1", take: "260922090000", text: "Heard you.", at: new Date().toISOString(), audio: null }] : [] }) };
+      const found = ready ? [{ id: "r1", take: "260922090000", text: "Heard you.", at: new Date().toISOString(), audio: null }] : [];
+      if (!found.length && replyAnytime && Date.now() - started >= replyAnytime) found.push({ id: "r0", take: null, text: "Unasked news.", at: new Date().toISOString(), audio: null });
+      if (!found.length) found.push(...extraReplies(Date.now() - started));
+      return { json: async () => ({ success: true, listening: true, presence: presence(), replies: found }) };
+    }
+    if (url.startsWith("api/thread")) {
+      return { json: async () => ({ success: true, items: thread() }) };
+    }
+    if (url.startsWith("api/recorder")) {
+      recorderPosts.push(JSON.parse(options.body).recording);
+      return { json: async () => ({ success: true }) };
     }
     if (url.startsWith("api/takes")) {
       if (takeStatus !== 200) throw new Error("network down");
@@ -98,14 +110,14 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
     localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) },
     history: { replaceState() {} },
     // Unreferenced, so the page's own 10s reply poll cannot hold the test process open.
-    setInterval: (fn, ms) => { const handle = setInterval(fn, ms); handle.unref?.(); return handle; },
+    setInterval: (fn, ms) => { const handle = setInterval(fn, ms === 10000 && pollEvery ? pollEvery : ms); handle.unref?.(); return handle; },
     clearInterval: (handle) => clearInterval(handle),
     setTimeout: (fn, ms) => { const handle = setTimeout(fn, ms); handle.unref?.(); return handle; },
     location: { search },
   };
   const run = new Function(...Object.keys(context), SCRIPT);
   run(...Object.values(context));
-  return { elements, made, stoppedTracks, calls, tap: () => elements.record.fire("click") };
+  return { elements, made, stoppedTracks, calls, recorderPosts, tap: () => elements.record.fire("click") };
 }
 
 const settle = (ms = 30) => new Promise((done) => setTimeout(done, ms));
@@ -255,4 +267,51 @@ test("a take sent while nobody listens says so, still waits, and her reply plays
   await settle(4100);
   assert.match(String(h.elements.replyAudio.src), /api\/replies\/r1\/audio/, "her reply plays without a tap");
   assert.ok(h.elements.replyAudio.played >= 2);
+});
+
+// Episode 339, 2026-10-08: a reply posted while William was recording started playing,
+// iOS gave the audio session to it, and his take was cut.
+const OLD = { id: "r-old", take: null, text: "Earlier.", at: "2026-10-08T11:00:00.000Z", audio: null };
+const NEW = { id: "r-new", take: null, text: "Arrived mid-take.", at: "2026-10-08T11:20:00.000Z", audio: null };
+
+test("a reply that arrives while William records stays silent, says it is waiting, and the take goes on", async () => {
+  const h = harness({ pollEvery: 20, extraReplies: (ms) => (ms < 60 ? [OLD] : [NEW, OLD]) });
+  await settle(15);
+  const playedBefore = h.elements.replyAudio.played || 0;
+  h.tap();
+  await settle(140);
+  assert.equal(h.made[0].state, "recording", "the recorder is still recording");
+  assert.equal(h.elements.record.textContent, "Stop & send");
+  assert.equal(h.elements.replyAudio.played || 0, playedBefore, "nothing played under the take");
+  assert.match(h.elements.replyNotice.textContent, /Mia replied at .*waits, silent, until you have sent your take/);
+  assert.deepEqual(h.recorderPosts.slice(0, 1), [true], "gaia was told the microphone is open");
+});
+
+test("pressing Record pauses a reply that is playing", async () => {
+  const h = harness({ extraReplies: () => [OLD] });
+  await settle(15);
+  await h.elements.hearReply.fire("click");
+  const pausesBefore = h.elements.replyAudio.pauses || 0;
+  h.tap();
+  await settle(20);
+  assert.ok((h.elements.replyAudio.pauses || 0) > pausesBefore, "her voice stops before the microphone opens");
+});
+
+test("after the take is sent, the reply that waited is offered, not played, and the conversation keeps every turn", async () => {
+  const items = [
+    { kind: "take", take: "260922085900", at: "2026-10-08T10:59:00.000Z", text: "First take." },
+    { kind: "reply", ...OLD },
+    { kind: "reply", ...NEW },
+  ];
+  const h = harness({ pollEvery: 20, extraReplies: (ms) => (ms < 60 ? [OLD] : [NEW, OLD]), thread: () => items });
+  await settle(15);
+  h.tap();
+  await settle(140);
+  await h.tap();
+  await settle(60);
+  assert.equal(h.recorderPosts.at(-1), false, "gaia was told the microphone closed");
+  assert.match(h.elements.replyNotice.textContent, /Mia replied while you were recording/);
+  assert.doesNotMatch(String(h.elements.replyAudio.src || ""), /api\/replies\/r-new/, "the waiting reply is offered, not played");
+  assert.equal(h.elements.thread.hidden, false, "the conversation is on the page after the take is sent");
+  assert.equal(h.elements.thread.appended.length, 3, "every take and reply is in it");
 });

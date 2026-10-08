@@ -211,3 +211,25 @@ test("a take recorded minutes before the first listen is not swallowed by the ba
   assert.match(woke.stdout, /I recorded this, then started the session here\./);
   assert.match(run(fx, ["status", "--no-fetch"]).stdout, /unheard: none/);
 });
+
+// Episode 339, 2026-10-08: a seat that posts while William records is told the reply waits.
+test("reply says so when William is recording and the reply waits on his page", async () => {
+  const fx = fixture();
+  const { createServer } = await import("node:http");
+  const server = createServer(async (req, res) => {
+    for await (const _ of req) { /* drain */ }
+    res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ success: true, id: "stub-id", recording: true }));
+  });
+  await new Promise((done) => server.listen(0, "127.0.0.1", done));
+  const out = await new Promise((done) => {
+    const child = spawn("node", [SCRIPT, "reply", "--episode", fx.episodeRoot], { env: { ...process.env, MIADI_PHONE_CAPTURE_PORT: String(server.address().port), TMUX_PANE: "%999" } });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("exit", (status) => done({ status, stdout, stderr }));
+    child.stdin.end("Ready.\n");
+  });
+  server.close();
+  assert.equal(out.status, 0, out.stderr);
+  assert.match(out.stdout, /William is recording right now\. The reply is on his page, silent/);
+});

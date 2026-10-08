@@ -605,6 +605,7 @@ async function main() {
       const present = listenerOf(episode);
       if (present?.state === "answering") writeBeat(episode, { state: "answered", takes: present.takes, reply: answer.id });
       console.log(`mia-listen: reply${takeId ? ` to ${takeId}` : ""} delivered to the phone page (${answer.id})`);
+      if (answer.recording) console.log("mia-listen: William is recording right now. The reply is on his page, silent, and waits until he has sent his take.");
       if (answer.unvoiced) console.error(`mia-listen: William can read it but not hear it: ${answer.unvoiced}`);
       return 0;
     } catch (error) {

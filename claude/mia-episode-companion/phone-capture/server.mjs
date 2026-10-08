@@ -14,7 +14,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
-  appendFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync,
+  appendFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync,
 } from "node:fs";
 import { rm } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -142,6 +142,33 @@ export function listenerState(dir, episode) {
   } catch {
     return AWAY;
   }
+}
+
+// The page says when William is recording, so a reply that lands then waits in silence
+// and the seat that posts it is told. On 2026-10-08 (Episode 339) a reply started playing
+// in the middle of a take and cut it. Held in memory and kept alive by the page's
+// heartbeat: a page that goes quiet stops counting as recording.
+const RECORDING_STALE_MS = 45_000;
+
+// The conversation, one thread: William's takes and Mia's replies in the order they
+// happened. A sent take used to hide every earlier reply (William, 2026-10-08).
+const THREAD_LIMIT = 40;
+const TAKE_ID = /^\d{12}$/;
+
+function listTakes(dir) {
+  const captures = join(dir, "captures");
+  if (!existsSync(captures)) return [];
+  return readdirSync(captures, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && TAKE_ID.test(entry.name))
+    .map((entry) => {
+      const take = entry.name;
+      const folder = join(captures, take);
+      let at = "";
+      try { at = JSON.parse(readFileSync(join(folder, "capture.json"), "utf8")).storedAt || ""; } catch {}
+      let text = "";
+      try { text = readFileSync(join(folder, `transcription_${take}_EN.txt`), "utf8").trim(); } catch {}
+      return { kind: "take", take, at: at || statSync(folder).mtime.toISOString(), text };
+    });
 }
 
 async function readJson(req, limit = 256 * 1024) {
@@ -323,6 +350,37 @@ export function createApp({
 }) {
   const serial = serializer();
   const voicing = new Map(); // reply id → in-flight synthesis, so two taps make one voice
+  const recorders = new Map(); // episode → { recording, since, seen }
+
+  function recorderState(episode) {
+    const seen = recorders.get(episode);
+    if (!seen || !seen.recording || Date.now() - seen.seen > RECORDING_STALE_MS) return { recording: false };
+    return { recording: true, since: seen.since };
+  }
+
+  async function postRecorder(req) {
+    const body = await readJson(req);
+    episodeDir(chronicleRoot, body.episode);
+    const recording = body.recording === true;
+    const before = recorders.get(body.episode);
+    const now = Date.now();
+    recorders.set(body.episode, {
+      recording,
+      since: recording && before?.recording ? before.since : new Date(now).toISOString(),
+      seen: now,
+    });
+    return { success: true, episode: body.episode, ...recorderState(body.episode) };
+  }
+
+  function listThread(url) {
+    const episode = url.searchParams.get("episode") || defaultEpisode;
+    const dir = episodeDir(chronicleRoot, episode);
+    const replies = readReplies(repliesDir, episode).map((reply) => ({ kind: "reply", ...publicReply(reply, repliesDir) }));
+    const items = [...listTakes(dir), ...replies]
+      .sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0))
+      .slice(-THREAD_LIMIT);
+    return { success: true, episode, presence: listenerState(listenerDir, episode), recorder: recorderState(episode), items };
+  }
 
   // One voice per reply, rendered once and cached as a file on this host.
   function render(reply) {
@@ -368,10 +426,13 @@ export function createApp({
     };
     mkdirSync(repliesDir, { recursive: true });
     appendFileSync(join(repliesDir, `${reply.episode}.jsonl`), `${JSON.stringify(reply)}\n`, { mode: 0o600 });
+    // Told to the seat that posts: while William records, the reply shows on his page and
+    // waits in silence until he has sent his take.
+    const recording = recorderState(reply.episode).recording ? { recording: true } : {};
     // The text is kept either way: William can still read and copy it.
     const problem = originProblem(reply.origin);
-    if (problem) return { success: true, id: reply.id, unvoiced: `${problem}. ${POST_WITH_MIA_LISTEN}` };
-    if (!voice) return { success: true, id: reply.id };
+    if (problem) return { success: true, id: reply.id, ...recording, unvoiced: `${problem}. ${POST_WITH_MIA_LISTEN}` };
+    if (!voice) return { success: true, id: reply.id, ...recording };
     // Voiced now, while the pane that wrote it is the pane its origin names. The mp3 is a
     // file on this host, so a later reboot that renumbers the panes cannot take it away.
     let timer;
@@ -383,7 +444,7 @@ export function createApp({
       }),
       new Promise((done) => { timer = setTimeout(done, VOICE_AT_POST_MS, ""); }),
     ]).finally(() => clearTimeout(timer));
-    return { success: true, id: reply.id, ...(refused ? { unvoiced: `the voice layer refused: ${refused}` } : {}) };
+    return { success: true, id: reply.id, ...recording, ...(refused ? { unvoiced: `the voice layer refused: ${refused}` } : {}) };
   }
 
   function listReplies(url) {
@@ -396,7 +457,7 @@ export function createApp({
       .slice(0, 10)
       .map((reply) => publicReply(reply, repliesDir));
     const presence = listenerState(listenerDir, episode);
-    return { success: true, episode, listening: presence.state !== "away", presence, replies };
+    return { success: true, episode, listening: presence.state !== "away", presence, recorder: recorderState(episode), replies };
   }
 
   // Mia's voice for one reply, through the Miadi voice layer (persona mia, bound to the
@@ -491,6 +552,19 @@ export function createApp({
       }
       if (req.method === "POST" && url.pathname === "/api/takes") {
         sendJson(res, 200, await storeTake(req, url));
+        return;
+      }
+      if (url.pathname === "/api/recorder") {
+        if (req.method === "POST") { sendJson(res, 200, await postRecorder(req)); return; }
+        if (req.method === "GET") {
+          const episode = url.searchParams.get("episode") || defaultEpisode;
+          episodeDir(chronicleRoot, episode);
+          sendJson(res, 200, { success: true, episode, ...recorderState(episode) });
+          return;
+        }
+      }
+      if (req.method === "GET" && url.pathname === "/api/thread") {
+        sendJson(res, 200, listThread(url));
         return;
       }
       if (url.pathname === "/api/replies") {

@@ -345,3 +345,48 @@ test("the page is told whether a seat is listening on the episode", async () => 
     b.close();
   }
 });
+
+// Episode 339, 2026-10-08: the page says when William records, and the seat that posts a
+// reply then is told so; and the conversation is one thread of takes and replies.
+test("while the page says William is recording, a reply posted then is told so, and the state lapses when he stops", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const recorder = (recording) => fetch(`${b.url}/api/recorder`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ episode: EPISODE, recording }) }).then((r) => r.json());
+    const reply = () => fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ episode: EPISODE, text: "🧠: Ready." }) }).then((r) => r.json());
+    assert.equal((await reply()).recording, undefined, "nobody records yet");
+    assert.equal((await recorder(true)).recording, true);
+    const state = await (await fetch(`${b.url}/api/recorder?episode=${EPISODE}`)).json();
+    assert.equal(state.recording, true);
+    assert.ok(state.since);
+    assert.equal((await reply()).recording, true, "the seat is told he is recording");
+    const listed = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}`)).json();
+    assert.equal(listed.recorder.recording, true, "the page reads it too");
+    assert.equal((await recorder(false)).recording, false);
+    assert.equal((await reply()).recording, undefined);
+  } finally {
+    b.close();
+  }
+});
+
+test("the thread holds every take and reply of the episode in the order they happened", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const take = "261008071849";
+    const folder = join(b.chronicleRoot, EPISODE, "captures", take);
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, "capture.json"), JSON.stringify({ storedAt: "2026-10-08T11:19:09.914Z" }));
+    writeFileSync(join(folder, `transcription_${take}_EN.txt`), "These are good.\n");
+    mkdirSync(join(b.chronicleRoot, EPISODE, "captures", "not-a-take"), { recursive: true });
+    await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ episode: EPISODE, take, text: "🧠: Heard." }) });
+    const answer = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    assert.equal(answer.success, true);
+    assert.deepEqual(answer.items.map((item) => item.kind), ["take", "reply"]);
+    assert.equal(answer.items[0].take, take);
+    assert.equal(answer.items[0].text, "These are good.");
+    assert.equal(answer.items[1].text, "🧠: Heard.");
+    assert.equal(answer.items[1].origin, undefined, "the page never sees pane ids");
+    assert.equal(answer.recorder.recording, false);
+  } finally {
+    b.close();
+  }
+});
