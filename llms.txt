@@ -2,6 +2,8 @@
 
 Agent-host assets for Miadi: Claude Code, Codex, Copilot, Gemini, Antigravity and Pi plugins, host-neutral skills, hooks, prompt contracts, RISE specifications, and host install scripts.
 
+Start with `skills/chronicle-episode/SKILL.md`: the one entry point for Chronicle episode work, which most plugins here serve.
+
 - Docs site: `https://docs.miadi-orchestration-kit.jgwill.com`
 - Repository: `https://github.com/jgwill/miadi-orchestration-kit`
 

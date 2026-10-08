@@ -1,4 +1,13 @@
 {
+  "$schema": "https://context7.com/schema/context7.json",
   "url": "https://context7.com/jgwill/miadi-orchestration-kit",
-  "public_key": "pk_8qbbXsiGFN3OFCIRPPep7"
+  "public_key": "pk_8qbbXsiGFN3OFCIRPPep7",
+  "projectTitle": "Miadi Orchestration Kit",
+  "description": "The agent-host side of the Miadi Factory. Its center is the chronicle-episode skill: minting, registering, relating and closing Miadi Chronicle episodes, with their ceremonies, talking circles and reviews. Around it: Claude Code plugins for session capture and restore, witnessing, companions and screenwalk media, host-neutral skills, hooks, and apt packages that install the chronicle's commands on a machine.",
+  "rules": [
+    "Create a Chronicle episode with mkepisode or the episode API (POST /api/chronicle/episodes), never with mkdir under MIADI_CHRONICLE_ROOT.",
+    "Report an episode at the last stage proven (created, committed, pushed, registered, receipt-verified), each with its own probe.",
+    "Reach the chronicle wheel through MIADI_CHRONICLE_MW_URL and the app through MIADI_API_URL; never hardcode a wheel URL.",
+    "Resolve exact @miadi/* versions and CLI flags from the npm registry or https://docs.miadi.jgwill.com/packages/llms.txt, not from a kit prompt."
+  ]
 }

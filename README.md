@@ -5,17 +5,24 @@ The agent-host side of the Miadi Factory: Claude Code plugins, host-neutral skil
 - Docs site: https://docs.miadi-orchestration-kit.jgwill.com
 - For agents: [`llms.txt`](llms.txt)
 
-## Place in the Miadi Factory
+## Start here: the chronicle-episode skill
 
-The Miadi Factory makes agent-made work inspectable and revisitable. It connects the originating question, the session trace, the interface evidence, explicit criteria, and a person's judgment. [`jgwill/Miadi`](https://github.com/jgwill/Miadi) builds the runtime: the `@miadi/*` npm packages, the web app, the chronicle and review services. This kit holds what an agent host loads to use that runtime, and what a machine installs to become a Miadi host or client.
+The Miadi Factory makes agent-made work inspectable and revisitable. It connects the originating question, the session trace, the interface evidence, explicit criteria, and a person's judgment. A Chronicle episode is where they meet, so [`skills/chronicle-episode`](skills/chronicle-episode/SKILL.md) is the skill this kit is used for. It is the one entry point for episode work on any host: mint a vessel, prove its five stages, register it on the chronicle wheel, relate inquiries and lineage, raise Attention items, open ceremonies and talking circles, add Miadi reviews.
 
-| The Factory connects | Carried here by |
+One copy of the skill lives here. The `miadi-chronicle-episode-kit` plugin links it in, and [`scripts/install-chronicle-skill.sh`](scripts/install-chronicle-skill.sh) points every other skill layer on a host at it. [`jgwill/Miadi`](https://github.com/jgwill/Miadi) builds the runtime the skill calls: the episode API, the `@miadi/*` packages, the web app, the chronicle and review services.
+
+| An episode needs | Carried by |
 | --- | --- |
-| the originating question | a Chronicle episode: [`skills/chronicle-episode`](skills/chronicle-episode/SKILL.md), [`claude/miadi-chronicle-episode-kit`](claude/miadi-chronicle-episode-kit) |
-| the session trace | [`claude/miadi-session-observability`](claude/miadi-session-observability): every event, and one binding line per session |
-| the interface evidence | screenwalks: `screenwalk-presence` in [`claude/miadi-witness`](claude/miadi-witness), `/close-screenwalk` in [`claude/mia-episode-companion`](claude/mia-episode-companion), notebooks in [`claude/miadi-deepdiver`](claude/miadi-deepdiver) |
+| its vessel, five stages, ceremonies and reviews | [`claude/miadi-chronicle-episode-kit`](claude/miadi-chronicle-episode-kit): the skill, a hook that refuses `mkdir` under the chronicle root, and the inquiry-weave, miadi-voice and chronicle wheel MCP servers |
+| the sessions that worked in it | [`claude/miadi-session-observability`](claude/miadi-session-observability): each session's binding line names the episode it works in |
+| a companion seated in it | [`claude/mia-episode-companion`](claude/mia-episode-companion): a voice take from the phone lands in the episode and wakes Mia |
+| its screenwalks | `screenwalk-presence` in [`claude/miadi-witness`](claude/miadi-witness), and `/close-screenwalk` in `mia-episode-companion`, whose closing reaches the review |
+| media from its reviews | [`claude/miadi-deepdiver`](claude/miadi-deepdiver): Gemini notebooks from the episode's reviews and screenwalk videos |
+| a person's judgment | `miadi-witness`: first impressions William can play, revisions held until he answers |
+| its commands on a machine | the `miadi-chronicle-client` package (`mkepisode`, `inquiry-weave`, `passages`, the MCP servers) and `miadi-terminal` (clickable `miadi-chronicle:` references) |
 | explicit criteria | no kit lane yet |
-| a person's judgment | [`claude/miadi-witness`](claude/miadi-witness): first impressions William can play, revisions held until he answers |
+
+Guides that go with this README (the words, the order of episode work, machine recovery, adding to the kit): the [wiki](https://github.com/jgwill/miadi-orchestration-kit/wiki).
 
 ## Teams
 
@@ -88,7 +95,7 @@ Hosts set `MIADI_ORCHESTRATION_KIT_ROOT` to their checkout of this repository.
 
 | Item | Use it for |
 | --- | --- |
-| [`skills/chronicle-episode`](skills/chronicle-episode/SKILL.md) | the one entry point for Chronicle episode work on any host |
+| [`skills/chronicle-episode`](skills/chronicle-episode/SKILL.md) | the one entry point for Chronicle episode work on any host, with `redeem-receipt.sh` and `reconcile.py` beside it |
 | [`skills/chart-path`](skills/chart-path/SKILL.md) | how a structural tension chart an agent writes reaches Asterion, and the words the teams use for it |
 | [`skills/proposal-visualization`](skills/proposal-visualization/SKILL.md) | a proposal as one HTML page to read, comment on and approve |
 | [`skills/miadi-react`](skills/miadi-react/SKILL.md) | the emoji reactions on GitHub issues, as Miadi stores them |
