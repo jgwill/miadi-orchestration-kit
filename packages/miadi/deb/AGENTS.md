@@ -2,8 +2,9 @@
 
 These packages set up a machine for the Miadi factory from apt: `miadi` (the host), `miadi-config`
 (its MIADI_* settings), `miadi-terminal` (clickable chronicle references, and `enable restore` for
-tmux sessions that survive a reboot), `miadi-tide` (the tide runtime and review loop) and
-`miadi-tmux` (one tmux, 3.7c, in place of the distribution's), and beside them `miadi-music` with
+tmux sessions that survive a reboot), `miadi-tide` (the tide runtime and review loop),
+`miadi-tmux` (one tmux, 3.7c, in place of the distribution's), `miadi-perms` (group read and
+write on the shared session capture every 4 hours), and beside them `miadi-music` with
 `miadi-music-render`, `-measure` and `-video` (music for an album or an episode's score). README.md
 says what each package holds and how to build, test and publish it.
 

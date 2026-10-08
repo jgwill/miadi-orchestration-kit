@@ -225,6 +225,27 @@ PY
     test ! -e /usr/lib/miadi-music/venv && echo "remove takes the venv with it"
   fi
 
+  if dpkg -s miadi-perms >/dev/null 2>&1; then
+    dpkg -s miadi-perms | sed -n "s/^Version: /installed miadi-perms /p"
+    # A container has no systemd: the enabled state is the symlink postinst made.
+    test -L /etc/systemd/system/timers.target.wants/miadi-perms.timer && echo "miadi-perms.timer is enabled at install"
+    grep -qx "ExecStart=/usr/bin/miadi-perms" /usr/lib/systemd/system/miadi-perms.service
+    # With /src present, MIADI_SESSIONDATA_ROOT resolves to /src/_sessiondata, as on gaia.
+    useradd -m writer
+    mkdir -p /src/_sessiondata && chown writer /src/_sessiondata
+    su writer -s /bin/sh -c "umask 022; mkdir /src/_sessiondata/s1; echo x > /src/_sessiondata/s1/log; ln -s /etc/passwd /src/_sessiondata/s1/link; touch /src/_sessiondata/open; chmod 664 /src/_sessiondata/open"
+    before=$(stat -c %Z /src/_sessiondata/open)
+    sleep 1.1
+    miadi-perms | tee /tmp/perms.log
+    grep -qx "miadi-perms: /src/_sessiondata: g+rw on 3 entries" /tmp/perms.log
+    test "$(find /src/_sessiondata ! -type l ! -perm -g+rw | wc -l)" = 0
+    test "$(stat -c %a /etc/passwd)" = 644
+    test "$(stat -c %Z /src/_sessiondata/open)" = "$before"
+    echo "miadi-perms opened the 3 entries that lacked g+rw, left the open file and the symlink target alone"
+    miadi-perms /nonexistent | grep -qx "miadi-perms: /nonexistent does not exist, skipped" && echo "a missing directory is skipped"
+    apt-get remove -y -qq miadi-perms >/dev/null 2>&1 && test ! -e /usr/bin/miadi-perms && echo "remove takes the command and units with it"
+  fi
+
   if dpkg -s miadi-config >/dev/null 2>&1; then
     apt-get remove -y -qq miadi-config >/dev/null 2>&1 && test -f /etc/miadi/miadi.env && echo "remove keeps the edited conffile"
   fi

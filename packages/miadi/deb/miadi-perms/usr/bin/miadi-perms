@@ -1,0 +1,17 @@
+#!/bin/sh
+# Give the group read and write on every file that lacks it under each
+# directory given, or under MIADI_SESSIONDATA_ROOT when none is given.
+# Only files missing g+rw are changed, so the others keep their ctime.
+# A directory that does not exist is skipped, not an error.
+set -eu
+if [ $# -eq 0 ]; then
+	set -- "$(miadi-config get MIADI_SESSIONDATA_ROOT)"
+fi
+for dir in "$@"; do
+	if [ ! -d "$dir" ]; then
+		echo "miadi-perms: $dir does not exist, skipped"
+		continue
+	fi
+	count=$(find "$dir" ! -type l ! -perm -g+rw -print -exec chmod g+rw {} + | wc -l)
+	echo "miadi-perms: $dir: g+rw on $count entries"
+done

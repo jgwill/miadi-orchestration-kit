@@ -1,0 +1,10 @@
+[Unit]
+Description=Group read and write on the shared session capture every 4 hours (miadi-perms)
+
+[Timer]
+OnCalendar=*-*-* 00/4:00:00
+# A run missed while the host was off happens at the next boot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

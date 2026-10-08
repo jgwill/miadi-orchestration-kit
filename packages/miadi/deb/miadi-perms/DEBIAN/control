@@ -1,0 +1,16 @@
+Package: miadi-perms
+Version: 0.1.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: miadi-config (>= 0.2.0), findutils
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Group read and write on a Miadi host's shared session capture
+ Several users' agent sessions write into one capture directory,
+ MIADI_SESSIONDATA_ROOT (/src/_sessiondata by default). A file one user
+ creates there is often not writable by the others, and their hooks then
+ fail to write. The miadi-perms command gives the group read and write on
+ every file under that directory that lacks it. The system timer
+ miadi-perms.timer runs it as root every 4 hours, and once at boot when
+ a run was missed. It is enabled at install.

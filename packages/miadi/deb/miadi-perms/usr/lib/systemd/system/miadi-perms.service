@@ -1,0 +1,10 @@
+[Unit]
+Description=Group read and write on the shared session capture (miadi-perms)
+Documentation=https://github.com/jgwill/miadi-orchestration-kit/tree/main/packages/miadi/deb#miadi-perms
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/miadi-perms
+# The walk must not compete with live sessions.
+Nice=19
+IOSchedulingClass=idle

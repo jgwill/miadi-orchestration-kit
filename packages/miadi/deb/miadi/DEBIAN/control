@@ -1,13 +1,14 @@
 Package: miadi
-Version: 0.3.1
+Version: 0.3.2
 Section: misc
 Priority: optional
 Architecture: all
-Depends: miadi-config (>= 0.2.0), miadi-tide (>= 0.1.1), miadi-tmux (>= 3.7c)
+Depends: miadi-config (>= 0.2.0), miadi-tide (>= 0.1.1), miadi-tmux (>= 3.7c), miadi-perms (>= 0.1.0)
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
 Description: Miadi host platform
  Installs the parts of a Miadi host. Each part is its own package and joins
- as a dependency here: miadi-config, the host's MIADI_* settings, and
- miadi-tide, the review loop and the tide runtime, and miadi-tmux, one
- tmux (3.7c) in place of the distribution's.
+ as a dependency here: miadi-config, the host's MIADI_* settings,
+ miadi-tide, the review loop and the tide runtime, miadi-tmux, one
+ tmux (3.7c) in place of the distribution's, and miadi-perms, group read
+ and write on the shared session capture every 4 hours.

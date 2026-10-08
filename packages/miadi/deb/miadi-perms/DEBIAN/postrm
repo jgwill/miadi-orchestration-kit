@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+if [ -d /run/systemd/system ]; then
+	systemctl --system daemon-reload >/dev/null || true
+fi
+case "$1" in
+remove) deb-systemd-helper mask miadi-perms.timer >/dev/null || true ;;
+purge)
+	deb-systemd-helper purge miadi-perms.timer >/dev/null || true
+	deb-systemd-helper unmask miadi-perms.timer >/dev/null || true
+	;;
+esac
+exit 0

@@ -23,6 +23,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-tmux` | `/usr/bin/tmux` 3.7c built from the upstream release, replacing the distribution's tmux (3.2a on 22.04): one tmux version on a host, since a client cannot attach to a server of another version | 3.7c-1 |
 | `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` and `miadi-foundation:` (0.2.2) references, and bare circle ids (0.1.4): desktop, Terminator, tmux | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
+| `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
 | `miadi-music` | music on the host, for an album or an episode's score: brings the three below and the `miadi-music` command | 0.1.0 |
 | `miadi-music-render` | ABC to MIDI, audio and the engraved page: abcmidi, abcm2ps, fluidsynth with the FluidR3 soundfont, ffmpeg | 0.1.0 |
 | `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
@@ -147,6 +148,27 @@ systemctl --user enable --now tide-runtime.service tide-store-prune.timer
 script) and `PANE_WRITE_GUARD_SRC`, and caches builds under `MIADI_DEB_CACHE`
 (`~/.cache/miadi-deb`).
 
+## miadi-perms
+
+Several users' agent sessions write into one capture directory,
+`MIADI_SESSIONDATA_ROOT` (`/src/_sessiondata` by default). A file one user
+creates there is often not writable by the others. `miadi-perms.timer`, a
+system timer enabled at install, runs `miadi-perms` as root at 00:00, 04:00,
+08:00, 12:00, 16:00 and 20:00, and at the next boot when a run was missed. It
+gives the group read and write on every file there that lacks it, and leaves
+the others untouched.
+
+```bash
+systemctl list-timers miadi-perms.timer        # when it runs next
+sudo miadi-perms                               # run it now; or: sudo miadi-perms <dir>...
+journalctl -u miadi-perms.service              # how many entries each run changed
+sudo systemctl disable --now miadi-perms.timer # stop it; an upgrade keeps it off
+```
+
+It replaces the `sudo chmod -R g+rw /workspace/repos/ /src/_sessiondata` that
+jgwill/Miadi's `.github-hooks/push` ran on every push until 2026-10-08: that
+walked 3 million files per push, and push bursts started several at once.
+
 ## miadi-music
 
 Music on a Miadi host, installed beside the platform. The parts are split by
@@ -213,6 +235,7 @@ index never lists a `miadi` whose dependency is missing:
 ```bash
 publish=/workspace/repos/miadisabelle/mia-parallel-code/scripts/apt-publish.sh
 bash "$publish" dist/miadi-config_<version>_all.deb
+bash "$publish" dist/miadi-perms_<version>_all.deb    # after miadi-config, before the miadi that depends on it
 bash "$publish" dist/miadi_<version>_all.deb
 bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on
 bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it

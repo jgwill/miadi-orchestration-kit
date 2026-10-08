@@ -1,0 +1,20 @@
+#!/bin/sh
+# Enable the timer at first install, keep an admin's disable on upgrade.
+set -e
+case "$1" in
+configure|abort-upgrade|abort-deconfigure|abort-remove)
+	deb-systemd-helper unmask miadi-perms.timer >/dev/null || true
+	if deb-systemd-helper --quiet was-enabled miadi-perms.timer; then
+		deb-systemd-helper enable miadi-perms.timer >/dev/null || true
+	else
+		deb-systemd-helper update-state miadi-perms.timer >/dev/null || true
+	fi
+	if [ -d /run/systemd/system ]; then
+		systemctl --system daemon-reload >/dev/null || true
+		if deb-systemd-helper --quiet is-enabled miadi-perms.timer; then
+			systemctl start miadi-perms.timer >/dev/null || true
+		fi
+	fi
+	;;
+esac
+exit 0
