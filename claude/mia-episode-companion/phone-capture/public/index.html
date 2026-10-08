@@ -144,7 +144,7 @@
   function showReply(reply, arrived) {
     var isNew = !current || current.id !== reply.id;
     current = reply;
-    if (isNew) loadThread();
+    if (isNew) loadThread().then(showNewest);
     if (isNew && busy()) {
       unheard[reply.id] = true;
       replyNotice.textContent = "Mia replied at " + when(reply.at) + ". Read it just below. Her voice waits until you have sent your take.";
@@ -248,6 +248,18 @@
       if (key === threadKey) return;
       threadKey = key;
       renderThread(items);
+    } catch (_) {}
+  }
+
+  // A new reply is the conversation's first entry. Bring it into view under the sticky
+  // controls, so William never scrolls to find what just arrived (take 261008075240).
+  function showNewest() {
+    try {
+      var first = thread.firstChild;
+      if (!first || !first.getBoundingClientRect) return;
+      var dock = button.parentNode && button.parentNode.getBoundingClientRect ? button.parentNode.getBoundingClientRect().bottom : 0;
+      var top = first.getBoundingClientRect().top;
+      if (top < dock || top > window.innerHeight) window.scrollBy({ top: top - dock - 8, behavior: "smooth" });
     } catch (_) {}
   }
 

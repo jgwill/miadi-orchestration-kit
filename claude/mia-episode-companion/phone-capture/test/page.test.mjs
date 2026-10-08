@@ -100,7 +100,7 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
       createTextNode: (text) => ({ text }),
       execCommand() {},
     },
-    window: { addEventListener() {} },
+    window: { addEventListener() {}, innerHeight: 800, scrollBy() {} },
     navigator: {
       mediaDevices: { getUserMedia: () => new Promise((done) => setTimeout(() => done({ getTracks: () => [{ stop() { stoppedTracks.count += 1; } }] }), micDelay)) },
       clipboard: { writeText: async () => {} },
