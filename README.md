@@ -22,7 +22,7 @@ One copy of the skill lives here. The `miadi-chronicle-episode-kit` plugin links
 | its commands on a machine | the `miadi-chronicle-client` package (`mkepisode`, `inquiry-weave`, `passages`, the MCP servers) and `miadi-terminal` (clickable `miadi-chronicle:` references) |
 | explicit criteria | no kit lane yet |
 
-Guides that go with this README (the words, the order of episode work, machine recovery, adding to the kit): the [wiki](https://github.com/jgwill/miadi-orchestration-kit/wiki).
+Guides that go with this README: [the order of episode work](docs/chronicle-episodes.md), [the glossary](docs/glossary.md), [machine setup and recovery](docs/machine-setup-and-recovery.md), [adding to the kit](docs/adding-to-the-kit.md).
 
 ## Teams
 

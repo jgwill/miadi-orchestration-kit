@@ -4,6 +4,13 @@ Agent-host assets for Miadi: Claude Code, Codex, Copilot, Gemini, Antigravity an
 
 Start with `skills/chronicle-episode/SKILL.md`: the one entry point for Chronicle episode work, which most plugins here serve.
 
+Guides, served raw at the same paths on the docs site:
+
+- [`docs/chronicle-episodes.md`](docs/chronicle-episodes.md): the order of episode work, its doors (API, MCP, CLI), the five proofs, and the rules that prevent the usual failures.
+- [`docs/glossary.md`](docs/glossary.md): episode, vessel, receipt, wheel, ceremony, circle, seat, binding line, screenwalk, tide.
+- [`docs/machine-setup-and-recovery.md`](docs/machine-setup-and-recovery.md): set up a Miadi host, and bring agents back after a reboot or a crash.
+- [`docs/adding-to-the-kit.md`](docs/adding-to-the-kit.md): where a plugin, skill or package goes, the plugin rules, releasing a change.
+
 - Docs site: `https://docs.miadi-orchestration-kit.jgwill.com`
 - Repository: `https://github.com/jgwill/miadi-orchestration-kit`
 
