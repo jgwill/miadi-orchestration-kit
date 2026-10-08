@@ -15,7 +15,7 @@
       "name": "mia-episode-companion",
       "source": "./claude/mia-episode-companion",
       "description": "Mia, William's development companion, in a Claude Code seat: wakes the session when a phone voice take lands in the episode, and answers through draft, a developmental-editor agent, and revision.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "name": "ava-companion",
@@ -27,13 +27,13 @@
       "name": "miadi-session-observability",
       "source": "./claude/miadi-session-observability",
       "description": "Session capture installed once per host: every Claude Code event under <root>/<session_id>/, and a binding line per session start, end and rename with its tmux pane, command line, name history, team and chronicle episode. Carries the session-continuity skill (T1).",
-      "version": "0.1.8"
+      "version": "0.1.9"
     },
     {
       "name": "miadi-witness",
       "source": "./claude/miadi-witness",
       "description": "The witness team's practices and loop (T3): a loopback thread service with the asks ledger, a wake loop, an editor pass for replies to William, the inventory keeper, a first impression he can play with revisions held until he answers, and an agent's output as a Mia and Ava podcast dialogue, and a person's draft prompt pre-edited and followed through its run.",
-      "version": "0.5.0"
+      "version": "0.5.1"
     },
     {
       "name": "miadi-stateloom",

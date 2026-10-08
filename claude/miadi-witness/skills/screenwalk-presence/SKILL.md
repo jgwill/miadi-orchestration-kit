@@ -1,13 +1,13 @@
 ---
 name: screenwalk-presence
-description: Write what a seat says when it takes part in a screenwalk, the recorded session William plays back aloud. One script, written to be heard rather than read. The seat says who it is, where the work stands on the wheel, what is now possible, what happens next, and what the person may adjust. Use when William will "press play" on the reply, asks for "something that feels like a podcast or a presentation", asks the seat to present itself in an episode, or prepares the next part of a screenwalk.
+description: Write what a seat says when it takes part in a screenwalk, the recorded session William plays back aloud. One script, written to be heard rather than read. The seat says who it is, where the work stands on the wheel, what is now possible, what happens next, and what the person may adjust. Use when William will "press play" on the reply, asks for "something that feels like a podcast or a presentation", asks the seat to present itself in an episode, prepares the next part of a screenwalk, or says "close this screenwalk", "close the screenwalk", "title the screenwalk" or "the last message of the screenwalk".
 ---
 
 # Screenwalk presence
 
 A screenwalk is a recording of a person working with agent sessions, with their voices. Episode 550 holds its definition. When William plays a seat's reply inside one, the reply becomes part of the film. So it is written for the ear, and it can be reused as the episode's script.
 
-Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.2 (2026-10-08). Revise it from William's spoken feedback after each playback.
+Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.3 (2026-10-08). Revise it from William's spoken feedback after each playback.
 
 ## The shape, in order
 
@@ -38,6 +38,18 @@ Added 2026-10-08 (version 0.2), from William at the end of the Episode 140 scree
 5. **What comes next**, as the next screenwalk.
 
 Speak it all; do not narrate the changes made on the way to it. Corrections the person asked for are applied, not announced.
+
+Before writing it, read three things: where the screenwalk starts in your own transcript, every vocabulary correction the person made during it, and the slug precedent above.
+
+### Keep the closing (added in 0.3)
+
+A closing that lives only on the phone page and in the transcript is lost to the review. On 2026-10-08 the review of the Episode 140 screenwalk (miadi-review:89f51d13) was generated from the video alone. It took none of Mia's title or terms, and called a restart that needed a reload "a zero-downtime hotfix".
+
+1. Commit the closing in the episode as the screenwalk's record: `captures/<slug>/closing.md`, holding the title, the slug, the description and the note for observing agents.
+2. Give the title and the description at upload, as the video's title and description.
+3. Once the review exists, import a version whose `## Intent` carries the title and description as the author's own, and correct the generated text against them (`miadi-review-academic-fields`, step 1).
+
+Source: a branch of the Episode 140 Mia session, asked through `miadi-fork ask` (session-fork skill), 2026-10-08. Its full answer is in `<sessiondata>/41fd21fc-44c3-4c1c-993f-bc2e12644433/fork-ask.md`.
 
 ## After the playback
 

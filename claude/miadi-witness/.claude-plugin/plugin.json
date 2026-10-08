@@ -1,7 +1,7 @@
 {
   "name": "miadi-witness",
   "description": "The witness team's practices and loop (T3). A service on 127.0.0.1:3340 shows every thread by team and seat, with each parent recorded, inferred from its transcript, or unknown, and William's asks with their evidence. It opens mino threads and prepares tide sends for idle ones. /witness-listen wakes the seat on William's new input blocks, new threads and threads that finish a turn. The witness-editor checks a reply for dropped asks, unsourced claims, density and forbidden phrases. The inventory-keeper writes the session inventory keyed by session id, reading each session through miadi-hooks-interpret digest; a hook keeps it off the raw capture. Also: read a peer session and its page, speak a first impression William can play, and hold revisions until he answers. Turn an agent's output into a Mia and Ava podcast dialogue, and change that skill with each reaction to it. Pre-edit a person's draft prompt to another session, follow the run and evolve from it.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "jgwill"
   },
