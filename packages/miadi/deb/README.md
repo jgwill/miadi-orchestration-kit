@@ -21,7 +21,7 @@ sudo apt update && sudo apt install miadi
 | `miadi` | its dependencies (through 0.1.x it held the settings itself) | 0.1.0 |
 | `miadi-config` | the `MIADI_*` settings and the `miadi-config` command | 0.2.0 |
 | `miadi-tmux` | `/usr/bin/tmux` 3.7c built from the upstream release, replacing the distribution's tmux (3.2a on 22.04): one tmux version on a host, since a client cannot attach to a server of another version | 3.7c-1 |
-| `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` and `miadi-foundation:` (0.2.2) references, and bare circle ids (0.1.4): desktop, Terminator, tmux | 0.1.0 |
+| `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` and `miadi-foundation:` (0.2.2) references, and bare circle ids (0.1.4): desktop, Terminator, tmux; the tmux settings every user starts with, `/etc/miadi/tmux.conf` (0.3.0; `miadi` depends on it since 0.5.0) | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
 | `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
@@ -83,7 +83,7 @@ circle reference opens its page the same way: `miadi-circle:<id>`,
 ```bash
 sudo apt install miadi-terminal
 miadi-terminal front https://<your Miadi>   # when MIADI_URL_BASE is not already it
-miadi-terminal enable                       # per user; or: enable desktop terminator tmux
+miadi-terminal enable                       # per user; or: enable desktop terminator tmux defaults
 miadi-terminal status
 ```
 
@@ -92,6 +92,7 @@ miadi-terminal status
 | `desktop` | an OSC 8 link or a page link carrying `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` or `miadi-foundation:` | `/usr/share/applications/miadi-chronicle-open.desktop` |
 | `terminator` | Ctrl+click a bare reference | `/usr/share/miadi-terminal/terminator/`, linked into Terminator's plugin directory |
 | `tmux` | click, or tap on Termux, a bare reference in a pane | `/usr/share/miadi-terminal/tmux/miadi-chronicle.conf` |
+| `defaults` (0.3.0) | the tmux settings every user starts with: `/etc/tmux.conf` reads `/etc/miadi/tmux.conf`; enabling comments out the lines of the user's config that repeat it | `/etc/tmux.conf`, `/etc/miadi/tmux.conf` |
 | `restore` (0.2.0, by name only) | tmux starts at boot, restores its sessions, and tide brings the agents back | `/usr/share/miadi-terminal/session-continuity/`, `/usr/lib/systemd/user/tmux-server.service`, `tmux-save.timer` |
 
 The package installs system-wide; its maintainer scripts write nothing into a
@@ -106,6 +107,31 @@ sets over `/etc/miadi/miadi.env`, with both values, and says nothing when it
 overrides none. The front is `MIADI_CHRONICLE_OPEN_URL`, else `MIADI_URL_BASE`.
 A Termux build of the same tree is made by `build.sh` (`termux/README.md`).
 Contract: jgwill/Miadi `rispecs/miadi-chronicle-dsl/SPEC-TERMINAL.md` §3.
+
+### tmux settings for every user
+
+Every tmux reads `/etc/tmux.conf` before the user's `~/.tmux.conf`, so a line
+a user writes there wins. `miadi-terminal` installs both files as conffiles:
+
+| file | holds | change it |
+|---|---|---|
+| `/etc/tmux.conf` | one line, `source-file -q /etc/miadi/tmux.conf`, and room for the host's own settings | never in the package: as long as it stays the same, dpkg asks at most once, on a host that already had its own `/etc/tmux.conf` |
+| `/etc/miadi/tmux.conf` | the settings mia, jgi and ava each kept on gaia: extended keys, focus events, `tmux-256color` with 24-bit colour, the mouse on, 50,000 lines of history, the wheel scrolling tmux's scrollback | here, with a version bump; an unedited copy is replaced on upgrade, an edited one makes dpkg ask |
+
+`status-left-length` stays with each user (ava 50, mia and jgi 100), and the
+plugin lines stay with `enable restore`. `miadi-terminal enable defaults`
+comments out each line of the user's config that repeats one of
+`/etc/miadi/tmux.conf`, marked `# in /etc/miadi/tmux.conf: `, after a
+`.bak-miadi-terminal` copy; `disable defaults` puts them back. A running
+server reads the settings with `tmux source-file /etc/tmux.conf`.
+
+## A user on a Miadi host
+
+The steps an administrator runs for one more account (group, linger,
+`miadi-terminal enable`, restore, the user units) are in `miadi`'s
+`/usr/share/doc/miadi/README`. Creating the accounts `mia`, `ava` and
+`tushell` on a new host, each for its own purpose, is
+jgwill/miadi-orchestration-kit#79.
 
 ## miadi-tide
 
@@ -275,8 +301,8 @@ bash "$publish" dist/miadi-perms_<version>_all.deb    # after miadi-config, befo
 bash "$publish" dist/miadi-node_<version>_amd64.deb   # before the two halves that run on it
 bash "$publish" dist/miadi-chronicle-client_<version>_all.deb
 bash "$publish" dist/miadi-chronicle-server_<version>_all.deb   # before the miadi that depends on it
+bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on, before the miadi that depends on it
 bash "$publish" dist/miadi_<version>_all.deb
-bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on
 bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it
 bash "$publish" dist/miadi-music-render_<version>_all.deb
 for w in dist/miadi-music-wheels-cp3*_<version>_amd64.deb; do bash "$publish" "$w"; done

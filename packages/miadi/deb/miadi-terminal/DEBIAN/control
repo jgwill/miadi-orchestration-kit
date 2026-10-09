@@ -1,5 +1,5 @@
 Package: miadi-terminal
-Version: 0.2.3
+Version: 0.3.0
 Section: misc
 Priority: optional
 Architecture: all
@@ -8,14 +8,19 @@ Recommends: libnotify-bin, git, miadi-tide, miadi-tmux
 Suggests: terminator, tmux
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
-Description: Clickable miadi-chronicle references, and tmux sessions that survive a reboot
+Description: Clickable miadi-chronicle references, tmux settings for every user, restored tmux sessions
  A bare miadi-chronicle:126 in a terminal opens the episode in the browser,
  and a circle:1790787727155:2slscw or miadi-ceremony:<id> opens its page.
  Each integration is enabled per user with `miadi-terminal enable`:
   desktop     the miadi-chronicle:, miadi-ceremony:, miadi-circle: schemes
   terminator  Ctrl+click a reference in Terminator
   tmux        click a reference in a tmux pane
+  defaults    comment out what the user's tmux config repeats of
+              /etc/miadi/tmux.conf
   restore     tmux starts at boot, restores its sessions, and tide
               brings the agents back (enable it by name)
  /usr/bin/miadi-chronicle-open builds <front>/api/chronicle/open?uri=... and
  the Miadi server resolves it. Nothing is resolved on this machine.
+ /etc/tmux.conf reads /etc/miadi/tmux.conf, so every user's tmux starts
+ with the mouse on, wheel scrolling, 50,000 lines of history, 24-bit
+ colour and extended keys; a user's ~/.tmux.conf still wins.

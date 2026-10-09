@@ -15,6 +15,8 @@ Integrations:
                 terminal, links in a page
     terminator  Ctrl+click a bare reference in Terminator's output
     tmux        click (or tap, on Termux) a bare reference in a tmux pane
+    defaults    comment out the lines of your tmux config that /etc/miadi/tmux.conf, which every
+                tmux here reads first, already sets (mouse, wheel, history, colour, keys)
     restore     tmux starts at boot and restores its sessions, tide's daemon snapshots
                 them, and tide brings the agents back into their panes (enable it by name)
 
@@ -294,15 +296,106 @@ class Tmux:
         result = run("tmux", "show-options", "-gv", "mouse")
         if result and result.returncode == 0:
             on = result.stdout.strip() == "on"
-        else:  # no server running: read the config it will start from
+        else:  # no server running: read the configs it will start from; the last setting wins
+            texts = [DEFAULTS_CONF.read_text()] if reads_defaults() else []
             path = tmux_config()
-            text = path.read_text() if path.exists() else ""
-            on = re.search(r"^\s*set(-option)?\s+(-\w+\s+)*mouse\s+on\b", text, re.M) is not None
+            if path.exists():
+                texts.append(path.read_text())
+            found = re.findall(r"^\s*set(?:-option)?\s+(?:-\w+\s+)*mouse\s+(on|off)\b", "\n".join(texts), re.M)
+            on = bool(found) and found[-1] == "on"
         if not on:
             print("  tmux mouse is off, so clicks never reach tmux: add `set -g mouse on`")
 
     def describe(self):
         return f"click or tap a reference in a pane; {TMUX_CONF}"
+
+
+# --- defaults ----------------------------------------------------------------
+# Every tmux reads /etc/tmux.conf before a user's own config, and the one this package installs
+# reads /etc/miadi/tmux.conf: the settings mia, jgi and ava each kept in their own config. A user
+# whose config repeats them has each one twice; `enable defaults` comments out the repeats.
+
+SYSTEM_TMUX_CONF = Path("/etc/tmux.conf")
+DEFAULTS_CONF = Path("/etc/miadi/tmux.conf")
+REPEATS = "# in /etc/miadi/tmux.conf: "
+
+
+def tmux_commands(text):
+    """(first line, last line, command) for each command of a tmux config, its continuation lines
+    joined and its spaces collapsed; comments and blank lines are left out."""
+    lines = text.splitlines()
+    commands, i = [], 0
+    while i < len(lines):
+        first = i
+        while lines[i].rstrip().endswith("\\") and i + 1 < len(lines):
+            i += 1
+        body = " ".join(" ".join(line.rstrip().rstrip("\\") for line in lines[first:i + 1]).split())
+        if body and not body.startswith("#"):
+            commands.append((first, i, body))
+        i += 1
+    return commands
+
+
+def reads_defaults():
+    """/etc/tmux.conf reads /etc/miadi/tmux.conf (a host may have kept its own /etc/tmux.conf)."""
+    try:
+        text = SYSTEM_TMUX_CONF.read_text()
+    except OSError:
+        return False
+    return DEFAULTS_CONF.exists() and any(
+        body.startswith("source-file") and str(DEFAULTS_CONF) in body for _, _, body in tmux_commands(text))
+
+
+def repeats(text):
+    """The (first line, last line) of each command in text that /etc/miadi/tmux.conf already runs."""
+    ours = {body for _, _, body in tmux_commands(DEFAULTS_CONF.read_text())}
+    return [(first, last) for first, last, body in tmux_commands(text) if body in ours]
+
+
+class Defaults:
+    name = "defaults"
+
+    def installed(self):
+        return DEFAULTS_CONF.exists()
+
+    def present(self):
+        return shutil.which("tmux") is not None
+
+    def enabled(self):
+        path = tmux_config()
+        return reads_defaults() and not (path.exists() and repeats(path.read_text()))
+
+    def enable(self):
+        if not reads_defaults():
+            print(f"defaults: {SYSTEM_TMUX_CONF} does not read {DEFAULTS_CONF}; an administrator adds to it:")
+            print(f"  source-file -q {DEFAULTS_CONF}")
+            return
+        path = tmux_config()
+        text = path.read_text() if path.exists() else ""
+        found = repeats(text)
+        if not found:
+            print(f"defaults: {path} repeats nothing of {DEFAULTS_CONF}")
+            return
+        lines = text.splitlines()
+        for first, last in found:
+            for i in range(first, last + 1):
+                lines[i] = REPEATS + lines[i]
+        backup_and_write(path, "\n".join(lines) + "\n")
+        print(f"defaults: {len(found)} settings in {path} repeated {DEFAULTS_CONF} and are commented out")
+
+    def disable(self):
+        path = tmux_config()
+        lines = path.read_text().splitlines() if path.exists() else []
+        restored = [line[len(REPEATS):] if line.startswith(REPEATS) else line for line in lines]
+        if restored == lines:
+            print(f"defaults: miadi-terminal commented out no line of {path}")
+        else:
+            backup_and_write(path, "\n".join(restored) + "\n")
+            print(f"defaults: the lines commented out in {path} are back")
+        print(f"  every tmux here still reads {DEFAULTS_CONF}, through {SYSTEM_TMUX_CONF}")
+
+    def describe(self):
+        return f"{SYSTEM_TMUX_CONF} reads {DEFAULTS_CONF} before your config: mouse, wheel, history, colour, keys"
 
 
 # --- restore -----------------------------------------------------------------
@@ -422,7 +515,7 @@ class Restore:
         return f"tmux starts at boot, restores its last save, and tide brings the agents back; {CONTINUITY_CONF}"
 
 
-INTEGRATIONS = [Desktop(), Terminator(), Tmux(), Restore()]
+INTEGRATIONS = [Desktop(), Terminator(), Defaults(), Tmux(), Restore()]
 
 
 # --- the whole ---------------------------------------------------------------

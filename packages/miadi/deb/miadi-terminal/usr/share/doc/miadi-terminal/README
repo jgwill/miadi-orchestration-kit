@@ -22,6 +22,15 @@ Integrations, each enabled per user (`miadi-terminal enable tmux`, …):
   tmux        click a bare reference in a tmux pane (tmux 3.2+, mouse on).
               /usr/share/miadi-terminal/tmux/miadi-chronicle.conf; enabling
               adds a source-file line to your tmux config.
+  defaults    every tmux on the machine reads /etc/tmux.conf before the
+              user's ~/.tmux.conf, and the one installed here reads
+              /etc/miadi/tmux.conf: the mouse on, wheel scrolling, 50,000
+              lines of history, 24-bit colour, extended keys and focus
+              events. A user's own line wins. Enabling comments out the
+              lines of the user's config that repeat one there, marked
+              "# in /etc/miadi/tmux.conf: "; disable puts them back. Both
+              files are conffiles: dpkg keeps an edited copy, and asks
+              once when a host already had its own /etc/tmux.conf.
   restore     tmux sessions that survive a reboot or a crash. Enabled only by
               name: miadi-terminal enable restore. It clones tpm,
               tmux-resurrect and tmux-continuum into ~/.tmux/plugins, adds a
@@ -36,8 +45,8 @@ Integrations, each enabled per user (`miadi-terminal enable tmux`, …):
               client of another version cannot attach ("open terminal failed:
               not a terminal").
 
-enable changes only that user's configs: Terminator's enabled_plugins, one
-line in the tmux config, the scheme default in ~/.config/mimeapps.list. Each
+enable changes only that user's configs: Terminator's enabled_plugins, lines
+in the tmux config, the scheme default in ~/.config/mimeapps.list. Each
 keeps a .bak-miadi-terminal copy of how it was before the first change. The
 plugin and wrapper an earlier `inquiry-weave terminal install` left are moved
 to ~/.local/share/miadi-terminal/legacy/. Without Terminator installed, the
@@ -47,6 +56,15 @@ Nothing is resolved on this machine. /usr/bin/miadi-chronicle-open turns the
 reference into <front>/api/chronicle/open?uri=<reference>, and the Miadi server
 redirects to the page. The front is MIADI_CHRONICLE_OPEN_URL, else
 MIADI_URL_BASE, read through miadi-config.
+
+For another user on the machine, an administrator runs it as that user:
+
+  sudo -iu <user> miadi-terminal enable
+  sudo -iu <user> env XDG_RUNTIME_DIR=/run/user/$(id -u <user>) miadi-terminal enable restore
+
+restore needs XDG_RUNTIME_DIR to reach that user's systemd, which runs once
+linger is on (sudo loginctl enable-linger <user>). The other steps for a new
+user are in /usr/share/doc/miadi/README.
 
 Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
 Restore: the same layer jgwill/gaia linux_migration/14-tmux-resurrect.sh

@@ -161,6 +161,9 @@ PY
     done
     echo "the scheme handler is valid and registered for all three schemes"
 
+    test "$(dpkg-query -W -f="\${Conffiles}\n" miadi-terminal | grep -c -E "^ /etc/(miadi/)?tmux.conf ")" = 2
+    grep -qx "source-file -q /etc/miadi/tmux.conf" /etc/tmux.conf
+    echo "/etc/tmux.conf reads /etc/miadi/tmux.conf, and dpkg keeps an edited copy of either"
     apt-get install -y -qq tmux python3-configobj >/dev/null 2>&1
     useradd -m reader
     install -m 0755 /tmp/tests/reader-enable.sh /usr/local/bin/reader-enable.sh

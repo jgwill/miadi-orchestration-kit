@@ -4,4 +4,29 @@ This package installs the parts of a Miadi host. Each part is its own package
 and joins as a dependency. The first is miadi-config, the host's MIADI_*
 settings: run `miadi-config` to see them.
 
+A user on a Miadi host
+
+The factory runs as several accounts on one host (on gaia: mia, ava, jgi and
+tushell). Every account's tmux reads /etc/tmux.conf, which reads
+/etc/miadi/tmux.conf (miadi-terminal), so those settings need no step. For
+each further account, an administrator runs:
+
+  sudo adduser <user>                       # when the account does not exist yet
+  sudo usermod -aG <group> <user>           # the group of the shared capture:
+                                            #   stat -c %G "$(miadi-config get MIADI_SESSIONDATA_ROOT)"
+  sudo loginctl enable-linger <user>        # its systemd runs, and its tmux starts, at boot
+  sudo -iu <user> miadi-terminal enable     # clickable references; comments out the
+                                            #   tmux settings it repeats of /etc/miadi/tmux.conf
+  sudo -iu <user> env XDG_RUNTIME_DIR=/run/user/$(id -u <user>) miadi-terminal enable restore
+  sudo -iu <user> env XDG_RUNTIME_DIR=/run/user/$(id -u <user>) \
+    systemctl --user enable --now tide-store-prune.timer miadi-capture-service
+
+`miadi-terminal enable restore` brings the sessions and their agents back
+after a reboot, and turns on tide-runtime.service. XDG_RUNTIME_DIR lets the
+administrator's command reach that user's systemd, which runs once linger is
+on. A new group membership applies from the account's next login.
+
+Creating the accounts mia, ava and tushell on a new host, each for its own
+purpose, is planned in jgwill/miadi-orchestration-kit#79.
+
 Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
