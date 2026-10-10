@@ -45,7 +45,7 @@
       "name": "miadi-deepdiver",
       "source": "./claude/miadi-deepdiver",
       "description": "DeepDiver for the production team (T6): Miadi reviews and their screenwalk videos into a Gemini Notebook, cited answers to the episode's questions, generated media kept with a manifest, and that media on screen in the next screenwalk.",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     {
       "name": "miadi-operator-desk",

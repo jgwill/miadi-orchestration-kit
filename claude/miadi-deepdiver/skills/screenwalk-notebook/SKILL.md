@@ -23,7 +23,7 @@ DeepDiver's own operating manual is canonical in `miadisabelle/deepdiver` and is
 
 1. **DeepDiver** from `miadisabelle/deepdiver` `main` at or after 2026-10-06. PyPI `deepdiver` 0.1.1 predates the current Gemini Notebook interface and fails on it. `pip install git+https://github.com/miadisabelle/deepdiver@main`, or from a checkout `python -m deepdiver.deepdive …`. Commands below are written as `deepdiver …`.
 2. **Chrome with CDP on 9222**, signed in to the Google account that owns the notebooks. `deepdiver chrome launch --clone-profile "Profile N"` copies that profile so the live one is never touched. Check: `curl -s http://127.0.0.1:9222/json/version`. If you do not know which account or profile holds the notebooks, ask. Never guess an account.
-3. **Where the media will be kept.** Default: DeepDiver's `output/artifacts/<notebook id>/`. Writing into an episode vessel is a chronicle write; follow the `chronicle-episode` skill and the episode owner's word.
+3. **Where the media will be kept.** In an episode: `<episode>/captures/notebook-<notebook id>/`, with `manifest.json` and `asked.md` beside the media, as Episode 550 keeps `captures/notebook-0ae51b4c-8ed2-4ee2-a641-2c7e88b7e2ea/`. The episode room shows that folder to the episode's readers (`@miadi/episode-vessel` 0.4.0). Writing there is a chronicle write: follow the `chronicle-episode` skill and the episode owner's word. Outside an episode: DeepDiver's `output/artifacts/<notebook id>/`.
 
 ## The run
 
@@ -78,8 +78,10 @@ deepdiver studio report --format document --template "Briefing Doc" -n <id>
 ### 5. Keep
 
 ```bash
-deepdiver studio download -n <id> -o <dir>
+deepdiver studio download -n <id> -o <episode>/captures/notebook-<id>   # or -o output/artifacts/<id> outside an episode
 ```
+
+Put `asked.md` from step 3 in the same folder.
 
 Audio `.m4a`, video `.mp4`, infographic `.png`, reports as `.md` and `.html` (read from the report viewer, since reports have no file download), and `manifest.json` with sha256, size and ffprobe codec and duration. Mind maps have no download and are listed as not downloadable. The command exits 1 when an artifact that offered a download did not land.
 
@@ -115,6 +117,7 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 - **0.1, 2026-10-06.** Written by Mia from the first two production notebooks: `78507190…` (review `f9d6fb1e` and its screenwalk) and `0ae51b4c…` (Episode 550's screenwalk reviews `d64a2fdf`, `6c3f477f`, `b2558ceb`, `6a2b5b59`, their videos, and one stored transcript). That day DeepDiver was fixed for the card-menu download, notebook creation, the "Websites" source panel, completion detection and card identity, and gained Reports, `notebook ask`, `studio open` and import-failure reporting. Two of four same-day videos could not be imported.
 - **0.1.1, 2026-10-07.** From the second notebook's video and downloads: Video Overview formats are Short and Explainer, and video takes far longer than other media; an open file picker blocks downloads, which DeepDiver now avoids and names.
 - **0.1.2, 2026-10-07.** The T6 lead, carrying notebook 0ae51b4c into Episode 550, found that the saved Interactive report was the notebook's first chat answer. Reports saved from a notebook with chat history before `miadisabelle/deepdiver` 9cefb64 hold a chat answer and must be saved again. A signed-out Chrome profile now fails with "Not signed in" instead of reporting zero cards.
+- **0.1.3, 2026-10-09.** On William's word, relayed by the Deep Diver seat: an episode keeps a notebook's media in `<episode>/captures/notebook-<notebook id>/` with `manifest.json` and `asked.md`, the shape Episode 550 set and the episode room serves. Deep Diver's open items are kept in Episode 251, `owner/open-261009.md`.
 
 ## Related
 

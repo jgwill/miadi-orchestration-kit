@@ -1,7 +1,7 @@
 {
   "name": "miadi-deepdiver",
   "description": "DeepDiver for the Miadi Factory's production team (T6): feed Miadi reviews and their screenwalk videos into a Gemini Notebook, ask it the episode's questions, generate and keep its media (infographics, video and audio overviews, interactive reports), and put that media on screen in the next screenwalk. Carries the screenwalk-notebook skill, which performs the NotebookFed and MediaMade transitions of the screenwalk media cycle, and /notebook-from-reviews.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": {
     "name": "jgwill"
   },
