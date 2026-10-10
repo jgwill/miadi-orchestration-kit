@@ -74,7 +74,7 @@ deepdiver studio report --prompt "Include only the infographic and the video ove
 deepdiver studio report --format document --template "Briefing Doc" -n <id>
 ```
 
-- Make the report last. An Interactive report embeds the notebook's studio items, and its prompt can name which ones. It also recommends items to generate next ("Recommended · Infographic: …").
+- Make the report last, after the infographic and video have finished. Made then, an Interactive report embeds them (Episode 120, 2026-10-10); made earlier, it shows "Recommended · Infographic / Video" tiles in their place (Episodes 550 and 140).
 - Video Overview has two formats: `--format short` (vertical 9:16, about a minute) and `--format explainer` (16:9, several minutes). A one-minute Short took 17 minutes to generate.
 - Audio Overview can take ten minutes or more.
 - Each command exits 1 when nothing was generated. A command that times out may still leave a card; `deepdiver studio list -n <id>` shows what exists.
@@ -82,10 +82,10 @@ deepdiver studio report --format document --template "Briefing Doc" -n <id>
 ### 5. Keep
 
 ```bash
-deepdiver studio download -n <id> -o <episode>/captures/notebook-<id>   # or -o output/artifacts/<id> outside an episode
+deepdiver studio download -n <id> -o <episode>/captures/notebook-<id> --keep   # or -o output/artifacts/<id> outside an episode
 ```
 
-Put `asked.md` from step 3 in the same folder. The chronicle ignores `.mp4` and `.m4a` except under `keep/`, so in an episode the video and audio overviews go in `captures/notebook-<id>/keep/`. Then record the notebook in `episode.yaml` under `notebooks:` (`id`, `url`, `path`, the reviews with their version, the date), as Episode 550 does.
+Put `asked.md` from step 3 in the same folder. In an episode, `--keep` (DeepDiver 59888d3) makes what git keeps: the infographic as WebP, video and audio re-encoded into `keep/` (the only place the chronicle's `.gitignore` lets `.mp4` and `.m4a` in), and `kept` beside each download in `manifest.json`; commit the kept files, never the downloads. `deepdiver studio keep <folder>` does it after the fact. Then record the notebook in `episode.yaml` under `notebooks:` (`id`, `url`, `path`, the reviews with their version, the date), as Episode 550 does.
 
 Audio `.m4a`, video `.mp4`, infographic `.png`, reports as `.md` and `.html` (read from the report viewer, since reports have no file download), and `manifest.json` with sha256, size and ffprobe codec and duration. Mind maps have no download and are listed as not downloadable. The command exits 1 when an artifact that offered a download did not land.
 
@@ -124,6 +124,8 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 - **0.1.3, 2026-10-09.** On William's word, relayed by the Deep Diver seat: an episode keeps a notebook's media in `<episode>/captures/notebook-<notebook id>/` with `manifest.json` and `asked.md`, the shape Episode 550 set and the episode room serves. Deep Diver's open items are kept in Episode 251, `owner/open-261009.md`.
 
 - **0.2.0, 2026-10-09.** From the Episode 140 run, on William's word ("a skill that we give it the episode or the review … and the whole process starts"): `/deepdive` takes an episode, a review, or both and runs to the landing in the episode. Every DeepDiver launch had cloned the profile into a new folder that Google did not keep signed in, so each run needed a new sign-in; DeepDiver now keeps `~/.chrome-deepdiver` signed in once, and `chrome status` says whether it is (`miadisabelle/deepdiver` 5ef6f00, Episode 251 DD8; verified live that night: the folder William signed in to was moved into the home and relaunched signed in). The first run, Episode 140, kept its 31 MB video overview out of git and its video traveled re-encoded in `keep/` at 6.5 MB. `/trynow` counts as signed out.
+
+- **0.2.1, 2026-10-10.** From `/deepdive 120`, the command's first run by a seat that did not write it (findings F4 to F8): a review the episode lacks enters through the episode door, which writes its wheel node and edge (a hand edit left them out); the door's pinned `reviews:` version is never rewritten; the media's focus falls back to the episode's goal; each review's open inquiries are one question; one `notebooks:` shape for every episode; `studio download --keep` replaces the hand conversion, and its manifest records what is kept.
 
 ## Related
 

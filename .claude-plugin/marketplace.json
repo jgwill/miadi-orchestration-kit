@@ -45,7 +45,7 @@
       "name": "miadi-deepdiver",
       "source": "./claude/miadi-deepdiver",
       "description": "DeepDiver for the production team (T6): give /deepdive an episode or a review and it builds the Gemini Notebook, answers the episode's questions with citations, makes the media and lands it in the episode, from a Chrome signed in once.",
-      "version": "0.2.0"
+      "version": "0.2.1"
     },
     {
       "name": "miadi-operator-desk",
