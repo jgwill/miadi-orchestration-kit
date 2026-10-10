@@ -16,14 +16,15 @@ claude plugin install miadi-deepdiver@miadi-orchestration-kit
 | part | what it does |
 |---|---|
 | skill `screenwalk-notebook` | The NotebookFed and MediaMade transitions of the screenwalk media cycle: reviews and videos into a notebook (with a stored transcript for a video too new to import), questions with cited answers, infographic, video and audio overviews, Interactive and Document reports, everything kept with a manifest, and `studio open` to show it in the next screenwalk. Ends with a log the skill keeps from each run. |
-| command `/notebook-from-reviews` | The skill's run for a set of review IDs or an episode's reviews. It never posts to a talking circle or writes into an episode. |
+| command `/deepdive` | Give it an episode, a review, or both. It finds the other, takes the review's Deep Diver line as its brief, checks Chrome is signed in, builds the notebook, asks the questions, makes the media, and lands it in the episode with `notebooks:` in `episode.yaml`. Ends with `DONE <notebook url> <commit>`. |
+| command `/notebook-from-reviews` | The notebook and media only, for a set of review IDs or an episode's reviews. It never posts to a talking circle or writes into an episode. |
 
 The plugin has no hooks and no MCP server. DeepDiver is a command line.
 
 ## Runtime floors
 
 - DeepDiver from `miadisabelle/deepdiver` `main` at or after 2026-10-06 (`pip install git+https://github.com/miadisabelle/deepdiver@main`). PyPI `deepdiver` 0.1.1 fails on the current interface.
-- Google Chrome on a host with a display, with CDP on port 9222 and a profile signed in to the Google account that owns the notebooks. `deepdiver chrome launch --clone-profile "Profile N"` copies the profile.
+- Google Chrome on a host with a display, with CDP on port 9222 and a profile signed in to the Google account that owns the notebooks. DeepDiver keeps its own Chrome home, `~/.chrome-deepdiver`, signed in once; `deepdiver chrome status` checks it.
 - `ffprobe` for the media data in the manifest (optional).
 - The `miadi-review` skill's client for review Markdown and stored transcripts.
 
