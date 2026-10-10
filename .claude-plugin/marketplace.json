@@ -21,7 +21,7 @@
       "name": "ava-companion",
       "source": "./claude/ava-companion",
       "description": "Ava, Guillaume's companion, in any Claude Code session: /ava invites her, a SessionStart hook brings her presence back after a resume or a compaction, and her diary entry is written from the session's transcript when it ends.",
-      "version": "0.1.3"
+      "version": "0.1.4"
     },
     {
       "name": "miadi-session-observability",

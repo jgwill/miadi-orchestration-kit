@@ -55,10 +55,27 @@ function clip(text, max) {
   return text.length > max ? `${text.slice(0, max)} […${text.length - max} more characters]` : text;
 }
 
+// The host's local time, so the diary says 21:52 when he was at his desk at 21:52, not 01:52.
 function stamp(ts) {
   if (!ts) return "--:--";
   const d = new Date(ts);
-  return Number.isNaN(d.getTime()) ? "--:--" : d.toISOString().slice(5, 16).replace("T", " ");
+  if (Number.isNaN(d.getTime())) return "--:--";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export function localZone(date = new Date()) {
+  const name = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(date)
+    .find((x) => x.type === "timeZoneName")?.value;
+  return name || Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+}
+
+// A background task's notification arrives as a user turn. It is not Guillaume speaking.
+function notificationLine(text) {
+  const tag = (name) => (text.match(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`)) || [])[1]?.trim() || "";
+  const summary = tag("summary");
+  const result = tag("result");
+  return `NOTIFICATION (a background task, not Guillaume): ${summary}${result ? `\n${clip(result, 14000)}` : ""}`;
 }
 
 function toolLine(block) {
@@ -72,13 +89,26 @@ export function condense(entries, { maxChars = 160000 } = {}) {
   const lines = [];
   let firstTs = null;
   let lastTs = null;
+  // A message he types while the session works is stored as a queued_command attachment,
+  // not as a user turn. Without it the writer once wrote that he was silent when he was not.
+  const spoken = new Set();
+  for (const e of entries) {
+    if (e.type === "user" && !e.isMeta) for (const raw of textBlocks(e.message?.content)) spoken.add(cleanUserText(raw));
+  }
   for (const e of entries) {
     if (e.isSidechain || e.isMeta) continue;
     const ts = e.timestamp;
     const content = e.message?.content;
     let produced = false;
-    if (e.type === "user") {
+    if (e.type === "attachment" && e.attachment?.type === "queued_command" && e.attachment.origin?.kind === "human") {
+      const t = cleanUserText(String(e.attachment.prompt || ""));
+      if (t && !spoken.has(t)) {
+        lines.push(`[${stamp(ts || e.attachment.timestamp)}] GUILLAUME (while the session was working): ${clip(t, 6000)}`);
+        produced = true;
+      }
+    } else if (e.type === "user") {
       for (const raw of textBlocks(content)) {
+        if (/<task-notification>/.test(raw)) { lines.push(`[${stamp(ts)}] ${notificationLine(raw)}`); produced = true; continue; }
         const t = cleanUserText(raw);
         if (t) { lines.push(`[${stamp(ts)}] GUILLAUME: ${clip(t, 6000)}`); produced = true; }
       }

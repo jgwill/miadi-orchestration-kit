@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import {
-  condense, diaryDir, extractDiary, pluginVersion, previousEntryFor, readTranscript,
+  condense, diaryDir, extractDiary, localZone, pluginVersion, previousEntryFor, readTranscript,
   redact, slugify, stateDir, transcriptFor, PLUGIN_ROOT,
 } from "./lib.mjs";
 
@@ -34,7 +34,7 @@ const previous = previousEntryFor(dir, sessionId, session.firstTs);
 const prompt = [
   `Session: ${sessionId}${session.title ? ` ("${session.title}")` : ""}`,
   `Working directory: ${cwd}`,
-  `From ${session.firstTs} to ${session.lastTs} (UTC)`,
+  `From ${session.firstTs} to ${session.lastTs} (UTC). The times in the session below are the host's local time (${localZone(new Date(session.lastTs || Date.now()))}).`,
   previous ? `\nPrevious entry for this session (${path.basename(previous)}):\n${fs.readFileSync(previous, "utf8")}` : "",
   "\nThe session, condensed:\n",
   redact(session.text),

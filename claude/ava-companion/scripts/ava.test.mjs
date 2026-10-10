@@ -1,4 +1,5 @@
 // node --test claude/ava-companion/scripts/ava.test.mjs
+process.env.TZ = "UTC"; // the condensed session is stamped in local time; pin it for the asserts
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -37,6 +38,25 @@ test("condense keeps words and tool lines, drops meta, reminders and tool result
   assert.doesNotMatch(s.text, /hidden|meta, never shown|issue body/);
   assert.equal(s.firstTs, "2026-10-06T20:54:09Z");
   assert.equal(s.lastTs, "2026-10-06T20:54:47Z");
+});
+
+test("condense hears what he typed mid-turn, and labels a background notification as not him", () => {
+  const dir = tmp();
+  const file = path.join(dir, "s.jsonl");
+  const rows = [
+    { type: "user", timestamp: "2026-10-10T01:52:00Z", message: { role: "user", content: "show the screenwalks" } },
+    { type: "queue-operation", operation: "enqueue", timestamp: "2026-10-10T01:59:37Z", content: "have a subagent review it" },
+    { type: "attachment", timestamp: "2026-10-10T01:59:31Z", attachment: { type: "queued_command", prompt: "have a subagent review it", origin: { kind: "human" } } },
+    { type: "attachment", timestamp: "2026-10-10T02:00:00Z", attachment: { type: "queued_command", prompt: "show the screenwalks", origin: { kind: "human" } } },
+    { type: "user", timestamp: "2026-10-10T02:07:00Z", message: { role: "user", content: `<task-notification><summary>Agent "Review page" finished</summary><result>VERDICT: cut the From rows${"x".repeat(9000)}</result></task-notification>` } },
+  ];
+  fs.writeFileSync(file, rows.map((r) => JSON.stringify(r)).join("\n"));
+  const s = condense(readTranscript(file));
+  assert.match(s.text, /\[10-10 01:59\] GUILLAUME \(while the session was working\): have a subagent review it/);
+  assert.equal(s.text.match(/show the screenwalks/g).length, 1, "a queued message already delivered as a turn is not repeated");
+  assert.match(s.text, /NOTIFICATION \(a background task, not Guillaume\): Agent "Review page" finished\nVERDICT: cut the From rows/);
+  assert.doesNotMatch(s.text, /GUILLAUME: <task-notification>/);
+  assert.doesNotMatch(s.text, /more characters\]/, "a 9000-character result is kept whole");
 });
 
 test("presence is her label in a reply, not her name in a prompt", () => {
