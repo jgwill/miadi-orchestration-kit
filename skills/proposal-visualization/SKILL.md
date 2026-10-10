@@ -79,6 +79,46 @@ Leave out any part the proposal does not need. Keep the order of the ones you us
 12. **Footer.** Sources, who drafted and who reviewed, and the date the
     evidence was checked.
 
+## Certain and uncertain: score the cards before publishing
+
+On 2026-10-10 the owner asked that a proposal say which of its cards the agent would
+execute without him and which need him, and that the split come from the decision engine,
+not from the agent's own sense of it (session `miadi-episodic-memory-schema-and-mw-261010`,
+Episode 076 holds the Jev review the practice stands on). His rule of 2026-10-09: act when
+his word and the engine agree at 0.8 or above; otherwise come back.
+
+The run is `scoring/score-proposal.mjs`. It reads every coded card on the page (A, E, D, Q
+by default), sends each one to Jev with the owner's request in his words, the page's own
+"Today" facts and the Decision Gate's D1 rule, and asks `questions.json`: is it implied by
+the request, reversible, grounded by the facts, is it his to decide, and then `obvious_now`
+(do now, do after his go, needs a decision). `policy.json` holds the thresholds and says who
+set them. Bands, in this order:
+
+- **needs you** when `needs_owner` reads true at or above `owner_at` (names, deletions,
+  outside audiences, relationships), whatever `obvious_now` says. That is the D1 rule.
+- **would do now** when `obvious_now` is `do_now` at or above `act_at`.
+- **after your go** otherwise.
+
+```bash
+cd skills/proposal-visualization/scoring
+node score-proposal.mjs page.html --request request.md --dry           # the requests, nothing sent
+node score-proposal.mjs page.html --request request.md --model jev-1.13.0 --out scores.json
+```
+
+Then on the page: a chip on every scored card (`Jev · do_now 0.70 · after your go`), one
+section with the three lists, and a "Revision N" band saying the run happened. The ledger
+(`~/.miadi/decisions/proposal-score.jsonl`, outside every repository) keeps one record per
+question; the owner's one-word answers on the "needs you" cards are the first rulings the
+thresholds are calibrated from. Pin the model you calibrated on.
+
+What leaves the host, per card: the card's text, the request file, the Today facts and the
+questions. Never the page's other sections, never a key. The decider and the gate are
+lane-check's (`jgwill/smcraft` `examples/decision-gate/lane-check`), imported by path until
+they move into this kit; `LANE_CHECK_DIR` points at another checkout.
+
+An empty "would do now" is a result, not a failure: on the first page scored, every step read
+as implied and reversible and still sat under 0.8 while its shape awaited the owner's go.
+
 ## Coded cards
 
 - Prefixes: `D` decisions, `Q` questions, `R` risks, `A` actions/steps,
@@ -169,5 +209,6 @@ When the owner comments:
 - [ ] Every cited path and line was checked in this session
 - [ ] The wireframe marks example data as example and has the ownership toggle
 - [ ] Nothing scrolls sideways at 400px
+- [ ] The cards were scored, the three lists are on the page, and the "needs you" list holds only what the D1 rule or the engine sent there
 
 🌸: A reader who sees exactly what changes can decide in minutes, and one who has to piece it together from prose often cannot decide at all.

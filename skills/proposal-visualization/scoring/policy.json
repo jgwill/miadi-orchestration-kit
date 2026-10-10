@@ -1,0 +1,14 @@
+{
+  "about": "Thresholds for scoring a proposal's cards, one entry per question class, in lane-check's policy shape. act_at for obvious_now is Guillaume's rule of 2026-10-09 (act when his word and the engine agree at 0.8 or above). needs_owner is read against owner_at: at or above it the card goes to 'needs you' whatever obvious_now says (Decision Gate D1). Nothing here is calibrated from rulings yet; the first rulings are Guillaume's answers on the first scored page.",
+  "set_by": "Guillaume, spoken 2026-10-09 (session miadi-jev-fork1): act at high confidence with the engine, come back otherwise; applied to proposals by Mia 2026-10-10",
+  "set_at": "2026-10-10",
+  "classes": {
+    "obvious_now": { "act_at": 0.8, "block_at": null, "word_owner": "lane", "accountable_to": ["Guillaume"], "reversible": true, "outward_facing": false, "does_not_authorize": "publishing, naming, deleting, opening issues or anything reaching people; do_now only lets the agent do the reversible step and report it" },
+    "needs_owner": { "owner_at": 0.5, "act_at": null, "block_at": null, "word_owner": "Guillaume", "accountable_to": ["Guillaume"], "reversible": true, "outward_facing": false, "does_not_authorize": "settling for him; a true answer sends the card to him with the evidence" },
+    "implied_by_request": { "act_at": null, "block_at": null, "word_owner": "lane", "accountable_to": ["Guillaume"], "reversible": true, "outward_facing": false, "does_not_authorize": "anything; it is read beside obvious_now" },
+    "reversible": { "act_at": null, "block_at": null, "word_owner": "lane", "accountable_to": ["Guillaume"], "reversible": true, "outward_facing": false, "does_not_authorize": "anything; it is read beside obvious_now" },
+    "evidence_sufficient": { "act_at": null, "block_at": null, "word_owner": "lane", "accountable_to": ["Guillaume"], "reversible": true, "outward_facing": false, "does_not_authorize": "anything; a false answer says the page must measure more before the step runs" },
+    "only_owner_decides": { "act_at": null, "block_at": null, "word_owner": "Guillaume", "accountable_to": ["Guillaume"], "reversible": true, "outward_facing": false, "does_not_authorize": "deciding for him" },
+    "recommendation_sound": { "act_at": null, "block_at": null, "word_owner": "lane", "accountable_to": ["Guillaume"], "reversible": true, "outward_facing": false, "does_not_authorize": "anything; it is read beside obvious_now" }
+  }
+}

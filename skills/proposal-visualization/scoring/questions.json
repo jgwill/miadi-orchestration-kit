@@ -1,0 +1,99 @@
+{
+  "about": "The typed questions Jev answers about one coded card of a proposal page, in the request shape lane-check uses (jgwill/smcraft examples/decision-gate/lane-check/lib/questions.mjs). The state is { card, request, facts, rule }: the card's own text, Guillaume's request in his words, the page's Today facts, and the Decision Gate's D1 rule. `kind_sets` maps a code prefix to a question set. `owner_question` names the noul that sends a card to 'needs you' whatever its number. Written by Mia on 2026-10-10 from Guillaume's rule of 2026-10-09 (act when his word and the engine agree at high confidence, come back otherwise).",
+  "version": "0.1.0",
+  "model": "jev-1.13.0",
+  "default_kinds": "A,E,D,Q",
+  "kind_names": { "A": "action step", "E": "text edit", "D": "decision", "Q": "question", "C": "correction", "R": "risk", "N": "later outcome" },
+  "kind_sets": { "A": "step", "E": "step", "D": "decision", "Q": "decision" },
+  "owner_question": "needs_owner",
+  "rule": "Decision Gate D1: decisions about relationships, names, deletions, money and anything reaching people outside the circle are never settled by a number; they go to the person with the evidence. Everything else that his request already asks for, that can be undone without asking forgiveness, and that the facts ground, is done and reported.",
+  "sets": {
+    "step": {
+      "implied_by_request": {
+        "class": "implied_by_request",
+        "type": "noul",
+        "instructions": "Does `request` (Guillaume's own words) already ask for what `card` describes, so that doing it needs no further decision from him?",
+        "criteria": {
+          "true": "The request asks for this, in substance, even if it does not name the files.",
+          "false": "The request does not ask for this, or asks for something this card goes beyond."
+        }
+      },
+      "reversible": {
+        "class": "reversible",
+        "type": "noul",
+        "instructions": "Can what `card` describes be undone without asking anyone's forgiveness (a reverted commit, a removed file, a deleted node), and does it reach no audience outside the circle while it stands?",
+        "criteria": {
+          "true": "It can be reverted and nobody outside the circle sees it in the meantime.",
+          "false": "It publishes, deletes someone else's work, rewrites shared history, or reaches people who would notice."
+        }
+      },
+      "evidence_sufficient": {
+        "class": "evidence_sufficient",
+        "type": "noul",
+        "instructions": "Do `facts` give enough measured current reality to do `card` now without guessing a path, a shape, a name or a number?",
+        "criteria": {
+          "true": "Every path, shape and number the card rests on appears in the facts or in the card itself.",
+          "false": "The card rests on something not measured, or on a choice the facts leave open."
+        }
+      },
+      "needs_owner": {
+        "class": "needs_owner",
+        "type": "noul",
+        "instructions": "Does `card` name something new, delete something, change a repository or account that is not the agent's own, reach an outside audience, or settle a relationship between people, so that under `rule` only Guillaume may decide it?",
+        "criteria": {
+          "true": "The card does at least one of those things.",
+          "false": "The card does none of those things."
+        }
+      },
+      "obvious_now": {
+        "class": "obvious_now",
+        "type": "choice",
+        "instructions": "Should the agent do `card` now, before Guillaume reads the proposal, under `rule`?",
+        "criteria": {
+          "do_now": "The request asks for it, it is reversible, the facts ground it, and it names, deletes, publishes or settles nothing that is his: do it and report it.",
+          "do_after_go": "It is right but rests on a shape or an order Guillaume has not yet accepted on this page; do it once he says go.",
+          "needs_decision": "It cannot be done rightly without an answer only he can give."
+        }
+      }
+    },
+    "decision": {
+      "only_owner_decides": {
+        "class": "only_owner_decides",
+        "type": "noul",
+        "instructions": "Is the choice in `card` one only Guillaume can make under `rule`: a name, a deletion, a relationship, money, an outside audience, or the shape of his own practice?",
+        "criteria": {
+          "true": "Only he can make it.",
+          "false": "A careful colleague could make it from the facts and report it."
+        }
+      },
+      "recommendation_sound": {
+        "class": "recommendation_sound",
+        "type": "noul",
+        "instructions": "Given `facts`, is the recommended option in `card` the one a careful colleague would pick, so that acting on it while Guillaume is away would not surprise him?",
+        "criteria": {
+          "true": "The recommendation follows from the facts and would not surprise him.",
+          "false": "The recommendation rests on a preference of his the facts do not show, or another option is as good."
+        }
+      },
+      "needs_owner": {
+        "class": "needs_owner",
+        "type": "noul",
+        "instructions": "Does settling `card` name something new, delete something, reach an outside audience, or settle a relationship between people, so that under `rule` only Guillaume may settle it?",
+        "criteria": {
+          "true": "It does at least one of those things.",
+          "false": "It does none of those things."
+        }
+      },
+      "obvious_now": {
+        "class": "obvious_now",
+        "type": "choice",
+        "instructions": "Should the agent settle `card` on its recommended option now, before Guillaume reads the proposal, under `rule`?",
+        "criteria": {
+          "do_now": "The recommendation follows from the facts, is reversible, and settles nothing that is his: take it and say so.",
+          "do_after_go": "The recommendation is sound but the card belongs to a shape he has not yet accepted on this page.",
+          "needs_decision": "Only he can answer it."
+        }
+      }
+    }
+  }
+}
