@@ -43,7 +43,7 @@ checkout, only `npx`:
 
 | server | package | what it does |
 |---|---|---|
-| `inquiry-weave` | `${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.16.5}` | the episode verbs: `chronicle_episode_mint`, `_status`, `_land`, `_review`, `_foundation` (hold a foundation packet, jgwill/Miadi#713), `_lineage` (relate two episodes with the sentence saying why), `_inquiry`, `_register`, `chronicle_resolve` (also `miadi-foundation:`), the attention tools |
+| `inquiry-weave` | `${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.16.6}` | the episode verbs: `chronicle_episode_mint`, `_status`, `_land`, `_review`, `_foundation` (hold a foundation packet, jgwill/Miadi#713), `_lineage` (relate two episodes with the sentence saying why), `_inquiry`, `_register`, `chronicle_resolve` (also `miadi-foundation:`), the attention tools |
 | `miadi-voice` | `${MIADI_VOICE_MCP:-@miadi/voice-mcp@0.4.5}` | an episode's voice: `voice_resolve_episode`, `voice_publish_to_episode`, `voice_play_episode`, `voice_list_episode_voices`, `voice_create_episode`, `voice_episode_closing_status`. The only sanctioned voice path (the `miadi-voice` skill). 0.4.4 is the first version whose bin starts under npx (jgwill/Miadi#704). |
 | `medicine-wheel-miadi-chronicle` | `${MWCV:-@medicine-wheel/mcp@4.17.5}` | the chronicle wheel itself: nodes, edges (`create_relational_edge` takes a `description`), ceremonies, circles |
 
