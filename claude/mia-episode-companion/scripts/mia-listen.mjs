@@ -401,7 +401,7 @@ export function commitLine(episode, take) {
   if (take.source !== "worktree") return `Committed: yes, on ${take.source}.`;
   const takeDir = join(episode.root, "captures", take.takeId);
   const textual = readdirSync(takeDir)
-    .filter((name) => name === "capture.json" || name === "transcription.json" || /^transcription_.*\.txt$/.test(name))
+    .filter((name) => name === "capture.json" || name === "transcription.json" || name === "purpose.json" || /^transcription_.*\.txt$/.test(name))
     .sort()
     .map((name) => `captures/${take.takeId}/${name}`);
   const R = `git -C "${episode.root}"`;
@@ -428,6 +428,20 @@ export function commitLine(episode, take) {
   ].join("\n");
 }
 
+// A take recorded from the trading chart for a labelled example (jgwill/jgtsrc#190)
+// carries purpose.json. It belongs to that example, so the seat records it and does not
+// answer it on the phone page.
+function purposeLines(episode, take) {
+  if (take.source !== "worktree") return [];
+  try {
+    const { purpose } = JSON.parse(readFileSync(join(episode.root, "captures", take.takeId, "purpose.json"), "utf8"));
+    if (purpose !== "labelling") return [];
+    return ["  purpose: labelling. A spoken note for a labelled example on the trading chart. It belongs to that example: commit it, and do not answer it on the phone page.", ""];
+  } catch {
+    return [];
+  }
+}
+
 export function formatWake(episode, takes, { rearm = true } = {}) {
   const lines = [
     `NEW TAKE${takes.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`,
@@ -440,6 +454,7 @@ export function formatWake(episode, takes, { rearm = true } = {}) {
       ...take.outputs.map((output) => `  ${output.language || "?"}: ${output.relativePath} sha256=${output.sha256}`),
       `  audio (custody only, never read): ${take.sourceFilename || "unknown"}`,
       "",
+      ...purposeLines(episode, take),
       "English translation, exact validated contents:",
       take.english.text.trim(),
       "",

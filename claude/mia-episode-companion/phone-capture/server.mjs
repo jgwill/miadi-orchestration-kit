@@ -171,6 +171,14 @@ function listTakes(dir) {
     });
 }
 
+// The trading chart records spoken notes for labelled examples through /api/takes
+// (jgwill/jgtsrc#190, 2026-10-09). It runs on another origin, so these may post.
+const CORS_ORIGINS = (process.env.MIADI_PHONE_CAPTURE_CORS_ORIGINS || "https://trading.tail3b11eb.ts.net")
+  .split(",").map((origin) => origin.trim()).filter(Boolean);
+// A take may say what it is for. A labelling note belongs to its example on the chart,
+// not to the conversation, so the listening seat is told not to answer it.
+const PURPOSES = new Set(["labelling"]);
+
 async function readJson(req, limit = 256 * 1024) {
   let body = "";
   for await (const chunk of req) {
@@ -486,6 +494,8 @@ export function createApp({
     const extension = EXTENSIONS[type];
     if (!extension) throw new Refusal(415, `record as audio/mp4 (received ${type || "no content type"})`);
 
+    const purpose = url.searchParams.get("purpose") || "";
+    if (purpose && !PURPOSES.has(purpose)) throw new Refusal(400, `unknown purpose: ${purpose}`);
     const upload = await receive(req, uploadsDir, extension);
     const recordedBy = String(req.headers["tailscale-user-login"] ?? "") || undefined;
     try {
@@ -514,6 +524,11 @@ export function createApp({
         // Bound either way: the audio is safe in its episode, and a later
         // transcription re-stores the bundle rather than duplicating it.
         const assigned = await service.assign({ filename: stopped.filename, episode_path: episode });
+        if (purpose) {
+          const takeDir = join(episodeDir(chronicleRoot, episode), "captures", stopped.tlid);
+          mkdirSync(takeDir, { recursive: true });
+          writeFileSync(join(takeDir, "purpose.json"), `${JSON.stringify({ purpose, at: new Date().toISOString() })}\n`);
+        }
         const presence = listenerState(listenerDir, episode);
         return {
           success: true,
@@ -526,6 +541,7 @@ export function createApp({
           presence,
           registered: assigned.registered,
           english,
+          ...(purpose ? { purpose } : {}),
           ...(transcriptError ? { transcriptError } : {}),
         };
       });
@@ -537,6 +553,22 @@ export function createApp({
   return async function handle(req, res) {
     const url = new URL(req.url ?? "/", "http://phone-capture");
     try {
+      if (url.pathname === "/api/takes" && req.headers.origin) {
+        const allowed = CORS_ORIGINS.includes(req.headers.origin);
+        if (allowed) {
+          res.setHeader("access-control-allow-origin", req.headers.origin);
+          res.setHeader("vary", "origin");
+        }
+        if (req.method === "OPTIONS") {
+          if (!allowed) throw new Refusal(403, `origin not allowed: ${req.headers.origin}`);
+          res.writeHead(204, {
+            "access-control-allow-methods": "POST",
+            "access-control-allow-headers": "content-type",
+            "access-control-max-age": "600",
+          }).end();
+          return;
+        }
+      }
       if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
         res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
         createReadStream(join(HERE, "public", "index.html")).pipe(res);

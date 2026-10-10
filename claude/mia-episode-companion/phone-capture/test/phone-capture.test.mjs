@@ -390,3 +390,34 @@ test("the thread holds every take and reply of the episode in the order they hap
     b.close();
   }
 });
+
+// jgwill/jgtsrc#190, 2026-10-09: the trading chart records spoken notes for labelled
+// examples through /api/takes, from another origin, and marks them as labelling notes.
+test("the trading chart may post a labelling note; another origin may not", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const chart = "https://trading.tail3b11eb.ts.net";
+    const pre = await fetch(`${b.url}/api/takes`, { method: "OPTIONS", headers: { origin: chart, "access-control-request-method": "POST" } });
+    assert.equal(pre.status, 204);
+    assert.equal(pre.headers.get("access-control-allow-origin"), chart);
+    assert.match(pre.headers.get("access-control-allow-headers") || "", /content-type/);
+    const stranger = await fetch(`${b.url}/api/takes`, { method: "OPTIONS", headers: { origin: "https://elsewhere.example" } });
+    assert.equal(stranger.status, 403);
+    assert.equal(stranger.headers.get("access-control-allow-origin"), null);
+
+    const posted = await fetch(`${b.url}/api/takes?episode=${EPISODE}&purpose=labelling`, {
+      method: "POST", headers: { origin: chart, "content-type": "audio/mp4" }, body: Buffer.from("a spoken note"),
+    });
+    assert.equal(posted.headers.get("access-control-allow-origin"), chart);
+    const answer = await posted.json();
+    assert.equal(answer.success, true, JSON.stringify(answer));
+    assert.equal(answer.purpose, "labelling");
+    const purpose = JSON.parse(readFileSync(join(b.chronicleRoot, EPISODE, "captures", answer.take, "purpose.json"), "utf8"));
+    assert.equal(purpose.purpose, "labelling");
+
+    const unknown = await fetch(`${b.url}/api/takes?episode=${EPISODE}&purpose=gossip`, { method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("x") });
+    assert.equal(unknown.status, 400);
+  } finally {
+    b.close();
+  }
+});

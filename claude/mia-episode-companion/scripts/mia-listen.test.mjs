@@ -233,3 +233,16 @@ test("reply says so when William is recording and the reply waits on his page", 
   assert.equal(out.status, 0, out.stderr);
   assert.match(out.stdout, /William is recording right now\. The reply is on his page, silent/);
 });
+
+// jgwill/jgtsrc#190, 2026-10-09: a labelling note wakes the seat marked as such, and its
+// purpose.json travels in the commit with the take's other textual records.
+test("a labelling note is marked in the wake and committed with its purpose", () => {
+  const fx = fixture();
+  run(fx, ["status"]);
+  writeTake(fx.episodeRoot, "260101000006", "This is where the trail should arm.\n");
+  writeFileSync(join(fx.episodeRoot, "captures", "260101000006", "purpose.json"), JSON.stringify({ purpose: "labelling", at: "2026-10-09T00:00:00Z" }));
+  const woke = run(fx, ["await", "--no-fetch", "--timeout", "30", "--interval", "5"]);
+  assert.equal(woke.code, 0);
+  assert.match(woke.stdout, /purpose: labelling\. A spoken note for a labelled example/);
+  assert.match(woke.stdout, /captures\/260101000006\/purpose\.json/);
+});
