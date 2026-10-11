@@ -1,0 +1,575 @@
+<title>What the Notes Imply</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --bg: #ffffff; --fg: #0a0a0a; --card: #ffffff; --sec: #f5f5f5; --border: #e5e5e5;
+  --muted: #5f5f5f; --accent: #735800; --ring: #ffd700;
+  --core-fill: #fff4b8; --core-line: #9c7f00;
+  --ui-fill: #e4ecfb; --ui-line: #2f5fbf;
+  --tide-fill: #def2e5; --tide-line: #23784a;
+  --host-fill: #f0f0f0; --host-line: #8a8a8a;
+  --danger: #b42318;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1a1a; --fg: #fafafa; --card: #1f1f1f; --sec: #262626; --border: #333333;
+    --muted: #a3a3a3; --accent: #ffd700;
+    --core-fill: #3a3212; --core-line: #ffd700; --ui-fill: #18253b; --ui-line: #7aa6f5;
+    --tide-fill: #15301f; --tide-line: #63c98d; --host-fill: #2a2a2a; --host-line: #8a8a8a;
+    --danger: #f97066;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1a1a; --fg: #fafafa; --card: #1f1f1f; --sec: #262626; --border: #333333;
+  --muted: #a3a3a3; --accent: #ffd700;
+  --core-fill: #3a3212; --core-line: #ffd700; --ui-fill: #18253b; --ui-line: #7aa6f5;
+  --tide-fill: #15301f; --tide-line: #63c98d; --host-fill: #2a2a2a; --host-line: #8a8a8a;
+  --danger: #f97066;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--mono); font-size: 0.9em; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 18px; line-height: 1.55; max-width: 62ch; }
+.muted { color: var(--muted); }
+header.top { padding-block: 48px 28px; display: grid; gap: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--card); color: var(--fg); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ring); box-shadow: 0 0 0 1px var(--core-line); }
+.pkgrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
+.pkg { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; background: var(--card); align-content: start; }
+.pkg--core { background: var(--core-fill); border-color: var(--core-line); border-width: 1.5px; }
+.pkg--ui { background: var(--ui-fill); border-color: var(--ui-line); }
+.pkg--tide { background: var(--tide-fill); border-color: var(--tide-line); }
+.pkg__name { font-family: var(--mono); font-weight: 600; font-size: 14px; word-break: break-word; }
+.pkg__ver { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.pkg p { font-size: 14px; line-height: 1.5; }
+nav.toc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-block: 1px solid var(--border); }
+nav.toc .wrap { display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; scrollbar-width: thin; }
+nav.toc a { font-family: var(--mono); font-size: 12px; color: var(--muted); text-decoration: none; white-space: nowrap; padding: 4px 10px; border-radius: 6px; }
+nav.toc a:hover { color: var(--fg); background: var(--sec); }
+section.s { padding-block: 52px 8px; display: grid; gap: 20px; scroll-margin-top: 56px; }
+section.s > header { display: grid; gap: 8px; }
+.hint { border: 1px dashed var(--core-line); border-radius: 10px; padding: 12px 16px; font-size: 14px; background: var(--card); }
+.rev { border: 1.5px solid var(--core-line); background: var(--core-fill); border-radius: 10px; padding: 14px 18px; display: grid; gap: 8px; }
+.rev ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.card { border: 1px solid var(--border); border-radius: 10px; padding: 18px; background: var(--card); display: grid; gap: 10px; align-content: start; }
+.card p { font-size: 14px; }
+.card .today { font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px; }
+.tension { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: stretch; }
+.tension .col { border: 1px solid var(--border); border-radius: 10px; padding: 18px; background: var(--card); display: grid; gap: 10px; align-content: start; }
+.tension .col--want { border-color: var(--core-line); border-width: 1.5px; }
+.tension ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
+.tension .arrow { align-self: center; font-family: var(--mono); color: var(--muted); font-size: 22px; }
+figure { margin: 0; display: grid; gap: 10px; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 72ch; }
+figcaption b { color: var(--fg); font-weight: 600; }
+.fig-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 12px; }
+.fig-scroll svg { display: block; width: 100%; height: auto; min-width: 440px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.panel-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+svg.dg { color: var(--fg); font-family: var(--mono); font-size: 11px; }
+svg.dg .b-host { fill: var(--host-fill); stroke: var(--host-line); stroke-width: 1.2; }
+svg.dg .b-core { fill: var(--core-fill); stroke: var(--core-line); stroke-width: 1.8; }
+svg.dg .b-ui { fill: var(--ui-fill); stroke: var(--ui-line); stroke-width: 1.2; }
+svg.dg .b-tide { fill: var(--tide-fill); stroke: var(--tide-line); stroke-width: 1.2; }
+svg.dg .t { fill: var(--fg); }
+svg.dg .tm { fill: var(--muted); }
+svg.dg .td { fill: var(--danger); }
+svg.dg .tb { fill: var(--fg); font-family: var(--sans); font-weight: 600; font-size: 13px; }
+svg.dg .ln { stroke: var(--fg); stroke-width: 1.3; fill: none; }
+svg.dg .ln-m { stroke: var(--muted); stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
+svg.dg .ln-d { stroke: var(--danger); stroke-width: 1.3; fill: none; stroke-dasharray: 4 3; }
+svg.dg .ah { fill: var(--fg); }
+svg.dg .ah-m { fill: var(--muted); }
+svg.dg .ah-d { fill: var(--danger); }
+/* implication matrix */
+.mx-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+table.mx { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13px; }
+table.mx th, table.mx td { border-bottom: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+table.mx th { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--fg); background: var(--sec); }
+table.mx td.c { text-align: center; padding: 6px 4px; }
+.mk { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 4px; padding: 1px 6px; color: var(--fg); }
+.mk--lead { background: var(--core-fill); border: 1.5px solid var(--core-line); font-weight: 600; }
+.mk--feed { background: var(--ui-fill); border: 1px solid var(--ui-line); }
+.mk--hold { background: var(--tide-fill); border: 1px solid var(--tide-line); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+/* wireframe: GitHub's README rendering, in GitHub's own light look */
+.wf-bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.toggle input { width: 18px; height: 18px; accent-color: #9a6700; }
+.gh {
+  --g-bg: #ffffff; --g-fg: #1f2328; --g-muted: #59636e; --g-border: #d1d9e0; --g-head: #f6f8fa; --g-link: #0969da;
+  --g-gold: #7a5200; --g-gold-fill: #fff8c5; --g-agent: #59636e; --g-agent-fill: #f6f8fa; --g-sel: #ddf4ff;
+  background: var(--g-bg); color: var(--g-fg); border: 1px solid var(--g-border); border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5;
+  color-scheme: light; overflow: hidden;
+}
+.gh-top { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--g-border); background: var(--g-head); font-size: 13px; flex-wrap: wrap; }
+.gh-top b { font-weight: 600; }
+.gh-tab { border-bottom: 2px solid #fd8c73; padding: 4px 2px; font-weight: 600; }
+.gh-body { padding: 16px; display: grid; gap: 12px; }
+.gh-body h4 { margin: 0; font-size: 20px; font-weight: 600; border-bottom: 1px solid var(--g-border); padding-bottom: 6px; }
+.gh-filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.gh-filter span.lbl { color: var(--g-muted); margin-right: 4px; }
+.gh-btn { font: inherit; font-size: 12px; border: 1px solid var(--g-border); background: var(--g-head); color: var(--g-fg); border-radius: 6px; padding: 3px 10px; cursor: pointer; min-height: 30px; }
+.gh-btn[aria-pressed="true"] { background: var(--g-fg); color: var(--g-bg); border-color: var(--g-fg); }
+.gh-scroll { overflow-x: auto; }
+table.ght { border-collapse: collapse; width: 100%; min-width: 760px; }
+table.ght th, table.ght td { border: 1px solid var(--g-border); padding: 6px 13px; text-align: left; vertical-align: top; font-size: 13px; }
+table.ght th { font-weight: 600; background: var(--g-bg); }
+table.ght tr:nth-child(2n) td { background: #f6f8fa; }
+table.ght td a { color: var(--g-link); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; text-decoration: none; }
+table.ght tr.row { cursor: pointer; }
+table.ght tr.row:hover td { background: var(--g-sel); }
+table.ght tr.is-selected td { background: var(--g-sel) !important; }
+table.ght tr.is-hidden { display: none; }
+.tier { display: inline-block; font-size: 11px; border-radius: 999px; padding: 0 8px; border: 1px solid var(--g-border); color: var(--g-fg); white-space: nowrap; margin-top: 4px; }
+.tier--use { background: #dafbe1; border-color: #1a7f37; }
+.tier--prog { background: #fff8c5; border-color: #9a6700; }
+.tier--not { background: #ffebe9; border-color: #cf222e; }
+.gh.owners td.by-agent, .gh.owners th.by-agent { box-shadow: inset 0 0 0 1.5px var(--g-agent); }
+.gh.owners td.by-g, .gh.owners th.by-g { box-shadow: inset 0 0 0 2px var(--g-gold); background: var(--g-gold-fill) !important; }
+.gh .who { display: none; font-size: 10px; font-weight: 600; border-radius: 4px; padding: 0 6px; margin-left: 6px; white-space: nowrap; }
+.gh.owners .who { display: inline-block; }
+.gh .who--agent { color: var(--g-agent); border: 1px solid var(--g-agent); }
+.gh .who--g { color: var(--g-gold); border: 1px solid var(--g-gold); background: var(--g-bg); }
+.gh-detail { border: 1px solid var(--g-border); border-radius: 6px; padding: 10px 12px; background: var(--g-head); font-size: 13px; }
+.gh-detail b { font-weight: 600; }
+.gh-ex { font-size: 11px; color: var(--g-muted); border: 1px dashed var(--g-border); border-radius: 4px; padding: 0 6px; }
+/* coded lists */
+.codes { display: grid; gap: 10px; }
+.item { display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: start; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--card); scroll-margin-top: 64px; }
+.item .code { font-family: var(--mono); font-weight: 600; font-size: 13px; text-align: center; border-radius: 6px; padding: 3px 0; background: var(--sec); border: 1px solid var(--border); }
+.item--d .code { background: var(--core-fill); border-color: var(--core-line); }
+.item--r .code { color: var(--danger); border-color: var(--danger); background: var(--card); }
+.item--ep .code { background: var(--tide-fill); border-color: var(--tide-line); }
+.item--done .code { background: var(--tide-fill); border-color: var(--tide-line); }
+.item h3 { font-size: 15px; margin-bottom: 4px; }
+.item p { font-size: 14px; }
+.item ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.item .teams { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 6px; display: block; }
+.item .ev { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 6px; display: block; word-break: break-word; }
+.item .status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 2px; }
+.score { display: table; margin-bottom: 6px; font-family: var(--mono); font-size: 11px; border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; margin-top: 8px; color: var(--fg); background: var(--sec); }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bands { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.bands .card ul { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.step { display: grid; grid-template-columns: 52px 1fr; gap: 14px; position: relative; padding-bottom: 18px; scroll-margin-top: 64px; }
+.step::before { content: ""; position: absolute; left: 25px; top: 30px; bottom: 0; border-left: 2px solid var(--border); }
+.step:last-child::before { display: none; }
+.step .code { font-family: var(--mono); font-weight: 600; font-size: 13px; width: 52px; height: 30px; display: grid; place-items: center; border-radius: 6px; border: 1.5px solid var(--core-line); background: var(--core-fill); position: relative; z-index: 1; }
+.step--done .code { background: var(--tide-fill); border-color: var(--tide-line); }
+.step h3 { font-size: 15px; }
+.step p { font-size: 14px; }
+.step .gate { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 4px; word-break: break-word; }
+footer.end { padding-block: 48px 64px; border-top: 1px solid var(--border); margin-top: 48px; font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+footer.end p { max-width: none; }
+@media (max-width: 900px) {
+  .pkgrow, .grid4, .bands { grid-template-columns: 1fr; }
+  .pair, .cols2 { grid-template-columns: 1fr; }
+  .tension { grid-template-columns: 1fr; }
+  .tension .arrow { transform: rotate(90deg); justify-self: center; }
+}
+@media (max-width: 520px) {
+  .wrap { padding-inline: 16px; }
+  .item, .step { grid-template-columns: 44px 1fr; gap: 10px; }
+  .step .code { width: 44px; }
+  .step::before { left: 21px; }
+  .gh-btn { min-height: 44px; }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<header class="top wrap">
+  <span class="eyebrow">jgwill/miadi-orchestration-kit · README.md · 2026-10-11</span>
+  <h1>What the Notes Imply</h1>
+  <p class="lede">Guillaume's notes in <code>README.md</code> become a status every agent reads before acting, one note for each team lead, and seven candidate chronicles that grow in germination before any is minted.</p>
+  <div class="chips">
+    <span class="chip"><span class="dot"></span>Awaiting your choice of candidates (D1)</span>
+    <span class="chip">README.md +49 −39</span>
+    <span class="chip" id="chip-issue">Issue <a href="https://github.com/jgwill/miadi-orchestration-kit/issues/81">jgwill/miadi-orchestration-kit#81</a></span>
+    <span class="chip" id="chip-commit">README <a href="https://github.com/jgwill/miadi-orchestration-kit/commit/7ba140e">7ba140e</a> on main</span>
+  </div>
+  <div class="pkgrow">
+    <div class="pkg pkg--core"><span class="pkg__name">README.md</span><span class="pkg__ver">4 tables gain a column · 2 sections added</span><p>Your status beside every episode need, team, plugin, skill and script, committed as you wrote it.</p></div>
+    <div class="pkg pkg--ui"><span class="pkg__name">The issue</span><span class="pkg__ver">jgwill/miadi-orchestration-kit</span><p>This page's aspects in five sections, so each team lead finds its note and the decisions stay in one place.</p></div>
+    <div class="pkg pkg--tide"><span class="pkg__name">EP1 – EP7</span><span class="pkg__ver">candidate chronicles · not minted</span><p>Seven episodes the notes point at, each with its teams, what already exists and what it changes.</p></div>
+  </div>
+  <div class="rev"><b>Revision 1 · 2026-10-11</b><ul><li>Jev (jev-1.13.0) scored the 15 A, D and Q cards. None reached 0.8, so nothing was done on the engine's word. See <a href="#scored">Scored</a>.</li><li>A1 done on your word: <code>README.md</code> committed alone as <code>7ba140e</code> and pushed to main. Jev read A1 as needs-you (0.55) because the repository is public (R4). Your request names the commit, and your column says it is written to help agents, which needs the push to reach other hosts.</li><li>A2 done on your word: <a href="https://github.com/jgwill/miadi-orchestration-kit/issues/81">jgwill/miadi-orchestration-kit#81</a>.</li><li>A3 done under the pde-vessel-ceremony commit rule: this page's source, the request, the scores and the decomposition are committed in <code>.pde/2610110857--854dd515…/</code>.</li></ul></div>
+  <p class="hint"><b>How to respond:</b> comment on a card or cite its code. A word on D1 names which candidates enter germination. D2 and D3 are names and removals, so they wait for you.</p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <div class="wrap">
+    <a href="#who">Who gets what</a><a href="#tension">Today → after</a><a href="#figure">Before / after</a><a href="#map">Implication map</a><a href="#wire">README wireframe</a><a href="#corr">What the evidence says</a><a href="#eps">Candidate chronicles</a><a href="#order">Build order</a><a href="#decide">Decide</a><a href="#scored">Scored</a><a href="#sources">Sources</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<section class="s" id="who">
+  <header><span class="eyebrow">Audiences</span><h2>Who gets what</h2></header>
+  <div class="grid4">
+    <div class="card"><h3>Agents opening the kit</h3><p>Read whether a plugin works before relying on it: usable now, in progress, or not ready.</p><p class="today">Today: the rows say what each plugin does, never whether it works.</p></div>
+    <div class="card"><h3>Team leads T1 – T7</h3><p>One note per team from its human lead, and the candidate chronicle that note feeds.</p><p class="today">Today: T5 and T6 are stubs, and T6's name is held as D11 in <code>teams/README.md</code>.</p></div>
+    <div class="card"><h3>Guillaume</h3><p>Four decisions in one place (D1 – D4), and seven candidate chronicles side by side to choose from.</p><p class="today">Today: the notes sit uncommitted in one working tree on gaia.</p></div>
+    <div class="card"><h3>People reading the public repo</h3><p>An alpha label on each part of the factory, in its owner's words.</p><p class="today">Today: the marketplace lists 8 plugins and nothing says which are alpha.</p></div>
+  </div>
+</section>
+
+<section class="s" id="tension">
+  <header><span class="eyebrow">Current reality and desired outcome</span><h2>Today → after</h2></header>
+  <div class="tension">
+    <div class="col">
+      <h3>Today</h3>
+      <ul>
+        <li><code>README.md</code> differs from <code>179bf4a</code> by +49 −39 lines, uncommitted. Four tables gain a column (status of an episode's needs, notes per team, directions per plugin, notes per skill or script), and two sections are added (packages, other hosts).</li>
+        <li>No added cell carries a date. <code>teams/teams.json</code> and <code>.claude-plugin/marketplace.json</code> hold no status field.</li>
+        <li>The repository is public, so whatever is committed is readable by anyone.</li>
+        <li>The plugin column reads two plugins as usable now (chronicle-episode-kit, session-observability), four as in progress (mia-episode-companion, stateloom, deepdiver, operator-desk), and five as not ready or not working (witness, ava-companion, pi-network, miette, session-orchestrator).</li>
+        <li>The five chronicle episodes the notes cite exist under the chronicle root: 044, 060, 076, 548, 550. The highest number is 552.</li>
+        <li>Three renames are announced and none is named: miadi-witness ("will change its name soon"), miadi-react ("should be renamed"), smcraft ("soon to be renamed").</li>
+        <li><code>skills/chart-path/SKILL.md</code> is 122 lines. Claude Haiku 5.5 costs $0.10 / $0.50 per million tokens up to 100K prompt tokens and $0.50 / $2.50 above that. Claude Opus 5.5 costs $4 / $20.</li>
+      </ul>
+    </div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="col col--want">
+      <h3>After</h3>
+      <ul>
+        <li><code>README.md</code> with your notes, committed on main, so every agent that opens the kit reads your status beside each plugin, team and skill.</li>
+        <li>One issue holding this proposal: each note tied to its owning team, the decisions that are yours, and the seven candidate chronicles.</li>
+        <li>The candidates you choose in D1 exist as germination folders under <code>_staging_for_new_episodes/</code>, each with a desired outcome and a seat in the staging circle, before any is minted.</li>
+        <li>Each team's agent lead has answered its row in its own section of <code>teams/README.md</code>, with a date.</li>
+        <li>One rename pass, after D2, that changes marketplace keys, install commands and the README together.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="s" id="figure">
+  <header><span class="eyebrow">The change</span><h2>Before / after</h2></header>
+  <div class="pair">
+    <div>
+      <div class="panel-label">Before</div>
+      <div class="fig-scroll">
+        <svg class="dg" viewBox="0 0 460 320" role="img" aria-label="Before: README rows written by agents are read by agents as usable; Guillaume's view reaches team leads one session at a time; a new idea is minted as an episode at once.">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-m"/></marker>
+            <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-d"/></marker>
+          </defs>
+          <rect x="10" y="20" width="160" height="54" rx="8" class="b-host"/>
+          <text x="22" y="43" class="tb">README rows</text><text x="22" y="62" class="tm">written by agents</text>
+          <rect x="290" y="20" width="160" height="54" rx="8" class="b-core"/>
+          <text x="302" y="43" class="tb">Guillaume's view</text><text x="302" y="62" class="tm">sessions, scratchpad</text>
+          <rect x="10" y="134" width="160" height="54" rx="8" class="b-ui"/>
+          <text x="22" y="157" class="tb">Agents in the kit</text><text x="22" y="176" class="tm">any session</text>
+          <rect x="290" y="134" width="160" height="54" rx="8" class="b-tide"/>
+          <text x="302" y="157" class="tb">Team leads T1–T7</text><text x="302" y="176" class="tm">agent seats</text>
+          <rect x="290" y="248" width="160" height="54" rx="8" class="b-host"/>
+          <text x="302" y="271" class="tb">A new idea</text><text x="302" y="290" class="tm">vision not yet clear</text>
+          <rect x="10" y="248" width="160" height="54" rx="8" class="b-host"/>
+          <text x="22" y="271" class="tb">Minted episode</text><text x="22" y="290" class="tm">many files, no shape</text>
+          <path d="M90 74 L90 130" class="ln" marker-end="url(#a1)"/>
+          <text x="98" y="106" class="t">reads "ships here"</text>
+          <path d="M370 74 L370 130" class="ln-m" marker-end="url(#a2)"/>
+          <text x="236" y="106" class="tm">spoken, one session</text>
+          <text x="236" y="119" class="tm">at a time</text>
+          <path d="M290 275 L174 275" class="ln-d" marker-end="url(#a3)"/>
+          <text x="186" y="266" class="td">minted at once</text>
+        </svg>
+      </div>
+    </div>
+    <div>
+      <div class="panel-label">After</div>
+      <div class="fig-scroll">
+        <svg class="dg" viewBox="0 0 460 320" role="img" aria-label="After: README rows carry Guillaume's column, agents read the status first, the issue hands one note to each team lead, team leads place candidates in germination, and an episode is minted only after D1.">
+          <defs>
+            <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+          </defs>
+          <rect x="10" y="20" width="160" height="54" rx="8" class="b-core"/>
+          <text x="22" y="43" class="tb">README rows</text><text x="22" y="62" class="t">+ Guillaume's column</text>
+          <rect x="290" y="20" width="160" height="54" rx="8" class="b-ui"/>
+          <text x="302" y="43" class="tb">The issue</text><text x="302" y="62" class="tm">notes by team, D1–D4</text>
+          <rect x="10" y="134" width="160" height="54" rx="8" class="b-ui"/>
+          <text x="22" y="157" class="tb">Agents in the kit</text><text x="22" y="176" class="tm">any session</text>
+          <rect x="290" y="134" width="160" height="54" rx="8" class="b-tide"/>
+          <text x="302" y="157" class="tb">Team leads T1–T7</text><text x="302" y="176" class="tm">answer in teams/</text>
+          <rect x="290" y="248" width="160" height="54" rx="8" class="b-tide"/>
+          <text x="302" y="271" class="tb">Germination</text><text x="302" y="290" class="tm">_staging_for_new_…</text>
+          <rect x="10" y="248" width="160" height="54" rx="8" class="b-host"/>
+          <text x="22" y="271" class="tb">Minted episode</text><text x="22" y="290" class="tm">vision chosen first</text>
+          <path d="M90 74 L90 130" class="ln" marker-end="url(#a4)"/>
+          <text x="98" y="106" class="t">reads status first</text>
+          <path d="M170 47 L286 47" class="ln" marker-end="url(#a4)"/>
+          <text x="182" y="40" class="t">notes by team</text>
+          <path d="M370 74 L370 130" class="ln" marker-end="url(#a4)"/>
+          <text x="378" y="106" class="t">one note</text>
+          <text x="378" y="119" class="t">each</text>
+          <path d="M370 188 L370 244" class="ln" marker-end="url(#a4)"/>
+          <text x="378" y="220" class="t">EP1–EP7</text>
+          <path d="M290 275 L174 275" class="ln" marker-end="url(#a4)"/>
+          <text x="196" y="266" class="t">after D1</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+  <figure><figcaption><b>Two arrows change.</b> Your status reaches every agent through the README and every team lead through the issue, where before it reached one session at a time. A new idea passes through germination before it is minted, where before it was minted at once, which is the mess your T5 note describes.</figcaption></figure>
+</section>
+
+<section class="s" id="map">
+  <header><span class="eyebrow">Ownership</span><h2>Implication map</h2><p class="muted">Each candidate chronicle, the teams it involves, and the README rows it comes from.</p></header>
+  <figure>
+    <div class="mx-scroll">
+      <table class="mx" aria-label="Candidate chronicles by team: who leads, who feeds, and T5 holding every candidate in germination">
+        <thead><tr><th>Candidate</th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>T5</th><th>T6</th><th>T7</th><th>Comes from</th></tr></thead>
+        <tbody>
+          <tr><td><a href="#EP1">EP1</a> R2 storage provider</td><td class="c"><span class="mk mk--feed">feeds</span></td><td class="c"><span class="mk mk--lead">leads</span></td><td class="c"></td><td class="c"></td><td class="c"><span class="mk mk--hold">holds</span></td><td class="c"></td><td class="c"></td><td>"its commands on a machine" row</td></tr>
+          <tr><td><a href="#EP2">EP2</a> Ready for DeepDiver</td><td class="c"></td><td class="c"><span class="mk mk--feed">feeds</span></td><td class="c"></td><td class="c"></td><td class="c"><span class="mk mk--hold">holds</span></td><td class="c"><span class="mk mk--lead">leads</span></td><td class="c"></td><td>T6 note, deepdiver row</td></tr>
+          <tr><td><a href="#EP3">EP3</a> Inventory that keeps itself</td><td class="c"><span class="mk mk--feed">feeds</span></td><td class="c"></td><td class="c"><span class="mk mk--lead">leads</span></td><td class="c"></td><td class="c"><span class="mk mk--hold">holds</span></td><td class="c"></td><td class="c"></td><td>T1 note, "the sessions that worked in it" row</td></tr>
+          <tr><td><a href="#EP4">EP4</a> Plans agents can nest</td><td class="c"></td><td class="c"><span class="mk mk--lead">leads</span></td><td class="c"><span class="mk mk--feed">feeds</span></td><td class="c"><span class="mk mk--lead">leads</span></td><td class="c"><span class="mk mk--hold">holds</span></td><td class="c"></td><td class="c"></td><td>T2, T4 notes, screenwalks row, chart-path row</td></tr>
+          <tr><td><a href="#EP5">EP5</a> A voice desk</td><td class="c"></td><td class="c"></td><td class="c"><span class="mk mk--feed">feeds</span></td><td class="c"></td><td class="c"><span class="mk mk--hold">holds</span></td><td class="c"></td><td class="c"><span class="mk mk--lead">leads</span></td><td>T7 note, companion row, operator-desk row</td></tr>
+          <tr><td><a href="#EP6">EP6</a> The factory on a second host</td><td class="c"><span class="mk mk--lead">leads</span></td><td class="c"><span class="mk mk--feed">feeds</span></td><td class="c"></td><td class="c"></td><td class="c"><span class="mk mk--hold">holds</span></td><td class="c"></td><td class="c"></td><td>packages notes, other hosts notes, episode-kit row</td></tr>
+          <tr><td><a href="#EP7">EP7</a> The scratchpad as an outbox</td><td class="c"><span class="mk mk--feed">feeds</span></td><td class="c"></td><td class="c"><span class="mk mk--lead">leads</span></td><td class="c"></td><td class="c"><span class="mk mk--hold">holds</span></td><td class="c"></td><td class="c"></td><td>T3 note</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend"><span><span class="mk mk--lead">leads</span> owns the episode's outcome</span><span><span class="mk mk--feed">feeds</span> supplies a part or a rule</span><span><span class="mk mk--hold">holds</span> keeps the candidate in germination until it is chosen</span></div>
+    <figcaption><b>T5 holds every candidate,</b> because your T5 note asks that ideas grow before they become an episode. No candidate is led by T5 or T6 alone except EP2, and T6 has no agreed name yet (D11).</figcaption>
+  </figure>
+</section>
+
+<section class="s" id="wire">
+  <header><span class="eyebrow">The screen the change lands on</span><h2>README wireframe</h2><p class="muted">The Plugins table as GitHub will render it after the commit, with your column. Rows are real. The tier filter is proposed: each tier is read from your words in that row. Click a row to see the codes on this page it feeds.</p></header>
+  <div class="wf-bar">
+    <label class="toggle" for="owners"><input type="checkbox" id="owners" checked> Show who wrote each cell</label>
+    <div class="legend"><span><i style="display:inline-block;width:16px;height:12px;border:1.5px solid #59636e;border-radius:2px"></i>agents wrote it</span><span><i style="display:inline-block;width:16px;height:12px;border:2px solid #7a5200;background:#fff8c5;border-radius:2px"></i>Guillaume wrote it</span></div>
+  </div>
+  <div class="gh owners" id="gh">
+    <div class="gh-top"><b>jgwill / miadi-orchestration-kit</b><span>·</span><span class="gh-tab">README</span></div>
+    <div class="gh-body">
+      <h4>Claude Code plugins</h4>
+      <div class="gh-filter" role="group" aria-label="Filter by tier">
+        <span class="lbl">Tier <span class="gh-ex">proposed</span></span>
+        <button class="gh-btn" data-f="all" aria-pressed="true">All 11</button>
+        <button class="gh-btn" data-f="use" aria-pressed="false">Usable now</button>
+        <button class="gh-btn" data-f="prog" aria-pressed="false">In progress</button>
+        <button class="gh-btn" data-f="not" aria-pressed="false">Not ready</button>
+      </div>
+      <div class="gh-scroll">
+        <table class="ght">
+          <thead><tr><th class="by-agent">Plugin<span class="who who--agent">agents</span></th><th class="by-agent">In the marketplace</th><th class="by-g">Guillaume's directions<span class="who who--g">Guillaume</span></th></tr></thead>
+          <tbody>
+            <tr class="row" data-t="use" data-codes="EP6 (alpha on a host)"><td class="by-agent"><a>miadi-chronicle-episode-kit</a></td><td class="by-agent">yes</td><td class="by-g">needs setting up an alpha version of the Miadi Factory on a host<br><span class="tier tier--use">usable now</span></td></tr>
+            <tr class="row" data-t="use" data-codes="EP3 (inventory), Q3 (pi parity starts here)"><td class="by-agent"><a>miadi-session-observability</a></td><td class="by-agent">yes</td><td class="by-g">usable now as is, maybe few env variable to setup<br><span class="tier tier--use">usable now</span></td></tr>
+            <tr class="row" data-t="not" data-codes="D2 (rename), EP4, EP7"><td class="by-agent"><a>miadi-witness</a></td><td class="by-agent">yes</td><td class="by-g">not ready and needs more work<br><span class="tier tier--not">not ready</span></td></tr>
+            <tr class="row" data-t="prog" data-codes="EP5 (its UI becomes the desk's)"><td class="by-agent"><a>mia-episode-companion</a></td><td class="by-agent">yes</td><td class="by-g">Interesting so far, might depends on lots of thing …<br><span class="tier tier--prog">in progress</span></td></tr>
+            <tr class="row" data-t="not" data-codes="no candidate: the note names resources as the limit"><td class="by-agent"><a>ava-companion</a></td><td class="by-agent">yes</td><td class="by-g">Still a stub, migrating and consolidating Ava needs resources that we dont have<br><span class="tier tier--not">not ready</span></td></tr>
+            <tr class="row" data-t="prog" data-codes="EP4 (drawings), EP6 (docker containers)"><td class="by-agent"><a>miadi-stateloom</a></td><td class="by-agent">yes</td><td class="by-g">Probably working, needs a series of docker container …<br><span class="tier tier--prog">in progress</span></td></tr>
+            <tr class="row" data-t="prog" data-codes="EP2 (Ready for DeepDiver)"><td class="by-agent"><a>miadi-deepdiver</a></td><td class="by-agent">yes</td><td class="by-g">Had first results … still being tested and refined<br><span class="tier tier--prog">in progress</span></td></tr>
+            <tr class="row" data-t="prog" data-codes="EP5 (voice desk)"><td class="by-agent"><a>miadi-operator-desk</a></td><td class="by-agent">yes</td><td class="by-g">Will require a UI and could be upgraded based on the mia-episode-companion<br><span class="tier tier--prog">in progress</span></td></tr>
+            <tr class="row" data-t="not" data-codes="EP6 (with other humans, on a stable factory)"><td class="by-agent"><a>miadi-pi-network</a></td><td class="by-agent">no</td><td class="by-g">Just started it once …<br><span class="tier tier--not">not ready</span></td></tr>
+            <tr class="row" data-t="not" data-codes="D3 (keep as the Stop-hook example)"><td class="by-agent"><a>miette</a></td><td class="by-agent">no</td><td class="by-g">Not working … Now better with claude-opus-5.5 and we disabled it …<br><span class="tier tier--not">not ready</span></td></tr>
+            <tr class="row" data-t="not" data-codes="D3 (full review before reuse)"><td class="by-agent"><a>miadi-session-orchestrator</a></td><td class="by-agent">no</td><td class="by-g">Very old and probably not good as it is …<br><span class="tier tier--not">not ready</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="gh-detail" id="ghd" aria-live="polite"><b>Select a row.</b> The codes it feeds on this page appear here. <span class="gh-ex">this panel is part of the wireframe, not of the README</span></div>
+    </div>
+  </div>
+  <p class="muted" style="font-size:13px">The "Use it for" column is left out to fit a phone. Its cells are written by agents. Your cells are shortened with "…" where long.</p>
+</section>
+
+<section class="s" id="corr">
+  <header><span class="eyebrow">Checked against the source</span><h2>What the evidence says about two notes</h2><p class="muted">C stands for correction: a note whose claim the source does not support as written.</p></header>
+  <div class="codes">
+    <div class="item" id="C1"><span class="code">C1</span><div><h3>Haiku 5.5 is 40x cheaper than Opus 5.5 only under 100K tokens per request</h3><p>The T1 note says 40x "when bellow 1M tokens context". Haiku 5.5 costs $0.10 / $0.50 per million tokens up to 100K prompt tokens and $0.50 / $2.50 above. Opus 5.5 costs $4 / $20 at any length. So the ratio is 40x under 100K and 8x above. An inventory run that reads a whole transcript crosses 100K. One that reads the <code>@miadi/hooks-interpreter</code> digest stays under it (EP3).</p><span class="ev">claude-api skill, model table cached 2026-10-06 · /a/src/Miadi/packages/hooks-interpreter</span></div></div>
+    <div class="item" id="C2"><span class="code">C2</span><div><h3>chart-path is not a stub by size. Its first lines do not say what to do.</h3><p>The skills note says "just a stub". The file is 122 lines with a desired outcome, the path as it runs, and the words the teams use. Your T4 note names the real problem: it is vague. A reader of its first screen learns where charts go, not what to do next.</p><span class="ev">skills/chart-path/SKILL.md:1-30 · README Teams table, T4 row</span></div></div>
+  </div>
+</section>
+
+<section class="s" id="eps">
+  <header><span class="eyebrow">EP stands for episode candidate</span><h2>Candidate chronicles</h2><p class="muted">None is minted. Each would start as a germination folder that T5 holds, and you choose which ones in D1. Episode numbers come at minting.</p></header>
+  <div class="codes">
+    <div class="item item--ep" id="EP1"><span class="code">EP1</span><div>
+      <h3>A storage provider on Cloudflare R2</h3>
+      <span class="teams">T2 leads · T1 feeds · T5 holds</span>
+      <p>You named it as the potential next episode in the row "its commands on a machine". It would hold the choice of what moves to R2 first (episode media, captures, review files) and a provider that the chronicle client reads through.</p>
+      <ul>
+        <li>A client that is not gaia reads episode media without the <code>/srv</code> path, which is the "pure client" your note asks for.</li>
+        <li>Each host needs a key, and who may read which object becomes an access question (medicine-wheel OCAP).</li>
+        <li>Smallest and most concrete of the seven. It does not wait on any other candidate.</li>
+      </ul>
+      <span class="ev">Exists: jgwill/medicine-wheel src/storage-provider · T2's pre-reboot session miadi-provider-repo-file-replacement-by-r2-cloudflare (teams/README.md, T2)</span>
+    </div></div>
+    <div class="item item--ep" id="EP2"><span class="code">EP2</span><div>
+      <h3>Ready for DeepDiver: a review status that starts production</h3>
+      <span class="teams">T6 leads · T2 feeds · T5 holds</span>
+      <p>From your T6 note: marking a Miadi review "Ready for DeepDiver" gives it an episode if it has none, attaches the review and its resources, and starts Deep Diver.</p>
+      <ul>
+        <li>The factory's first event with a known producer (the review service) and a known consumer (deepdiver). That is a concrete case for episode 548's broker question.</li>
+        <li>Creating an episode automatically conflicts with your T5 note (R2). A status that opens a germination folder, not a minted episode, keeps both notes true.</li>
+        <li>Episode 550 (the screenwalk as a media type) is where a screenwalk review would land first.</li>
+      </ul>
+      <span class="ev">Exists: miadi-deepdiver 0.2.1, /deepdive takes an episode, a review or both (commits f03812a, 317555e) · episodes 548, 550 · reviews 7ac38930…, f9d6fb1e… cited in your note, not opened in this session</span>
+    </div></div>
+    <div class="item item--ep" id="EP3"><span class="code">EP3</span><div>
+      <h3>The session inventory that keeps itself</h3>
+      <span class="teams">T3 leads · T1 feeds · T5 holds</span>
+      <p>From your T1 note: a model like Claude Haiku 5.5 runs the session inventory on a schedule. T3 already proposed an inventory agent that reads T1's binding line and each transcript.</p>
+      <ul>
+        <li>You stop naming sessions by hand. What needs you surfaces on a schedule, with a team fit for each session (jgwill/miadi-orchestration-kit#76).</li>
+        <li>Cost depends on what each run reads (C1). Reading the hooks-interpreter digest keeps a request under 100K tokens.</li>
+        <li>Answers your note that continuity across sessions is still being integrated.</li>
+      </ul>
+      <span class="ev">Exists: miadi-witness inventory-keeper agent · /a/src/Miadi/packages/hooks-interpreter · teams/README.md T3 "Proposed … an inventory agent"</span>
+    </div></div>
+    <div class="item item--ep" id="EP4"><span class="code">EP4</span><div>
+      <h3>Plans agents can nest: episode 076 revisited with Jev</h3>
+      <span class="teams">T2 and T4 lead · T3 feeds · T5 holds</span>
+      <p>From the screenwalks row, the T2 note and the T4 note: the agents' flat TODO list gives way to nested charts that agents keep, check with Jev, and draw with stateloom.</p>
+      <ul>
+        <li>Advances episode 076 (plan-to-episode pipeline) with a model class your note expects to "think in structure" in the creative-orientation sense.</li>
+        <li>Gives T4's chart-path the clarity your note asks for (C2), and gives Asterion (episode 060) charts with depth to show.</li>
+        <li>The largest and most abstract of the seven. It needs a vision stated before anything is built, so it is the clearest case for germination.</li>
+      </ul>
+      <span class="ev">Exists: episodes 044, 060, 076 · claude/miadi-stateloom · Jev scoring, jgwill/miadi-orchestration-kit#80 · lane-check in jgwill/smcraft</span>
+    </div></div>
+    <div class="item item--ep" id="EP5"><span class="code">EP5</span><div>
+      <h3>One voice desk for the factory</h3>
+      <span class="teams">T7 leads · T3 feeds · T5 holds</span>
+      <p>From the T7 note and the operator-desk row: the desk gets the companion's phone page and voice, so a question about how the factory works is spoken and answered aloud.</p>
+      <ul>
+        <li>You ask from the phone. The answer still comes from the owning team's text, and the ledger keeps it.</li>
+        <li>The companion's phone page becomes a shared part, not Mia's alone, which also serves the witness team's spoken first impressions.</li>
+      </ul>
+      <span class="ev">Exists: claude/mia-episode-companion · phone capture on gaia :8443 · desk/ledger.jsonl (jgwill/miadi-orchestration-kit#71) · jgwill/miadi-orchestration-kit#74, #75</span>
+    </div></div>
+    <div class="item item--ep" id="EP6"><span class="code">EP6</span><div>
+      <h3>The factory on a second host</h3>
+      <span class="teams">T1 leads · T2 feeds · T5 holds</span>
+      <p>From the packages notes, the other hosts note and the episode-kit row: the gaia stack as a docker compose, the apt install tested on Eury, and pi doing what Claude Code does.</p>
+      <ul>
+        <li>A reader of your academic proposal could run the factory, which is when your note plans the Eury test.</li>
+        <li>Pi parity means the factory does not depend on one model provider.</li>
+        <li>Storage away from gaia's disk (EP1) makes a second host simpler, so EP1 first helps.</li>
+      </ul>
+      <span class="ev">Exists: packages/miadi/deb/test-install.sh (clean Ubuntu 22.04) · jgwill/miadi-orchestration-kit#62, #77, #79 · teams/README.md T1 plan P1–P5 for pi</span>
+    </div></div>
+    <div class="item item--ep" id="EP7"><span class="code">EP7</span><div>
+      <h3>The scratchpad as an outbox</h3>
+      <span class="teams">T3 leads · T1 feeds · T5 holds</span>
+      <p>From your T3 note: you write <code>&lt;input to="&lt;tmux&gt;" status="…"&gt;</code> blocks in the day's scratchpad, and Mino watches them and delivers each to its session.</p>
+      <ul>
+        <li>You write a prompt once, where you already write, and it reaches the named session.</li>
+        <li>The status attribute has to say when a block is ready to send. A draft block is staged, not consented (R5).</li>
+      </ul>
+      <span class="ev">Exists: SCRATCHPAD-261007.md holds one &lt;input to=…&gt; block · miadi-witness witness-listen · tide (T1)</span>
+    </div></div>
+  </div>
+</section>
+
+<section class="s" id="order">
+  <header><span class="eyebrow">Steps</span><h2>Build order</h2></header>
+  <ol class="steps">
+    <li class="step step--done" id="A1"><span class="code">A1</span><div><span class="status" style="font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)">done · 7ba140e, pushed</span><h3>Commit README.md alone, as you wrote it, and push</h3><span class="score">Jev · do_after_go 0.43 · needs you (needs_owner 0.55)</span><p>The other dirty files (STC.md, STCGOAL.md, STCISSUE.md, .coaia/, other .pde/ folders, RESUME scripts) stay out. No text in your cells is changed.</p><p class="gate">Check: git show --stat HEAD lists README.md only.</p></div></li>
+    <li class="step step--done" id="A2"><span class="code">A2</span><div><span class="status" style="font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)">done · jgwill/miadi-orchestration-kit#81</span><h3>Open the issue that carries this page</h3><span class="score">Jev · do_now 0.67 · after your go</span><p>Five sections: Context, Desired State, Action Steps, Structural Tension, Related. It links this page.</p><p class="gate">Check: the issue's address in this page's header.</p></div></li>
+    <li class="step step--done" id="A3"><span class="code">A3</span><div><span class="status" style="font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)">done · committed with this page</span><h3>Commit this session's decomposition folder</h3><span class="score">Jev · do_now 0.27 · after your go</span><p>The PDE of your request and this page's source, in <code>.pde/2610110857--854dd515…/</code>.</p><p class="gate">Check: git ls-files lists the folder.</p></div></li>
+    <li class="step" id="A4"><span class="code">A4</span><div><h3>Open a germination folder for each candidate chosen in D1</h3><span class="score">Jev · do_after_go 0.14 · after your go</span><p>Under <code>_staging_for_new_episodes/</code> in the episodes repository, each with an AGENTS.md (desired outcome, current reality, circle), seated in the staging circle.</p><p class="gate">Check: the folder committed and pushed, and one turn in circle:1791110394383:jj1ql8.</p></div></li>
+    <li class="step" id="A5"><span class="code">A5</span><div><h3>Each team's agent lead answers its row</h3><span class="score">Jev · do_now 0.25 · after your go</span><p>In its own section of <code>teams/README.md</code>, one dated line saying what the note changes for the team. Your cells stay yours (D4).</p><p class="gate">Check: seven dated lines, one per team.</p></div></li>
+    <li class="step" id="A6"><span class="code">A6</span><div><h3>One rename pass after D2</h3><span class="score">Jev · needs_decision 0.23 · needs you (needs_owner 0.88)</span><p>marketplace.json, each plugin.json, README and teams/ change together, with the old name kept as a pointer for one release.</p><p class="gate">Check: claude plugin install of the new name from a clean account.</p></div></li>
+    <li class="step" id="A7"><span class="code">A7</span><div><h3>T4 rewrites chart-path's opening after Q4</h3><span class="score">Jev · do_now 0.58 · after your go</span><p>Its first ten lines say what an agent does with a chart, then where it goes.</p><p class="gate">Check: an agent new to the kit names the next step after reading only those lines.</p></div></li>
+  </ol>
+</section>
+
+<section class="s" id="decide">
+  <header><span class="eyebrow">Decisions, questions and risks</span><h2>Decide</h2></header>
+  <div class="cols2">
+    <div class="codes">
+      <div class="item item--d" id="D1"><span class="code">D1</span><div><h3>Which candidates enter germination first</h3><span class="score">Jev · do_after_go 0.07 · needs you (needs_owner 0.52)</span><p>Recommended: EP1 and EP2. You named EP1 as the next episode, and it waits on nothing. EP2 gives episode 548 its first real event, and deepdiver already runs. EP4 needs its vision stated before anything else.</p></div></div>
+      <div class="item item--d" id="D2"><span class="code">D2</span><div><h3>The new names</h3><span class="score">Jev · needs_decision 0.53 · needs you (needs_owner 0.87)</span><p>miadi-witness, miadi-react, smcraft, and T6 (held as D11 in teams/README.md). Recommended: name them together so A6 runs once and installs change once.</p></div></div>
+      <div class="item item--d" id="D3"><span class="code">D3</span><div><h3>What happens to miette and miadi-session-orchestrator</h3><span class="score">Jev · needs_decision 0.27 · needs you (needs_owner 0.73)</span><p>Recommended: keep both rows. miette moves to the catalogue as the example of a Stop hook that makes an output re-read a skill, as your note says. session-orchestrator gets the full review your note names before any reuse.</p></div></div>
+      <div class="item item--d" id="D4"><span class="code">D4</span><div><h3>Who may change your column</h3><span class="score">Jev · do_now 0.40 · after your go</span><p>Recommended: only you. Agents answer in their team's section of teams/README.md (A5) and never edit your cells.</p></div></div>
+    </div>
+    <div class="codes">
+      <div class="item" id="Q1"><span class="code">Q1</span><div><h3>Should your column headers carry a date?</h3><span class="score">Jev · needs_decision 0.22 · needs you (needs_owner 0.35)</span><p>"Status, 2026-10-11" would let an agent tell how old a status is (R1). It changes your text, so it waits for you.</p></div></div>
+      <div class="item" id="Q2"><span class="code">Q2</span><div><h3>Where does "Ready for DeepDiver" live?</h3><span class="score">Jev · needs_decision 0.56 · needs you (needs_owner 0.48)</span><p>A field on the review in the review service, or a mark in the episode. The answer decides who emits the event in EP2.</p></div></div>
+      <div class="item" id="Q3"><span class="code">Q3</span><div><h3>Which plugins define pi parity first?</h3><span class="score">Jev · needs_decision 0.09 · needs you (needs_owner 0.38)</span><p>Recommended: session-observability, whose pi package is already planned as P1 and P2 in teams/README.md.</p></div></div>
+      <div class="item" id="Q4"><span class="code">Q4</span><div><h3>Is the chart-path ask a clearer opening now, or a rewrite after EP4?</h3><span class="score">Jev · needs_decision 0.34 · needs you (needs_owner 0.33)</span><p>A7 does the first. The second waits for EP4's vision.</p></div></div>
+    </div>
+  </div>
+  <div class="codes">
+    <div class="item item--r" id="R1"><span class="code">R1</span><div><h3>An undated status goes stale</h3><p>In a month an agent reads "not ready" or "usable now" as current, with no way to tell the age.</p></div></div>
+    <div class="item item--r" id="R2"><span class="code">R2</span><div><h3>EP2's automatic episode works against T5</h3><p>An episode minted for every ready review, before its vision is clear, is the mess your T5 note was written to prevent.</p></div></div>
+    <div class="item item--r" id="R3"><span class="code">R3</span><div><h3>Renames break installs</h3><p>Plugin names are keys in marketplace.json and in every account's install command. A rename done piecemeal leaves accounts pointing at a name that no longer exists.</p></div></div>
+    <div class="item item--r" id="R4"><span class="code">R4</span><div><h3>Your notes become public</h3><p>The repository is public. Once pushed, your sharper words (on chart-path, on the chronicle mess) are readable and indexed. You asked for the commit, so A1 runs.</p></div></div>
+    <div class="item item--r" id="R5"><span class="code">R5</span><div><h3>A draft scratchpad block could be sent</h3><p>In EP7, a block Mino delivers before you mark it ready answers a question you had not finished asking.</p></div></div>
+  </div>
+</section>
+
+<section class="s" id="scored">
+  <header><span class="eyebrow">Jev · jev-1.13.0</span><h2>Scored</h2><p class="muted" id="scored-note">Every A, D and Q card was sent to Jev (jev-1.13.0) on 2026-10-11 with your request, this page's Today facts and the Decision Gate's D1 rule. Thresholds: act at 0.8, owner at 0.5 (policy.json, set by you on 2026-10-09). Nothing reached 0.8, so "would do now" is empty. Scores: <code>.pde/2610110857--854dd515…/scores.json</code>.</p></header>
+  <div class="bands">
+    <div class="card"><h3>Would do now</h3><ul id="band-act"><li>none</li></ul></div>
+    <div class="card"><h3>After your go</h3><ul id="band-ask"><li><a href="#A2">A2</a> Open the issue that carries this page</li><li><a href="#A3">A3</a> Commit this session's decomposition folder</li><li><a href="#A4">A4</a> Open a germination folder for each candidate chosen in D1</li><li><a href="#A5">A5</a> Each team's agent lead answers its row</li><li><a href="#A7">A7</a> T4 rewrites chart-path's opening after Q4</li><li><a href="#D4">D4</a> Who may change your column</li></ul></div>
+    <div class="card"><h3>Needs you</h3><ul id="band-owner"><li><a href="#A1">A1</a> Commit README.md alone, as you wrote it, and push</li><li><a href="#A6">A6</a> One rename pass after D2</li><li><a href="#D1">D1</a> Which candidates enter germination first</li><li><a href="#D2">D2</a> The new names</li><li><a href="#D3">D3</a> What happens to miette and miadi-session-orchestrator</li><li><a href="#Q1">Q1</a> Should your column headers carry a date?</li><li><a href="#Q2">Q2</a> Where does "Ready for DeepDiver" live?</li><li><a href="#Q3">Q3</a> Which plugins define pi parity first?</li><li><a href="#Q4">Q4</a> Is the chart-path ask a clearer opening now, or a rewrite after EP4?</li></ul></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="end wrap" id="sources">
+  <p><b>Sources:</b> <code>git diff README.md</code> against 179bf4a · teams/README.md (T1–T7) · skills/chart-path/SKILL.md · skills/proposal-visualization/scoring/ · /srv/miadi/episodes/miadi-chronicle (episode folders 044, 060, 076, 548, 550, 552) · /a/src/Miadi/packages · gh issue list and gh repo view, jgwill/miadi-orchestration-kit · claude-api skill model table.</p>
+  <p><b>Decomposition:</b> .pde/2610110857--854dd515-9c8c-48fb-850e-47719f058992/ (miaco 0.20.6, claude opus), with input-prompt.md.</p>
+  <p><b>Drafted by</b> Mia (Claude Opus 5.5) in the session miadi-orchestration-kit-guillaume-notes-to-help-acting-261011. Evidence checked 2026-10-11.</p>
+</footer>
+
+<script>
+(function () {
+  var gh = document.getElementById("gh");
+  var owners = document.getElementById("owners");
+  owners.addEventListener("change", function () { gh.classList.toggle("owners", owners.checked); });
+
+  var rows = Array.prototype.slice.call(gh.querySelectorAll("tr.row"));
+  var detail = document.getElementById("ghd");
+  rows.forEach(function (r) {
+    r.tabIndex = 0;
+    function pick() {
+      rows.forEach(function (x) { x.classList.toggle("is-selected", x === r); });
+      var name = r.querySelector("a").textContent;
+      detail.innerHTML = "<b>" + name + "</b> feeds: " + r.getAttribute("data-codes");
+    }
+    r.addEventListener("click", pick);
+    r.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { pick(); e.preventDefault(); } });
+  });
+
+  var btns = Array.prototype.slice.call(gh.querySelectorAll(".gh-btn"));
+  btns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var f = b.getAttribute("data-f");
+      btns.forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      rows.forEach(function (r) { r.classList.toggle("is-hidden", f !== "all" && r.getAttribute("data-t") !== f); });
+    });
+  });
+})();
+</script>

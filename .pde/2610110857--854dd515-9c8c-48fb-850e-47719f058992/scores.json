@@ -1,0 +1,921 @@
+{
+  "at": "2026-10-11T13:02:58.115Z",
+  "page": "/workspace/repos/jgwill/miadi-orchestration-kit/.pde/2610110857--854dd515-9c8c-48fb-850e-47719f058992/proposal-page.html",
+  "model": "jev-1.13.0",
+  "questions_version": "0.1.0",
+  "policy_set_by": "Guillaume, spoken 2026-10-09 (session miadi-jev-fork1): act at high confidence with the engine, come back otherwise; applied to proposals by Mia 2026-10-10",
+  "dry": false,
+  "cards": [
+    {
+      "code": "A1",
+      "kind": "A",
+      "estimated_input_tokens": 1076,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "6809946e-2f0c-4505-9cb5-1b090235a704",
+      "billing": {
+        "run_id": "6809946e-2f0c-4505-9cb5-1b090235a704",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1383",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13757600",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "implied_by_request": {
+          "class": "implied_by_request",
+          "type": "noul",
+          "value": false,
+          "p": 0.34,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "reversible": {
+          "class": "reversible",
+          "type": "noul",
+          "value": false,
+          "p": 0.12,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "evidence_sufficient": {
+          "class": "evidence_sufficient",
+          "type": "noul",
+          "value": true,
+          "p": 0.66,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": true,
+          "p": 0.55,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_after_go",
+          "p": 0.43,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.32,
+            "do_after_go": 0.62,
+            "needs_decision": 0.06
+          }
+        }
+      },
+      "band": "owner",
+      "why": "needs_owner 0.55: the Decision Gate's D1 rule, never settled by the number"
+    },
+    {
+      "code": "A2",
+      "kind": "A",
+      "estimated_input_tokens": 1062,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "8ddc3d8c-bf49-46bf-b873-3c6f5ebd6046",
+      "billing": {
+        "run_id": "8ddc3d8c-bf49-46bf-b873-3c6f5ebd6046",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1353",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13756247",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "implied_by_request": {
+          "class": "implied_by_request",
+          "type": "noul",
+          "value": false,
+          "p": 0.47,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "reversible": {
+          "class": "reversible",
+          "type": "noul",
+          "value": false,
+          "p": 0.47,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "evidence_sufficient": {
+          "class": "evidence_sufficient",
+          "type": "noul",
+          "value": false,
+          "p": 0.24,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.16,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_now",
+          "p": 0.67,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.78,
+            "do_after_go": 0.17,
+            "needs_decision": 0.05
+          }
+        }
+      },
+      "band": "ask",
+      "why": "obvious_now do_now 0.67 below act_at 0.8"
+    },
+    {
+      "code": "A3",
+      "kind": "A",
+      "estimated_input_tokens": 1055,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "b6f70fcd-97dd-4097-b59d-afb01175e986",
+      "billing": {
+        "run_id": "b6f70fcd-97dd-4097-b59d-afb01175e986",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1364",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13754883",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "implied_by_request": {
+          "class": "implied_by_request",
+          "type": "noul",
+          "value": false,
+          "p": 0.18,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "reversible": {
+          "class": "reversible",
+          "type": "noul",
+          "value": true,
+          "p": 0.51,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "evidence_sufficient": {
+          "class": "evidence_sufficient",
+          "type": "noul",
+          "value": false,
+          "p": 0.36,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.18,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_now",
+          "p": 0.27,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.51,
+            "do_after_go": 0.43,
+            "needs_decision": 0.06
+          }
+        }
+      },
+      "band": "ask",
+      "why": "obvious_now do_now 0.27 below act_at 0.8"
+    },
+    {
+      "code": "A4",
+      "kind": "A",
+      "estimated_input_tokens": 1090,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "5d4d6243-0a32-451c-ac22-b4bffe00c5d6",
+      "billing": {
+        "run_id": "5d4d6243-0a32-451c-ac22-b4bffe00c5d6",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1394",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13753489",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "implied_by_request": {
+          "class": "implied_by_request",
+          "type": "noul",
+          "value": false,
+          "p": 0.08,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "reversible": {
+          "class": "reversible",
+          "type": "noul",
+          "value": true,
+          "p": 0.62,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "evidence_sufficient": {
+          "class": "evidence_sufficient",
+          "type": "noul",
+          "value": false,
+          "p": 0.13,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.29,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_after_go",
+          "p": 0.14,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.25,
+            "do_after_go": 0.43,
+            "needs_decision": 0.32
+          }
+        }
+      },
+      "band": "ask",
+      "why": "obvious_now do_after_go 0.14"
+    },
+    {
+      "code": "A5",
+      "kind": "A",
+      "estimated_input_tokens": 1066,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "0bd8b875-9588-4113-ac41-7d2e38120505",
+      "billing": {
+        "run_id": "0bd8b875-9588-4113-ac41-7d2e38120505",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1361",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13752128",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "implied_by_request": {
+          "class": "implied_by_request",
+          "type": "noul",
+          "value": false,
+          "p": 0.11,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "reversible": {
+          "class": "reversible",
+          "type": "noul",
+          "value": false,
+          "p": 0.31,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "evidence_sufficient": {
+          "class": "evidence_sufficient",
+          "type": "noul",
+          "value": false,
+          "p": 0.2,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.27,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_now",
+          "p": 0.25,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.5,
+            "do_after_go": 0.34,
+            "needs_decision": 0.16
+          }
+        }
+      },
+      "band": "ask",
+      "why": "obvious_now do_now 0.25 below act_at 0.8"
+    },
+    {
+      "code": "A6",
+      "kind": "A",
+      "estimated_input_tokens": 1068,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "494ea31d-034d-4a71-8139-d9d8ad95d838",
+      "billing": {
+        "run_id": "494ea31d-034d-4a71-8139-d9d8ad95d838",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1359",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13750769",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "implied_by_request": {
+          "class": "implied_by_request",
+          "type": "noul",
+          "value": false,
+          "p": 0.1,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "reversible": {
+          "class": "reversible",
+          "type": "noul",
+          "value": false,
+          "p": 0.16,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "evidence_sufficient": {
+          "class": "evidence_sufficient",
+          "type": "noul",
+          "value": false,
+          "p": 0.15,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": true,
+          "p": 0.88,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "needs_decision",
+          "p": 0.23,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.06,
+            "do_after_go": 0.45,
+            "needs_decision": 0.49
+          }
+        }
+      },
+      "band": "owner",
+      "why": "needs_owner 0.88: the Decision Gate's D1 rule, never settled by the number"
+    },
+    {
+      "code": "A7",
+      "kind": "A",
+      "estimated_input_tokens": 1073,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "ba6251ae-c6ff-4e46-bda1-7051acbcb8d5",
+      "billing": {
+        "run_id": "ba6251ae-c6ff-4e46-bda1-7051acbcb8d5",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1366",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13749403",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "implied_by_request": {
+          "class": "implied_by_request",
+          "type": "noul",
+          "value": false,
+          "p": 0.14,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "reversible": {
+          "class": "reversible",
+          "type": "noul",
+          "value": true,
+          "p": 0.57,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "evidence_sufficient": {
+          "class": "evidence_sufficient",
+          "type": "noul",
+          "value": false,
+          "p": 0.22,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.18,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_now",
+          "p": 0.58,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.72,
+            "do_after_go": 0.19,
+            "needs_decision": 0.09
+          }
+        }
+      },
+      "band": "ask",
+      "why": "obvious_now do_now 0.58 below act_at 0.8"
+    },
+    {
+      "code": "D1",
+      "kind": "D",
+      "estimated_input_tokens": 934,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "73c9c380-cf72-4b69-8795-2dd9129dea2f",
+      "billing": {
+        "run_id": "73c9c380-cf72-4b69-8795-2dd9129dea2f",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1229",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13748174",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": false,
+          "p": 0.47,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": false,
+          "p": 0.33,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": true,
+          "p": 0.52,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_after_go",
+          "p": 0.07,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.34,
+            "do_after_go": 0.38,
+            "needs_decision": 0.28
+          }
+        }
+      },
+      "band": "owner",
+      "why": "needs_owner 0.52: the Decision Gate's D1 rule, never settled by the number"
+    },
+    {
+      "code": "D2",
+      "kind": "D",
+      "estimated_input_tokens": 913,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "c709d6b0-38e5-44b0-9164-cd9bf527a6dc",
+      "billing": {
+        "run_id": "c709d6b0-38e5-44b0-9164-cd9bf527a6dc",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1217",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13746957",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": true,
+          "p": 0.71,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": false,
+          "p": 0.33,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": true,
+          "p": 0.87,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "needs_decision",
+          "p": 0.53,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.04,
+            "do_after_go": 0.27,
+            "needs_decision": 0.69
+          }
+        }
+      },
+      "band": "owner",
+      "why": "needs_owner 0.87: the Decision Gate's D1 rule, never settled by the number"
+    },
+    {
+      "code": "D3",
+      "kind": "D",
+      "estimated_input_tokens": 940,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "248e5351-d84c-4335-8b3b-3c6e299f2265",
+      "billing": {
+        "run_id": "248e5351-d84c-4335-8b3b-3c6e299f2265",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1229",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13745728",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": true,
+          "p": 0.65,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": false,
+          "p": 0.36,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": true,
+          "p": 0.73,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "needs_decision",
+          "p": 0.27,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.12,
+            "do_after_go": 0.37,
+            "needs_decision": 0.51
+          }
+        }
+      },
+      "band": "owner",
+      "why": "needs_owner 0.73: the Decision Gate's D1 rule, never settled by the number"
+    },
+    {
+      "code": "D4",
+      "kind": "D",
+      "estimated_input_tokens": 906,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "2c0be3a5-0dbb-4ccc-9898-ddd07c1d02aa",
+      "billing": {
+        "run_id": "2c0be3a5-0dbb-4ccc-9898-ddd07c1d02aa",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1202",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13744526",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": true,
+          "p": 0.63,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": true,
+          "p": 0.58,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.3,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "do_now",
+          "p": 0.4,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.6,
+            "do_after_go": 0.16,
+            "needs_decision": 0.24
+          }
+        }
+      },
+      "band": "ask",
+      "why": "obvious_now do_now 0.40 below act_at 0.8"
+    },
+    {
+      "code": "Q1",
+      "kind": "Q",
+      "estimated_input_tokens": 911,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "a049b881-8f57-451e-84fe-7747be89d598",
+      "billing": {
+        "run_id": "a049b881-8f57-451e-84fe-7747be89d598",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1217",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13743309",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": true,
+          "p": 0.62,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": false,
+          "p": 0.22,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.35,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "needs_decision",
+          "p": 0.22,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.11,
+            "do_after_go": 0.41,
+            "needs_decision": 0.48
+          }
+        }
+      },
+      "band": "owner",
+      "why": "obvious_now needs_decision 0.22"
+    },
+    {
+      "code": "Q2",
+      "kind": "Q",
+      "estimated_input_tokens": 911,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "60e23814-4f2d-4ed3-b6d7-5c0b04c151c2",
+      "billing": {
+        "run_id": "60e23814-4f2d-4ed3-b6d7-5c0b04c151c2",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1209",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13742100",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": true,
+          "p": 0.51,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": false,
+          "p": 0.25,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.48,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "needs_decision",
+          "p": 0.56,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.09,
+            "do_after_go": 0.2,
+            "needs_decision": 0.71
+          }
+        }
+      },
+      "band": "owner",
+      "why": "obvious_now needs_decision 0.56"
+    },
+    {
+      "code": "Q3",
+      "kind": "Q",
+      "estimated_input_tokens": 907,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "6c9a2230-90b4-4e06-97aa-f4db247d1a30",
+      "billing": {
+        "run_id": "6c9a2230-90b4-4e06-97aa-f4db247d1a30",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1203",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13740897",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": false,
+          "p": 0.38,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": false,
+          "p": 0.33,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.38,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "needs_decision",
+          "p": 0.09,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.24,
+            "do_after_go": 0.37,
+            "needs_decision": 0.39
+          }
+        }
+      },
+      "band": "owner",
+      "why": "obvious_now needs_decision 0.09"
+    },
+    {
+      "code": "Q4",
+      "kind": "Q",
+      "estimated_input_tokens": 902,
+      "model": "jev-1.13.0",
+      "sent": true,
+      "run_id": "dbc43b0b-afbb-4a0a-b07a-695066612c07",
+      "billing": {
+        "run_id": "dbc43b0b-afbb-4a0a-b07a-695066612c07",
+        "billing": "tokens",
+        "paid_input_tokens_used": "1201",
+        "model_multiplier": "1",
+        "credits_charged": "0",
+        "tokens_remaining": "13739696",
+        "credits_remaining": "21"
+      },
+      "readings": {
+        "only_owner_decides": {
+          "class": "only_owner_decides",
+          "type": "noul",
+          "value": true,
+          "p": 0.64,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "recommendation_sound": {
+          "class": "recommendation_sound",
+          "type": "noul",
+          "value": false,
+          "p": 0.35,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "needs_owner": {
+          "class": "needs_owner",
+          "type": "noul",
+          "value": false,
+          "p": 0.33,
+          "p_measures": "probability that the statement is true",
+          "probabilities": null
+        },
+        "obvious_now": {
+          "class": "obvious_now",
+          "type": "choice",
+          "value": "needs_decision",
+          "p": 0.34,
+          "p_measures": "confidence in the chosen option",
+          "probabilities": {
+            "do_now": 0.13,
+            "do_after_go": 0.31,
+            "needs_decision": 0.56
+          }
+        }
+      },
+      "band": "owner",
+      "why": "obvious_now needs_decision 0.34"
+    }
+  ]
+}
