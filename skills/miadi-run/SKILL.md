@@ -59,6 +59,12 @@ A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/miss
    read `prompt.md` first, and adds an `execution` observation with the seat's tmux session and
    tide session row. A mission launches once.
 
+   tide types the brief's path only when its plan state is `create`, `archive-then-create` or
+   `re-arm: launch in the existing shell`. When a seat is already listening, or is re-armed or
+   resumed, the mission prompt never reaches it. So launch asks tide for the plan again and
+   refuses in any other state (exit 7). Prepare records `delivers_brief` and warns (exit 8).
+   Close the seat, or archive it on the person's word, then launch.
+
    tide runs only in controller mode from a terminal. When it refuses, the mission stays
    prepared and the script prints the command for the person to run themselves
    (`! node …/miadi-run.mjs launch …` or their own terminal).
@@ -87,8 +93,9 @@ When `MIADI_API_URL` is unset, the relations are recorded as `pending`. Hold the
 
 `2` usage or a refused flag. `3` launch without authorization. `4` unknown prompt, trace or
 mission, a mission already prepared or launched, or a return before a launch. `5` the pinned
-version no longer matches. `6` tide could not plan. `7` tide did not open the seat. `8` the
-record was written, but an observation or an episode relation was refused (stderr names which).
+version no longer matches. `6` tide could not plan. `7` tide did not open the seat, or its plan
+would not type the mission prompt. `8` the record was written, but an observation or an episode
+relation was refused, or tide's plan would not type the mission prompt (stderr names which).
 `9` the guard refused `--run` outside launch.
 
 ## Not yet

@@ -36,8 +36,9 @@ before(async () => {
   root = mkdtempSync(join(tmpdir(), "miadi-run-test-"))
   stubs = join(root, "bin"); logs = join(root, "logs"); home = join(root, "missions")
   for (const d of [stubs, logs]) mkdirSync(d)
-  // tide prints a plan; with --run it reports an executed seat
-  stub("tide", `if printf '%s\\n' "$@" | grep -qx -- '--run'; then echo '{"session":"episode-9-mia-companion","state":"create","executed":true,"session_id":"tide-row-1"}'; else echo '{"session":"episode-9-mia-companion","state":"create","commands":["tmux new-session -d -s episode-9-mia-companion"]}'; fi`)
+  // tide prints a plan in the state written to logs/tide.state (default "create"); with --run it reports an executed seat
+  stub("tide", `STATE=$(cat "${logs}/tide.state" 2>/dev/null || echo create)
+if printf '%s\\n' "$@" | grep -qx -- '--run'; then echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"executed\\":true,\\"session_id\\":\\"tide-row-1\\"}"; else echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"commands\\":[]}"; fi`)
   stub("coaia", `echo "observation sent"`)
   for (const never of ["tmux", "claude", "miacompanionyolo"]) stub(never, "exit 0")
 
@@ -112,6 +113,16 @@ test("prepare --dry-run writes nothing: no mission, no observation, episode door
   assert.ok(posts.every((q) => JSON.parse(q.body).dryRun === true))
 })
 
+test("prepare --dry-run warns when tide's plan would not type the mission prompt", async () => {
+  writeFileSync(join(logs, "tide.state"), "re-arm: already listening")
+  const r = await cli([...PREPARE, "--dry-run"])
+  rmSync(join(logs, "tide.state"))
+  assert.equal(r.code, 8, r.stderr)
+  assert.equal(JSON.parse(r.stdout).mission.launcher.delivers_brief, false)
+  assert.match(r.stderr, /would not type the mission prompt/)
+  assert.equal(existsSync(join(home, MISSION)), false)
+})
+
 test("prepare cannot execute: tide is asked for its plan only, nothing starts a seat", async () => {
   requests.length = 0
   const r = await cli(PREPARE)
@@ -176,6 +187,16 @@ test("observe will not write preparation or execution, and a return waits for a 
   assert.equal((await cli(["observe", MISSION, "--kind", "return", "--summary", "x"])).code, 4)
 })
 
+test("launch refuses when tide would re-arm a seat without typing the mission prompt", async () => {
+  writeFileSync(join(logs, "tide.state"), "re-arm: start listener")
+  const r = await cli(["launch", MISSION, "--authorized-by", "Guillaume"])
+  rmSync(join(logs, "tide.state"))
+  assert.equal(r.code, 7, r.stderr)
+  assert.match(r.stderr, /would not type the mission prompt/)
+  assert.ok(log("tide").every((c) => !c.includes("--run")))
+  assert.equal(JSON.parse(readFileSync(join(home, MISSION, "mission.json"), "utf8")).state, "prepared")
+})
+
 test("launch on an explicit word runs tide --run once and writes the execution observation", async () => {
   const r = await cli(["launch", MISSION, "--authorized-by", "Guillaume"])
   assert.equal(r.code, 0, r.stderr)
@@ -185,6 +206,7 @@ test("launch on an explicit word runs tide --run once and writes the execution o
   assert.equal(m.state, "launched")
   assert.equal(m.launch.authorized_by, "Guillaume")
   assert.equal(m.launch.tide_session_id, "tide-row-1")
+  assert.equal(m.launch.state, "create")
   assert.match(log("coaia").at(-1), /miadi-run · execution · /)
   assert.equal((await cli(["launch", MISSION, "--authorized-by", "Guillaume"])).code, 4, "a mission launches once")
 })

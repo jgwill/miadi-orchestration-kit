@@ -23,6 +23,10 @@ import { fileURLToPath } from "node:url"
 
 export const DOMAINS = ["ceremony", "story", "eng"]
 export const OBSERVATION_KINDS = ["research", "preparation", "execution", "return"]
+// The tide companion plan states that type the starter prompt, which carries the brief's path
+// (tide_runtime/companion.py). In every other state (a seat already listening, re-armed or
+// resumed) the brief never reaches the seat.
+export const BRIEF_STATES = ["create", "archive-then-create", "re-arm: launch in the existing shell"]
 const KEY_SUFFIXES = ["PUBLIC_KEY", "SECRET_KEY", "BASE_URL"]
 
 export class Refusal extends Error {
@@ -233,14 +237,14 @@ async function prepare(deps, opts) {
       prompt: { domain: found.domain, name: opts.prompt, version, reference: promptRef, sha256: pinned.sha256, labels_at_prepare: pinned.labels, brief },
       trace: { domain: trace.domain, id: trace.id, reference: trace.reference, name: trace.name, session: trace.session, root: trace.root },
       episode: { ref: String(opts.episode), relations },
-      launcher: { kind: "companion", seat, add_dirs: opts.addDirs, session: plan.session ?? null, plan_state: plan.state ?? null, refused: plan.refused ?? null },
+      launcher: { kind: "companion", seat, add_dirs: opts.addDirs, session: plan.session ?? null, plan_state: plan.state ?? null, delivers_brief: BRIEF_STATES.includes(plan.state), refused: plan.refused ?? null },
       prepared_at: deps.now().toISOString(),
       launch: { authorized_by: null, at: null, executed: false },
       observations: [],
     }
     const payload = {
       input: { prompt: promptRef, trace: trace.reference, episode: String(opts.episode) },
-      output: { state: "prepared", launcher: "tide companion open", session: mission.launcher.session, launched: false },
+      output: { state: "prepared", launcher: "tide companion open", session: mission.launcher.session, plan_state: mission.launcher.plan_state, delivers_brief: mission.launcher.delivers_brief, launched: false },
       metadata: { mission: id, prompt: promptRef, prompt_sha256: pinned.sha256, episode: String(opts.episode), seat, launch_authorized: false },
     }
     if (opts.dryRun) return { dryRun: true, mission, observation: observationArgs({ traceId: trace.id, root: trace.root, session: trace.session, kind: "preparation", subject: id, ...payload }).slice(3) }
@@ -265,18 +269,28 @@ async function launch(deps, opts) {
   const remote = await getPromptVersion(deps, mission.prompt.domain, mission.prompt.name, mission.prompt.version)
   if (local !== mission.prompt.sha256 || remote.sha256 !== mission.prompt.sha256) throw new Refusal(5, `prompt ${mission.prompt.reference} no longer matches what was prepared (sha256)`)
 
-  const ran = run(deps, "launch", "tide", companionArgs({ episode: mission.episode.ref, seat: mission.launcher.seat, brief: mission.prompt.brief, addDirs: mission.launcher.add_dirs, launch: true }), { stdin: "inherit" })
+  // The seat may have changed since prepare: ask tide again and launch only where it types the brief.
+  const seatArgs = { episode: mission.episode.ref, seat: mission.launcher.seat, brief: mission.prompt.brief, addDirs: mission.launcher.add_dirs }
+  const replanned = run(deps, "launch", "tide", companionArgs(seatArgs))
+  let now = null
+  try { now = JSON.parse(replanned.stdout) } catch { /* reported below */ }
+  if (replanned.status !== 0 || !now) throw new Refusal(6, `tide companion open (plan) failed: ${(replanned.stderr || "").trim().slice(0, 300)}`)
+  if (!BRIEF_STATES.includes(now.state)) {
+    throw new Refusal(7, `tide's plan for ${now.session ?? "the seat"} is "${now.state}": it would not type the mission prompt. The mission stays prepared. Close that seat, or archive it on the person's word (tide companion open --episode ${mission.episode.ref} --archive --run), then launch again.`)
+  }
+
+  const ran = run(deps, "launch", "tide", companionArgs({ ...seatArgs, launch: true }), { stdin: "inherit" })
   let result = null
   try { result = JSON.parse(ran.stdout) } catch { /* tide refused before printing its plan */ }
-  const executed = ran.status === 0 && result?.executed === true
+  const executed = ran.status === 0 && result?.executed === true && BRIEF_STATES.includes(result.state)
   if (!executed) {
     throw new Refusal(7, `tide did not open the seat (exit ${ran.status}); the mission stays prepared. From your own terminal: tide mode controller, then\n  node ${fileURLToPath(import.meta.url)} launch ${id} --authorized-by "${opts.authorizedBy}"\n${(ran.stderr || "").trim().slice(0, 300)}`)
   }
   mission.state = "launched"
-  mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null }
+  mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, state: result.state, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null }
   mission.observations.push(observe(deps, "launch", mission.trace, "execution", id, {
     input: { prompt: mission.prompt.reference, authorized_by: mission.launch.authorized_by },
-    output: { state: "launched", session: mission.launch.session, tide_session_id: mission.launch.tide_session_id },
+    output: { state: "launched", plan_state: mission.launch.state, session: mission.launch.session, tide_session_id: mission.launch.tide_session_id },
     metadata: { mission: id, prompt: mission.prompt.reference, prompt_sha256: mission.prompt.sha256, episode: mission.episode.ref, launch_authorized: true },
   }))
   saveMission(deps.env, mission)
@@ -361,6 +375,8 @@ export function warnings(out) {
   const w = []
   for (const o of Array.isArray(out?.observations) ? out.observations : []) if (!o.ok) w.push(`${o.kind} observation not written: ${o.error ?? "coaia failed"}`)
   for (const r of out?.episode?.relations ?? []) if (typeof r.status === "number" && r.status >= 400) w.push(`episode door refused ${r.reference} (HTTP ${r.status})`)
+  const launcher = (out?.mission ?? out)?.launcher
+  if (launcher?.delivers_brief === false && (out?.mission ?? out)?.state === "prepared") w.push(`tide's plan for ${launcher.session} is "${launcher.plan_state}": a launch now would not type the mission prompt`)
   if (out && out.kind && out.ok === false) w.push(`${out.kind} observation not written: ${out.error ?? "coaia failed"}`)
   return w
 }
