@@ -24,6 +24,12 @@ if [ "$tool_name" = "Bash" ]; then
     fi
 fi
 
+# Mark the start of a Bash or MCP call: the files it writes are found and
+# copied to written/ when it ends (lib.sh, claude_files_written_mark_start).
+if claude_files_written_scans "$tool_name"; then
+    claude_files_written_mark_start "$output_dir" "$input"
+fi
+
 if [ "$tool_name" = "ExitPlanMode" ]; then
     # Create plans directory
     plans_dir="$output_dir/plans"

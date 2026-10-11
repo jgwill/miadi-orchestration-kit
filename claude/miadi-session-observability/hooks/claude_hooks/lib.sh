@@ -227,3 +227,256 @@ claude_archive_sweep() {
         claude_with_lock "$out/.archive.lock" claude_archive_session "$t" "$out"
     done
 }
+
+# --- Files written ----------------------------------------------------------
+# Write and Edit land in proposed/ before they run. A file written any other
+# way (a Bash redirect, cp, mv, a script, an MCP server writing into the
+# project) was captured nowhere, and was gone once moved or deleted later in
+# the session. PreToolUse marks when a Bash or MCP call starts, PostToolUse and
+# PostToolUseFailure mark when it ends, and files_written.sh, detached, copies
+# each file whose inode changed between the two marks to
+# written/<its absolute path>. Write, Edit and NotebookEdit copy their one file
+# the same way, as it stands after the tool. Each file gets one line in
+# _claude_files_written.jsonl naming the tool call that touched it and the
+# prompt it answered (prompt_id).
+
+CLAUDE_WRITTEN_MAX_BYTES="${CLAUDE_WRITTEN_MAX_BYTES:-524288}"
+CLAUDE_WRITTEN_MAX_FILES="${CLAUDE_WRITTEN_MAX_FILES:-40}"
+CLAUDE_WRITTEN_MAX_LINES="${CLAUDE_WRITTEN_MAX_LINES:-200}"
+CLAUDE_WRITTEN_SCAN_SECONDS="${CLAUDE_WRITTEN_SCAN_SECONDS:-5}"
+
+# Tools whose input names no path: what they wrote is found by scanning.
+claude_files_written_scans() {
+    case "$1" in Bash|mcp__*) return 0 ;; esac
+    return 1
+}
+
+# Tools whose input names the one file they write.
+claude_files_written_direct() {
+    case "$1" in Write|Edit|MultiEdit|NotebookEdit) return 0 ;; esac
+    return 1
+}
+
+# PreToolUse: mark the start of a scanned call. The mark holds the cwd the
+# call starts in.
+claude_files_written_mark_start() {
+    local output_dir="$1" input="$2" tool_use_id="" cwd=""
+    { IFS= read -r tool_use_id; IFS= read -r cwd; } \
+        < <(printf '%s' "$input" | jq -r '(.tool_use_id // ""), (.cwd // "")' 2>/dev/null)
+    case "$tool_use_id" in ''|*[!A-Za-z0-9_-]*) return 0 ;; esac
+    mkdir -p "$output_dir/.tool_marks"
+    printf '%s\n' "$cwd" > "$output_dir/.tool_marks/$tool_use_id.start"
+}
+
+# PostToolUse and PostToolUseFailure (a failed command can still have written
+# files): mark the end of the call, keep what the copy needs in <id>.job,
+# sanitized, and copy detached so the next tool call does not wait.
+claude_files_written_queue() {
+    local output_dir="$1" input="$2" tool_name="$3" job tool_use_id marks
+    claude_files_written_scans "$tool_name" || claude_files_written_direct "$tool_name" || return 0
+    job=$(printf '%s' "$input" | jq -c '{tool_use_id, tool_name, agent_id: (.agent_id // null), prompt_id: (.prompt_id // null), cwd,
+        scratchpad_dir: (.scratchpad_dir // null), command: (.tool_input.command // null),
+        file_path: (.tool_input.file_path // .tool_input.notebook_path // null),
+        write_type: ((.tool_response | objects | .type) // null)}' 2>/dev/null) || return 0
+    [[ $job =~ ^\{\"tool_use_id\":\"([A-Za-z0-9_-]+)\" ]] || return 0
+    tool_use_id="${BASH_REMATCH[1]}"
+    marks="$output_dir/.tool_marks"
+    if claude_files_written_scans "$tool_name"; then
+        [ -f "$marks/$tool_use_id.start" ] || return 0
+        : > "$marks/$tool_use_id.end"
+    fi
+    mkdir -p "$marks"
+    hook_secret_sanitize_text "$job" > "$marks/$tool_use_id.job"
+    claude_detach bash "$(dirname "${BASH_SOURCE[0]}")/files_written.sh" "$output_dir" "$tool_use_id"
+}
+
+# True when <path> is one of the <dir>s or inside one.
+_claude_path_under() {
+    local p="$1" d; shift
+    for d in "$@"; do
+        [ "$p" = "$d" ] && return 0
+        case "$p" in "$d"/*) return 0 ;; esac
+    done
+    return 1
+}
+
+# Print "<mtime> <path>\0" for each file under <dir> whose inode changed after
+# <start> was written and not after <end>, <maxdepth> levels deep (all when
+# empty), for at most CLAUDE_WRITTEN_SCAN_SECONDS. Returns 124 when it ran out
+# of time.
+_claude_files_written_scan_dir() {
+    local dir="$1" depth="$2" start="$3" end="$4" output_dir="$5"
+    local -a cmd=(find -H "$dir" -mindepth 1)
+    [ -n "$depth" ] && cmd+=(-maxdepth "$depth")
+    cmd+=(-xdev \( -type d \( -name .git -o -name node_modules -o -name .next -o -name .nuxt
+        -o -name .svelte-kit -o -name .venv -o -name venv -o -name __pycache__ -o -name .cache
+        -o -name .turbo -o -name .pnpm-store -o -name .npm -o -name .yarn -o -name dist
+        -o -name build -o -name target -o -name coverage -o -name _sessiondata
+        -o -path "$output_dir" -o -path "$CLAUDE_SESSIONDATA_ROOT" -o -path "$HOME/.claude" \) -prune \)
+        -o \( -type f -cnewer "$start" ! -cnewer "$end" -printf '%T@ %p\0' \))
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$CLAUDE_WRITTEN_SCAN_SECONDS" "${cmd[@]}" 2>/dev/null
+    else
+        "${cmd[@]}" 2>/dev/null
+    fi
+}
+
+# Print "<kind> <path>\0" for each file a scanned call wrote: kind is created
+# (born during the call), changed (content written during the call) or moved
+# (only its inode changed: a rename, a move, a chmod). Scanned whole: the cwd
+# the call started in, the cwd it ended in, and the scratchpad. Scanned one
+# level deep: the directories the command names, so a write outside the
+# project is found too. A root whose scan ran out of time is scanned three
+# levels deep for the rest of the session (.files_written.slow_roots).
+claude_files_written_find() {
+    local output_dir="$1" start="$2" end="$3" post_cwd="$4" scratch="$5" command="$6"
+    local LC_ALL=C pre_cwd base r d t start_t count=0
+    local slow="$output_dir/.files_written.slow_roots"
+    local -a roots=() shallow=()
+    pre_cwd=$(head -n 1 "$start")
+    for r in "$pre_cwd" "$post_cwd" "$scratch"; do
+        [ -n "$r" ] && [ "$r" != "/" ] && [ -d "$r" ] || continue
+        [ "${#roots[@]}" -gt 0 ] && _claude_path_under "$r" "${roots[@]}" && continue
+        roots+=("$r")
+    done
+    base="${pre_cwd:-$post_cwd}"
+    while IFS= read -r t; do
+        [ "$count" -lt 12 ] || break
+        case "$t" in
+            '~/'*) t="$HOME/${t#\~/}" ;;
+            /*) ;;
+            *) [ -n "$base" ] || continue; t="$base/$t" ;;
+        esac
+        if [ -d "$t" ]; then d="$t"; else d="${t%/*}"; fi
+        [ -n "$d" ] && [ -d "$d" ] || continue
+        d=$(cd "$d" 2>/dev/null && pwd) || continue
+        case "$d" in /|/dev|/dev/*|/proc|/proc/*|/sys|/sys/*|/run|/run/*) continue ;; esac
+        [ "${#roots[@]}" -gt 0 ] && _claude_path_under "$d" "${roots[@]}" && continue
+        printf '%s\n' "${shallow[@]}" | grep -qxF -- "$d" && continue
+        shallow+=("$d"); count=$((count + 1))
+    done < <(printf '%s\n' "$command" | tr -s "[:space:];|&<>()=\`\"'{}," '\n' \
+        | grep '/' | grep -v '[$*?]' | head -n 200)
+
+    start_t=$(find "$start" -maxdepth 0 -printf '%T@' 2>/dev/null)
+    [ -n "$start_t" ] || return 0
+    {
+        for r in "${roots[@]}"; do
+            if grep -qxF -- "$r" "$slow" 2>/dev/null; then
+                _claude_files_written_scan_dir "$r" 3 "$start" "$end" "$output_dir"
+            else
+                _claude_files_written_scan_dir "$r" "" "$start" "$end" "$output_dir"
+                [ $? -eq 124 ] && printf '%s\n' "$r" >> "$slow"
+            fi
+        done
+        for d in "${shallow[@]}"; do
+            _claude_files_written_scan_dir "$d" 1 "$start" "$end" "$output_dir"
+        done
+    } | head -z -n 1000 | while IFS= read -r -d '' t; do
+        local mt="${t%% *}" p="${t#* }" born kind
+        if [[ "$mt" > "$start_t" ]]; then
+            born=$(stat -c %W "$p" 2>/dev/null)
+            case "$born" in ''|*[!0-9]*) born=0 ;; esac
+            if [ "$born" -gt 0 ] && [ "$born" -ge "${start_t%%.*}" ]; then kind=created; else kind=changed; fi
+        else
+            kind=moved
+        fi
+        printf '%s %s\0' "$kind" "$p"
+    done | sort -zu
+}
+
+# Copy one file to written/<its absolute path>, sanitized, and append its line
+# to _claude_files_written.jsonl. A text file up to CLAUDE_WRITTEN_MAX_BYTES is
+# copied, CLAUDE_WRITTEN_MAX_FILES per call. When the last copy of that path
+# holds other content, and is not the start of the new content (a log that only
+# grew), it is kept beside it as <name>.~N~.
+claude_files_written_keep() {
+    local output_dir="$1" path="$2" kind="$3" n="$4" tool_use_id="$5" tool_name="$6" agent_id="$7" command="$8" prompt_id="${9:-}"
+    local size sha="" copy="" note="" dest tmp v
+    size=$(_claude_byte_count "$path")
+    if [ "$size" -le 16777216 ] && command -v sha256sum >/dev/null 2>&1; then
+        sha=$(sha256sum < "$path" 2>/dev/null | cut -d' ' -f1)
+    fi
+    if [ "$n" -gt "$CLAUDE_WRITTEN_MAX_FILES" ]; then
+        note="not copied: more than $CLAUDE_WRITTEN_MAX_FILES files in one call"
+    elif [ "$size" -gt "$CLAUDE_WRITTEN_MAX_BYTES" ]; then
+        note="not copied: larger than $CLAUDE_WRITTEN_MAX_BYTES bytes"
+    elif [ "$size" -gt 0 ] && ! LC_ALL=C grep -Iq '' "$path" 2>/dev/null; then
+        note="not copied: binary"
+    else
+        dest="$output_dir/written/${path#/}"
+        tmp="$dest.tmp.$$"
+        if mkdir -p "$(dirname "$dest")" 2>/dev/null && hook_secret_sanitize_stream < "$path" > "$tmp" 2>/dev/null; then
+            copy="written/${path#/}"
+            if [ -f "$dest" ] && cmp -s "$tmp" "$dest"; then
+                rm -f "$tmp"
+                note="same as the last copy"
+            else
+                if [ -s "$dest" ] && ! cmp -s -n "$(_claude_byte_count "$dest")" "$dest" "$tmp"; then
+                    v=1
+                    while [ -e "$dest.~$v~" ]; do v=$((v + 1)); done
+                    mv -f "$dest" "$dest.~$v~"
+                    note="the last copy is kept as ${dest##*/}.~$v~"
+                fi
+                mv -f "$tmp" "$dest"
+            fi
+        else
+            rm -f "$tmp"
+            note="not copied: the copy failed"
+        fi
+    fi
+    claude_write_jsonl "$output_dir/_claude_files_written.jsonl" "$(jq -nc \
+        --arg session_id "$(basename "$output_dir")" --arg tool_use_id "$tool_use_id" \
+        --arg tool_name "$tool_name" --arg agent_id "$agent_id" --arg prompt_id "$prompt_id" --arg kind "$kind" \
+        --arg path "$path" --argjson size "${size:-0}" --arg sha256 "$sha" --arg copy "$copy" \
+        --arg note "$note" --arg command "${command:0:240}" \
+        '{timestamp: (now | todate), $session_id, $tool_use_id, $tool_name,
+          agent_id: (if $agent_id == "" then null else $agent_id end),
+          prompt_id: (if $prompt_id == "" then null else $prompt_id end), $kind, $path, $size,
+          sha256: (if $sha256 == "" then null else $sha256 end),
+          copy: (if $copy == "" then null else $copy end),
+          note: (if $note == "" then null else $note end),
+          command: (if $command == "" then null else $command end)}')"
+    [ -n "$copy" ] && [ "${note#not copied}" = "$note" ]
+}
+
+# files_written.sh: find and copy what one tool call wrote, then drop its marks.
+claude_files_written_capture() {
+    local output_dir="$1" tool_use_id="$2"
+    local marks="$output_dir/.tool_marks"
+    local job="$marks/$tool_use_id.job" start="$marks/$tool_use_id.start" end="$marks/$tool_use_id.end"
+    local found="$marks/$tool_use_id.found"
+    local tool_name="" agent_id="" prompt_id="" cwd="" scratchpad_dir="" command="" file_path="" write_type=""
+    local rec kind path n=0 copied=0
+    [ -f "$job" ] || return 0
+    eval "$(jq -r '@sh "tool_name=\(.tool_name // "") agent_id=\(.agent_id // "") prompt_id=\(.prompt_id // "") cwd=\(.cwd // "") scratchpad_dir=\(.scratchpad_dir // "") command=\(.command // "") file_path=\(.file_path // "") write_type=\(.write_type // "")"' "$job" 2>/dev/null)"
+    : > "$found"
+    if claude_files_written_direct "$tool_name"; then
+        case "$file_path" in /*) ;; ?*) file_path="$cwd/$file_path" ;; esac
+        if [ -n "$file_path" ] && [ -f "$file_path" ]; then
+            case "$write_type" in create) kind=created ;; *) kind=changed ;; esac
+            printf '%s %s\0' "$kind" "$file_path" > "$found"
+        fi
+    elif [ -f "$start" ] && [ -f "$end" ]; then
+        claude_files_written_find "$output_dir" "$start" "$end" "$cwd" "$scratchpad_dir" "$command" > "$found"
+    fi
+    while IFS= read -r -d '' rec; do
+        n=$((n + 1))
+        if [ "$n" -gt "$CLAUDE_WRITTEN_MAX_LINES" ]; then
+            claude_write_jsonl "$output_dir/_claude_files_written.jsonl" "$(jq -nc \
+                --arg session_id "$(basename "$output_dir")" --arg tool_use_id "$tool_use_id" \
+                --arg tool_name "$tool_name" --arg note "more files changed during this call are not listed" \
+                '{timestamp: (now | todate), $session_id, $tool_use_id, $tool_name, $note}')"
+            break
+        fi
+        kind="${rec%% *}"; path="${rec#* }"
+        claude_files_written_keep "$output_dir" "$path" "$kind" "$n" "$tool_use_id" "$tool_name" "$agent_id" "$command" "$prompt_id" \
+            && copied=$((copied + 1))
+    done < "$found"
+    if [ "$n" -gt 0 ]; then
+        echo "Saved $copied of $n file(s) written by $tool_name ($tool_use_id) under $output_dir/written" >> "$output_dir/trace.log"
+    fi
+    rm -f "$job" "$start" "$end" "$found"
+    # Marks left by a call that never ended (denied, interrupted, the session killed).
+    find "$marks" -type f -mmin +1440 -delete 2>/dev/null
+    return 0
+}

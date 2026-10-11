@@ -10,3 +10,8 @@ output_dir="$CLAUDE_SESSIONDATA_ROOT/$session_id"
 mkdir -p "$output_dir"
 claude_write_jsonl "$output_dir/_claude_PostToolUseFailure.jsonl" "$input"
 claude_write_json "$output_dir/last_claude_PostToolUseFailure.json" "$input"
+
+# A failed command can still have written files: copy them to written/,
+# detached (lib.sh, claude_files_written_queue).
+tool_name=$(echo "$input" | jq -r .tool_name)
+claude_files_written_queue "$output_dir" "$input" "$tool_name"

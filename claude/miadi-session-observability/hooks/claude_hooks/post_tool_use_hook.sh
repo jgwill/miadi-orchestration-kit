@@ -71,3 +71,7 @@ elif [ "$tool_name" = "Agent" ]; then
         }' | hook_secret_sanitize_stream > "$agents_dir/$agent_id.launch.json"
     fi
 fi
+
+# Copy the files this call wrote to written/, detached (lib.sh,
+# claude_files_written_queue).
+claude_files_written_queue "$output_dir" "$input" "$tool_name"

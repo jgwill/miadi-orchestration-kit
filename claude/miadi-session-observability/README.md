@@ -37,6 +37,34 @@ To try the plugin without installing it: `claude --plugin-dir <path to this fold
 `SESSION_DATA_ROOT`, else `/src/_sessiondata` when it exists, else `_sessiondata` beside this
 folder (`hooks/claude_hooks/lib.sh`).
 
+## Files written
+
+Every file a tool call creates, changes or moves is copied to
+`<root>/<session_id>/written/<its absolute path>`, sanitized, and listed in
+`_claude_files_written.jsonl` with the call that touched it. Since 0.1.11,
+jgwill/miadi-orchestration-kit#82.
+
+- **Bash and MCP calls.** PreToolUse marks the start of the call, PostToolUse (or
+  PostToolUseFailure) marks its end, and a detached `files_written.sh` copies each file whose
+  inode changed between the two marks. It scans the cwd the call started in, the cwd it ended
+  in and the session's scratchpad, and one level of each directory the command names.
+  `.git`, `node_modules`, `dist`, `build`, `target`, virtualenvs and caches are skipped.
+- **Write, Edit, NotebookEdit.** The file as it stands after the tool. `proposed/` still
+  receives what the tool is about to write, as before.
+- **Index line.** `tool_use_id`, `tool_name`, `agent_id`, `prompt_id` (the user prompt the call answered), `kind` (`created`, `changed`, or
+  `moved` for a rename, a move or a chmod), `path`, `size`, `sha256`, `copy`, `note` and the
+  first 240 characters of the command.
+- **Versions.** When a path is written again with other content, the last copy is kept as
+  `<name>.~N~`. A file that only grew (a log) replaces its copy.
+- **Limits.** Text files up to 512 KB are copied, 40 per call, and 200 per call are listed.
+  Binary and larger files are listed with their `sha256`. A scan stops after 5 s, and a cwd
+  that slow (`/workspace`, a home folder) is then scanned three levels deep
+  (`CLAUDE_WRITTEN_MAX_BYTES`, `CLAUDE_WRITTEN_MAX_FILES`, `CLAUDE_WRITTEN_MAX_LINES`,
+  `CLAUDE_WRITTEN_SCAN_SECONDS`).
+- **What it cannot see.** A file deleted by the call that created it. What a `run_in_background`
+  command writes after its PostToolUse. A file written by another process during the call is
+  listed as if the call wrote it.
+
 ## Teams
 
 The binding line's `team` is `{"id": "T1", "source": "session"}`. It is resolved in this
@@ -77,6 +105,7 @@ installed plugin is a copy of this folder, so it cannot reach the kit by a relat
 bash tests/team-resolution.sh
 bash tests/episode-resolution.sh
 bash tests/transcript-archive.sh
+bash tests/files-written.sh
 CLAUDE_SESSIONDATA_ROOT=$(mktemp -d) claude --restricted --plugin-dir . --model haiku
 ```
 

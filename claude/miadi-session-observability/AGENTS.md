@@ -17,6 +17,8 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
 - `tests/team-resolution.sh`: the team rules, 13 checks.
 - `tests/episode-resolution.sh`: the episode rules, 13 checks.
 - `tests/transcript-archive.sh`: the transcript archive rules, 25 checks.
+- `hooks/claude_hooks/files_written.sh` and `tests/files-written.sh`: the files-written capture
+  (0.1.11), 37 checks.
 
 ## This is the canonical copy
 
@@ -51,6 +53,15 @@ those rules here goes there too.
   catches sessions killed before SessionEnd and sessions the legacy hooks captured before the
   plugin (on gaia, 112 of 293 live sessions had no full copy on 2026-09-30).
   `tests/transcript-archive.sh` holds the rules, 25 checks.
+- **The files-written capture** (`lib.sh`, `files_written.sh`, since 0.1.11). Write and Edit
+  had `proposed/` since the first hooks. A file written any other way (a Bash heredoc, `cp`,
+  `mv`, a script, an MCP server) was captured nowhere: on 2026-10-11 a session wrote its PDE
+  `input-prompt.md` with a heredoc and moved it into `.pde/`, and the session folder held no
+  trace of it. PreToolUse marks the start of a Bash or MCP call, PostToolUse and
+  PostToolUseFailure mark its end and queue a detached copy of each file whose inode changed
+  between the marks to `written/<absolute path>`, with a line in `_claude_files_written.jsonl`.
+  The hook adds one `jq` call and returns at once. `tests/files-written.sh` holds the rules,
+  37 checks. jgwill/miadi-orchestration-kit#82 holds the Phase 2 proposals.
 - **Nothing on stdout.** Claude Code injects the stdout of SessionStart and UserPromptSubmit
   hooks into the conversation. The binding writer prints nothing.
 - **SessionEnd returns at once.** Claude Code cancels SessionEnd hooks after 1.5 s and prints
