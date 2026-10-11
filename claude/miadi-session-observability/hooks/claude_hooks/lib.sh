@@ -384,6 +384,26 @@ claude_files_written_find() {
     done | sort -zu
 }
 
+# Files whose name says they hold credentials: .env files (not their .example),
+# keys and certificates, .netrc, .pgpass, .npmrc, .pypirc, .git-credentials,
+# cloud credentials and Terraform state. The sanitizer redacts known token shapes,
+# not a password on a line of its own, so these are listed and never copied.
+_claude_may_hold_credentials() {
+    local path="$1" name="${1##*/}"
+    case "$name" in
+        *.example|*.sample|*.template|*.dist) return 1 ;;
+        .env|.env.*|*.env|.netrc|_netrc|.pgpass|.npmrc|.pypirc|.git-credentials|.htpasswd \
+            |*.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|*.kdbx|*.ppk|*.asc|*.gpg \
+            |id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*|credentials|credentials.json|*credentials*.json \
+            |service-account*.json|secrets.*|*.secret|*.secrets|*.tfvars|*.tfstate|*.tfstate.backup \
+            |kubeconfig|.dockercfg|wp-config.php|rclone.conf|.my.cnf|.s3cfg) return 0 ;;
+    esac
+    case "$path" in
+        */.docker/config.json|*/.kube/config|*/.aws/*|*/.ssh/*|*/.gnupg/*|*/.config/gcloud/*) return 0 ;;
+    esac
+    return 1
+}
+
 # Copy one file to written/<its absolute path>, sanitized, and append its line
 # to _claude_files_written.jsonl. A text file up to CLAUDE_WRITTEN_MAX_BYTES is
 # copied, CLAUDE_WRITTEN_MAX_FILES per call. When the last copy of that path
@@ -393,10 +413,14 @@ claude_files_written_keep() {
     local output_dir="$1" path="$2" kind="$3" n="$4" tool_use_id="$5" tool_name="$6" agent_id="$7" command="$8" prompt_id="${9:-}"
     local size sha="" copy="" note="" dest tmp v
     size=$(_claude_byte_count "$path")
-    if [ "$size" -le 16777216 ] && command -v sha256sum >/dev/null 2>&1; then
+    if _claude_may_hold_credentials "$path"; then
+        note="not copied: its name says it may hold credentials"
+    elif [ "$size" -le 16777216 ] && command -v sha256sum >/dev/null 2>&1; then
         sha=$(sha256sum < "$path" 2>/dev/null | cut -d' ' -f1)
     fi
-    if [ "$n" -gt "$CLAUDE_WRITTEN_MAX_FILES" ]; then
+    if [ -n "$note" ]; then
+        :
+    elif [ "$n" -gt "$CLAUDE_WRITTEN_MAX_FILES" ]; then
         note="not copied: more than $CLAUDE_WRITTEN_MAX_FILES files in one call"
     elif [ "$size" -gt "$CLAUDE_WRITTEN_MAX_BYTES" ]; then
         note="not copied: larger than $CLAUDE_WRITTEN_MAX_BYTES bytes"
@@ -478,5 +502,228 @@ claude_files_written_capture() {
     rm -f "$job" "$start" "$end" "$found"
     # Marks left by a call that never ended (denied, interrupted, the session killed).
     find "$marks" -type f -mmin +1440 -delete 2>/dev/null
+    return 0
+}
+
+# --- Publications -----------------------------------------------------------
+# What a session put where other people can see it: an Artifact page, a GitHub
+# issue, pull request, comment or release, a commit and its push, an npm
+# release. Each one is a line in _claude_publications.jsonl naming the tool call
+# and the prompt that produced it, so an observer finds what a prompt led to
+# without reading the tool ledgers. Claude Code records commits, pushes and pull
+# requests in tool_response.gitOperation (not a quiet `git commit -q`); the rest
+# is read from the command and its output. A commit read from output must be in
+# a tree the command worked in and made during the call.
+
+# PostToolUse and PostToolUseFailure (a chain can publish, then fail): most calls
+# publish nothing, so the first test is a match on the raw input. A call that may
+# have published is projected, sanitized, and parsed by a detached publications.sh.
+claude_publications_queue() {
+    local output_dir="$1" input="$2" tool_name="$3" head job tool_use_id
+    case "$tool_name" in
+        Artifact)
+            [[ $input == *'"url":"http'* ]] || return 0
+            ;;
+        Bash)
+            # The raw input is JSON: a command's newline is the two characters \n.
+            head="${input:0:65536}"
+            [[ $input == *'"gitOperation"'* || $head =~ (^|[^A-Za-z]|\\[nt])gh\ (issue|pr|release|gist|api)\  \
+                || $head =~ (npm|pnpm|yarn)\ publish || $head =~ git\ ([^\"]*\ )?(commit|push) ]] || return 0
+            ;;
+        *) return 0 ;;
+    esac
+    job=$(printf '%s' "$input" | jq -c --argjson queued_at "$(date +%s)" '{tool_use_id, tool_name,
+        agent_id: (.agent_id // null), prompt_id: (.prompt_id // null), cwd,
+        command: (.tool_input.command // null), action: (.tool_input.action // null),
+        asset: (.tool_input.asset // false), duration_ms: (.duration_ms // null), queued_at: $queued_at,
+        response: (if .tool_response == null then {out: ((.error // "") | tostring | .[0:65536])}
+          else (.tool_response | if type == "object" then
+            {url, path, artifact_id, title, updated, gitOperation,
+             out: ([.stdout, .stderr] | map(strings) | join("\n") | .[0:65536])}
+          else {out: (tostring | .[0:65536])} end) end)}' 2>/dev/null) || return 0
+    [[ $job =~ ^\{\"tool_use_id\":\"([A-Za-z0-9_-]+)\" ]] || return 0
+    tool_use_id="${BASH_REMATCH[1]}"
+    mkdir -p "$output_dir/.tool_marks"
+    hook_secret_sanitize_text "$job" > "$output_dir/.tool_marks/$tool_use_id.pub"
+    claude_detach bash "$(dirname "${BASH_SOURCE[0]}")/publications.sh" "$output_dir" "$tool_use_id"
+}
+
+# One JSON object per publication the job holds, before the git checks.
+#   gh: only a URL that ends its line (a gh write prints what it made on a line of
+#       its own, and a batch prints it after a label), and only when the command ran
+#       the gh write that makes that kind of URL.
+#   commit: git's `[branch sha] subject`, else, after `git log` or `git show`, its
+#       first `sha subject` line (source stdout-log, checked hardest by the caller).
+#   push, npm: only when one push or publish in the command is not a --dry-run.
+_CLAUDE_PUBLICATIONS_JQ='
+def ghrepo: (capture("github\\.com[:/](?<r>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(\\.git)?(/|$)").r) // null;
+def urlkind: if test("/(issues|pull)/[0-9]+#(issuecomment|discussion_r|pullrequestreview)")
+    then (if test("/pull/") then "pr-comment" else "issue-comment" end)
+  elif test("/issues/[0-9]+") then "issue" elif test("/pull/[0-9]+") then "pr"
+  elif test("/releases/tag/") then "release" elif test("gist\\.github\\.com") then "gist"
+  else "github" end;
+def ghwrite($kind): {"issue-comment": "issue comment", "pr-comment": "pr (comment|review)",
+    "issue": "issue (create|edit|reopen|transfer)", "pr": "pr (create|edit|ready|reopen|merge)",
+    "release": "release (create|edit|upload)", "gist": "gist (create|edit)"}[$kind];
+def gitsub($sub): "\\bgit(\\s+(-C\\s+\\S+|-c\\s+\\S+|--[A-Za-z-]+(=\\S+)?))*\\s+" + $sub + "\\b";
+def number: (capture("/(issues|pull)/(?<n>[0-9]+)").n | tonumber) // null;
+# The push or publish commands of a command line, each up to the next | ; & or newline.
+def segments($re): [match($re + "[^|;&\n]*"; "g").string];
+def real($segs): ($segs | length) > 0 and ($segs | any(test("--dry-run|\\s-n(\\s|$)") | not));
+. as $j
+| ($j.response.out // "") as $out
+| ($j.command // "") as $cmd
+| ($j.response.gitOperation // {}) as $op
+| ($out | split("\n")) as $lines
+| [
+    (if $j.tool_name == "Artifact" and ($j.response.url | type) == "string"
+        and (($j.action // "publish") == "publish")
+     then {kind: (if $j.asset == true then "artifact-asset" else "artifact" end), source: "tool_response",
+           url: $j.response.url, path: $j.response.path, title: $j.response.title,
+           artifact_id: $j.response.artifact_id, updated: $j.response.updated}
+     else empty end),
+    ($op.commit // empty | {kind: "commit", sha, branch, commit_kind: .kind, source: "gitOperation"}),
+    (if ($op.commit // null) == null and ($cmd | test(gitsub("commit"))) then
+        ([$lines[] | capture("^\\[(?<branch>[^\\]\\s]+)( \\(root-commit\\))? (?<sha>[0-9a-f]{7,40})\\] (?<subject>.+)$")]) as $c
+        | if ($c | length) > 0 then ($c[] | {kind: "commit", sha, branch, subject, source: "stdout"})
+          elif ($out | test("nothing to commit|nothing added to commit|no changes added to commit")) then empty
+          elif ($cmd | test(gitsub("(log|show)"))) then
+            ([$lines[] | capture("^(?<sha>[0-9a-f]{7,12}) (?<subject>.+)$")][0] // empty
+             | {kind: "commit", sha, branch: null, subject, source: "stdout-log"})
+          else empty end
+     else empty end),
+    (($cmd | segments(gitsub("push"))) as $pushes
+     | if real($pushes) or (($op.push // null) != null and (($pushes | length) == 0 or real($pushes))) then
+        ([foreach $lines[] as $l ({remote: null, out: null};
+            if ($l | test("^To ")) then {remote: ($l | sub("^To\\s+"; "")), out: null}
+            else .out = ($l | capture("^\\s*[+*!=-]?\\s*(?<from>[0-9a-f]{7,40})\\.\\.\\.?(?<to>[0-9a-f]{7,40})\\s+(?<src>\\S+)\\s+->\\s+(?<dst>\\S+)")
+                         // ($l | capture("^\\s*\\*\\s+\\[new (branch|tag)\\]\\s+(?<src>\\S+)\\s+->\\s+(?<dst>\\S+)"))
+                         // null) end;
+            if .out and .remote then .out + {remote: .remote} else empty end)]) as $p
+        | if ($p | length) > 0 then
+            ($p[] | {kind: "push", branch: .dst, remote, from: (.from // null), to: (.to // null),
+                     repo: ((.remote // "") | ghrepo), source: (if $op.push then "gitOperation" else "stdout" end)})
+          elif $op.push then {kind: "push", branch: $op.push.branch, remote: null, from: null, to: null, repo: null, source: "gitOperation"}
+          else empty end
+       else empty end),
+    ($op.pr // empty | {kind: "pr", url, number, action, repo: ((.url // "") | ghrepo), source: "gitOperation"}),
+    (if ($cmd | test("\\bgh\\s+((issue|pr)\\s+(create|comment|edit|reopen|transfer|merge|review|ready)|(release|gist)\\s+(create|edit|upload))\\b")) then
+        $lines[]
+        | (capture("(^|[\\s|=>:(\\[,])(?<u>https://(github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/((issues|pull)/[0-9]+(#(issuecomment-|discussion_r|pullrequestreview-)[0-9]+)?|releases/tag/[^\\s\"<>]+)|gist\\.github\\.com/[^\\s\"<>]+))\\s*$").u // empty)
+        | . as $u | urlkind as $k
+        | ([$cmd | match("\\bgh\\s+(" + ghwrite($k) + ")\\b"; "g") | .captures[0].string]) as $m
+        | select(($m | length) > 0)
+        | {kind: $k, url: $u, repo: ($u | ghrepo), number: ($u | number), action: ($m[0] | gsub("\\s+"; " ")), source: "stdout"}
+     else empty end),
+    (if ($cmd | test("\\bgh\\s+api\\b")) and ($cmd | test("(-X|--method)[\\s=]*GET\\b") | not)
+        and ($cmd | test("(-X|--method)[\\s=]*(POST|PATCH|PUT)\\b|\\s-[fF]\\s|--(raw-)?field\\b|--input\\b")) then
+        ($out | capture("\"html_url\"\\s*:\\s*\"(?<u>https://[^\"]+)\"").u // empty)
+        | {kind: urlkind, url: ., repo: ghrepo, number: number, action: "api", source: "stdout"}
+     else empty end),
+    (if real($cmd | segments("\\b(npm|pnpm|yarn)\\s+publish\\b")) then
+        ($lines[] | capture("^\\+ (?<package>@?[^@\\s]+)@(?<version>[0-9][^\\s]*)$") // empty
+         | {kind: "npm", package, version, url: "https://www.npmjs.com/package/\(.package)/v/\(.version)", source: "stdout"})
+     else empty end)
+  ]
+| unique_by([.kind, (.url // ""), (.sha // ""), (.branch // ""), (.to // "")])
+| .[]
+'
+
+# The trees a command worked in, in order: each `git -C <dir>` and `cd <dir>`,
+# then the cwd.
+_claude_publication_dirs() {
+    local command="$1" cwd="$2" d
+    {
+        printf '%s\n' "$command" | grep -oE '(git[[:space:]]+-C|(^|&&|;|\|\||\()[[:space:]]*cd)[[:space:]]+("[^"]+"|'"'"'[^'"'"']+'"'"'|[^[:space:];&|)]+)' \
+            | sed -E 's/^.*(-C|cd)[[:space:]]+//; s/^["'"'"']//; s/["'"'"']$//'
+        printf '%s\n' "$cwd"
+    } | while IFS= read -r d; do
+        case "$d" in /*) ;; '~/'*) d="$HOME/${d#\~/}" ;; *) d="$cwd/$d" ;; esac
+        [ -d "$d" ] && printf '%s\n' "$d"
+    done | awk '!seen[$0]++'
+}
+
+_claude_origin_repo() {  # <dir>: owner/repo of its origin, or nothing
+    local url
+    url=$(git -C "$1" remote get-url origin 2>/dev/null) || return 0
+    [[ $url =~ [:/]([^/:]+/[^/]+)$ ]] || return 0
+    printf '%s' "${BASH_REMATCH[1]%.git}"
+}
+
+# publications.sh: parse one job into lines of _claude_publications.jsonl.
+claude_publications_capture() {
+    local output_dir="$1" tool_use_id="$2"
+    local job="$output_dir/.tool_marks/$tool_use_id.pub"
+    [ -f "$job" ] || return 0
+    local cwd command meta stub kind sha source dir full repo subject branch dirs since ct head n=0
+    cwd=$(jq -r '.cwd // ""' "$job" 2>/dev/null)
+    command=$(jq -r '.command // ""' "$job" 2>/dev/null)
+    # The call began no earlier than this, less two minutes for clocks and slow hooks.
+    since=$(jq -r '((.queued_at // now) - ((.duration_ms // 0) / 1000) - 120) | floor' "$job" 2>/dev/null)
+    case "$since" in ''|*[!0-9]*) since=0 ;; esac
+    meta=$(jq -c --arg session_id "$(basename "$output_dir")" \
+        '{session_id: $session_id, tool_use_id, tool_name, agent_id, prompt_id}' "$job" 2>/dev/null) || meta='{}'
+    dirs=$(_claude_publication_dirs "$command" "$cwd")
+    while IFS= read -r stub; do
+        [ -n "$stub" ] || continue
+        kind=$(printf '%s' "$stub" | jq -r '.kind')
+        case "$kind" in
+            commit)
+                sha=$(printf '%s' "$stub" | jq -r '.sha // ""')
+                source=$(printf '%s' "$stub" | jq -r '.source // ""')
+                full="" dir="" repo="" subject=""
+                while IFS= read -r d; do
+                    [ -n "$d" ] || continue
+                    full=$(git -C "$d" rev-parse --verify -q "$sha^{commit}" 2>/dev/null) || full=""
+                    if [ -n "$full" ]; then dir="$d"; break; fi
+                done <<< "$dirs"
+                if [ "$source" != "gitOperation" ]; then
+                    # Read from output, so it must be a commit this call made: in a tree the
+                    # command worked in, committed during the call, and after `git log` the
+                    # tree's HEAD. Otherwise it is a sha the command printed.
+                    [ -n "$full" ] || continue
+                    ct=$(git -C "$dir" log -1 --format=%ct "$full" 2>/dev/null)
+                    case "$ct" in ''|*[!0-9]*) continue ;; esac
+                    [ "$ct" -ge "$since" ] || continue
+                    if [ "$source" = "stdout-log" ]; then
+                        head=$(git -C "$dir" rev-parse -q --verify HEAD 2>/dev/null)
+                        [ "$head" = "$full" ] || continue
+                    fi
+                fi
+                if [ -n "$full" ]; then
+                    repo=$(_claude_origin_repo "$dir")
+                    subject=$(git -C "$dir" log -1 --format=%s "$full" 2>/dev/null)
+                fi
+                stub=$(printf '%s' "$stub" | jq -c --arg full "$full" --arg dir "$dir" --arg repo "$repo" --arg subject "$subject" '
+                    .sha = (if $full != "" then $full else .sha end)
+                    | .dir = (if $dir != "" then $dir else null end)
+                    | .repo = (if $repo != "" then $repo else null end)
+                    | .subject = ((.subject // null) // (if $subject != "" then $subject else null end))
+                    | .verified = ($full != "")
+                    | .url = (if $repo != "" and $full != "" then "https://github.com/\($repo)/commit/\($full)" else null end)')
+                ;;
+            push)
+                repo=$(printf '%s' "$stub" | jq -r '.repo // ""')
+                branch=$(printf '%s' "$stub" | jq -r '.branch // ""')
+                dir=$(head -n 1 <<< "$dirs")
+                [ -n "$repo" ] || { [ -n "$dir" ] && repo=$(_claude_origin_repo "$dir"); }
+                full=""
+                if [ -n "$dir" ] && [ -n "$branch" ]; then
+                    full=$(git -C "$dir" rev-parse --verify -q "refs/remotes/origin/${branch#refs/heads/}" 2>/dev/null) || full=""
+                fi
+                stub=$(printf '%s' "$stub" | jq -c --arg repo "$repo" --arg head "$full" '
+                    .repo = (if $repo != "" then $repo else null end)
+                    | .to = (.to // (if $head != "" then $head else null end))
+                    | .url = (if $repo != "" and .from and .to then "https://github.com/\($repo)/compare/\(.from)...\(.to)" else null end)')
+                ;;
+        esac
+        claude_write_jsonl "$output_dir/_claude_publications.jsonl" \
+            "$(jq -nc --argjson meta "$meta" --argjson stub "$stub" '{timestamp: (now | todate)} + $meta + $stub')"
+        n=$((n + 1))
+    done < <(jq -c "$_CLAUDE_PUBLICATIONS_JQ" "$job" 2>/dev/null)
+    if [ "$n" -gt 0 ]; then
+        echo "Saved $n publication(s) by $(jq -r '.tool_name' "$job") ($tool_use_id) in _claude_publications.jsonl" >> "$output_dir/trace.log"
+    fi
+    rm -f "$job"
     return 0
 }

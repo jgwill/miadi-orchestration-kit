@@ -15,3 +15,7 @@ claude_write_json "$output_dir/last_claude_PostToolUseFailure.json" "$input"
 # detached (lib.sh, claude_files_written_queue).
 tool_name=$(echo "$input" | jq -r .tool_name)
 claude_files_written_queue "$output_dir" "$input" "$tool_name"
+
+# A chain can publish, then fail (a commit before a rejected push): record what it
+# published from the error output (lib.sh, claude_publications_queue).
+claude_publications_queue "$output_dir" "$input" "$tool_name"

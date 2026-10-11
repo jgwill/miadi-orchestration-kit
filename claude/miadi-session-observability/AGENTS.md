@@ -18,7 +18,13 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
 - `tests/episode-resolution.sh`: the episode rules, 13 checks.
 - `tests/transcript-archive.sh`: the transcript archive rules, 25 checks.
 - `hooks/claude_hooks/files_written.sh` and `tests/files-written.sh`: the files-written capture
-  (0.1.11), 37 checks.
+  (0.1.11), 41 checks.
+- `hooks/claude_hooks/publications.sh` and `tests/publications.sh`: the publication index
+  (0.1.12), 43 checks.
+- `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4
+  checks.
+- `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a
+  session, 19 checks.
 
 ## This is the canonical copy
 
@@ -61,7 +67,36 @@ those rules here goes there too.
   PostToolUseFailure mark its end and queue a detached copy of each file whose inode changed
   between the marks to `written/<absolute path>`, with a line in `_claude_files_written.jsonl`.
   The hook adds one `jq` call and returns at once. `tests/files-written.sh` holds the rules,
-  37 checks. jgwill/miadi-orchestration-kit#82 holds the Phase 2 proposals.
+  41 checks. jgwill/miadi-orchestration-kit#82 holds the Phase 2 proposals.
+- **The publication index** (`lib.sh`, `publications.sh`, since 0.1.12). Artifact pages, GitHub
+  issues, comments, pull requests and releases, commits checked in their tree, pushes and npm
+  releases, one line each in `_claude_publications.jsonl` with the `tool_use_id` and
+  `prompt_id`. `@miadi/hooks-interpreter` 0.5.0 reads it with the files-written index and the
+  session's `_terminal_binding.jsonl` (jgwill/Miadi). `tests/publications.sh`, 43 checks.
+- **Credential files are listed, never copied** (0.1.12). `written/` copies every text file a
+  call wrote, and the sanitizer redacts token shapes, not a password on a line of its own. A
+  file whose name says it holds credentials (`.env*` but not `.env.example`, keys,
+  `.netrc`, `.pgpass`, `.npmrc`, cloud credentials, Terraform state) gets an index line with
+  the note `not copied: its name says it may hold credentials` and no hash. The sanitizer
+  redacts the password in `scheme://user:password@host` and in PHP `define('…PASSWORD…', …)`
+  since 0.1.12, in every capture. `*.env` stays on the list although it also holds harmless
+  files (`.hch/issue_N.env`): a missing copy costs less than a copied `prod.env`. Found
+  by the first review of 0.1.12 (a `vercel env pull` would have copied a Neon URL with its
+  password).
+- **The binding line names its own session's agent** (0.1.12). `_tb_agent_pid` takes the
+  nearest ancestor registered in `~/.claude/sessions/<pid>.json` for the hook's session id. A
+  `claude -p` started inside another session is not registered there, and until 0.1.12 its
+  binding line took the parent session's pid, name and command line (seen on 2026-10-11 with
+  session `a8d71f4d`). `tests/binding-agent.sh`, 4 checks.
+- **The binding line names the mission that started a session** (0.1.12). A seat that
+  `skills/miadi-run` launched is told `Read <brief> whole first` by tide, the second prompt
+  after `/mia-listen`. The first prompt naming a `…/<id>/prompt.md` with a
+  `miadi-run/mission@1` mission.json beside it appends a `session.mission` line whose `mission`
+  block holds the pinned prompt reference, version, sha256, trace and episode
+  (`source: "prompt"`). `MIADI_RUN_MISSION` and `MIADI_RUN_HOME` in the agent's environment put
+  the same block on every line (`source: "env"`). tide does not pass that variable into the
+  pane today. It needs `tmux new-session -e` in tide-runtime, a change left to Guillaume.
+  Settled with the miadi-run seat on 2026-10-11. `tests/binding-mission.sh`, 19 checks.
 - **Nothing on stdout.** Claude Code injects the stdout of SessionStart and UserPromptSubmit
   hooks into the conversation. The binding writer prints nothing.
 - **SessionEnd returns at once.** Claude Code cancels SessionEnd hooks after 1.5 s and prints

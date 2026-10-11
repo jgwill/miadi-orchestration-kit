@@ -75,3 +75,7 @@ fi
 # Copy the files this call wrote to written/, detached (lib.sh,
 # claude_files_written_queue).
 claude_files_written_queue "$output_dir" "$input" "$tool_name"
+
+# Record what this call published: an Artifact page, a GitHub issue, pull request or
+# comment, a commit or push, an npm release (lib.sh, claude_publications_queue).
+claude_publications_queue "$output_dir" "$input" "$tool_name"

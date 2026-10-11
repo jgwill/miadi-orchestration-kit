@@ -124,6 +124,14 @@ expect "a binary file is listed" "not copied: binary" "$(field "$l" note)"
 expect "and not copied" "no" "$([ -e "$(copy_of "$proj/blob.bin")" ] && echo yes || echo no)"
 expect "it carries its sha256" "$(sha256sum < "$proj/blob.bin" | cut -d' ' -f1)" "$(field "$l" sha256)"
 
+# Review cycle 1: a credential file is listed and never copied; a URL password is redacted.
+bash_call toolu_env "printf 'DATABASE_URL=\"postgres://owner:npg_Zx81kQwPq3Lm@ep-1.neon.tech/db\"\\n' > .env.local && printf 'db: postgres://owner:npg_Zx81kQwPq3Lm@ep-1.neon.tech/db\\n' > notes.md"
+l=$(line_of toolu_env "$proj/.env.local")
+expect "a .env file is listed" "not copied: its name says it may hold credentials" "$(field "$l" note)"
+expect "and not copied" "no" "$([ -e "$(copy_of "$proj/.env.local")" ] && echo yes || echo no)"
+expect "and carries no hash" "" "$(field "$l" sha256)"
+expect "a password inside a URL is redacted in a copy" 0 "$(grep -c 'npg_Zx81kQwPq3Lm' "$(copy_of "$proj/notes.md")" 2>/dev/null)"
+
 bash_call toolu_fail 'printf "partial\n" > failed-run.md; exit 1' failure
 expect "a failed call's file is copied" "partial" "$(cat "$(copy_of "$proj/failed-run.md")" 2>/dev/null)"
 

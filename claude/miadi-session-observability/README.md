@@ -8,9 +8,11 @@ jgwill/miadi-orchestration-kit#56.
   `/opt/binscripts/hooks/claude_hooks` writes it. The token counter, the `/token-usage` page
   and the session observers keep working unchanged.
 - **Binding line.** Every session start, end and rename appends one line to
-  `<root>/data/terminal_bindings.jsonl`. The line holds the session id, the tmux
+  `<root>/data/terminal_bindings.jsonl` and to the session's own `_terminal_binding.jsonl`. The line holds the session id, the tmux
   `session:window.pane` and pane id, the agent's command line, its name and name history, and
-  its team, and the chronicle episode it works in. tmux restore and `tide agents restore` read
+  its team, the chronicle episode it works in, and the miadi-run mission that started it (the
+  pinned tracing prompt and its trace, from the seat's prompt that names the mission's
+  `prompt.md`, or from `MIADI_RUN_MISSION`). tmux restore and `tide agents restore` read
   these lines to bring agents back.
 - **Skill.** `session-continuity` carries T1's practice: the binding line, tmux save and
   restore, tide, and rebuilding what each pane held after a crash.
@@ -61,9 +63,39 @@ jgwill/miadi-orchestration-kit#82.
   that slow (`/workspace`, a home folder) is then scanned three levels deep
   (`CLAUDE_WRITTEN_MAX_BYTES`, `CLAUDE_WRITTEN_MAX_FILES`, `CLAUDE_WRITTEN_MAX_LINES`,
   `CLAUDE_WRITTEN_SCAN_SECONDS`).
+- **Credential files.** A file whose name says it may hold credentials (`.env*` except
+  `.example`, `.sample` and `.template`, keys, `.netrc`, `.pgpass`, `.npmrc`, cloud
+  credentials, Terraform state) is listed without a copy or a hash. Passwords inside
+  `scheme://user:password@host` URLs are redacted in every copy.
 - **What it cannot see.** A file deleted by the call that created it. What a `run_in_background`
   command writes after its PostToolUse. A file written by another process during the call is
   listed as if the call wrote it.
+
+## Publications
+
+What a session put where other people can see it is one line in
+`<root>/<session_id>/_claude_publications.jsonl`, with the tool call and the prompt
+(`prompt_id`) that produced it. Since 0.1.12, jgwill/miadi-orchestration-kit#82.
+
+| kind | from | the line holds |
+|---|---|---|
+| `artifact`, `artifact-asset` | an Artifact publish | `url`, `path` (the source file), `title`, `artifact_id`, `updated` |
+| `issue`, `issue-comment`, `pr`, `pr-comment`, `release`, `gist` | `gh issue`, `gh pr`, `gh release`, `gh gist` that write, and `gh api` that writes | `url`, `repo`, `number`, `action` (`issue create`, `pr comment`, `api`) |
+| `pr` | Claude Code's `gitOperation.pr` | `url`, `number`, `action` |
+| `commit` | `gitOperation.commit`, or git's output (`[branch sha] subject`, a `git log --oneline -1` after a quiet commit) | the full `sha`, `repo`, `dir`, `subject`, `url`, `verified` |
+| `push` | `gitOperation.push`, or git's `To <remote>` and `a..b src -> dst` lines | `repo`, `branch`, `from`, `to`, and a compare `url` |
+| `npm` | `npm`, `pnpm` or `yarn publish` | `package`, `version`, `url` |
+
+Each commit is checked in the tree the command worked in (`git -C`, a `cd`, then the cwd). A
+commit read from output must be in such a tree and committed during the call, and one read
+from `git log` or `git show` after a quiet commit must be that tree's `HEAD`. A gh URL counts
+only when it ends its line (alone, or after a label in a batch) and the command ran the gh
+write that makes that kind of URL. A command that only reads (`gh issue view`,
+`git log --grep`, `gh api -X GET`) records nothing, and neither does a push or publish whose
+every invocation in the command is a `--dry-run`. A chain that publishes, then fails, is read from
+PostToolUseFailure. PostToolUse matches the raw input first, so a
+call that cannot have published costs nothing, and a call that may have costs one `jq` call
+before the parse runs detached.
 
 ## Teams
 
@@ -106,6 +138,9 @@ bash tests/team-resolution.sh
 bash tests/episode-resolution.sh
 bash tests/transcript-archive.sh
 bash tests/files-written.sh
+bash tests/publications.sh
+bash tests/binding-agent.sh
+bash tests/binding-mission.sh
 CLAUDE_SESSIONDATA_ROOT=$(mktemp -d) claude --restricted --plugin-dir . --model haiku
 ```
 

@@ -10,7 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # copy of itself, and returns at once. setsid puts the copy outside claude's process group.
 if [ "${1:-}" != "--detached" ]; then
     MIADI_SESSION_END_INPUT=$(cat -)
-    _TB_AGENT_PID=$(_tb_agent_pid)
+    [[ $MIADI_SESSION_END_INPUT =~ \"session_id\":\"([A-Za-z0-9_-]+)\" ]] && _tb_sid="${BASH_REMATCH[1]}"
+    _TB_AGENT_PID=$(_tb_agent_pid "${_tb_sid:-}")
     _TB_ARGV_JSON=$(_tb_argv_json "$_TB_AGENT_PID")
     export MIADI_SESSION_END_INPUT _TB_AGENT_PID _TB_ARGV_JSON
     if command -v setsid >/dev/null 2>&1; then

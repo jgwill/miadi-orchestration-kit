@@ -7,6 +7,8 @@ input=$(cat -)
 # No hook fires on /rename: record a name change at the next prompt.
 . "$SCRIPT_DIR/terminal_binding.sh"
 claude_check_terminal_binding_rename "$input"
+# A seat miadi-run launched names its mission's prompt.md in its first prompt.
+claude_check_terminal_binding_mission "$input"
 session_id=$(echo "$input" | jq -r .session_id)
 output_dir="$CLAUDE_SESSIONDATA_ROOT/$session_id"
 mkdir -p "$output_dir"

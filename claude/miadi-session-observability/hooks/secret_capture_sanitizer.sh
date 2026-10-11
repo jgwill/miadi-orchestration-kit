@@ -37,6 +37,8 @@ hook_secret_sanitize_stream() {
         s{(mwt_[A-Za-z0-9_-]{32,})}{redact($1)}ge;
         s{(mr_[A-Za-z0-9]{32,})}{redact($1)}ge;
         s{(eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})}{redact($1)}ge;
+        s{\b([A-Za-z][A-Za-z0-9+.-]*://[^\s/:@"\047<>]*:)([^\s@/"\047<>]{3,})(@)}{$1 . redact($2) . $3}ge;
+        s{(\bdefine\(\s*["\047][A-Za-z0-9_]*(?i:password|passwd|secret|token|key|salt)[A-Za-z0-9_]*["\047]\s*,\s*["\047])([^"\047]{4,})}{$1 . redact($2)}ge;
         s{((?i:\bBearer\s+))([A-Za-z0-9._~+/=-]{12,})}{$1 . redact($2)}gex;
         s{((?i:\b[A-Za-z0-9_.-]*(?:api[_-]?key|secret|token|passwd|password|client[_-]?secret|access[_-]?key|private[_-]?key|auth[_-]?token)[A-Za-z0-9_.-]*\b)["\047\s]*[:=]\s*["\047]?)([A-Za-z0-9][A-Za-z0-9/_+.\-=~:]{7,})}{$1 . redact($2)}gex;
     '
@@ -70,7 +72,7 @@ hook_secret_sanitize_file_to() {
 
 hook_secret_self_test() {
     local sample sanitized failed=0
-    local openai anthropic github aws slack google hf npm stripe miadi miadi_reader jwt kv bearer pem
+    local openai anthropic github aws slack google hf npm stripe miadi miadi_reader jwt kv bearer pem dburl
     openai="sk-b45abcDEF1234567890""XYZ"
     anthropic="sk-ant-api03-ABCDEFGHIJKLM""NOPQRSTUVWX"
     github="ghp_ABCDefgh1234""IJKLmnop5678QRSTuvwx9012"
@@ -86,6 +88,7 @@ hook_secret_self_test() {
     kv="DATABASE_PASSWORD=s3cr3tP4ssw0rdValue"
     bearer="Authorization: Bearer abcdefghijklmnopqrstuvwxyz"
     pem=$'-----BEGIN OPENSSH PRIVATE KEY-----\nsecret-material\n-----END OPENSSH PRIVATE KEY-----'
+    dburl="postgres://neondb_owner:npg_Zx81kQ""wPq3Lm@ep-cool-1.neon.tech/neondb"
     sample="$(
         jq -nc \
             --arg openai "$openai" \
@@ -103,12 +106,13 @@ hook_secret_self_test() {
             --arg kv "$kv" \
             --arg bearer "$bearer" \
             --arg pem "$pem" \
-            '{openai:$openai,anthropic:$anthropic,github:$github,aws:$aws,slack:$slack,google:$google,hf:$hf,npm:$npm,stripe:$stripe,miadi:("your token is " + $miadi),miadi_reader:$miadi_reader,jwt:$jwt,kv:$kv,bearer:$bearer,pem:$pem}'
+            --arg dburl "$dburl" \
+            '{dburl:$dburl,openai:$openai,anthropic:$anthropic,github:$github,aws:$aws,slack:$slack,google:$google,hf:$hf,npm:$npm,stripe:$stripe,miadi:("your token is " + $miadi),miadi_reader:$miadi_reader,jwt:$jwt,kv:$kv,bearer:$bearer,pem:$pem}'
     )"
     sanitized="$(hook_secret_sanitize_text "$sample")"
 
     for raw in "$openai" "$anthropic" "$github" "$aws" "$slack" "$google" "$hf" "$npm" "$stripe" "$miadi" "$miadi_reader" "$jwt" \
-        's3cr3tP4ssw0rdValue' 'abcdefghijklmnopqrstuvwxyz' 'secret-material'; do
+        's3cr3tP4ssw0rdValue' 'abcdefghijklmnopqrstuvwxyz' 'secret-material' 'npg_Zx81kQwPq3Lm'; do
         if printf '%s' "$sanitized" | grep -Fq "$raw"; then
             printf 'FAILED: raw secret remained: %s\n' "$raw" >&2
             failed=1
@@ -119,6 +123,8 @@ hook_secret_self_test() {
     printf '%s' "$sanitized" | grep -Fq 'ghp_AB***' || { printf 'FAILED: GitHub prefix redaction missing\n' >&2; failed=1; }
     printf '%s' "$sanitized" | grep -Fq 'mwt_Qn***' || { printf 'FAILED: Miadi token prefix redaction missing\n' >&2; failed=1; }
     printf '%s' "$sanitized" | grep -Fq 'DATABASE_PASSWORD=s3cr3t***' || { printf 'FAILED: key/value redaction missing\n' >&2; failed=1; }
+    printf '%s' "$sanitized" | grep -Fq 'postgres://neondb_owner:npg_Zx***@ep-cool-1' || { printf 'FAILED: URL password redaction missing\n' >&2; failed=1; }
+    printf '%s' "$(hook_secret_sanitize_text "define('DB_PASSWORD', 'Hunter2-Pa55word');")" | grep -Fq "define('DB_PASSWORD', 'Hunter***')" || { printf 'FAILED: PHP define redaction missing\n' >&2; failed=1; }
 
     if [ "$failed" -eq 0 ]; then
         printf 'secret_capture_sanitizer self-test passed\n'

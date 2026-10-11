@@ -15,20 +15,27 @@
 # Sourced after lib.sh (CLAUDE_SESSIONDATA_ROOT, claude_sanitize_text). Hooks inject their
 # stdout into the conversation, so nothing here may print to stdout.
 
-# The agent process: the nearest ancestor that Claude Code registered in
-# ~/.claude/sessions/<pid>.json, else the nearest ancestor named claude.
+# The agent process of <session_id>: the nearest ancestor that Claude Code registered in
+# ~/.claude/sessions/<pid>.json for that session, else the nearest ancestor named claude.
+# A registered ancestor holding another session is a parent agent: `claude -p` started
+# from inside a session is not registered, and until 0.1.12 its binding line took the
+# parent's pid, name and command line. Past one, the nearest claude below it is the answer.
 # _TB_AGENT_PID, when set, is the answer already found by a hook that detached its work.
 _tb_agent_pid() {
     if [ -n "${_TB_AGENT_PID:-}" ]; then
         printf '%s' "$_TB_AGENT_PID"
         return 0
     fi
-    local pid="$PPID" first_claude="" comm i
+    local want="${1:-}" pid="$PPID" first_claude="" comm i reg
     for i in 1 2 3 4 5 6 7 8; do
         case "$pid" in ''|0|1) break ;; esac
         if [ -f "$HOME/.claude/sessions/$pid.json" ]; then
-            printf '%s' "$pid"
-            return 0
+            reg=$(jq -r '.sessionId // empty' "$HOME/.claude/sessions/$pid.json" 2>/dev/null)
+            if [ -z "$want" ] || [ -z "$reg" ] || [ "$reg" = "$want" ]; then
+                printf '%s' "$pid"
+                return 0
+            fi
+            [ -n "$first_claude" ] && break
         fi
         comm=$(cat "/proc/$pid/comm" 2>/dev/null)
         if [ -z "$first_claude" ] && [ "$comm" = "claude" ]; then
@@ -176,15 +183,71 @@ _tb_remember() {
     rm -f "$state.tmp.$$"
 }
 
+# The miadi-run mission that started this agent: {id, prompt, name, version, sha256, trace,
+# episode, source} read from <mission dir>/mission.json, or null. miadi-run (kit
+# skills/miadi-run) pins one prompt version from the tracing provider into
+# ~/.miadi/missions/<prompt>.v<N>/ and launches a seat on it. source: "env" when the agent's
+# environment names the mission (MIADI_RUN_MISSION, under MIADI_RUN_HOME), "prompt" when a
+# prompt named the mission's prompt.md. jgwill/miadi-orchestration-kit#82.
+_tb_mission_json() {  # <mission dir> <source>
+    local dir="$1" source="$2" id="${1##*/}"
+    case "$id" in ''|.|..) printf 'null'; return 0 ;; esac
+    if [ ! -r "$dir/mission.json" ]; then
+        jq -cn --arg id "$id" --arg source "$source" --arg dir "$dir" \
+            '{id: $id, source: $source, note: "no mission.json in \($dir)"}' 2>/dev/null || printf 'null'
+        return 0
+    fi
+    # -s and one document only: a second document would print a second line, and the
+    # binding line's --argjson would then fail and drop the line.
+    jq -c -s --arg source "$source" 'if length == 1 and (.[0] | type) == "object" then .[0]
+        | {id, prompt: (.prompt.reference // null), name: (.prompt.name // null),
+           version: (.prompt.version // null), sha256: (.prompt.sha256 // null),
+           trace: (.trace.reference // null), episode: (.episode.ref // null), source: $source}
+        else null end' "$dir/mission.json" 2>/dev/null || printf 'null'
+}
+
+_tb_env_mission_json() {
+    case "${MIADI_RUN_MISSION:-}" in ''|*/*|.|..) printf 'null'; return 0 ;; esac
+    _tb_mission_json "${MIADI_RUN_HOME:-$HOME/.miadi/missions}/$MIADI_RUN_MISSION" env
+}
+
+# UserPromptSubmit: the starter prompt tide types for a miadi-run seat, `Read <brief> whole
+# first`, in a session whose binding line names no mission yet, adds one session.mission
+# line. It comes after `/mia-listen`, so it is the second prompt, and the path is absolute:
+# <MIADI_RUN_HOME or ~/.miadi/missions>/<id>/prompt.md, with a miadi-run mission.json beside
+# it. Only that form counts: a session that mentions a brief (a reviewer reading it) is not
+# the mission's seat.
+claude_check_terminal_binding_mission() {
+    local input="$1" rest session_id dir i
+    [[ $input == *'/prompt.md whole first'* ]] || return 0
+    [[ $input =~ \"session_id\":\"([A-Za-z0-9_-]+)\" ]] || return 0
+    session_id="${BASH_REMATCH[1]}"
+    grep -q '"mission":' "$CLAUDE_SESSIONDATA_ROOT/$session_id/_terminal_binding.jsonl" 2>/dev/null && return 0
+    rest="$input"
+    for i in 1 2 3 4 5; do
+        # Each `Read /…` in turn, cut at its own `/prompt.md whole first`, so a path with a
+        # space is kept whole and one starter form never swallows the next.
+        [[ $rest == *'Read /'*'/prompt.md whole first'* ]] || return 0
+        rest="${rest#*Read /}"
+        dir="/${rest%%/prompt.md whole first*}"
+        case "$dir" in *'"'*|*'Read /'*|*'\n'*) continue ;; esac
+        [[ ${dir##*/} =~ ^[A-Za-z0-9._@-]+$ ]] || continue
+        [ -r "$dir/mission.json" ] || continue
+        [ "$(jq -r '.schema // ""' "$dir/mission.json" 2>/dev/null)" = "miadi-run/mission@1" ] || continue
+        _TB_MISSION_JSON=$(_tb_mission_json "$dir" prompt) claude_write_terminal_binding "session.mission" "$input"
+        return 0
+    done
+}
+
 # claude_write_terminal_binding <event> <hook input json>
-# event: session.start | session.end | session.rename | session.observed
+# event: session.start | session.end | session.rename | session.observed | session.mission
 claude_write_terminal_binding() {
     local event="$1" input="$2" session_id
     session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
     [ -n "$session_id" ] || return 0
 
     local agent_pid tmux_json name_json argv_json="[]" line
-    agent_pid=$(_tb_agent_pid)
+    agent_pid=$(_tb_agent_pid "$session_id")
     tmux_json=$(_tb_tmux_json)
     name_json=$(_tb_name_json "$agent_pid")
     # At session end Claude Code has already removed its pid file: keep the last name written.
@@ -207,6 +270,8 @@ claude_write_terminal_binding() {
         "$(printf '%s' "${tmux_json:-null}" | jq -r '.session? // empty' 2>/dev/null)" \
         "$(printf '%s' "${name_json:-null}" | jq -r '.name? // empty' 2>/dev/null)")
     episode_json=$(_tb_episode_json "$cwd" "${argv_json:-[]}")
+    local mission_json="${_TB_MISSION_JSON:-}"
+    [ -n "$mission_json" ] || mission_json=$(_tb_env_mission_json)
 
     line=$(printf '%s' "$input" | jq -c \
         --arg at "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" \
@@ -219,11 +284,12 @@ claude_write_terminal_binding() {
         --argjson tmux "${tmux_json:-null}" \
         --argjson team "${team_json:-null}" \
         --argjson episode "${episode_json:-null}" \
+        --argjson mission "${mission_json:-null}" \
         '{at: $at, event: $event, source: (.source // .reason // ""), agent: "claude",
           session_id: .session_id, cwd: (.cwd // ""), transcript_path: (.transcript_path // ""),
           host: $host, pid: ($pid | tonumber? // null), argv: $argv,
           launch_alias: $launch_alias, name: $name, tmux: $tmux, team: $team,
-          episode: $episode}' 2>/dev/null) || return 0
+          episode: $episode} + (if $mission then {mission: $mission} else {} end)' 2>/dev/null) || return 0
     [ -n "$line" ] || return 0
 
     _tb_append "$session_id" "$line"
