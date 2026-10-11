@@ -1,0 +1,377 @@
+#!/usr/bin/env node
+// miadi-run — a terminal mission prepared from one pinned prompt version, launched only on an
+// explicit word, reporting to its trace. jgwill/miadi-orchestration-kit#84.
+//
+//   resolve <prompt-name | trace-id> [--domain d]
+//   prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
+//   launch  <mission> --authorized-by <who>
+//   observe <mission> --kind research|return --summary <text> [--detail-file F]
+//   observe --trace <trace-id> --kind research --summary <text>        (research before any mission)
+//   show    <mission>
+//
+// Prepare never executes: it asks `tide companion open` for its plan (no --run), and the guard in
+// run() refuses --run outside launch. Launch reuses `tide companion open --run`; no launcher here.
+// Langfuse is read over its public REST API with the domain's keys and written through
+// `coaia fuse traces add-observation`. Keys travel in headers and in coaia's environment only.
+
+import { createHash } from "node:crypto"
+import { spawnSync } from "node:child_process"
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { homedir, tmpdir } from "node:os"
+import { join } from "node:path"
+import { fileURLToPath } from "node:url"
+
+export const DOMAINS = ["ceremony", "story", "eng"]
+export const OBSERVATION_KINDS = ["research", "preparation", "execution", "return"]
+const KEY_SUFFIXES = ["PUBLIC_KEY", "SECRET_KEY", "BASE_URL"]
+
+export class Refusal extends Error {
+  constructor(code, message) { super(message); this.code = code }
+}
+
+// ---------- domains and keys ----------
+
+function envFileValues(env) {
+  const file = env.MIADI_ENV_FILE || (env.MIADI_SRC ? join(env.MIADI_SRC, ".env") : "")
+  if (!file || !existsSync(file)) return {}
+  const out = {}
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    const m = line.match(/^((?:CEREMONY|STORY|ENG)_LANGFUSE_[A-Z_]+)=(.*)$/)
+    if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, "")
+  }
+  return out
+}
+
+export function domainKeys(env, domain) {
+  const file = envFileValues(env)
+  const p = `${domain.toUpperCase()}_LANGFUSE_`
+  const [pub, sec, base] = KEY_SUFFIXES.map((s) => env[p + s] || file[p + s] || "")
+  if (!pub || !sec) return null
+  return { pub, sec, base: (base || "https://cloud.langfuse.com").replace(/\/$/, "") }
+}
+
+function domainsToTry(env, given) {
+  if (given) {
+    if (!DOMAINS.includes(given)) throw new Refusal(2, `unknown domain "${given}" (${DOMAINS.join(", ")})`)
+    return [given]
+  }
+  return DOMAINS.filter((d) => domainKeys(env, d))
+}
+
+async function langfuseGet(deps, domain, path) {
+  const k = domainKeys(deps.env, domain)
+  if (!k) return { status: 0 }
+  const res = await deps.fetch(k.base + path, { headers: { Authorization: "Basic " + Buffer.from(`${k.pub}:${k.sec}`).toString("base64") } })
+  return { status: res.status, body: res.ok ? await res.json() : null }
+}
+
+// ---------- provider reads (metadata, and the one prompt body a mission pins) ----------
+
+async function findTrace(deps, id, given) {
+  for (const domain of domainsToTry(deps.env, given)) {
+    const r = await langfuseGet(deps, domain, `/api/public/traces/${encodeURIComponent(id)}`)
+    if (r.status === 200) {
+      const t = r.body
+      const observations = Array.isArray(t.observations) ? t.observations : []
+      // A parentless observation becomes a root and renames the trace (measured 2026-10-11 on
+      // Langfuse cloud), so every observation miadi-run adds hangs under the earliest root.
+      const root = observations.filter((o) => !o.parentObservationId).sort((a, b) => String(a.startTime ?? "").localeCompare(String(b.startTime ?? "")))[0]?.id ?? null
+      return { domain, id, reference: `miadi-tracing:${domain}/trace/${id}`, name: t.name ?? null, session: t.sessionId ?? null, root, timestamp: t.timestamp ?? null, observations: observations.length }
+    }
+  }
+  return null
+}
+
+async function findPromptVersions(deps, name, given) {
+  for (const domain of domainsToTry(deps.env, given)) {
+    const r = await langfuseGet(deps, domain, `/api/public/v2/prompts?name=${encodeURIComponent(name)}`)
+    const row = r.body?.data?.find((p) => p.name === name)
+    if (row) return { domain, name, reference: `miadi-tracing:${domain}/prompt/${name}`, versions: row.versions ?? [], labels: row.labels ?? [], type: row.type ?? null }
+  }
+  return null
+}
+
+export function promptText(p) {
+  if (typeof p.prompt === "string") return p.prompt
+  if (Array.isArray(p.prompt)) return p.prompt.map((m) => `${m.role ?? "message"}: ${m.content ?? ""}`).join("\n\n")
+  throw new Refusal(5, `prompt ${p.name} v${p.version} has no text`)
+}
+
+async function getPromptVersion(deps, domain, name, version) {
+  const r = await langfuseGet(deps, domain, `/api/public/v2/prompts/${encodeURIComponent(name)}?version=${version}`)
+  if (r.status !== 200) throw new Refusal(5, `prompt ${name} v${version} not readable in ${domain} (HTTP ${r.status})`)
+  if (r.body.version !== version) throw new Refusal(5, `asked for ${name} v${version}, the provider answered v${r.body.version}`)
+  const text = promptText(r.body)
+  return { text, sha256: sha256(text), labels: r.body.labels ?? [] }
+}
+
+export const sha256 = (s) => createHash("sha256").update(s, "utf8").digest("hex")
+
+// ---------- commands ----------
+
+// The one place a command runs. Outside launch, `--run` never reaches tide.
+function run(deps, phase, cmd, args, options = {}) {
+  if (phase !== "launch" && args.includes("--run")) throw new Refusal(9, `refused: ${cmd} --run outside launch`)
+  return deps.run(cmd, args, options)
+}
+
+export function companionArgs({ episode, seat, brief, addDirs = [], launch = false }) {
+  return ["companion", "open", "--episode", String(episode), "--seat", seat, "--brief", brief, ...addDirs.flatMap((d) => ["--add-dir", d]), "--format", "json", ...(launch ? ["--run"] : [])]
+}
+
+// Only these three names reach coaia; every other Langfuse variable is dropped from its environment.
+function coaiaEnv(env, domain) {
+  const k = domainKeys(env, domain)
+  if (!k) throw new Refusal(1, `${domain.toUpperCase()}_LANGFUSE_PUBLIC_KEY or _SECRET_KEY is not set`)
+  const clean = Object.fromEntries(Object.entries(env).filter(([n]) => !/LANGFUSE_/.test(n)))
+  return { ...clean, LANGFUSE_PUBLIC_KEY: k.pub, LANGFUSE_SECRET_KEY: k.sec, LANGFUSE_BASE_URL: k.base }
+}
+
+// A new observation is appended; no earlier observation, trace name or prompt version is touched.
+export function observationArgs({ traceId, root, session, kind, subject, input, output, metadata }) {
+  if (!OBSERVATION_KINDS.includes(kind)) throw new Refusal(2, `unknown observation kind "${kind}"`)
+  if (!root) throw new Refusal(4, `trace ${traceId} has no root observation to append under; appending would rename it`)
+  return [
+    "fuse", "traces", "add-observation",
+    "--trace-id", traceId,
+    "--parent-id", root,
+    "--type", "event",
+    "--name", `miadi-run · ${kind} · ${subject}`,
+    "--input", JSON.stringify(input ?? {}),
+    "--output", JSON.stringify(output ?? {}),
+    "--metadata", JSON.stringify({ miadi_run: { kind, ...metadata } }),
+    ...(session ? ["--session-id", session] : []),
+  ]
+}
+
+function observe(deps, phase, trace, kind, subject, payload) {
+  const args = observationArgs({ traceId: trace.id, root: trace.root, session: trace.session, kind, subject, ...payload })
+  const r = run(deps, phase, "coaia", args, { env: coaiaEnv(deps.env, trace.domain) })
+  return { kind, at: deps.now().toISOString(), ok: r.status === 0, ...(r.status === 0 ? {} : { error: (r.stderr || r.stdout || "").trim().slice(0, 300) }) }
+}
+
+async function holdOnEpisode(deps, episode, body, dryRun) {
+  const api = (deps.env.MIADI_API_URL || "").replace(/\/$/, "")
+  if (!api) return { reference: body.reference, status: "pending", note: "MIADI_API_URL unset: hold it with the chronicle_episode_tracing MCP tool" }
+  const headers = { "Content-Type": "application/json" }
+  if (deps.env.MIADI_API_TOKEN_WRITER) headers.Authorization = `Bearer ${deps.env.MIADI_API_TOKEN_WRITER}`
+  const res = await deps.fetch(`${api}/api/chronicle/episodes/${encodeURIComponent(episode)}/tracing`, { method: "POST", headers, body: JSON.stringify({ ...body, dryRun }) })
+  return { reference: body.reference, relation: body.relation, status: res.status, held: res.ok && !dryRun }
+}
+
+// ---------- missions ----------
+
+const missionHome = (env) => env.MIADI_RUN_HOME || join(homedir(), ".miadi", "missions")
+export const missionId = (name, version) => `${name}.v${version}`
+
+function missionDir(env, id) {
+  if (!/^[A-Za-z0-9._@-]+$/.test(id)) throw new Refusal(2, `"${id}" is not a mission id`)
+  return join(missionHome(env), id)
+}
+
+function loadMission(env, id) {
+  const file = join(missionDir(env, id), "mission.json")
+  if (!existsSync(file)) throw new Refusal(4, `no mission ${id} in ${missionHome(env)}`)
+  return JSON.parse(readFileSync(file, "utf8"))
+}
+
+const saveMission = (env, m) => writeFileSync(join(missionDir(env, m.id), "mission.json"), JSON.stringify(m, null, 2) + "\n")
+
+async function resolve(deps, opts) {
+  const what = opts.positional[0]
+  if (!what) throw new Refusal(2, "resolve needs a prompt name or a trace id")
+  if (/^[0-9a-f]{32}$/.test(what)) {
+    const trace = await findTrace(deps, what, opts.domain)
+    if (!trace) throw new Refusal(4, `trace ${what} is in no configured domain`)
+    return { resource: "trace", ...trace }
+  }
+  const prompt = await findPromptVersions(deps, what, opts.domain)
+  if (!prompt) throw new Refusal(4, `prompt ${what} is in no configured domain`)
+  return { resource: "prompt", ...prompt, next: `miadi-run prepare --prompt ${what} --version <one of ${prompt.versions.join(",")}> --trace <trace-id> --episode <ref>` }
+}
+
+async function prepare(deps, opts) {
+  for (const flag of ["run", "launch", "authorizedBy"]) {
+    if (opts[flag] !== undefined) throw new Refusal(2, "prepare never launches: --run, --launch and --authorized-by belong to `miadi-run launch`")
+  }
+  const version = Number(opts.version)
+  if (!opts.prompt || !Number.isInteger(version) || version < 1) throw new Refusal(2, "prepare needs --prompt <name> and --version <N>: a mission pins one version number")
+  if (!opts.trace || !opts.episode) throw new Refusal(2, "prepare needs --trace <trace-id> and --episode <ref>")
+  const id = missionId(opts.prompt, version)
+  const dir = missionDir(deps.env, id)
+  if (existsSync(join(dir, "mission.json"))) throw new Refusal(4, `mission ${id} is already prepared; a revised prompt is a new version and a new mission`)
+
+  const found = await findPromptVersions(deps, opts.prompt, opts.domain)
+  if (!found) throw new Refusal(4, `prompt ${opts.prompt} is in no configured domain`)
+  if (!found.versions.includes(version)) throw new Refusal(4, `prompt ${opts.prompt} has versions ${found.versions.join(",")}, not ${version}`)
+  const pinned = await getPromptVersion(deps, found.domain, opts.prompt, version)
+  const trace = await findTrace(deps, opts.trace, opts.domain)
+  if (!trace) throw new Refusal(4, `trace ${opts.trace} is in no configured domain`)
+  if (!trace.root) throw new Refusal(4, `trace ${opts.trace} has no root observation to append under; appending would rename it`)
+
+  const seat = opts.seat || "mia"
+  const scratch = opts.dryRun ? mkdtempSync(join(tmpdir(), "miadi-run-")) : dir
+  mkdirSync(scratch, { recursive: true })
+  const brief = join(scratch, "prompt.md")
+  let saved = false
+  try {
+    writeFileSync(brief, pinned.text)
+    chmodSync(brief, 0o444)
+    const planned = run(deps, "prepare", "tide", companionArgs({ episode: opts.episode, seat, brief, addDirs: opts.addDirs }))
+    if (planned.status !== 0) throw new Refusal(6, `tide companion open (plan) failed: ${(planned.stderr || "").trim().slice(0, 300)}`)
+    const plan = JSON.parse(planned.stdout)
+
+    const promptRef = `miadi-tracing:${found.domain}/prompt/${opts.prompt}@${version}`
+    const relations = [
+      await holdOnEpisode(deps, opts.episode, { reference: promptRef, name: opts.prompt, relation: "is-prompted-by" }, !!opts.dryRun),
+      await holdOnEpisode(deps, opts.episode, { reference: trace.reference, name: trace.name ?? undefined, session: trace.session ?? undefined, relation: "is-traced-in" }, !!opts.dryRun),
+    ]
+    const mission = {
+      schema: "miadi-run/mission@1",
+      id,
+      state: "prepared",
+      prompt: { domain: found.domain, name: opts.prompt, version, reference: promptRef, sha256: pinned.sha256, labels_at_prepare: pinned.labels, brief },
+      trace: { domain: trace.domain, id: trace.id, reference: trace.reference, name: trace.name, session: trace.session, root: trace.root },
+      episode: { ref: String(opts.episode), relations },
+      launcher: { kind: "companion", seat, add_dirs: opts.addDirs, session: plan.session ?? null, plan_state: plan.state ?? null, refused: plan.refused ?? null },
+      prepared_at: deps.now().toISOString(),
+      launch: { authorized_by: null, at: null, executed: false },
+      observations: [],
+    }
+    const payload = {
+      input: { prompt: promptRef, trace: trace.reference, episode: String(opts.episode) },
+      output: { state: "prepared", launcher: "tide companion open", session: mission.launcher.session, launched: false },
+      metadata: { mission: id, prompt: promptRef, prompt_sha256: pinned.sha256, episode: String(opts.episode), seat, launch_authorized: false },
+    }
+    if (opts.dryRun) return { dryRun: true, mission, observation: observationArgs({ traceId: trace.id, root: trace.root, session: trace.session, kind: "preparation", subject: id, ...payload }).slice(3) }
+    mission.observations.push(observe(deps, "prepare", trace, "preparation", id, payload))
+    saveMission(deps.env, mission)
+    saved = true
+    return mission
+  } finally {
+    // a dry run leaves nothing; a prepare that failed before its record leaves no half mission
+    if (opts.dryRun || !saved) rmSync(scratch, { recursive: true, force: true })
+  }
+}
+
+async function launch(deps, opts) {
+  const id = opts.positional[0]
+  if (!id) throw new Refusal(2, "launch needs a mission id")
+  const mission = loadMission(deps.env, id)
+  if (mission.state !== "prepared") throw new Refusal(4, `mission ${id} is ${mission.state}; a mission launches once, a new run is a new prompt version`)
+  if (typeof opts.authorizedBy !== "string" || !opts.authorizedBy.trim()) throw new Refusal(3, `launch needs --authorized-by <who>: the person's explicit word to run ${id}`)
+
+  const local = sha256(readFileSync(mission.prompt.brief, "utf8"))
+  const remote = await getPromptVersion(deps, mission.prompt.domain, mission.prompt.name, mission.prompt.version)
+  if (local !== mission.prompt.sha256 || remote.sha256 !== mission.prompt.sha256) throw new Refusal(5, `prompt ${mission.prompt.reference} no longer matches what was prepared (sha256)`)
+
+  const ran = run(deps, "launch", "tide", companionArgs({ episode: mission.episode.ref, seat: mission.launcher.seat, brief: mission.prompt.brief, addDirs: mission.launcher.add_dirs, launch: true }), { stdin: "inherit" })
+  let result = null
+  try { result = JSON.parse(ran.stdout) } catch { /* tide refused before printing its plan */ }
+  const executed = ran.status === 0 && result?.executed === true
+  if (!executed) {
+    throw new Refusal(7, `tide did not open the seat (exit ${ran.status}); the mission stays prepared. From your own terminal: tide mode controller, then\n  node ${fileURLToPath(import.meta.url)} launch ${id} --authorized-by "${opts.authorizedBy}"\n${(ran.stderr || "").trim().slice(0, 300)}`)
+  }
+  mission.state = "launched"
+  mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null }
+  mission.observations.push(observe(deps, "launch", mission.trace, "execution", id, {
+    input: { prompt: mission.prompt.reference, authorized_by: mission.launch.authorized_by },
+    output: { state: "launched", session: mission.launch.session, tide_session_id: mission.launch.tide_session_id },
+    metadata: { mission: id, prompt: mission.prompt.reference, prompt_sha256: mission.prompt.sha256, episode: mission.episode.ref, launch_authorized: true },
+  }))
+  saveMission(deps.env, mission)
+  return mission
+}
+
+async function observeCmd(deps, opts) {
+  const kind = opts.kind
+  if (kind !== "research" && kind !== "return") throw new Refusal(2, "observe takes --kind research or return; preparation and execution are written by prepare and launch")
+  if (!opts.summary) throw new Refusal(2, "observe needs --summary <text>")
+  const detail = opts.detailFile ? readFileSync(opts.detailFile, "utf8") : undefined
+  const id = opts.positional[0]
+  if (!id) {
+    if (kind !== "research" || !opts.trace) throw new Refusal(2, "without a mission, observe takes --trace <id> --kind research")
+    const trace = await findTrace(deps, opts.trace, opts.domain)
+    if (!trace) throw new Refusal(4, `trace ${opts.trace} is in no configured domain`)
+    return observe(deps, "observe", trace, "research", trace.id, { input: { summary: opts.summary }, output: detail ? { detail } : {}, metadata: {} })
+  }
+  const mission = loadMission(deps.env, id)
+  if (kind === "return" && mission.state === "prepared") throw new Refusal(4, `mission ${id} has not launched; a return follows a launch`)
+  const done = observe(deps, "observe", mission.trace, kind, id, {
+    input: { summary: opts.summary },
+    output: detail ? { detail } : {},
+    metadata: { mission: id, prompt: mission.prompt.reference, episode: mission.episode.ref, state: mission.state },
+  })
+  mission.observations.push(done)
+  if (kind === "return" && done.ok) mission.state = "returned"
+  saveMission(deps.env, mission)
+  return mission
+}
+
+// ---------- cli ----------
+
+export function parseArgs(argv) {
+  const opts = { positional: [], addDirs: [] }
+  const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile" }
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    if (takes[a]) opts[takes[a]] = argv[++i]
+    else if (a === "--add-dir") opts.addDirs.push(argv[++i])
+    else if (a === "--dry-run") opts.dryRun = true
+    else if (a === "--run") opts.run = true
+    else if (a === "--launch") opts.launch = true
+    else if (a.startsWith("--")) throw new Refusal(2, `unknown flag ${a}`)
+    else opts.positional.push(a)
+  }
+  return opts
+}
+
+export const defaultDeps = () => ({
+  env: process.env,
+  fetch: globalThis.fetch,
+  now: () => new Date(),
+  run: (cmd, args, { env, stdin } = {}) => {
+    const r = spawnSync(cmd, args, { env: env ?? process.env, encoding: "utf8", stdio: [stdin ?? "ignore", "pipe", "pipe"], maxBuffer: 16 * 1024 * 1024 })
+    return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? (r.error ? String(r.error.message) : "") }
+  },
+})
+
+const USAGE = `miadi-run resolve <prompt-name | trace-id> [--domain d]
+miadi-run prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
+miadi-run launch  <mission> --authorized-by <who>
+miadi-run observe <mission> --kind research|return --summary <text> [--detail-file F]
+miadi-run observe --trace <trace-id> --kind research --summary <text>
+miadi-run show    <mission>`
+
+export async function main(argv, deps = defaultDeps()) {
+  const [verb, ...rest] = argv
+  if (!verb || verb === "-h" || verb === "--help") return { usage: USAGE }
+  const opts = parseArgs(rest)
+  if (verb === "resolve") return resolve(deps, opts)
+  if (verb === "prepare") return prepare(deps, opts)
+  if (verb === "launch") return launch(deps, opts)
+  if (verb === "observe") return observeCmd(deps, opts)
+  if (verb === "show") return loadMission(deps.env, opts.positional[0] ?? "")
+  throw new Refusal(2, `unknown verb "${verb}"\n${USAGE}`)
+}
+
+// What a mission record says went wrong without stopping it: an observation the provider refused,
+// an episode door that refused a relation.
+export function warnings(out) {
+  const w = []
+  for (const o of Array.isArray(out?.observations) ? out.observations : []) if (!o.ok) w.push(`${o.kind} observation not written: ${o.error ?? "coaia failed"}`)
+  for (const r of out?.episode?.relations ?? []) if (typeof r.status === "number" && r.status >= 400) w.push(`episode door refused ${r.reference} (HTTP ${r.status})`)
+  if (out && out.kind && out.ok === false) w.push(`${out.kind} observation not written: ${out.error ?? "coaia failed"}`)
+  return w
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main(process.argv.slice(2)).then(
+    (out) => {
+      console.log(out?.usage ?? JSON.stringify(out, null, 2))
+      const w = warnings(out)
+      if (w.length) { for (const line of w) console.error(`miadi-run: ${line}`); process.exitCode = 8 }
+    },
+    (e) => { console.error(`miadi-run: ${e.message}`); process.exitCode = e instanceof Refusal ? e.code : 1 },
+  )
+}
