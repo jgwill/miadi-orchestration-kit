@@ -129,6 +129,13 @@
   // started playing, and iOS gave the audio session to it: the take was cut (Episode 339).
   function busy() { return state === "starting" || state === "recording"; }
 
+  // Her voice is playing (not the silence that holds the audio session open).
+  var queued = [];
+  function speaking() {
+    return !replyAudio.paused && !replyAudio.ended && replyAudio.loop !== true
+      && (replyAudio.getAttribute("src") || "").indexOf("api/replies/") === 0;
+  }
+
   function when(iso) {
     var d = new Date(iso);
     return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -143,6 +150,15 @@
   // the page opens is shown, not played: iOS would refuse it and leave "Tap ▶ below".
   function showReply(reply, arrived) {
     var isNew = !current || current.id !== reply.id;
+    // A reply that arrives while another is playing waits for it to end, as it waits
+    // while William records (William, Episode 120, 2026-10-12: "it cuts me off").
+    if (isNew && speaking()) {
+      if (!queued.some(function (r) { return r.id === reply.id; })) queued.push(reply);
+      replyNotice.textContent = "Mia replied again at " + when(reply.at) + ". It plays when this one ends.";
+      threadKey = "";
+      loadThread();
+      return;
+    }
     current = reply;
     if (isNew) loadThread().then(showNewest);
     if (isNew && busy()) {
@@ -443,6 +459,17 @@
     hearButton.disabled = false;
   });
 
+  // The next queued reply starts when the one playing ends. The element was started by a
+  // tap or a primed play, so iOS lets it go on to the next source.
+  replyAudio.addEventListener("ended", function () {
+    if (replyAudio.loop === true || busy()) return;
+    var next = queued.shift();
+    if (!next) return;
+    replyNotice.textContent = queued.length ? queued.length + " more of her replies wait after this one." : "";
+    showReply(next, false);
+    playReply();
+  });
+
   // The player only knows that the audio failed. The server knows why, so ask it.
   replyAudio.addEventListener("error", function () {
     hearButton.textContent = "Hear Mia";
@@ -665,6 +692,13 @@
     if (state !== "starting") { media.getTracks().forEach(function (track) { track.stop(); }); return; }
     stream = media;
     chunks = [];
+    recId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+    sentBytes = 0;
+    (media.getAudioTracks ? media.getAudioTracks() : []).forEach(function (track) {
+      if (!track.addEventListener) return;
+      track.addEventListener("ended", function () { diagnose("track-ended", { seconds: elapsed() }); });
+      track.addEventListener("mute", function () { diagnose("track-muted", { seconds: elapsed() }); });
+    });
     try {
       recorder = new MediaRecorder(stream, { mimeType: pickType() });
     } catch (error) {
@@ -675,15 +709,31 @@
       return;
     }
     recorder.ondataavailable = function (event) { if (event.data && event.data.size) chunks.push(event.data); };
-    recorder.onerror = function () {
+    // The recorder failing is not the recording failing: every second it captured is in
+    // chunks, and most of it is already on gaia. Keep it, say why, and offer Send.
+    recorder.onerror = function (event) {
+      var error = (event && event.error) || {};
+      var seconds = elapsed();
+      var kept = new Blob(chunks, { type: (recorder && recorder.mimeType) || "audio/mp4" });
+      diagnose("recorder-error", { name: error.name || "", message: error.message || "", seconds: seconds, bytes: kept.size, held: sentBytes });
       tickOff();
+      partsOff();
       releaseMic();
       releaseScreen();
-      setState("idle");
       recorderOff();
-      say("The recording stopped with an error. Nothing was sent.", true);
+      var why = error.name ? " (" + error.name + (error.message ? ": " + error.message : "") + ")" : "";
+      if (kept.size) {
+        pending = kept;
+        setState("retry");
+        say("The recorder stopped with an error after " + mmss(seconds) + why + ". What it captured is kept: tap Send."
+          + (sentBytes ? " gaia already holds " + kb(sentBytes) + " of it, and stores that by itself if you leave the page." : ""), true);
+      } else {
+        setState("idle");
+        say("The recorder stopped with an error" + why + " before it captured anything. Nothing was sent.", true);
+      }
     };
     recorder.start(1000);
+    partsOn();
     tickOn();
     holdScreen();
     result.hidden = true;
@@ -714,20 +764,69 @@
   async function stop() {
     if (state !== "recording") return;
     setState("sending");
+    var seconds = elapsed();
     recorderOff();
     tickOff();
+    partsOff();
     holdAudioOpen();
     var blob = await lastBlob();
     releaseMic();
     releaseScreen();
     if (!blob || blob.size === 0) {
+      diagnose("empty-at-stop", { seconds: seconds, held: sentBytes });
       timer.textContent = "";
       setState("idle");
-      say("Nothing was recorded. Try again.", true);
+      say(sentBytes
+        ? "The recorder handed back nothing at Stop, but gaia holds " + kb(sentBytes) + " of these " + mmss(seconds) + ". It becomes a take in the episode within a few minutes."
+        : "Nothing was recorded. Try again.", true);
       return;
     }
     await send(blob);
   }
+
+  // While recording, what the recorder captured goes to gaia every 10 seconds, so a
+  // recorder or a page that fails loses at most those seconds (William, 2026-10-12).
+  var recId = "", sentBytes = 0, partBusy = false, partTimer = null;
+  var PART_EVERY_MS = 10000;
+  function partsOn() { partsOff(); partTimer = setInterval(sendPart, PART_EVERY_MS); }
+  function partsOff() { if (partTimer) clearInterval(partTimer); partTimer = null; }
+  async function sendPart() {
+    if (!recId || partBusy || !chunks.length) return;
+    var whole = new Blob(chunks, { type: (recorder && recorder.mimeType) || "audio/mp4" });
+    if (whole.size <= sentBytes) return;
+    partBusy = true;
+    var rec = recId;
+    try {
+      var response = await fetch("api/takes/part?episode=" + encodeURIComponent(select.value) + "&rec=" + rec + "&offset=" + sentBytes, {
+        method: "POST",
+        headers: { "content-type": (whole.type || "audio/mp4").split(";")[0] },
+        body: whole.slice(sentBytes),
+      });
+      var answer = await response.json();
+      if (rec === recId && typeof answer.bytes === "number") sentBytes = answer.bytes;
+    } catch (_) {
+      // The next part carries these bytes too: offset only moves when gaia says so.
+    } finally {
+      partBusy = false;
+    }
+  }
+
+  // What the page saw when recording went wrong goes to gaia's log with the recording.
+  function diagnose(kind, detail) {
+    if (!recId) return;
+    var body = JSON.stringify(Object.assign({
+      rec: recId, episode: select.value, kind: kind, at: new Date().toISOString(),
+      mime: (recorder && recorder.mimeType) || pickType(), visibility: document.visibilityState, agent: navigator.userAgent,
+    }, detail || {}));
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon("api/takes/diagnostic", new Blob([body], { type: "application/json" }))) return;
+      fetch("api/takes/diagnostic", { method: "POST", headers: { "content-type": "application/json" }, body: body, keepalive: true }).catch(function () {});
+    } catch (_) {}
+  }
+
+  function elapsed() { return startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0; }
+  function mmss(s) { return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+  function kb(bytes) { return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB"; }
 
   // A recording whose upload failed is kept, so a dropped connection never loses what
   // William said. The button becomes Send again.
@@ -737,7 +836,7 @@
     remember("episode", episode);
     say("Sending " + (blob.size / 1024 / 1024).toFixed(1) + " MB, then transcribing and storing on gaia…");
     try {
-      var response = await fetch("api/takes?episode=" + encodeURIComponent(episode), {
+      var response = await fetch("api/takes?episode=" + encodeURIComponent(episode) + (recId ? "&rec=" + recId : ""), {
         method: "POST",
         headers: { "content-type": (blob.type || "audio/mp4").split(";")[0] },
         body: blob,
@@ -745,6 +844,8 @@
       var answer = await response.json();
       if (!answer.success) throw new Error(answer.error || ("HTTP " + response.status));
       pending = null;
+      recId = "";
+      sentBytes = 0;
       resultHead.textContent = "";
       var strong = document.createElement("strong");
       strong.textContent = "Take " + answer.take + " is in the episode.";
@@ -773,7 +874,9 @@
       pending = blob;
       releaseAudioHold();
       setState("retry");
-      say("Not stored: " + error.message + " Your recording is kept — tap Send again.", true);
+      diagnose("send-failed", { message: error.message, bytes: blob.size, held: sentBytes });
+      say("Not stored: " + error.message + " Your recording is kept — tap Send again."
+        + (sentBytes ? " gaia also holds " + kb(sentBytes) + " of it, and stores that by itself if you leave the page." : ""), true);
     }
   }
 
@@ -786,6 +889,7 @@
 
   // iOS drops a screen lock when the page goes to the back; take it again on return.
   document.addEventListener("visibilitychange", function () {
+    if (state === "recording") diagnose("page-" + document.visibilityState, { seconds: elapsed(), held: sentBytes });
     if (document.visibilityState === "visible" && state === "recording") holdScreen();
   });
   window.addEventListener("pagehide", function () { tickOff(); releaseMic(); if (heartbeat) recorderOff(); });

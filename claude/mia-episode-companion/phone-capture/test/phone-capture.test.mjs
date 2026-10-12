@@ -30,10 +30,12 @@ async function bridge({ transcriber, voice = null, language = "fr", locate } = {
     transcriber,
     registryClient: { register: async (record) => { registrations.push(record); return { success: true, id: record.id ?? "capture:stub" }; } },
   });
-  const server = createServer(createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate }));
+  const logged = [];
+  const app = createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate, recoverEveryMs: 0, log: (line) => logged.push(line) });
+  const server = createServer(app);
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const url = `http://127.0.0.1:${server.address().port}`;
-  return { base, chronicleRoot, url, registrations, close: () => server.close() };
+  return { base, chronicleRoot, url, registrations, logged, recover: (options) => app.recoverParts(options), close: () => server.close() };
 }
 
 const stubTranscriber = {
@@ -421,3 +423,73 @@ test("the trading chart may post a labelling note; another origin may not", asyn
     b.close();
   }
 });
+
+// William, Episode 120, 2026-10-12: a few minutes of recording were lost when the recorder
+// failed at Stop. The page now sends what it captured every 10 seconds.
+const part = (b, rec, offset, bytes) => fetch(`${b.url}/api/takes/part?episode=${EPISODE}&rec=${rec}&offset=${offset}`, {
+  method: "POST", headers: { "content-type": "audio/mp4" }, body: bytes,
+});
+
+test("parts of a recording are appended in order; a resent part is ignored and a gap is answered with what gaia holds", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const rec = "rec-test-0001";
+    assert.equal((await (await part(b, rec, 0, Buffer.from("aaaa"))).json()).bytes, 4);
+    assert.equal((await (await part(b, rec, 0, Buffer.from("aaaa"))).json()).bytes, 4, "a resent part changes nothing");
+    assert.equal((await (await part(b, rec, 2, Buffer.from("aabb"))).json()).bytes, 6, "an overlapping part keeps its new tail");
+    const gap = await part(b, rec, 10, Buffer.from("cc"));
+    assert.equal(gap.status, 409);
+    assert.equal((await gap.json()).bytes, 6, "a gap is told where gaia's copy ends");
+    assert.equal(readFileSync(join(b.base, "uploads", `rec-${rec}.part`), "utf8"), "aaaabb");
+  } finally {
+    b.close();
+  }
+});
+
+test("a recording the phone never finishes becomes a take, and sending it later does not store it twice", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const rec = "rec-test-0002";
+    await part(b, rec, 0, Buffer.from("not really aac, "));
+    await part(b, rec, 16, Buffer.from("but it was said"));
+    const diagnostic = await fetch(`${b.url}/api/takes/diagnostic`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rec, episode: EPISODE, kind: "recorder-error", name: "UnknownError", seconds: 182 }),
+    });
+    assert.equal((await diagnostic.json()).held, 31);
+    assert.ok(b.logged.some((line) => line.includes(rec) && line.includes("UnknownError")), "the page's account reaches the log");
+
+    assert.equal((await b.recover()).length, 0, "a recording still growing is left alone");
+    const recovered = await b.recover({ now: Date.now() + 10 * 60 * 1000 });
+    assert.equal(recovered.length, 1);
+    const take = recovered[0].take;
+    assert.ok(existsSync(join(b.chronicleRoot, EPISODE, "captures", take, "capture.json")), "the recovered take is in the episode");
+    assert.equal(existsSync(join(b.base, "uploads", `rec-${rec}.part`)), false, "the part is gone once it is a take");
+
+    const again = await fetch(`${b.url}/api/takes?episode=${EPISODE}&rec=${rec}`, {
+      method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("not really aac, but it was said"),
+    });
+    const answer = await again.json();
+    assert.equal(answer.success, true);
+    assert.equal(answer.take, take, "the page is answered with the take gaia already stored");
+    assert.equal(answer.already, "recovered");
+  } finally {
+    b.close();
+  }
+});
+
+test("a take sent whole closes its parts, so nothing is recovered from them later", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const rec = "rec-test-0003";
+    await part(b, rec, 0, Buffer.from("partial"));
+    const stored = await (await fetch(`${b.url}/api/takes?episode=${EPISODE}&rec=${rec}`, {
+      method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("partial and the rest"),
+    })).json();
+    assert.equal(stored.success, true);
+    assert.equal((await b.recover({ now: Date.now() + 10 * 60 * 1000 })).length, 0);
+  } finally {
+    b.close();
+  }
+});
+

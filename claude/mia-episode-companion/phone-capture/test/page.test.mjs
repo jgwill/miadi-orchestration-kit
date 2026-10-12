@@ -46,6 +46,7 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
   const stoppedTracks = { count: 0 };
   const store = new Map();
   const calls = [];
+  const diagnostics = [];
 
   class FakeRecorder {
     constructor(stream, options) {
@@ -69,7 +70,7 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
       return { json: async () => ({ success: true, defaultEpisode: EPISODE, episodes: episodeList }) };
     }
     if (url.startsWith("api/replies")) {
-      const sent = calls.find((c) => c.url.startsWith("api/takes"));
+      const sent = calls.find((c) => c.url.startsWith("api/takes?"));
       const ready = replyAfterTake && sent && Date.now() - sent.at >= replyDelay;
       const found = ready ? [{ id: "r1", take: "260922090000", text: "Heard you.", at: new Date().toISOString(), audio: null }] : [];
       if (!found.length && replyAnytime && Date.now() - started >= replyAnytime) found.push({ id: "r0", take: null, text: "Unasked news.", at: new Date().toISOString(), audio: null });
@@ -82,6 +83,14 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
     if (url.startsWith("api/recorder")) {
       recorderPosts.push(JSON.parse(options.body).recording);
       return { json: async () => ({ success: true }) };
+    }
+    if (url.startsWith("api/takes/diagnostic")) {
+      diagnostics.push(JSON.parse(options.body));
+      return { json: async () => ({ success: true }) };
+    }
+    if (url.startsWith("api/takes/part")) {
+      const offset = Number(new URL(url, "http://page").searchParams.get("offset"));
+      return { json: async () => ({ success: true, bytes: offset + (options.body?.size ?? 0) }) };
     }
     if (url.startsWith("api/takes")) {
       if (takeStatus !== 200) throw new Error("network down");
@@ -117,7 +126,7 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
   };
   const run = new Function(...Object.keys(context), SCRIPT);
   run(...Object.values(context));
-  return { elements, made, stoppedTracks, calls, recorderPosts, tap: () => elements.record.fire("click") };
+  return { elements, made, stoppedTracks, calls, diagnostics, recorderPosts, tap: () => elements.record.fire("click") };
 }
 
 const settle = (ms = 30) => new Promise((done) => setTimeout(done, ms));
@@ -139,7 +148,7 @@ test("two taps during the microphone prompt start one recorder, and Stop ends th
   assert.equal(h.elements.timer.textContent, afterStop, "no clock is left running after Stop");
   assert.equal(h.stoppedTracks.count, 1, "the microphone is released");
   assert.equal(h.elements.record.textContent, "Record");
-  assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes")).length, 1, "one take is sent");
+  assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes?")).length, 1, "one take is sent");
 });
 
 test("a failed upload keeps the recording and offers to send it again", async () => {
@@ -155,7 +164,7 @@ test("a failed upload keeps the recording and offers to send it again", async ()
   h.calls.length = 0;
   h.elements.record.fire("click");
   await settle(120);
-  assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes")).length, 1, "the same recording is sent again");
+  assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes?")).length, 1, "the same recording is sent again");
   assert.equal(h.made.length, 1, "retrying does not open the microphone again");
 });
 
@@ -167,7 +176,7 @@ test("a recorder that never reports stopped does not hang the page", async () =>
   h.tap();
   await settle(3400);
   assert.equal(h.elements.record.textContent, "Record", "the page came back on its own");
-  assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes")).length, 1);
+  assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes?")).length, 1);
   assert.equal(h.stoppedTracks.count, 1);
 });
 
@@ -319,3 +328,65 @@ test("after the take is sent, the reply that waited is offered, not played, and 
   assert.equal(h.elements.thread.appended[0].appended[1].textContent, "Arrived mid-take.");
   assert.equal(h.elements.transcript.textContent, "", "the take's words are in the conversation, not printed again above it");
 });
+
+// William, Episode 120, 2026-10-12: a few minutes in, the recorder failed at Stop and the
+// page said nothing was sent. What it captured stays, and gaia is told what happened.
+test("a recorder error keeps what it captured, says why, offers Send, and tells gaia", async () => {
+  const h = harness();
+  await settle(10);
+  h.tap();
+  await settle(60);
+  await h.made[0].onerror({ error: { name: "UnknownError", message: "The operation failed" } });
+  await settle(20);
+  assert.equal(h.elements.record.textContent, "Send again");
+  assert.match(h.elements.status.textContent, /The recorder stopped with an error after 0:00 \(UnknownError: The operation failed\)\. What it captured is kept: tap Send\./);
+  const told = h.diagnostics.find((d) => d.kind === "recorder-error");
+  assert.ok(told, "gaia is told what the page saw");
+  assert.equal(told.name, "UnknownError");
+  h.calls.length = 0;
+  h.elements.record.fire("click");
+  await settle(60);
+  const sent = h.calls.filter((c) => c.url.startsWith("api/takes?"));
+  assert.equal(sent.length, 1, "the captured audio is sent");
+  assert.match(sent[0].url, new RegExp("&rec=" + told.rec + "$"), "under the same recording id, so gaia never stores it twice");
+});
+
+test("while recording, what was captured goes to gaia in parts, each at the offset gaia holds", async () => {
+  const h = harness({ pollEvery: 25 });
+  await settle(10);
+  h.tap();
+  await settle(120);
+  const parts = h.calls.filter((c) => c.url.startsWith("api/takes/part"));
+  assert.ok(parts.length >= 1, "a part was sent while recording");
+  assert.match(parts[0].url, /&offset=0$/);
+  assert.ok(parts.every((c, i) => i === 0 || !/&offset=0$/.test(c.url)), "later parts start where gaia's count ends");
+  h.tap();
+  await settle(60);
+  assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes?")).length, 1, "Stop still sends the whole take");
+});
+
+// William, 2026-10-12: "if I'm listening to a previous message of you and you send another
+// one, it cuts me off". The new one waits and plays after.
+test("a reply that arrives while another plays waits for it to end, then plays", async () => {
+  const at = new Date().toISOString();
+  const h = harness({ pollEvery: 20, extraReplies: (ms) => [ms > 150
+    ? { id: "r2", take: null, text: "Second.", at, audio: null }
+    : { id: "r1", take: null, text: "First.", at, audio: null }] });
+  h.elements.autoplay.checked = true;
+  await settle(80);
+  h.elements.hearReply.fire("click");
+  await settle(10);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r1/audio");
+  h.elements.replyAudio.paused = false;
+  const pausesBefore = h.elements.replyAudio.pauses || 0;
+  await settle(200);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r1/audio", "the first reply keeps playing");
+  assert.equal(h.elements.replyAudio.pauses || 0, pausesBefore, "nothing paused it");
+  assert.match(h.elements.replyNotice.textContent, /It plays when this one ends/);
+  h.elements.replyAudio.paused = true;
+  h.elements.replyAudio.ended = true;
+  await h.elements.replyAudio.fire("ended");
+  await settle(10);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r2/audio", "the waiting reply plays next");
+});
+

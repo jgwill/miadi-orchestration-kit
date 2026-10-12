@@ -86,6 +86,18 @@ The plugin's SessionStart hook runs `phone-capture/ensure.sh`. On a host with
 A running service is left alone. A lock keeps two sessions from starting two services.
 See `phone-capture/README.md`.
 
+A take is not held only in the phone (0.3.0, Episode 120, 2026-10-12). William lost a take
+of a few minutes when Safari's recorder failed at Stop, and the page said nothing was sent.
+- **While recording**, the page sends what it captured every 10 seconds to
+  `POST /api/takes/part`. Stop still sends the whole take, under the same recording id.
+- **When the recorder fails**, the page keeps what it captured, says why, and offers Send.
+  What it saw (the error, the track ending, the page going to the back) goes to
+  `POST /api/takes/diagnostic` and into the service log.
+- **When the phone never finishes**, the service turns parts that stopped growing for three
+  minutes into a take in the episode. A take sent later under that id gets that take back,
+  never a second one.
+- **A reply that arrives while another plays** waits for it to end, then plays.
+
 ## Cost of a turn
 
 The first live wake (Episode 349, take `260920235421`, 40 words) over-read. Mia explored

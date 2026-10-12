@@ -11,12 +11,13 @@
 // Binds to loopback. `tailscale serve` fronts it with HTTPS, which Safari needs
 // before it will open the microphone, and keeps it on the tailnet.
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   appendFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync,
 } from "node:fs";
-import { rm } from "node:fs/promises";
+import { copyFile, rm } from "node:fs/promises";
+import { promisify } from "node:util";
 import { createServer } from "node:http";
 import { homedir, hostname, userInfo } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -44,6 +45,41 @@ const EPISODE_NAME = /^\d{4}-\d{2}-\d{2}-episode-(\d+)-[a-z0-9-]+$/;
 // (episodes/CLAUDE.md: raw captures never enter history). iPhone Safari records
 // audio/mp4, which lands as .m4a.
 const EXTENSIONS = { "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/wav": "wav", "audio/x-wav": "wav" };
+
+// A take is uploaded in parts while it records, so a recorder that fails on the phone
+// loses at most the last seconds. William, Episode 120, 2026-10-12: "as soon as I'm
+// recording something longer ... when you press stop it just says recording fail and
+// that's it. You lose everything." A part nobody finishes becomes a take on its own.
+const RECORDING_ID = /^[A-Za-z0-9-]{8,64}$/;
+const PART_STALE_MS = 3 * 60 * 1000;
+const RECOVER_EVERY_MS = 60 * 1000;
+const MAX_DIAGNOSTIC_CHARS = 4000;
+const execFileAsync = promisify(execFile);
+
+async function readBody(req, limit) {
+  const pieces = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > limit) throw new Refusal(413, `a part is limited to ${limit / 1024 / 1024} MB`);
+    pieces.push(chunk);
+  }
+  return Buffer.concat(pieces);
+}
+
+// Safari's recorder writes fragmented MP4 one slice at a time. Copy the fragments into a
+// plain .m4a so every reader takes it; when ffmpeg is missing or refuses, keep the bytes.
+async function playable(partFile, extension) {
+  const out = partFile.replace(/\.part$/, `.${extension}`);
+  if (extension === "m4a") {
+    try {
+      await execFileAsync("ffmpeg", ["-loglevel", "error", "-y", "-i", partFile, "-c", "copy", "-movflags", "+faststart", out], { timeout: 120_000 });
+      return out;
+    } catch (_) { /* fall through to a plain copy */ }
+  }
+  await copyFile(partFile, out);
+  return out;
+}
 
 class Refusal extends Error {
   constructor(status, message) {
@@ -354,7 +390,7 @@ const VOICE_AT_POST_MS = 20_000;
 
 export function createApp({
   service, chronicleRoot, uploadsDir, repliesDir, listenerDir, voice = null, defaultEpisode = "",
-  locate = () => null, log = () => {},
+  locate = () => null, log = () => {}, partStaleMs = PART_STALE_MS, recoverEveryMs = RECOVER_EVERY_MS,
 }) {
   const serial = serializer();
   const voicing = new Map(); // reply id → in-flight synthesis, so two taps make one voice
@@ -487,6 +523,168 @@ export function createApp({
     return { success: true, audio: `api/replies/${id}/audio` };
   }
 
+  // The take pipeline for audio already on disk: import, finalize, transcribe, assign.
+  // Runs inside serial(): the capture service holds a single recorder.
+  async function storeFile({ path, bytes, episode, purpose = "", recordedBy }) {
+    await service.start({
+      import_path: path,
+      episode_path: episode,
+      source: "phone-capture",
+      ...(recordedBy ? { recorded_by: recordedBy } : {}),
+    });
+    let stopped;
+    try {
+      stopped = await service.stop({ episode_path: episode });
+    } catch (error) {
+      throw new Refusal(500, `the take did not finalize: ${error instanceof Error ? error.message : error}`);
+    }
+
+    let english = "";
+    let transcriptError = "";
+    try {
+      const transcribed = await service.transcribe({ filename: stopped.filename });
+      english = transcribed.transcription.english || transcribed.transcription.translation || "";
+    } catch (error) {
+      transcriptError = error instanceof Error ? error.message : String(error);
+    }
+    // Bound either way: the audio is safe in its episode, and a later
+    // transcription re-stores the bundle rather than duplicating it.
+    const assigned = await service.assign({ filename: stopped.filename, episode_path: episode });
+    if (purpose) {
+      const takeDir = join(episodeDir(chronicleRoot, episode), "captures", stopped.tlid);
+      mkdirSync(takeDir, { recursive: true });
+      writeFileSync(join(takeDir, "purpose.json"), `${JSON.stringify({ purpose, at: new Date().toISOString() })}\n`);
+    }
+    const presence = listenerState(listenerDir, episode);
+    return {
+      success: true,
+      episode,
+      take: stopped.tlid,
+      filename: stopped.filename,
+      bytes,
+      bundle: assigned.bundle,
+      listening: presence.state !== "away",
+      presence,
+      registered: assigned.registered,
+      english,
+      ...(purpose ? { purpose } : {}),
+      ...(transcriptError ? { transcriptError } : {}),
+    };
+  }
+
+  // A recording's parts and its record live beside the uploads, named by the page's id.
+  function recordingId(url) {
+    const rec = url.searchParams.get("rec") || "";
+    if (rec && !RECORDING_ID.test(rec)) throw new Refusal(400, "a recording id is 8 to 64 letters, digits or dashes");
+    return rec;
+  }
+  const partPath = (rec) => join(uploadsDir, `rec-${rec}.part`);
+  const metaPath = (rec) => join(uploadsDir, `rec-${rec}.json`);
+  function readPartMeta(rec) {
+    try { return JSON.parse(readFileSync(metaPath(rec), "utf8")); } catch (_) { return null; }
+  }
+  function writePartMeta(meta) {
+    mkdirSync(uploadsDir, { recursive: true });
+    writeFileSync(metaPath(meta.rec), `${JSON.stringify(meta)}\n`, { mode: 0o600 });
+  }
+  async function closePart(rec, fields) {
+    const meta = readPartMeta(rec);
+    if (meta) writePartMeta({ ...meta, ...fields, closedAt: new Date().toISOString() });
+    await rm(partPath(rec), { force: true });
+  }
+  function doneAnswer(meta) {
+    const presence = listenerState(listenerDir, meta.episode);
+    return {
+      success: true, episode: meta.episode, take: meta.take, bytes: meta.bytes, already: meta.state,
+      listening: presence.state !== "away", presence, english: "",
+    };
+  }
+
+  // POST /api/takes/part?rec=&offset=&episode= — the next bytes of a take still recording.
+  // `offset` is how many bytes the page believes gaia holds. A resent part is ignored, an
+  // overlapping one keeps only its new tail, and a gap is answered 409 with what gaia has.
+  async function appendPart(req, url) {
+    const episode = url.searchParams.get("episode") || defaultEpisode;
+    episodeDir(chronicleRoot, episode);
+    const rec = recordingId(url);
+    if (!rec) throw new Refusal(400, "a part needs the recording's id (rec)");
+    const type = String(req.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
+    const extension = EXTENSIONS[type];
+    if (!extension) throw new Refusal(415, `record as audio/mp4 (received ${type || "no content type"})`);
+    const offset = Number(url.searchParams.get("offset") ?? "0");
+    if (!Number.isInteger(offset) || offset < 0) throw new Refusal(400, "offset is a whole number of bytes");
+    const purpose = url.searchParams.get("purpose") || "";
+    if (purpose && !PURPOSES.has(purpose)) throw new Refusal(400, `unknown purpose: ${purpose}`);
+    const body = await readBody(req, MAX_BYTES);
+
+    const now = new Date().toISOString();
+    const meta = readPartMeta(rec) ?? {
+      rec, episode, type, extension, purpose,
+      recordedBy: String(req.headers["tailscale-user-login"] ?? "") || undefined,
+      state: "open", bytes: 0, startedAt: now, diagnostics: [],
+    };
+    if (meta.state !== "open") return { success: true, rec, state: meta.state, take: meta.take, bytes: meta.bytes };
+    if (offset > meta.bytes) return { success: false, conflict: true, rec, bytes: meta.bytes, error: `gaia holds ${meta.bytes} bytes of this recording` };
+    const fresh = body.subarray(Math.min(body.length, meta.bytes - offset));
+    if (meta.bytes + fresh.length > MAX_BYTES) throw new Refusal(413, `a take is limited to ${MAX_BYTES / 1024 / 1024} MB`);
+    mkdirSync(uploadsDir, { recursive: true });
+    if (fresh.length) appendFileSync(partPath(rec), fresh, { mode: 0o600 });
+    writePartMeta({ ...meta, episode, bytes: meta.bytes + fresh.length, updatedAt: now });
+    return { success: true, rec, bytes: meta.bytes + fresh.length };
+  }
+
+  // POST /api/takes/diagnostic {rec, episode, ...} — what the page saw when recording went
+  // wrong, kept with the recording and written to the service log.
+  async function recordDiagnostic(req) {
+    const body = await readJson(req);
+    const rec = String(body.rec ?? "");
+    if (!RECORDING_ID.test(rec)) throw new Refusal(400, "a diagnostic names its recording (rec)");
+    const note = JSON.stringify(body).slice(0, MAX_DIAGNOSTIC_CHARS);
+    log(`recording ${rec}: ${note}`);
+    const meta = readPartMeta(rec);
+    if (meta) writePartMeta({ ...meta, diagnostics: [...(meta.diagnostics ?? []), { at: new Date().toISOString(), note }].slice(-20) });
+    return { success: true, rec, held: meta?.bytes ?? 0, state: meta?.state ?? "none" };
+  }
+
+  // Parts that stopped growing and were never finished become takes, so a phone that
+  // crashed, lost its network or threw away its recorder still leaves what gaia received.
+  async function recoverParts({ now = Date.now() } = {}) {
+    let names = [];
+    try { names = readdirSync(uploadsDir).filter((name) => /^rec-.+\.json$/.test(name)); } catch (_) { return []; }
+    const recovered = [];
+    for (const name of names) {
+      const rec = name.slice(4, -5);
+      const meta = readPartMeta(rec);
+      if (!meta || meta.state !== "open" || !meta.bytes || (meta.attempts ?? 0) >= 3) continue;
+      if (now - Date.parse(meta.updatedAt ?? meta.startedAt) < partStaleMs) continue;
+      const answer = await serial(async () => {
+        const fresh = readPartMeta(rec);
+        if (!fresh || fresh.state !== "open") return null;
+        let file = "";
+        try {
+          file = await playable(partPath(rec), fresh.extension);
+          const stored = await storeFile({ path: file, bytes: fresh.bytes, episode: fresh.episode, purpose: fresh.purpose, recordedBy: fresh.recordedBy });
+          await closePart(rec, { state: "recovered", take: stored.take });
+          log(`recording ${rec}: recovered ${fresh.bytes} bytes as take ${stored.take} in ${fresh.episode}`);
+          return stored;
+        } catch (error) {
+          const why = error instanceof Error ? error.message : String(error);
+          writePartMeta({ ...fresh, attempts: (fresh.attempts ?? 0) + 1, lastError: why });
+          log(`recording ${rec}: recovery failed: ${why}`);
+          return null;
+        } finally {
+          if (file) await rm(file, { force: true });
+        }
+      });
+      if (answer) recovered.push(answer);
+    }
+    return recovered;
+  }
+  if (recoverEveryMs > 0) {
+    setTimeout(() => recoverParts().catch(() => {}), 5_000).unref?.();
+    setInterval(() => recoverParts().catch(() => {}), recoverEveryMs).unref?.();
+  }
+
   async function storeTake(req, url) {
     const episode = url.searchParams.get("episode") || defaultEpisode;
     episodeDir(chronicleRoot, episode);
@@ -496,64 +694,27 @@ export function createApp({
 
     const purpose = url.searchParams.get("purpose") || "";
     if (purpose && !PURPOSES.has(purpose)) throw new Refusal(400, `unknown purpose: ${purpose}`);
+    const rec = recordingId(url);
     const upload = await receive(req, uploadsDir, extension);
     const recordedBy = String(req.headers["tailscale-user-login"] ?? "") || undefined;
     try {
       return await serial(async () => {
-        await service.start({
-          import_path: upload.path,
-          episode_path: episode,
-          source: "phone-capture",
-          ...(recordedBy ? { recorded_by: recordedBy } : {}),
-        });
-        let stopped;
-        try {
-          stopped = await service.stop({ episode_path: episode });
-        } catch (error) {
-          throw new Refusal(500, `the take did not finalize: ${error instanceof Error ? error.message : error}`);
-        }
-
-        let english = "";
-        let transcriptError = "";
-        try {
-          const transcribed = await service.transcribe({ filename: stopped.filename });
-          english = transcribed.transcription.english || transcribed.transcription.translation || "";
-        } catch (error) {
-          transcriptError = error instanceof Error ? error.message : String(error);
-        }
-        // Bound either way: the audio is safe in its episode, and a later
-        // transcription re-stores the bundle rather than duplicating it.
-        const assigned = await service.assign({ filename: stopped.filename, episode_path: episode });
-        if (purpose) {
-          const takeDir = join(episodeDir(chronicleRoot, episode), "captures", stopped.tlid);
-          mkdirSync(takeDir, { recursive: true });
-          writeFileSync(join(takeDir, "purpose.json"), `${JSON.stringify({ purpose, at: new Date().toISOString() })}\n`);
-        }
-        const presence = listenerState(listenerDir, episode);
-        return {
-          success: true,
-          episode,
-          take: stopped.tlid,
-          filename: stopped.filename,
-          bytes: upload.bytes,
-          bundle: assigned.bundle,
-          listening: presence.state !== "away",
-          presence,
-          registered: assigned.registered,
-          english,
-          ...(purpose ? { purpose } : {}),
-          ...(transcriptError ? { transcriptError } : {}),
-        };
+        // Sent again after gaia already stored its parts: answer with that take, never a second one.
+        const earlier = rec ? readPartMeta(rec) : null;
+        if (earlier && earlier.state !== "open" && earlier.take) return doneAnswer(earlier);
+        const answer = await storeFile({ path: upload.path, bytes: upload.bytes, episode, purpose, recordedBy });
+        if (rec) await closePart(rec, { state: "stored", take: answer.take });
+        return answer;
       });
     } finally {
       await rm(upload.path, { force: true });
     }
   }
 
-  return async function handle(req, res) {
+  const handle = async function handle(req, res) {
     const url = new URL(req.url ?? "/", "http://phone-capture");
     try {
-      if (url.pathname === "/api/takes" && req.headers.origin) {
+      if (url.pathname.startsWith("/api/takes") && req.headers.origin) {
         const allowed = CORS_ORIGINS.includes(req.headers.origin);
         if (allowed) {
           res.setHeader("access-control-allow-origin", req.headers.origin);
@@ -580,6 +741,15 @@ export function createApp({
       }
       if (req.method === "GET" && url.pathname === "/api/episodes") {
         sendJson(res, 200, { success: true, defaultEpisode, episodes: listEpisodes(chronicleRoot) });
+        return;
+      }
+      if (req.method === "POST" && url.pathname === "/api/takes/part") {
+        const out = await appendPart(req, url);
+        sendJson(res, out.conflict ? 409 : 200, out);
+        return;
+      }
+      if (req.method === "POST" && url.pathname === "/api/takes/diagnostic") {
+        sendJson(res, 200, await recordDiagnostic(req));
         return;
       }
       if (req.method === "POST" && url.pathname === "/api/takes") {
@@ -631,6 +801,8 @@ export function createApp({
       else res.destroy();
     }
   };
+  handle.recoverParts = recoverParts;
+  return handle;
 }
 
 // The Miadi voice layer through its own client: publish, then fetch the rendered mp3.
