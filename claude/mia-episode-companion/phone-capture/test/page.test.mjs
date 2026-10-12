@@ -84,6 +84,9 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
       recorderPosts.push(JSON.parse(options.body).recording);
       return { json: async () => ({ success: true }) };
     }
+    if (/^api\/replies\/[^/]+\/feedback$/.test(url)) {
+      return { json: async () => ({ success: true, value: JSON.parse(options.body).value }) };
+    }
     if (url.startsWith("api/takes/diagnostic")) {
       diagnostics.push(JSON.parse(options.body));
       return { json: async () => ({ success: true }) };
@@ -390,3 +393,19 @@ test("a reply that arrives while another plays waits for it to end, then plays",
   assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r2/audio", "the waiting reply plays next");
 });
 
+
+test("a thumb under her reply posts his judgment of it", async () => {
+  const at = new Date().toISOString();
+  const h = harness({ thread: () => [{ kind: "reply", id: "r1", take: null, text: "Heard.", at, audio: null }] });
+  await settle(80);
+  const buttons = [];
+  const walk = (node) => { (node.appended || []).forEach((child) => { if (child.className && /thumb/.test(child.className) && child.textContent) buttons.push(child); walk(child); }); };
+  walk(h.elements.thread);
+  const up = buttons.find((b) => b.textContent === "👍");
+  assert.ok(up, "a thumb up is shown under her reply");
+  await up.fire("click");
+  await settle(20);
+  const sent = h.calls.find((c) => c.url === "api/replies/r1/feedback");
+  assert.ok(sent, "the thumb is posted");
+  assert.deepEqual(JSON.parse(sent.options.body), { value: "up" });
+});

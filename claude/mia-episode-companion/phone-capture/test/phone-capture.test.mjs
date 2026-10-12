@@ -493,3 +493,28 @@ test("a take sent whole closes its parts, so nothing is recovered from them late
   }
 });
 
+
+// William, 2026-10-12: "we should have a thumbs up on the actual message that you send".
+test("a thumb on a reply is kept with its text's hash, the latest one counts, and the thread shows it", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const posted = await (await fetch(`${b.url}/api/replies`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, text: "The big test went through.", seat: "test", origin: { user: "mia", host: "gaia" } }),
+    })).json();
+    assert.equal(posted.success, true, JSON.stringify(posted));
+    const id = posted.id;
+    const thumb = (value) => fetch(`${b.url}/api/replies/${id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ value }) });
+    assert.equal((await (await thumb("down")).json()).value, "down");
+    assert.equal((await (await thumb("up")).json()).value, "up");
+    assert.equal((await thumb("maybe")).status, 400);
+    const thread = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    assert.equal(thread.items.find((item) => item.id === id).feedback, "up");
+    const kept = readFileSync(join(b.base, "replies", "feedback", `${EPISODE}.jsonl`), "utf8").trim().split("\n").map((line) => JSON.parse(line));
+    assert.equal(kept.length, 2);
+    assert.match(kept[1].text_sha256, /^[0-9a-f]{64}$/);
+    assert.equal((await thumb("")).status, 200, "a thumb can be taken back");
+  } finally {
+    b.close();
+  }
+});

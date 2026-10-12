@@ -319,13 +319,29 @@ function findReply(repliesDir, id) {
   return null;
 }
 
-function publicReply(reply, repliesDir) {
+// William's thumbs on her replies (Episode 120, 2026-10-12: "with your last message I would
+// have really pressed a thumbs up"). One line per press, the latest counts. The text's hash
+// lets a Jev run on the same words be matched to his judgment of them.
+const FEEDBACK = new Set(["up", "down", ""]);
+
+function readFeedback(repliesDir, episode) {
+  const file = join(repliesDir, "feedback", `${episode}.jsonl`);
+  const latest = new Map();
+  if (!existsSync(file)) return latest;
+  for (const line of readFileSync(file, "utf8").split("\n").filter(Boolean)) {
+    try { const entry = JSON.parse(line); latest.set(entry.reply, entry.value); } catch { /* a torn line */ }
+  }
+  return latest;
+}
+
+function publicReply(reply, repliesDir, feedback = null) {
   const voiced = existsSync(join(repliesDir, "audio", `${reply.id}.mp3`));
   const problem = voiced ? null : originProblem(reply.origin);
   return {
     id: reply.id, episode: reply.episode, take: reply.take, text: reply.text, seat: reply.seat, at: reply.at,
     audio: voiced ? `api/replies/${reply.id}/audio` : null,
     ...(problem ? { unvoiced: `This reply cannot be voiced: ${problem}.` } : {}),
+    ...(feedback?.get(reply.id) ? { feedback: feedback.get(reply.id) } : {}),
   };
 }
 
@@ -419,7 +435,8 @@ export function createApp({
   function listThread(url) {
     const episode = url.searchParams.get("episode") || defaultEpisode;
     const dir = episodeDir(chronicleRoot, episode);
-    const replies = readReplies(repliesDir, episode).map((reply) => ({ kind: "reply", ...publicReply(reply, repliesDir) }));
+    const feedback = readFeedback(repliesDir, episode);
+    const replies = readReplies(repliesDir, episode).map((reply) => ({ kind: "reply", ...publicReply(reply, repliesDir, feedback) }));
     const items = [...listTakes(dir), ...replies]
       .sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0))
       .slice(-THREAD_LIMIT);
@@ -499,9 +516,27 @@ export function createApp({
       .filter((reply) => !take || reply.take === take)
       .reverse()
       .slice(0, 10)
-      .map((reply) => publicReply(reply, repliesDir));
+      .map((reply) => publicReply(reply, repliesDir, readFeedback(repliesDir, episode)));
     const presence = listenerState(listenerDir, episode);
     return { success: true, episode, listening: presence.state !== "away", presence, recorder: recorderState(episode), replies };
+  }
+
+  // POST /api/replies/<id>/feedback {value: "up" | "down" | ""} — William's judgment of one reply.
+  async function giveFeedback(req, id) {
+    const reply = findReply(repliesDir, id);
+    if (!reply) throw new Refusal(404, `no such reply: ${id}`);
+    const body = await readJson(req);
+    const value = String(body.value ?? "");
+    if (!FEEDBACK.has(value)) throw new Refusal(400, 'feedback is "up", "down" or "" to take it back');
+    const entry = {
+      reply: id, episode: reply.episode, take: reply.take ?? null, value, at: new Date().toISOString(),
+      by: String(req.headers["tailscale-user-login"] ?? "") || undefined,
+      text_sha256: createHash("sha256").update(reply.text ?? "").digest("hex"),
+    };
+    mkdirSync(join(repliesDir, "feedback"), { recursive: true });
+    appendFileSync(join(repliesDir, "feedback", `${reply.episode}.jsonl`), `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+    log(`reply ${id}: feedback ${value || "taken back"}`);
+    return { success: true, reply: id, value };
   }
 
   // Mia's voice for one reply, through the Miadi voice layer (persona mia, bound to the
@@ -773,9 +808,10 @@ export function createApp({
         if (req.method === "POST") { sendJson(res, 200, await postReply(req)); return; }
         if (req.method === "GET") { sendJson(res, 200, listReplies(url)); return; }
       }
-      const replyRoute = url.pathname.match(/^\/api\/replies\/([0-9a-f-]{36})\/(voice|audio)$/);
+      const replyRoute = url.pathname.match(/^\/api\/replies\/([0-9a-f-]{36})\/(voice|audio|feedback)$/);
       if (replyRoute) {
         const [, id, what] = replyRoute;
+        if (what === "feedback" && req.method === "POST") { sendJson(res, 200, await giveFeedback(req, id)); return; }
         if (what === "voice" && req.method === "POST") { sendJson(res, 200, await voiceReply(id)); return; }
         if (what === "audio" && (req.method === "GET" || req.method === "HEAD")) {
           const file = join(repliesDir, "audio", `${id}.mp3`);

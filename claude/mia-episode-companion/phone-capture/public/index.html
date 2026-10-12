@@ -60,6 +60,9 @@
   .entry.take .who strong { color:var(--mint); }
   .entry .text { white-space:pre-wrap; margin-top:6px; color:var(--ink); font-size:.92rem; }
   .entry button { min-height:36px; padding:0 14px; border:0; border-radius:10px; font-weight:800; background:#263c34; color:var(--ink); }
+  .entry .thumbs { display:flex; gap:6px; }
+  .entry .thumb { padding:0 10px; opacity:.55; }
+  .entry .thumb.on { opacity:1; background:#477b65; }
 </style>
 </head>
 <body>
@@ -131,6 +134,21 @@
 
   // Her voice is playing (not the silence that holds the audio session open).
   var queued = [];
+  async function giveFeedback(item, value) {
+    try {
+      var response = await fetch("api/replies/" + item.id + "/feedback", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ value: value }),
+      });
+      var answer = await response.json();
+      if (!answer.success) throw new Error(answer.error || "refused");
+      item.feedback = value;
+      threadKey = "";
+      loadThread();
+    } catch (error) {
+      say("Your thumb was not kept: " + error.message, true);
+    }
+  }
+
   function speaking() {
     return !replyAudio.paused && !replyAudio.ended && replyAudio.loop !== true
       && (replyAudio.getAttribute("src") || "").indexOf("api/replies/") === 0;
@@ -260,7 +278,7 @@
       var answer = await (await fetch("api/thread?episode=" + encodeURIComponent(episode))).json();
       if (!answer.success || episode !== select.value) return;
       var items = answer.items || [];
-      var key = episode + "|" + items.map(function (item) { return (item.id || item.take) + ":" + (item.text || "").length + (unheard[item.id] ? "u" : ""); }).join(",");
+      var key = episode + "|" + items.map(function (item) { return (item.id || item.take) + ":" + (item.text || "").length + (unheard[item.id] ? "u" : "") + (item.feedback || ""); }).join(",");
       if (key === threadKey) return;
       threadKey = key;
       renderThread(items);
@@ -306,6 +324,21 @@
           loadThread();
         });
         who.appendChild(hear);
+      }
+      // His judgment of this reply: a thumb up or down, tapped again to take it back.
+      if (mia) {
+        var thumbs = document.createElement("span");
+        thumbs.className = "thumbs";
+        [["up", "👍", "This reply worked"], ["down", "👎", "This reply missed"]].forEach(function (choice) {
+          var thumb = document.createElement("button");
+          thumb.type = "button";
+          thumb.className = "thumb" + (item.feedback === choice[0] ? " on" : "");
+          thumb.textContent = choice[1];
+          thumb.setAttribute("aria-label", choice[2]);
+          thumb.addEventListener("click", function () { giveFeedback(item, item.feedback === choice[0] ? "" : choice[0]); });
+          thumbs.appendChild(thumb);
+        });
+        who.appendChild(thumbs);
       }
       entry.appendChild(who);
       var text = document.createElement("div");
