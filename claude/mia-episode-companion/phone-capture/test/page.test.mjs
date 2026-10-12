@@ -423,3 +423,30 @@ test("a reply's cards open what it names", async () => {
   assert.equal(links[0].attributes.target, "_blank");
   assert.match(links[0].textContent, /Plot threads/);
 });
+
+// William, 2026-10-12, take 261012193110: after the sequence, an older reply he taps plays
+// alone; the latest one, already seen, does not play again after it.
+test("a reply he taps himself plays alone, and a reply already seen never plays again by itself", async () => {
+  const at = new Date().toISOString();
+  const r1 = { kind: "reply", id: "r1", take: null, text: "Older.", at, audio: null };
+  const r2 = { kind: "reply", id: "r2", take: null, text: "Latest.", at, audio: null };
+  const h = harness({ pollEvery: 20, thread: () => [r1, r2], extraReplies: () => [{ ...r2 }] });
+  h.elements.autoplay.checked = true;
+  await settle(80);
+  const plays = [];
+  const walk = (node) => { (node.appended || []).forEach((child) => { if (child.textContent === "▶" || child.textContent === "▶ New") plays.push(child); walk(child); }); };
+  walk(h.elements.thread);
+  assert.equal(plays.length, 2, "both replies offer ▶");
+  await plays[1].fire("click"); // newest first, so the second ▶ is the older reply
+  await settle(10);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r1/audio");
+  h.elements.replyAudio.paused = false;
+  await settle(120);
+  assert.doesNotMatch(h.elements.replyNotice.textContent, /It plays when this one ends/, "the latest reply, already seen, is not queued");
+  h.elements.replyAudio.paused = true;
+  h.elements.replyAudio.ended = true;
+  const before = h.elements.replyAudio.played || 0;
+  await h.elements.replyAudio.fire("ended");
+  await settle(120);
+  assert.equal(h.elements.replyAudio.played || 0, before, "nothing plays after it by itself");
+});

@@ -136,6 +136,10 @@
 
   // Her voice is playing (not the silence that holds the audio session open).
   var queued = [];
+  // Replies already on the page: shown, queued or played. Only a reply the page has not seen
+  // joins the sequence and may play by itself. Once he taps ▶ himself, the sequence is over
+  // and each reply plays only when he chooses it (William, 2026-10-12, take 261012193110).
+  var seen = {};
   async function giveFeedback(item, value) {
     try {
       var response = await fetch("api/replies/" + item.id + "/feedback", {
@@ -173,6 +177,8 @@
     // A reply that arrives while another is playing waits for it to end, as it waits
     // while William records (William, Episode 120, 2026-10-12: "it cuts me off").
     if (isNew && speaking()) {
+      if (seen[reply.id]) return;
+      seen[reply.id] = true;
       if (!queued.some(function (r) { return r.id === reply.id; })) queued.push(reply);
       replyNotice.textContent = "Mia replied again at " + when(reply.at) + ". It plays when this one ends.";
       threadKey = "";
@@ -180,6 +186,7 @@
       return;
     }
     current = reply;
+    seen[reply.id] = true;
     if (isNew) loadThread().then(showNewest);
     if (isNew && busy()) {
       unheard[reply.id] = true;
@@ -319,6 +326,9 @@
         hear.textContent = unheard[item.id] ? "▶ New" : "▶";
         hear.addEventListener("click", function () {
           if (busy()) { replyNotice.textContent = "Send your take first. Then tap ▶ to hear her."; return; }
+          queued.length = 0;
+          replyNotice.textContent = "";
+          seen[item.id] = true;
           current = item;
           showReplyBox(true);
           playReply();
@@ -408,7 +418,7 @@
     try {
       var found = await replies(select.value);
       if (!found.length) { if (!current) showReplyBox(false); return; }
-      if (current && current.id === found[0].id) return; // never interrupt audio already playing
+      if (seen[found[0].id] || (current && current.id === found[0].id)) return; // a reply already seen never plays again by itself
       showReply(found[0], !!current);
     } catch (_) {}
   }
@@ -500,6 +510,7 @@
 
   hearButton.addEventListener("click", function () {
     if (busy()) { replyNotice.textContent = "Send your take first. Then tap Hear Mia."; return; }
+    queued.length = 0;
     playReply();
   });
 
