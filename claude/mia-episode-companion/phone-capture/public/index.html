@@ -179,6 +179,7 @@
     if (isNew && speaking()) {
       if (seen[reply.id]) return;
       seen[reply.id] = true;
+      unheard[reply.id] = true; // still New in the conversation if a tap empties the sequence
       if (!queued.some(function (r) { return r.id === reply.id; })) queued.push(reply);
       replyNotice.textContent = "Mia replied again at " + when(reply.at) + ". It plays when this one ends.";
       threadKey = "";
