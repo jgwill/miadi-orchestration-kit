@@ -148,6 +148,21 @@ test("--only-watched wakes for the watched session and its forks, not for the re
   assert.equal(run(fx, quiet).code, 4, "a later listener without the flag has no backlog of seat threads");
 });
 
+test("--only-watched wakes for input blocks addressed to the watched session, not to others", () => {
+  const fx = fixture();
+  registry(fx, OTHER, "busy", "elsewhere");
+  const only = ["await", "--timeout", "1", "--interval", "1", "--watch", OTHER, "--only-watched"];
+  run(fx, ["status"]);
+  appendFileSync(join(fx.scratchpads, "SCRATCHPAD-260929.md"), "<input tmux_session_original_name=\"someone-else\">\nnot for the watched session\n</input>\n");
+  assert.equal(run(fx, only).code, 4, "a block addressed to an unwatched session stays quiet");
+  appendFileSync(join(fx.scratchpads, "SCRATCHPAD-260929.md"), "<input tmux_session_original_name=\"elsewhere\">\nfor the watched session\n</input>\n");
+  const wake = run(fx, only);
+  assert.equal(wake.code, 0);
+  assert.match(wake.stdout, /for the watched session/);
+  assert.doesNotMatch(wake.stdout, /not for the watched session/);
+  assert.equal(run(fx, quiet).code, 4, "a later listener without the flag has no backlog of input blocks");
+});
+
 test("a thread that goes from busy to idle wakes the seat with its last message; idle to idle does not", () => {
   const fx = fixture();
   run(fx, ["status"]);

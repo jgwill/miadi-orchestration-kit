@@ -204,19 +204,21 @@ export function view({ seat, watch = [], self = null, onlyWatched = false }) {
     ? threads.filter((thread) => thread.session_id !== self && !named.has(thread.session_id) && named.has(thread.parent?.session_id))
     : seatThreads;
   const watchedIds = new Set([...named, ...wakeThreads.map((thread) => thread.session_id)]);
-  return {
-    model,
-    seatThreads,
-    wakeThreads,
-    watched: threads.filter((thread) => watchedIds.has(thread.session_id)),
-    inputs: scanScratchpads(),
-  };
+  const watched = threads.filter((thread) => watchedIds.has(thread.session_id));
+  const inputs = scanScratchpads();
+  // An input block is addressed by tmux_session_original_name. A scoped listener wakes only for
+  // blocks addressed to a watched session or its forks; every block is still recorded as seen.
+  const watchedNames = new Set(watched.flatMap((thread) => [...(thread.names ?? []), thread.tmux?.session].filter(Boolean)));
+  const wakeInputs = onlyWatched
+    ? inputs.blocks.filter((block) => watchedNames.has(block.attrs?.tmux_session_original_name))
+    : inputs.blocks;
+  return { model, seatThreads, wakeThreads, watched, inputs, wakeInputs };
 }
 
 export function eventsOf(state, current) {
   const events = [];
   const seenInputs = new Set(state.inputs);
-  for (const block of current.inputs.blocks) if (!seenInputs.has(block.key)) events.push({ kind: "input", block });
+  for (const block of current.wakeInputs ?? current.inputs.blocks) if (!seenInputs.has(block.key)) events.push({ kind: "input", block });
   const seenThreads = new Set(state.threads);
   for (const thread of current.wakeThreads ?? current.seatThreads) if (!seenThreads.has(thread.session_id)) events.push({ kind: "thread", thread });
   for (const thread of current.watched) {
@@ -320,7 +322,8 @@ function parseArgs(argv) {
 }
 
 const USAGE = `usage: witness-listen.mjs <command> [--seat mino] [--watch <session id or name>]... [--only-watched] [--self <id>|none]
-  --only-watched  wake for the --watch sessions and their forks only, not every thread of the seat
+  --only-watched  wake for the --watch sessions and their forks only, not every thread of the seat,
+                  and for input blocks addressed to them only
   status   what this seat has seen, what is waiting, whether a listener runs
   peek     print what is waiting as a wake, without marking it seen
   await    block until an event, print the wake, exit 0
