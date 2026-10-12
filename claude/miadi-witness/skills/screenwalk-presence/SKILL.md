@@ -45,7 +45,7 @@ Before writing it, read three things: where the screenwalk starts in your own tr
 
 A closing that lives only on the phone page and in the transcript is lost to the review. On 2026-10-08 the review of the Episode 140 screenwalk (miadi-review:89f51d13) was generated from the video alone. It took none of Mia's title or terms, and called a restart that needed a reload "a zero-downtime hotfix".
 
-1. Commit the closing in the episode as the screenwalk's record: `captures/<slug>/closing.md`, holding the title, the slug, the description and the note for observing agents.
+1. Commit the closing in the episode beside the screenwalk's record: `captures/screenwalk-<id>/closing.md`, holding the title, the slug, the description and the note for observing agents, with `screenwalk.json` in the same folder (`@miadi/episodic-memory-schema` `screenwalk.ts`; its `closings` lists `{version, file}`). The episode room's Screenwalks card reads only that folder. A closing kept under `captures/<slug>/` shows nowhere (Episode 120, 2026-10-12).
 2. Give the title and the description at upload, as the video's title and description.
 3. Once the review exists, give it the closing's title as its own title, and correct the generated text against the closing (`miadi-review-academic-fields`, step 1). The description does not go into the review: it belongs under the video. The review's `## Intent` says how we intend to use the review and its screenwalk for the next step of the Miadi Factory, as the `miadi-review` skill describes. Never paste the description there. William, on the review of 2026-10-08 that did: "that is not an intent".
 

@@ -1,6 +1,6 @@
 ---
 name: chronicle-episode
-description: The one entry point for Miadi Chronicle episode work on any host and from any agent. Mint a vessel with mkepisode or the episode API, prove the five stages (created, committed, pushed, registered, receipt-verified), register on the chronicle medicine wheel, relate and sync an inquiry with inquiry-weave, author lineage, raise and answer Attention items, open a ceremony (a talking circle by default) held in a circle of people and bound to an episode, add a Miadi review to an episode (which opens a talking circle about it) or mint an episode from a review URL, seat the circle, speak and witness turns, close the ceremony, redeem receipts, reconcile drift, adopt a manifest-less directory. Use for mkepisode, episode vessels, episode rooms, chronicle registration, closure, attention.json, inquiry weave, lineage, "a new ceremony", "talking circle", "open a circle", ceremony turns, a review URL in an episode, an episode from a review, or any write into the chronicle.
+description: The one entry point for Miadi Chronicle episode work on any host and from any agent. Mint a vessel with mkepisode or the episode API, prove the five stages (created, committed, pushed, registered, receipt-verified), register on the chronicle medicine wheel, relate and sync an inquiry with inquiry-weave, author lineage, raise and answer Attention items, open a ceremony (a talking circle by default) held in a circle of people and bound to an episode, add a Miadi review to an episode (which opens a talking circle about it) or mint an episode from a review URL, seat the circle, speak and witness turns, close the ceremony, hold what the episode grew (foundations, specifications, prototypes, traces, notebooks, screenwalks) so its room shows them, redeem receipts, reconcile drift, adopt a manifest-less directory. Use for mkepisode, episode vessels, episode rooms, chronicle registration, closure, attention.json, inquiry weave, lineage, "a new ceremony", "talking circle", "open a circle", ceremony turns, a review URL in an episode, an episode from a review, or any write into the chronicle.
 ---
 
 # Chronicle Episode
@@ -287,5 +287,25 @@ A script, a chapter or `status.md` names a ceremony as `miadi-ceremony:<id>` and
 5. A reference is not a binding. The binding is the ceremony's `episode_path` (S15). Naming another episode's ceremony is fine; when the episodes relate, author lineage too (S8).
 6. Order: open the ceremony and land its note (S15 steps 1 to 5), then write the reference, then land the text (S5, S12). Needing something to name is never a reason to open a ceremony.
 7. Check twice: signed in as the person, `/chronicle/<episode>` shows the card; signed out, the same page shows the private chip. `chronicle_resolve {uri, verify: true}` on `inquiry-weave-mcp`, or `inquiry-weave resolve miadi-ceremony:<id> --verify` (`@miadi/inquiry-weave` 0.14.1), prints the page and says whether the wheel holds the id; a UUID prefix reports the whole id it names.
+
+## S18. Holdings: what the episode room shows beyond its text
+
+The room's cards (Foundations, Specifications, Prototypes, Traces and prompts, Notebooks, Screenwalks, Reviews, Inquiries) are read from `episode.yaml` keys and from files, through doors under `$MIADI_API_URL/api/chronicle/episodes/<ref>/`. A file an agent writes in the vessel shows on no card until it is held. Measured 2026-10-12 in Episode 120 against jgwill/Miadi `28dc1df9`.
+
+| card | door | body | held as |
+|---|---|---|---|
+| Foundations | `POST …/foundations` | `{foundation, source?, relation}` | `foundations:` in the manifest; a package packet (`GET /api/foundations` lists the slugs) or, with `source: "episode"`, the episode's own `foundations/<slug>/README.md` |
+| Specifications | `POST …/rispecs` | `{spec: "rise://<owner>/<repo>/<path>", commit, title?, relation?}` | `rispecs:`; a spec kept in the episode is `rise://jgwill/episodes/miadi-chronicle/<episode>/<path>` |
+| Prototypes | `POST …/prototypes` | `{prototype, url, editor?, made_with?, …}` | `prototypes:`; the editing address goes to the wheel node only |
+| Traces and prompts | `POST …/tracing` | `{reference \| domain+resource+id, …}` | `tracing:`; never a key, a base URL or a provider |
+| Notebooks | `POST …/notebooks` | `{notebook, …}` | `notebooks:`; files under `captures/notebook-<uuid>/` |
+| Screenwalks | `GET …/screenwalks` (no POST) | | the file `captures/screenwalk-<id>/screenwalk.json` (`@miadi/episodic-memory-schema` `screenwalk.ts`), its closing as `closing.md` beside it |
+| Reviews | S16 | "No talking circle yet" means no circle was opened for that review | |
+| Inquiries | S7 | "not copied yet" means never synced; `POST …/inquiry {artefact}` copies it | |
+
+1. `relation` is a kebab-case phrase completing "Episode <relation> Foundation" (`grounded-by`, `clarifies`, `specifies`). A sentence is refused with `invalid_field`.
+2. A grounding or a spec a lane writes goes where its card reads it (`foundations/<slug>/README.md`, a `rise://` path), and is held in the same turn. A loose file in a branch folder is invisible to the room.
+3. A screenwalk id is the minute the person pressed record, `yymmddHHMM`, or `yymmdd-NNN` when that minute is unknown; say which in `recording.evidence`. Output kinds are `dialogue`, `chapters`, `short`, `audio`, `other`.
+4. Each POST lands its own commit on `main`. Commit and push your own files first, send `dryRun: true`, then post. Read the card's `GET` after, as the proof.
 
 🌸: One skill that names no host is the difference between an agent that can close an episode wherever it is running and one that has to be told, again, which machine it is on.
