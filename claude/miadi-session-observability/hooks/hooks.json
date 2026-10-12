@@ -40,6 +40,16 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/pre_tool_use_hook.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/workspace_clone_guard.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [

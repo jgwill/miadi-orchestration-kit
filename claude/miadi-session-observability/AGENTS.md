@@ -25,6 +25,9 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a
   session, 19 checks.
+- `hooks/workspace_clone_guard.sh` and `tests/workspace-clone-guard.sh`: the workspace clone
+  guard (0.1.13), 19 checks. A separate PreToolUse entry in `hooks.json`, so the capture
+  scripts carried to `/opt/binscripts/hooks/claude_hooks` stay unchanged.
 
 ## This is the canonical copy
 
@@ -103,6 +106,15 @@ those rules here goes there too.
   "Hook cancelled" on exit. `session_end_hook.sh` reads the agent's pid and command line, then
   runs everything else in a detached copy of itself. Work added to SessionEnd goes after the
   `--detached` line. Earned in 0.1.1.
+
+- **The workspace clone guard** (0.1.13). On 2026-09-27 a session committed and pushed
+  miadisabelle/home from `/workspace/repos/miadisabelle/home`, while the repo is worked on in
+  `/home/mia` (`/src/Miadi/config/stc-workspaces.json`). The next pull in `/home/mia` stopped
+  on a rebase conflict on 2026-10-12. The guard refuses Write, Edit, MultiEdit, NotebookEdit,
+  a Bash redirect, and `git commit` or `git push`, when the target lies in
+  `<autoClonePath>/<owner>/<repo>/` and the config maps that repo to another localPath that
+  exists on the host. Reads, `git fetch` and `git pull` stay open. No config means no guard.
+  To work in a clone on purpose, the config's localPath changes first. jgwill/workspace#60.
 
 ## Where it is installed
 

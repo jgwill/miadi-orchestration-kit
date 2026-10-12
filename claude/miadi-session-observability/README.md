@@ -14,6 +14,10 @@ jgwill/miadi-orchestration-kit#56.
   pinned tracing prompt and its trace, from the seat's prompt that names the mission's
   `prompt.md`, or from `MIADI_RUN_MISSION`). tmux restore and `tide agents restore` read
   these lines to bring agents back.
+- **Workspace clone guard** (0.1.13). A repo that `stc-workspaces.json` maps to a working
+  directory is not written, committed or pushed from its second clone under the auto-clone
+  root (`/workspace/repos` on gaia). `hooks/workspace_clone_guard.sh` refuses and names the
+  working directory. jgwill/workspace#60.
 - **Skill.** `session-continuity` carries T1's practice: the binding line, tmux save and
   restore, tide, and rebuilding what each pane held after a crash.
 
@@ -141,6 +145,7 @@ bash tests/files-written.sh
 bash tests/publications.sh
 bash tests/binding-agent.sh
 bash tests/binding-mission.sh
+bash tests/workspace-clone-guard.sh
 CLAUDE_SESSIONDATA_ROOT=$(mktemp -d) claude --restricted --plugin-dir . --model haiku
 ```
 
