@@ -324,6 +324,19 @@ function findReply(repliesDir, id) {
 // lets a Jev run on the same words be matched to his judgment of them.
 const FEEDBACK = new Set(["up", "down", ""]);
 
+// Cards under a reply for what it names (a diagram, a review, an issue, a file in the
+// episode). Few, short, and only links William can open: the seat resolves them.
+const MAX_RELATED = 6;
+function cleanRelated(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, MAX_RELATED).flatMap((item) => {
+    const href = typeof item?.href === "string" ? item.href.trim() : "";
+    const label = typeof item?.label === "string" ? item.label.trim().slice(0, 80) : "";
+    if (!/^https?:\/\/\S+$/.test(href) || !label) return [];
+    return [{ label, href, kind: typeof item.kind === "string" && /^[a-z]{1,20}$/.test(item.kind) ? item.kind : "link" }];
+  });
+}
+
 function readFeedback(repliesDir, episode) {
   const file = join(repliesDir, "feedback", `${episode}.jsonl`);
   const latest = new Map();
@@ -342,6 +355,7 @@ function publicReply(reply, repliesDir, feedback = null) {
     audio: voiced ? `api/replies/${reply.id}/audio` : null,
     ...(problem ? { unvoiced: `This reply cannot be voiced: ${problem}.` } : {}),
     ...(feedback?.get(reply.id) ? { feedback: feedback.get(reply.id) } : {}),
+    ...(reply.related?.length ? { related: reply.related } : {}),
   };
 }
 
@@ -485,6 +499,8 @@ export function createApp({
       origin: body.origin && typeof body.origin === "object" ? body.origin : null,
       at: new Date().toISOString(),
     };
+    const related = cleanRelated(body.related);
+    if (related.length) reply.related = related;
     mkdirSync(repliesDir, { recursive: true });
     appendFileSync(join(repliesDir, `${reply.episode}.jsonl`), `${JSON.stringify(reply)}\n`, { mode: 0o600 });
     // Told to the seat that posts: while William records, the reply shows on his page and

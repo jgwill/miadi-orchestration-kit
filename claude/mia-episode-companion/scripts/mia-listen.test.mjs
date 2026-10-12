@@ -247,3 +247,23 @@ test("a labelling note is marked in the wake and committed with its purpose", ()
   assert.match(woke.stdout, /purpose: labelling\. A spoken note for a labelled example/);
   assert.match(woke.stdout, /captures\/260101000006\/purpose\.json/);
 });
+
+test("reply --related resolves a file of the episode, a review, an issue and a URL into cards", async () => {
+  const { relatedCard } = await import("./mia-listen.mjs");
+  const root = mkdtempSync(join(tmpdir(), "mia-related-"));
+  mkdirSync(join(root, "branches", "marks"), { recursive: true });
+  writeFileSync(join(root, "branches", "marks", "spec.md"), "spec\n");
+  const episode = { root, folder: "2026-07-10-episode-120-fixture" };
+  const env = { MIADI_URL_BASE_INTERNAL: "https://miadi.example/" };
+  assert.deepEqual(relatedCard("Marks spec=branches/marks/spec.md", episode, env), {
+    label: "Marks spec", kind: "file",
+    href: "https://miadi.example/chronicle/2026-07-10-episode-120-fixture?file=branches%2Fmarks%2Fspec.md",
+  });
+  assert.equal(relatedCard("Review=miadi-review:e29a4fc3-302a-4309-8ad9-39085ee26283", episode, env).href,
+    "https://miadi-review-service.vercel.app/review/e29a4fc3-302a-4309-8ad9-39085ee26283");
+  assert.equal(relatedCard("Issue=jgwill/Miadi#706", episode, env).href, "https://github.com/jgwill/Miadi/issues/706");
+  assert.equal(relatedCard("Page=https://claude.ai/artifact/x", episode, env).kind, "artifact");
+  assert.throws(() => relatedCard("Missing=branches/none.md", episode, env), /no such file/);
+  assert.throws(() => relatedCard("Escape=../etc/passwd", episode, env), /no such file/);
+  assert.throws(() => relatedCard("no-label-separator", episode, env), /<label>=<target>/);
+});

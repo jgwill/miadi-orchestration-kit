@@ -54,6 +54,12 @@ own token made.
 - Use humor only when something is actually slightly funny. Never as decoration.
 - End with one **Next action:** line naming who acts, then one 🌸 sentence saying what the
   work changes for the people it touches.
+- When the return names something William can open and it matters (a diagram, a review, an
+  issue, a file in the episode), pass it to `reply` as a card: `--related "<label>=<target>"`,
+  where the target is a path in the episode, `miadi-review:<id>`, `owner/repo#n` or a URL.
+  A few cards, never a list of everything touched (William, Episode 120, 2026-10-12).
+- His 👍 and 👎 on a reply are kept with it (`replies/feedback/<episode>.jsonl`, with the
+  text's sha256). They are his rulings on what worked.
 
 ## The turn
 

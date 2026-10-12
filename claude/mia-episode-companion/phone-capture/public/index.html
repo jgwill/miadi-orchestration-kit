@@ -63,6 +63,8 @@
   .entry .thumbs { display:flex; gap:6px; }
   .entry .thumb { padding:0 10px; opacity:.55; }
   .entry .thumb.on { opacity:1; background:#477b65; }
+  .entry .related { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .entry .related a { font-size:.8rem; padding:6px 10px; border:1px solid var(--line); border-radius:10px; color:var(--ink); text-decoration:none; background:#1d2a25; }
 </style>
 </head>
 <body>
@@ -345,6 +347,20 @@
       text.className = "text";
       text.textContent = item.text || (mia ? "" : "(no transcript yet)");
       entry.appendChild(text);
+      // What the reply names, as cards he can open: a diagram, a review, an issue, a file.
+      if (mia && item.related && item.related.length) {
+        var cards = document.createElement("div");
+        cards.className = "related";
+        item.related.forEach(function (card) {
+          var link = document.createElement("a");
+          link.setAttribute("href", card.href);
+          link.setAttribute("target", "_blank");
+          link.setAttribute("rel", "noopener");
+          link.textContent = ({ diagram: "◇", review: "✎", issue: "#", artifact: "▣", file: "≡" }[card.kind] || "↗") + " " + card.label;
+          cards.appendChild(link);
+        });
+        entry.appendChild(cards);
+      }
       thread.appendChild(entry);
     });
     thread.hidden = items.length === 0;

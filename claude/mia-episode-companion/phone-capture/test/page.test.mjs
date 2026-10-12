@@ -409,3 +409,17 @@ test("a thumb under her reply posts his judgment of it", async () => {
   assert.ok(sent, "the thumb is posted");
   assert.deepEqual(JSON.parse(sent.options.body), { value: "up" });
 });
+
+test("a reply's cards open what it names", async () => {
+  const at = new Date().toISOString();
+  const h = harness({ thread: () => [{ kind: "reply", id: "r1", take: null, text: "See the diagram.", at, audio: null,
+    related: [{ label: "Plot threads", href: "https://miadi.example/chronicle/ep?file=d.svg", kind: "diagram" }] }] });
+  await settle(80);
+  const links = [];
+  const walk = (node) => { (node.appended || []).forEach((child) => { if (child.attributes?.href) links.push(child); walk(child); }); };
+  walk(h.elements.thread);
+  assert.equal(links.length, 1);
+  assert.equal(links[0].attributes.href, "https://miadi.example/chronicle/ep?file=d.svg");
+  assert.equal(links[0].attributes.target, "_blank");
+  assert.match(links[0].textContent, /Plot threads/);
+});

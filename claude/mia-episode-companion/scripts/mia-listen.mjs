@@ -521,6 +521,7 @@ function parseArgs(argv) {
     else if (arg === "--interval") args.interval = Number(argv[++i]);
     else if (arg === "--timeout") args.timeout = Number(argv[++i]);
     else if (arg === "--no-fetch") args.fetch = false;
+    else if (arg === "--related") (args.related ??= []).push(argv[++i] ?? "");
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }
@@ -535,6 +536,8 @@ const USAGE = `usage: mia-listen.mjs <command> [--episode <dir>] [--no-fetch]
   heard <take-id>     mark a take heard without printing it
   reply [<take-id>]   post the return on stdin to the phone page (phone-capture on this host);
                       without a take id it is a message that answers no take
+                      [--related "<label>=<target>"]... a card under the reply for something it
+                      names: a file in the episode, miadi-review:<id>, owner/repo#n, or a URL
 The episode defaults to the nearest directory above the cwd carrying episode.yaml.
 State: $MIADI_MIA_COMPANION_STATE_DIR, else $XDG_STATE_HOME/miadi-mia-companion.`;
 
@@ -572,13 +575,42 @@ async function readStdin() {
   return text;
 }
 
-async function postReply(episode, takeId, text) {
+// A card under the reply for something it names that William can open (William, Episode 120,
+// 2026-10-12: "when you relate to something very important they would be joined on the
+// actual reply"). A file in the episode opens in the chronicle room over the tailnet.
+export function relatedCard(spec, episode, env = process.env) {
+  const at = spec.indexOf("=");
+  if (at <= 0) throw new Error(`--related takes "<label>=<target>": ${spec}`);
+  const label = spec.slice(0, at).trim();
+  const target = spec.slice(at + 1).trim();
+  let match;
+  if (/^https?:\/\//.test(target)) return { label, href: target, kind: linkKind(target) };
+  if ((match = target.match(/^miadi-review:(?:\/\/)?([0-9a-f-]{36})$/))) {
+    return { label, href: `https://miadi-review-service.vercel.app/review/${match[1]}`, kind: "review" };
+  }
+  if ((match = target.match(/^([\w.-]+\/[\w.-]+)#(\d+)$/))) return { label, href: `https://github.com/${match[1]}/issues/${match[2]}`, kind: "issue" };
+  const room = String(env.MIADI_URL_BASE_INTERNAL || env.MIADI_URL_BASE || "").replace(/\/$/, "");
+  if (!room) throw new Error("set MIADI_URL_BASE_INTERNAL to link a file of the episode");
+  const file = target.replace(/^\.?\//, "");
+  if (file.split("/").includes("..") || !existsSync(join(episode.root, file))) throw new Error(`no such file in the episode: ${file}`);
+  const kind = /\.(svg|png|webp|smdf\.json|erdf\.json|sqdf\.json)$/.test(file) ? "diagram" : "file";
+  return { label, href: `${room}/chronicle/${encodeURIComponent(episode.folder)}?file=${encodeURIComponent(file)}`, kind };
+}
+
+function linkKind(url) {
+  if (url.includes("miadi-review-service")) return "review";
+  if (/github\.com\/[^/]+\/[^/]+\/(issues|pull)\//.test(url)) return "issue";
+  if (url.includes("claude.ai/")) return "artifact";
+  return "link";
+}
+
+async function postReply(episode, takeId, text, related = []) {
   const port = process.env.MIADI_PHONE_CAPTURE_PORT || "8771";
   const origin = currentOrigin();
   const response = await fetch(`http://127.0.0.1:${port}/api/replies`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ episode: episode.folder, take: takeId, text, seat: `claude-code@${origin.host}`, origin }),
+    body: JSON.stringify({ episode: episode.folder, take: takeId, text, seat: `claude-code@${origin.host}`, origin, ...(related.length ? { related } : {}) }),
   });
   const answer = await response.json().catch(() => ({}));
   if (!response.ok || !answer.success) throw new Error(answer.error || `HTTP ${response.status}`);
@@ -620,8 +652,15 @@ async function main() {
       console.error("mia-listen: reply read no text on stdin");
       return EXIT_NO_EPISODE;
     }
+    let related = [];
     try {
-      const answer = await postReply(episode, takeId, text);
+      related = (args.related ?? []).map((spec) => relatedCard(spec, episode));
+    } catch (error) {
+      console.error(`mia-listen: ${message(error)}`);
+      return EXIT_NO_EPISODE;
+    }
+    try {
+      const answer = await postReply(episode, takeId, text, related);
       const present = listenerOf(episode);
       if (present?.state === "answering") writeBeat(episode, { state: "answered", takes: present.takes, reply: answer.id });
       console.log(`mia-listen: reply${takeId ? ` to ${takeId}` : ""} delivered to the phone page (${answer.id})`);

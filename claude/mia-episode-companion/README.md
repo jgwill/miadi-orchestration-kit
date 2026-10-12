@@ -98,6 +98,10 @@ of a few minutes when Safari's recorder failed at Stop, and the page said nothin
   never a second one.
 - **A reply that arrives while another plays** waits for it to end, then plays.
 
+Under each reply (0.4.0, same day): a 👍 and a 👎 William can press, kept with the reply,
+and cards for what the reply names, passed with `mia-listen.mjs reply --related
+"<label>=<target>"` (a file of the episode opens in the chronicle room).
+
 ## Cost of a turn
 
 The first live wake (Episode 349, take `260920235421`, 40 words) over-read. Mia explored

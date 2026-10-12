@@ -518,3 +518,29 @@ test("a thumb on a reply is kept with its text's hash, the latest one counts, an
     b.close();
   }
 });
+
+// William, 2026-10-12: "when you relate to something very important they would be joined on
+// the actual reply". Only labelled http(s) links are kept, at most six.
+test("a reply carries the cards for what it names, cleaned, and the thread shows them", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const related = [
+      { label: "Marks spec", href: "https://miadi.example/chronicle/ep?file=spec.md", kind: "file" },
+      { label: "No scheme", href: "javascript:alert(1)", kind: "file" },
+      { label: "", href: "https://example.com/unlabelled" },
+      { label: "Review", href: "https://miadi-review-service.vercel.app/review/x", kind: "Not A Kind" },
+    ];
+    const { id } = await (await fetch(`${b.url}/api/replies`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, text: "See the spec.", related, origin: { user: "mia", host: "gaia" } }),
+    })).json();
+    const thread = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    const shown = thread.items.find((item) => item.id === id).related;
+    assert.deepEqual(shown, [
+      { label: "Marks spec", href: "https://miadi.example/chronicle/ep?file=spec.md", kind: "file" },
+      { label: "Review", href: "https://miadi-review-service.vercel.app/review/x", kind: "link" },
+    ]);
+  } finally {
+    b.close();
+  }
+});
