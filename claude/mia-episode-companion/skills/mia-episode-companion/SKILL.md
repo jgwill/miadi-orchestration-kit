@@ -60,8 +60,8 @@ own token made.
 The wake carries the take, its commit state, a bounded excerpt of the latest ceremony
 note, and the open threads. For an ordinary take that is enough.
 
-**Budget: at most two file reads, one editor call, and one message that returns, commits,
-and re-arms.** Every extra tool call re-reads the whole session context. On 2026-09-20, a
+**Budget: at most two file reads, one editor call, one Jev check, and one message that
+returns, commits, and re-arms.** Every extra tool call re-reads the whole session context. On 2026-09-20, a
 40-word test take cost 26 main-thread turns and a 20-turn editor before this budget
 existed. Spend beyond it only when the take asks for work, and say that you are doing so.
 
@@ -77,7 +77,20 @@ existed. Spend beyond it only when the take asks for work, and say that you are 
    error, a complaint, or an empty take gets rewritten. If a consequential recommendation
    stays unresolved, name that boundary and pause instead of replying fluently. The
    account stays backstage.
-5. **Return, deliver, commit, and re-arm in one message.** Give the final text. In the
+5. **Jev check.** Pipe the revised return to `scripts/jev-check.mjs check` with the take id
+   and one `--fact` per thing this turn actually did (a commit, a push, a file, a call). The
+   wake prints the command. Jev answers the questions in `scripts/jev/questions.json`: does
+   the return answer each ask, hand a decision back to William alone, claim something done
+   without evidence, assume something he did not say, or limit what he asked for by citing
+   an outside authority. For each flag, revise once more or keep the sentence and say why,
+   backstage. **A flag never blocks delivery, and neither does a check that cannot run.**
+   The editor reads the draft against William's words in prose. Jev checks the final text
+   against typed questions, which is where a limit offered as a proposal slipped past both
+   draft and editor in Episode 120 (`branches/jev/report.md`). Scoring with our own
+   questions is our practice. It is not Wilson's measure and is never presented as his.
+   Each run is kept in `~/.miadi/decisions/mia-return.jsonl`. Thresholds stay unset until
+   William's rulings on those records set them, together with Mia.
+6. **Return, deliver, commit, and re-arm in one message.** Give the final text. In the
    same message, make one Bash call that pipes that exact text to the `reply` command the
    wake prints and runs its commit command if it shows one. William's phone page is
    waiting for the reply there. It can copy it or voice it as Mia through the voice
@@ -127,3 +140,7 @@ says he wrote in the circle, read it with `GET /api/ceremony/<id>`.
   defect examples, with their canonical sources in Episode 339.
 - `${CLAUDE_PLUGIN_ROOT}/scripts/mia-listen.mjs`: `status`, `await`, `show <take>`,
   `heard <take>`.
+- `${CLAUDE_PLUGIN_ROOT}/scripts/jev-check.mjs`: `check`, `models`. Its questions are data in
+  `scripts/jev/questions.json`, with the model pinned there. The decider is lane-check's
+  (`jgwill/smcraft` `examples/decision-gate/lane-check`), imported by path; `LANE_CHECK_DIR`
+  points at another checkout.

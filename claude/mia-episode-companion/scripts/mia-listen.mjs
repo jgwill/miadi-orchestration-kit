@@ -22,6 +22,7 @@ import { join, posix, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(import.meta.url);
+const JEV_CHECK = resolve(SCRIPT, "..", "jev-check.mjs");
 const CAPTURE_SCHEMA = "miadi.episode-capture.v1";
 const STATE_VERSION = 1;
 const STABILITY_POLL_MS = 3_000;
@@ -468,10 +469,14 @@ export function formatWake(episode, takes, { rearm = true } = {}) {
     "Turn budget (mia-episode-companion skill): this wake carries what an ordinary take needs.",
     "1. Hear from the wake. Read a file only if the take names something the wake does not carry; at most two reads.",
     "2. Draft backstage. Send only the take text and the exact draft to the developmental-editor agent, once.",
-    "3. Revise against each recommendation and give the return, short enough to say aloud.",
+    "3. Revise against each recommendation, short enough to say aloud.",
+    "4. Jev check: pipe the revised return to jev-check (below), with one --fact per thing this turn did. Revise or keep each flag, saying why, backstage. A flag, or a check that cannot run, never blocks delivery.",
+    `  node "${JEV_CHECK}" check --episode "${episode.root}" ${takes.map((take) => `--take ${take.takeId}`).join(" ")} --draft - --fact "<what this turn did>" <<'MIA'`,
+    "  <the revised return>",
+    "  MIA",
     rearm
-      ? "4. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown, then re-arm."
-      : "4. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown.",
+      ? "5. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown, then re-arm."
+      : "5. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown.",
     "Deliver the return to William's phone page, which waits for it and can voice it as Mia:",
     `  node "${SCRIPT}" reply ${takes.at(-1).takeId} --episode "${episode.root}" <<'MIA'`,
     "  <the final return, exactly as given>",

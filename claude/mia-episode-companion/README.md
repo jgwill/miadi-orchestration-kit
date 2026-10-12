@@ -52,6 +52,23 @@ The first listen on an episode takes every existing take as its baseline, so not
 wakes the session. After that, takes recorded while no session was listening are unheard,
 and the next `/mia-listen` wakes on them at once.
 
+## The Jev check before a reply
+
+Before a return reaches William, `scripts/jev-check.mjs` asks Jev the typed questions in
+`scripts/jev/questions.json` about it: does it answer each ask, hand a decision back to him
+alone, claim something done without evidence, assume something he did not say, or limit what
+he asked for by citing an outside authority. Mia revises or keeps each flagged sentence and
+says why. A flag never blocks delivery. Each run is kept in
+`~/.miadi/decisions/mia-return.jsonl` for William's rulings. The model is pinned in the
+questions file.
+
+```bash
+node scripts/jev-check.mjs check --episode <dir> --take <id> --draft - --fact "commit abc pushed" <<'MIA'
+<the revised return>
+MIA
+node --test scripts/jev-check.test.mjs      # no call leaves the host
+```
+
 ## Recording from the iPhone at the desk
 
 `phone-capture/` is a small service carried by this plugin. It lets Safari on the iPhone
