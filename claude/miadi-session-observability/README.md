@@ -17,7 +17,8 @@ jgwill/miadi-orchestration-kit#56.
 - **Workspace clone guard** (0.1.13). A repo that `stc-workspaces.json` maps to a working
   directory is not written, committed or pushed from its second clone under the auto-clone
   root (`/workspace/repos` on gaia). `hooks/workspace_clone_guard.sh` refuses and names the
-  working directory. jgwill/workspace#60.
+  working directory. It reads `$MIADI_SRC/config/stc-workspaces.json`, so a host without a
+  Miadi checkout gets the capture and no guard. jgwill/workspace#60.
 - **Skill.** `session-continuity` carries T1's practice: the binding line, tmux save and
   restore, tide, and rebuilding what each pane held after a crash.
 

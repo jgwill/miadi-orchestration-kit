@@ -17,10 +17,12 @@
 # WHAT IT ALLOWS
 #   Reads, git fetch and git pull in the clone. A repo with no entry, or whose entry points at
 #   the clone itself. An entry whose localPath does not exist on this host (the clone is then
-#   the only copy here). Every host with no config.
+#   the only copy here). A host with no Miadi checkout (MIADI_SRC unset) or no config.
 #
 # CONFIG
-#   STC_WORKSPACES_CONFIG, else ${MIADI_SRC:-/src/Miadi}/config/stc-workspaces.json.
+#   STC_WORKSPACES_CONFIG, else $MIADI_SRC/config/stc-workspaces.json. MIADI_SRC names the
+#   jgwill/Miadi checkout of a developer host. With neither set the guard has nothing to
+#   read and allows everything, while the capture hooks of this plugin run as usual.
 #   The clone root is the config's defaults.autoClonePath (/workspace/repos on gaia).
 #   To work in a clone on purpose, point that repo's localPath at it in the config.
 #
@@ -31,7 +33,13 @@
 
 set -uo pipefail
 
-CONFIG="${STC_WORKSPACES_CONFIG:-${MIADI_SRC:-/src/Miadi}/config/stc-workspaces.json}"
+if [ -n "${STC_WORKSPACES_CONFIG:-}" ]; then
+  CONFIG="$STC_WORKSPACES_CONFIG"
+elif [ -n "${MIADI_SRC:-}" ]; then
+  CONFIG="$MIADI_SRC/config/stc-workspaces.json"
+else
+  exit 0
+fi
 [ -r "$CONFIG" ] || exit 0
 command -v python3 >/dev/null 2>&1 || exit 0
 

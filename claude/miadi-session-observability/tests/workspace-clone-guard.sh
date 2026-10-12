@@ -60,6 +60,11 @@ expect "reading the clone in Bash is allowed" 0 "$(bash_in "$WORK" "cat $CLONES/
 expect "an unparseable payload is allowed" 0 'not json'
 STC_WORKSPACES_CONFIG="$WORK/missing.json" expect "no config on this host is allowed" 0 \
     "$(edit "$CLONES/me/home/x")"
+mkdir -p "$WORK/miadi/config" && cp "$WORK/stc.json" "$WORK/miadi/config/stc-workspaces.json"
+STC_WORKSPACES_CONFIG= MIADI_SRC="$WORK/miadi" expect "MIADI_SRC locates the config" 2 \
+    "$(edit "$CLONES/me/home/x")"
+STC_WORKSPACES_CONFIG= MIADI_SRC= expect "no MIADI_SRC (not a developer host) is allowed" 0 \
+    "$(edit "$CLONES/me/home/x")"
 
 echo
 if [ "$failures" -eq 0 ]; then
