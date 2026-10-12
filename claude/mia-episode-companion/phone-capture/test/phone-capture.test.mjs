@@ -31,7 +31,7 @@ async function bridge({ transcriber, voice = null, language = "fr", locate } = {
     registryClient: { register: async (record) => { registrations.push(record); return { success: true, id: record.id ?? "capture:stub" }; } },
   });
   const logged = [];
-  const app = createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate, recoverEveryMs: 0, log: (line) => logged.push(line) });
+  const app = createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate, recoverEveryMs: 0, log: (line) => logged.push(line), decisionsLedger: join(base, "decisions", "mia-return.jsonl") });
   const server = createServer(app);
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const url = `http://127.0.0.1:${server.address().port}`;
@@ -544,3 +544,30 @@ test("a reply carries the cards for what it names, cleaned, and the thread shows
     b.close();
   }
 });
+
+// William, 2026-10-12: "a thumbs up could reinforce the loop". The reply keeps the loop that
+// made it, and a thumb becomes a ruling on its Jev run, in lane-check's shape.
+test("a thumb on a reply that carries its loop is written as a ruling on that Jev run", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const loop = { jev_record: "51f54c36-a03d-448a-86b1-d8fb8be122a0", run_id: "run-1", decider: "jev-1.13.0",
+      flags: ["asks_answered"], revised_after_check: true, facts: ["committed 488fa03"], extra: "dropped" };
+    const { id } = await (await fetch(`${b.url}/api/replies`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, take: "261012155615", text: "The loop is kept.", loop, origin: { user: "mia", host: "gaia" } }),
+    })).json();
+    const stored = readFileSync(join(b.base, "replies", `${EPISODE}.jsonl`), "utf8").trim().split("\n").map((l) => JSON.parse(l)).find((r) => r.id === id);
+    assert.equal(stored.loop.jev_record, loop.jev_record);
+    assert.equal(stored.loop.extra, undefined, "only the loop's known fields are kept");
+    const answer = await (await fetch(`${b.url}/api/replies/${id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ value: "up" }) })).json();
+    assert.equal(answer.ruling, `rul-${loop.jev_record}`);
+    await fetch(`${b.url}/api/replies/${id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ value: "" }) });
+    const rulings = readFileSync(join(b.base, "decisions", "mia-return.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(rulings.length, 1, "taking a thumb back writes no ruling");
+    assert.deepEqual({ kind: rulings[0].kind, decision_id: rulings[0].decision_id, verdict: rulings[0].verdict, source: rulings[0].source },
+      { kind: "ruling", decision_id: loop.jev_record, verdict: "ready", source: "thumb" });
+  } finally {
+    b.close();
+  }
+});
+

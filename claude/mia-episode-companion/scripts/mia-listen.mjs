@@ -604,13 +604,41 @@ function linkKind(url) {
   return "link";
 }
 
+// The loop that made a return, kept with it: its Jev run, what the check flagged, whether the
+// words changed after the check, and what the turn did (the --fact lines). A thumb on the
+// reply then validates the loop, not only the words (William, Episode 120, 2026-10-12:
+// "a thumbs up could reinforce the loop").
+export function loopOf(takeId, text, env = process.env) {
+  if (!takeId) return null;
+  const ledger = join(env.MIADI_DECISIONS_DIR || join(homedir(), ".miadi", "decisions"), "mia-return.jsonl");
+  if (!existsSync(ledger)) return null;
+  const records = readFileSync(ledger, "utf8").split("\n").filter(Boolean).flatMap((line) => {
+    try { return [JSON.parse(line)]; } catch { return []; }
+  });
+  const run = records.filter((r) => r.kind === "mia-return" && Array.isArray(r.takes) && r.takes.includes(takeId)).at(-1);
+  if (!run) return null;
+  const finalSha = createHash("sha256").update(text).digest("hex");
+  return {
+    jev_record: run.id,
+    run_id: run.run_id ?? null,
+    decider: run.decider ?? null,
+    flags: (run.answers ?? []).filter((a) => a.flag).map((a) => a.id),
+    revised_after_check: run.draft_sha256 ? run.draft_sha256 !== finalSha : null,
+    facts: Array.isArray(run.evidence) ? run.evidence.slice(0, 20) : [],
+  };
+}
+
 async function postReply(episode, takeId, text, related = []) {
   const port = process.env.MIADI_PHONE_CAPTURE_PORT || "8771";
   const origin = currentOrigin();
   const response = await fetch(`http://127.0.0.1:${port}/api/replies`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ episode: episode.folder, take: takeId, text, seat: `claude-code@${origin.host}`, origin, ...(related.length ? { related } : {}) }),
+    body: JSON.stringify({
+      episode: episode.folder, take: takeId, text, seat: `claude-code@${origin.host}`, origin,
+      ...(related.length ? { related } : {}),
+      ...(loopOf(takeId, text) ? { loop: loopOf(takeId, text) } : {}),
+    }),
   });
   const answer = await response.json().catch(() => ({}));
   if (!response.ok || !answer.success) throw new Error(answer.error || `HTTP ${response.status}`);

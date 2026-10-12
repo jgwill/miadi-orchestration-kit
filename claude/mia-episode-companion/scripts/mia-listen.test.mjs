@@ -267,3 +267,23 @@ test("reply --related resolves a file of the episode, a review, an issue and a U
   assert.throws(() => relatedCard("Escape=../etc/passwd", episode, env), /no such file/);
   assert.throws(() => relatedCard("no-label-separator", episode, env), /<label>=<target>/);
 });
+
+test("a reply's loop is read from the Jev ledger: its run, its flags, and whether the words changed after", async () => {
+  const { loopOf } = await import("./mia-listen.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "mia-loop-"));
+  const draft = "First words.";
+  const sha = createHash("sha256").update(draft).digest("hex");
+  writeFileSync(join(dir, "mia-return.jsonl"), [
+    { kind: "mia-return", id: "older-record-0001", takes: ["261012155615"], draft_sha256: "x", answers: [], evidence: [] },
+    { kind: "mia-return", id: "latest-record-0002", run_id: "run-2", decider: "jev-1.13.0", takes: ["261012155615"], draft_sha256: sha,
+      answers: [{ id: "asks_answered", flag: true }, { id: "hands_back", flag: false }], evidence: ["committed 488fa03"] },
+    { kind: "mia-return", id: "other-take-0003", takes: ["261012150000"], answers: [], evidence: [] },
+  ].map((r) => JSON.stringify(r)).join("\n") + "\n");
+  const env = { MIADI_DECISIONS_DIR: dir };
+  assert.deepEqual(loopOf("261012155615", draft, env), {
+    jev_record: "latest-record-0002", run_id: "run-2", decider: "jev-1.13.0",
+    flags: ["asks_answered"], revised_after_check: false, facts: ["committed 488fa03"],
+  });
+  assert.equal(loopOf("261012155615", "Revised words.", env).revised_after_check, true);
+  assert.equal(loopOf(undefined, draft, env), null, "a reply to no take has no loop");
+});

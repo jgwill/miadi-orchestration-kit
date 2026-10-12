@@ -326,6 +326,23 @@ const FEEDBACK = new Set(["up", "down", ""]);
 
 // Cards under a reply for what it names (a diagram, a review, an issue, a file in the
 // episode). Few, short, and only links William can open: the seat resolves them.
+// The loop that made a reply (its Jev run, what was flagged, what the turn did), posted by
+// mia-listen. A thumb on the reply becomes a ruling on that run in the decisions ledger, in
+// lane-check's shape, so the thumbs calibrate the check (Episode 120, 2026-10-12).
+function cleanLoop(loop) {
+  if (!loop || typeof loop !== "object" || typeof loop.jev_record !== "string" || !/^[\w-]{8,64}$/.test(loop.jev_record)) return null;
+  const words = (list, max, chars) => (Array.isArray(list) ? list : []).filter((x) => typeof x === "string").slice(0, max).map((x) => x.slice(0, chars));
+  return {
+    jev_record: loop.jev_record,
+    run_id: typeof loop.run_id === "string" ? loop.run_id.slice(0, 64) : null,
+    decider: typeof loop.decider === "string" ? loop.decider.slice(0, 64) : null,
+    flags: words(loop.flags, 10, 40),
+    revised_after_check: typeof loop.revised_after_check === "boolean" ? loop.revised_after_check : null,
+    facts: words(loop.facts, 20, 400),
+  };
+}
+const THUMB_VERDICT = { up: "ready", down: "revise" };
+
 const MAX_RELATED = 6;
 function cleanRelated(list) {
   if (!Array.isArray(list)) return [];
@@ -420,7 +437,7 @@ const VOICE_AT_POST_MS = 20_000;
 
 export function createApp({
   service, chronicleRoot, uploadsDir, repliesDir, listenerDir, voice = null, defaultEpisode = "",
-  locate = () => null, log = () => {}, partStaleMs = PART_STALE_MS, recoverEveryMs = RECOVER_EVERY_MS,
+  locate = () => null, log = () => {}, partStaleMs = PART_STALE_MS, recoverEveryMs = RECOVER_EVERY_MS, decisionsLedger = "",
 }) {
   const serial = serializer();
   const voicing = new Map(); // reply id → in-flight synthesis, so two taps make one voice
@@ -501,6 +518,8 @@ export function createApp({
     };
     const related = cleanRelated(body.related);
     if (related.length) reply.related = related;
+    const loop = cleanLoop(body.loop);
+    if (loop) reply.loop = loop;
     mkdirSync(repliesDir, { recursive: true });
     appendFileSync(join(repliesDir, `${reply.episode}.jsonl`), `${JSON.stringify(reply)}\n`, { mode: 0o600 });
     // Told to the seat that posts: while William records, the reply shows on his page and
@@ -552,7 +571,19 @@ export function createApp({
     mkdirSync(join(repliesDir, "feedback"), { recursive: true });
     appendFileSync(join(repliesDir, "feedback", `${reply.episode}.jsonl`), `${JSON.stringify(entry)}\n`, { mode: 0o600 });
     log(`reply ${id}: feedback ${value || "taken back"}`);
-    return { success: true, reply: id, value };
+    // A thumb is William's ruling on the Jev run that checked this reply. Taking a thumb
+    // back writes no ruling; the feedback file keeps that he did.
+    let ruling = null;
+    if (value && reply.loop?.jev_record && decisionsLedger) {
+      ruling = {
+        kind: "ruling", id: `rul-${reply.loop.jev_record}`, decision_id: reply.loop.jev_record,
+        decided_by: entry.by || "william", words: value === "up" ? "👍 on the phone page" : "👎 on the phone page",
+        reading: null, source: "thumb", verdict: THUMB_VERDICT[value], reply: id, at: entry.at,
+      };
+      mkdirSync(resolve(decisionsLedger, ".."), { recursive: true });
+      appendFileSync(decisionsLedger, `${JSON.stringify(ruling)}\n`);
+    }
+    return { success: true, reply: id, value, ...(ruling ? { ruling: ruling.id } : {}) };
   }
 
   // Mia's voice for one reply, through the Miadi voice layer (persona mia, bound to the
@@ -925,6 +956,7 @@ async function main() {
       panes: tmuxPanes(), bindings: bindingLine(), self: { host: hostname(), user: userInfo().username }, at,
     }),
     log: (line) => console.log(`[phone-capture] ${line}`),
+    decisionsLedger: join(process.env.MIADI_DECISIONS_DIR || join(homedir(), ".miadi", "decisions"), "mia-return.jsonl"),
   });
   createServer(handle).listen(port, host, () => {
     console.log(`[phone-capture] http://${host}:${port} → ${publicUrl}`);
