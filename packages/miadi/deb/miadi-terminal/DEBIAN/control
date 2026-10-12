@@ -1,5 +1,5 @@
 Package: miadi-terminal
-Version: 0.3.0
+Version: 0.4.0
 Section: misc
 Priority: optional
 Architecture: all
@@ -10,9 +10,11 @@ Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
 Description: Clickable miadi-chronicle references, tmux settings for every user, restored tmux sessions
  A bare miadi-chronicle:126 in a terminal opens the episode in the browser,
- and a circle:1790787727155:2slscw or miadi-ceremony:<id> opens its page.
+ and a circle:1790787727155:2slscw or miadi-ceremony:<id> opens its page,
+ as do miadi-foundation:, miadi-notebook:, miadi-prototype:,
+ miadi-tracing: and rise:// references.
  Each integration is enabled per user with `miadi-terminal enable`:
-  desktop     the miadi-chronicle:, miadi-ceremony:, miadi-circle: schemes
+  desktop     the miadi-*: and rise: schemes
   terminator  Ctrl+click a reference in Terminator
   tmux        click a reference in a tmux pane
   defaults    comment out what the user's tmux config repeats of

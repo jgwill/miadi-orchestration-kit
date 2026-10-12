@@ -21,7 +21,7 @@ sudo apt update && sudo apt install miadi
 | `miadi` | its dependencies (through 0.1.x it held the settings itself) | 0.1.0 |
 | `miadi-config` | the `MIADI_*` settings and the `miadi-config` command | 0.2.0 |
 | `miadi-tmux` | `/usr/bin/tmux` 3.7c built from the upstream release, replacing the distribution's tmux (3.2a on 22.04): one tmux version on a host, since a client cannot attach to a server of another version | 3.7c-1 |
-| `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` and `miadi-foundation:` (0.2.2) references, and bare circle ids (0.1.4): desktop, Terminator, tmux; the tmux settings every user starts with, `/etc/miadi/tmux.conf` (0.3.0; `miadi` depends on it since 0.5.0) | 0.1.0 |
+| `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:`, `miadi-foundation:` (0.2.2), `miadi-notebook:`, `miadi-prototype:`, `miadi-tracing:` and `rise://` (0.4.0) references, and bare circle ids (0.1.4): desktop, Terminator, tmux; the tmux settings every user starts with, `/etc/miadi/tmux.conf` (0.3.0; `miadi` depends on it since 0.5.0) | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
 | `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
@@ -89,7 +89,7 @@ miadi-terminal status
 
 | integration | a click is | file |
 |---|---|---|
-| `desktop` | an OSC 8 link or a page link carrying `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:` or `miadi-foundation:` | `/usr/share/applications/miadi-chronicle-open.desktop` |
+| `desktop` | an OSC 8 link or a page link carrying `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:`, `miadi-foundation:`, `miadi-notebook:`, `miadi-prototype:`, `miadi-tracing:` (`miadi-trace:`, `miadi-prompt:`) or `rise:` | `/usr/share/applications/miadi-chronicle-open.desktop` |
 | `terminator` | Ctrl+click a bare reference | `/usr/share/miadi-terminal/terminator/`, linked into Terminator's plugin directory |
 | `tmux` | click, or tap on Termux, a bare reference in a pane | `/usr/share/miadi-terminal/tmux/miadi-chronicle.conf` |
 | `defaults` (0.3.0) | the tmux settings every user starts with: `/etc/tmux.conf` reads `/etc/miadi/tmux.conf`; enabling comments out the lines of the user's config that repeat it | `/etc/tmux.conf`, `/etc/miadi/tmux.conf` |

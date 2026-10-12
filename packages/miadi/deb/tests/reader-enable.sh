@@ -31,7 +31,7 @@ printf 'MIADI_URL_BASE=https://old.test\nMIADI_CHRONICLE_ROOT=/old\n' >> ~/.conf
 miadi-terminal status | grep -q 'earlier inquiry-weave environment file'
 miadi-terminal status | grep -qx '  MIADI_URL_BASE=https://old.test wins over miadi.env.s MIADI_URL_BASE=https://example.test'
 ! miadi-terminal status | grep -q 'MIADI_CHRONICLE_ROOT'
-for scheme in miadi-chronicle miadi-ceremony miadi-circle; do
+for scheme in miadi-chronicle miadi-ceremony miadi-circle miadi-foundation miadi-notebook miadi-prototype miadi-tracing miadi-trace miadi-prompt rise; do
 	test "$(xdg-mime query default x-scheme-handler/$scheme)" = miadi-chronicle-open.desktop
 done
 grep -qx 'text/html=firefox.desktop' ~/.config/mimeapps.list.bak-miadi-terminal

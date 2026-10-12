@@ -10,7 +10,9 @@ Installed by miadi-terminal (jgwill/miadi-orchestration-kit).
     miadi-terminal front [URL]             show, or set, the Miadi a click opens on
 
 Integrations:
-    desktop     the miadi-chronicle:, miadi-ceremony:, miadi-circle: and miadi-foundation: schemes
+    desktop     the miadi-chronicle:, miadi-ceremony:, miadi-circle:, miadi-foundation:,
+                miadi-notebook:, miadi-prototype:, miadi-tracing: (miadi-trace:, miadi-prompt:)
+                and rise:// schemes
                 open in the browser from any application — OSC 8 links in a
                 terminal, links in a page
     terminator  Ctrl+click a bare reference in Terminator's output
@@ -37,7 +39,10 @@ PLUGIN_CLASS = "MiadiChronicleURLHandler"
 PLUGIN_PATH = Path("/usr/lib/python3/dist-packages/terminatorlib/plugins/miadi_chronicle_url_handler.py")
 DESKTOP_FILE = "miadi-chronicle-open.desktop"
 SCHEME_MIMES = ("x-scheme-handler/miadi-chronicle", "x-scheme-handler/miadi-ceremony",
-                "x-scheme-handler/miadi-circle", "x-scheme-handler/miadi-foundation")
+                "x-scheme-handler/miadi-circle", "x-scheme-handler/miadi-foundation",
+                "x-scheme-handler/miadi-notebook", "x-scheme-handler/miadi-prototype",
+                "x-scheme-handler/miadi-tracing", "x-scheme-handler/miadi-trace",
+                "x-scheme-handler/miadi-prompt", "x-scheme-handler/rise")
 TMUX_CONF = SHARE / "tmux" / "miadi-chronicle.conf"
 TMUX_LINE = f"source-file -q {TMUX_CONF}  # miadi-terminal"
 # Terminator's own default, which a config that sets enabled_plugins replaces.

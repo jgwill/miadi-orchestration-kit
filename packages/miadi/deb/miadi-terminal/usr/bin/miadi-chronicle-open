@@ -9,6 +9,12 @@ wheel id as the wheel mints it, circle:1790787727155:2slscw or
 ceremony:<timestamp>:<random> or ceremony:ep<N>:<slug>:<n>, which the opener
 gives its scheme. A foundation packet is miadi-foundation:<slug>[/<file>]
 (SPEC §10, jgwill/miadi-orchestration-kit#69); the door opens its page.
+What an episode holds (jgwill/Miadi#769, jgwill/miadi-orchestration-kit#86)
+opens the same way: miadi-notebook:<uuid>, miadi-prototype:<slug>,
+miadi-tracing:<domain>/<resource>/<id>[@<v>] with its aliases miadi-trace:
+and miadi-prompt:, and a specification, rise://<owner>/<repo>/<path>[@<commit>].
+In running text a specification is found only with its //, so the word
+"rise:" stays text.
 
     miadi-chronicle-open miadi-chronicle:126          print the URL
     miadi-chronicle-open --open miadi-chronicle:126   open it in the browser
@@ -28,7 +34,7 @@ through `miadi-config get` (the environment wins over miadi.env); where
 miadi-config is not installed, as on Termux, from the environment and then
 from $MIADI_ETC/miadi.env (default /etc/miadi/miadi.env).
 
-Exit: 0 ok · 64 usage · 65 not a chronicle reference · 66 no reference at
+Exit: 0 ok · 64 usage · 65 not a Miadi reference · 66 no reference at
 that cell · 78 no front configured
 """
 
@@ -40,14 +46,15 @@ import time
 import unicodedata
 from urllib.parse import quote
 
-SCHEMES = ("miadi-chronicle:", "miadi-ceremony:", "miadi-circle:", "miadi-foundation:")
+SCHEMES = ("miadi-chronicle:", "miadi-ceremony:", "miadi-circle:", "miadi-foundation:",
+           "miadi-notebook:", "miadi-prototype:", "miadi-tracing:", "miadi-trace:", "miadi-prompt:", "rise:")
 FRONT_SETTINGS = ("MIADI_CHRONICLE_OPEN_URL", "MIADI_URL_BASE")
 ETC_DEFAULT = "/etc/miadi"
 # The same pattern the Terminator plugin matches with. It stops at what ends a
 # URI in running text; trailing sentence punctuation is stripped after. A bare
 # wheel id counts only in the form the wheel mints, a timestamp or ep<N> after
 # its kind, so the word "circle:" in running text is not a reference.
-REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*''', re.I)
+REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|(?:notebook|prototype|tracing|trace|prompt):(?://)?[A-Za-z0-9._~/:+@\-]+)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\brise://[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9._~/\-]+(?:@[A-Za-z0-9._/\-]+)?(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*''', re.I)
 BARE_WHEEL_ID = re.compile(r"(circle|ceremony):", re.I)
 TRAILING = ".,;:!?)]}'\""
 # A double click is two clicks; the second must not open the same page again.
@@ -330,13 +337,15 @@ def main(argv):
     elif len(refs) == 1:
         ref = clean(refs[0])
     else:
-        print("usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>] | miadi-circle:<id> | circle:<id>",
+        print("usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>] | miadi-circle:<id> | circle:<id>"
+              " | miadi-foundation:<slug> | miadi-notebook:<uuid> | miadi-prototype:<slug>"
+              " | miadi-tracing:<domain>/<resource>/<id> | rise://<owner>/<repo>/<path>",
               file=sys.stderr)
         return 64
 
     ref = as_uri(ref)
     if not ref.lower().startswith(SCHEMES):
-        print(f"not a chronicle reference: {ref}", file=sys.stderr)
+        print(f"not a Miadi reference: {ref}", file=sys.stderr)
         return 65
     base = front()
     if not base:

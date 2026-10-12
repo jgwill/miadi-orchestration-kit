@@ -213,6 +213,28 @@ try:
 finally:
     s.close()
 
+# What an episode holds and a specification (jgwill/miadi-orchestration-kit#86).
+# rise:// holds none of the other words, so "rise://" is what tmux looks for.
+s = Scenario(100, lines_program(["notes: miadi-notebook:6c3f477f-3606-47bf-871c-29bf66a3988e.",
+                                 "ran miadi-prompt:story/miadiRun-x@3 and miadi-prototype:ep550-walk",
+                                 "spec rise://jgwill/Miadi/rispecs/miadi-chronicle-dsl/SPEC.md#4.1 here",
+                                 "Enterprise: rise to the occasion"]))
+try:
+    s.click(12)
+    check("a notebook reference opens its notebook", s.opened_lines(),
+          [f"{FRONT}miadi-notebook%3A6c3f477f-3606-47bf-871c-29bf66a3988e"])
+    s.click(10, row=1)
+    s.click(50, row=1)
+    check("a prompt and a prototype open what they name", s.opened_lines()[1:],
+          [f"{FRONT}miadi-prompt%3Astory%2FmiadiRun-x%403", f"{FRONT}miadi-prototype%3Aep550-walk"])
+    s.click(12, row=2)
+    check("a specification opens from a row holding no other word", s.opened_lines()[3:],
+          [f"{FRONT}rise%3A%2F%2Fjgwill%2FMiadi%2Frispecs%2Fmiadi-chronicle-dsl%2FSPEC.md%234.1"])
+    s.click(14, row=3)
+    check("the word rise is not a reference", s.opened_lines()[4:], [])
+finally:
+    s.close()
+
 
 def streaming(width, name):
     """A pane still printing: the click opens what was under it when it landed."""

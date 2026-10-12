@@ -4,6 +4,9 @@ A bare miadi-chronicle:126 in a terminal opens that episode in the browser.
 A ceremony or circle opens its page the same way: miadi-circle:<id>,
 miadi-ceremony:<id>, or the bare wheel id, circle:1790787727155:2slscw.
 A foundation packet opens its page too: miadi-foundation:<slug>[/<file>].
+So does what an episode holds: miadi-notebook:<uuid>, miadi-prototype:<slug>,
+miadi-tracing:<domain>/<resource>/<id>[@<v>] (or miadi-trace:, miadi-prompt:),
+and a specification, rise://<owner>/<repo>/<path>[@<commit>] (0.4.0).
 
   sudo apt install miadi-terminal
   miadi-terminal front https://<your Miadi>   # only when MIADI_URL_BASE is not already it
@@ -12,7 +15,9 @@ A foundation packet opens its page too: miadi-foundation:<slug>[/<file>].
 
 Integrations, each enabled per user (`miadi-terminal enable tmux`, …):
 
-  desktop     the miadi-chronicle:, miadi-ceremony:, miadi-circle: and miadi-foundation: schemes
+  desktop     the miadi-chronicle:, miadi-ceremony:, miadi-circle:, miadi-foundation:,
+              miadi-notebook:, miadi-prototype:, miadi-tracing:, miadi-trace:,
+              miadi-prompt: and rise: schemes
               open in the browser from any application: OSC 8 links in a
               terminal, links in a web page.
               /usr/share/applications/miadi-chronicle-open.desktop

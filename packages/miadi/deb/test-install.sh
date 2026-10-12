@@ -123,7 +123,10 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     test "$(miadi-chronicle-open "circle:1790787727155:2slscw.")" = "${open}miadi-circle%3Acircle%3A1790787727155%3A2slscw"
     test "$(miadi-chronicle-open miadi-circle:circle:1790787727155:2slscw)" = "${open}miadi-circle%3Acircle%3A1790787727155%3A2slscw"
     test "$(miadi-chronicle-open ceremony:ep343:talking-circle:1)" = "${open}miadi-ceremony%3Aceremony%3Aep343%3Atalking-circle%3A1"
-    echo "the opener builds the open door on the configured front, for a chronicle, ceremony or circle reference"
+    test "$(miadi-chronicle-open "miadi-notebook:6c3f477f-3606-47bf-871c-29bf66a3988e.")" = "${open}miadi-notebook%3A6c3f477f-3606-47bf-871c-29bf66a3988e"
+    test "$(miadi-chronicle-open miadi-prompt:story/miadiRun-x@3)" = "${open}miadi-prompt%3Astory%2FmiadiRun-x%403"
+    test "$(miadi-chronicle-open "rise://jgwill/Miadi/rispecs/miadi-chronicle-dsl/SPEC.md),")" = "${open}rise%3A%2F%2Fjgwill%2FMiadi%2Frispecs%2Fmiadi-chronicle-dsl%2FSPEC.md"
+    echo "the opener builds the open door on the configured front, for a chronicle, ceremony, circle, artefact or rise reference"
     code() { set +e; "$@" >/dev/null 2>&1; echo $?; set -e; }
     test "$(code miadi-chronicle-open)" = 64
     test "$(code miadi-chronicle-open https://example.test)" = 65
@@ -146,20 +149,25 @@ for text, want in [("see miadi-chronicle:126.", "miadi-chronicle:126"),
                    ("seated in circle:1790787727155:2slscw.", "circle:1790787727155:2slscw"),
                    ("<miadi-circle:circle:1790787727155:2slscw?mc.show=card>", "miadi-circle:circle:1790787727155:2slscw?mc.show=card"),
                    ("opened ceremony:ep343:talking-circle:1 today", "ceremony:ep343:talking-circle:1"),
-                   ("see miadi-ceremony:3f2a9c1e", "miadi-ceremony:3f2a9c1e")]:
+                   ("see miadi-ceremony:3f2a9c1e", "miadi-ceremony:3f2a9c1e"),
+                   ("notes in miadi-notebook:6c3f477f-3606-47bf-871c-29bf66a3988e.", "miadi-notebook:6c3f477f-3606-47bf-871c-29bf66a3988e"),
+                   ("built miadi-prototype:ep550-walk, then", "miadi-prototype:ep550-walk"),
+                   ("traced at miadi-tracing:ceremony/trace/4b1c:9a+e2;", "miadi-tracing:ceremony/trace/4b1c:9a+e2"),
+                   ("ran miadi-prompt:story/miadiRun-2610121030-mia-walk@3 today", "miadi-prompt:story/miadiRun-2610121030-mia-walk@3"),
+                   ("spec (rise://jgwill/Miadi/rispecs/miadi-chronicle-dsl/SPEC.md@a9fd1f40#4.1)", "rise://jgwill/Miadi/rispecs/miadi-chronicle-dsl/SPEC.md@a9fd1f40#4.1")]:
     found = pattern.search(text)
     assert found, text
     assert found.group(0).rstrip(".,;:!?)]}\x27\"") == want, (found.group(0), want)
-for text in ["the circle: people", "circle:12", "a ceremony:opening"]:
+for text in ["the circle: people", "circle:12", "a ceremony:opening", "Enterprise://x/y/z", "RISE: a framework", "rise://jgwill"]:
     assert not pattern.search(text), text
-print("the plugin parses and its pattern finds chronicle, ceremony and circle references in running text")
+print("the plugin parses and its pattern finds chronicle, ceremony, circle, artefact and rise references in running text")
 PY
     apt-get install -y -qq desktop-file-utils >/dev/null 2>&1
     desktop-file-validate /usr/share/applications/miadi-chronicle-open.desktop
-    for scheme in miadi-chronicle miadi-ceremony miadi-circle; do
+    for scheme in miadi-chronicle miadi-ceremony miadi-circle miadi-foundation miadi-notebook miadi-prototype miadi-tracing miadi-trace miadi-prompt rise; do
       grep -q "x-scheme-handler/$scheme=miadi-chronicle-open.desktop" /usr/share/applications/mimeinfo.cache
     done
-    echo "the scheme handler is valid and registered for all three schemes"
+    echo "the scheme handler is valid and registered for every scheme"
 
     test "$(dpkg-query -W -f="\${Conffiles}\n" miadi-terminal | grep -c -E "^ /etc/(miadi/)?tmux.conf ")" = 2
     grep -qx "source-file -q /etc/miadi/tmux.conf" /etc/tmux.conf
