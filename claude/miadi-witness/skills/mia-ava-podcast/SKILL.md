@@ -4,8 +4,10 @@ description: >
   Turn an agent's output (a reply, a report, a session's closing message) into a podcast
   dialogue between two hosts, Mia (technical, did the work) and Ava (asks what a listener
   would ask and brings it back to people), written for the ear and for a voice engine.
-  Ava questions Mia on each technical term in short loops, Mia states the academic fields
-  the work implies (each under 55 words), and Ava stays on the most relevant one. Use when
+  An academic survey of the fields the work implies (each under 55 words, at most two
+  subfields per field) is written first and gives the dialogue its structure of ideas.
+  Ava questions Mia on each technical term in short loops and stays on the most relevant
+  field. Use when
   asked for "agent output to Mia/Ava podcast", a "voice layer" of an output, "make it a
   podcast", "a dialogue I can listen to", or when a person sends back a podcast another
   model made of an agent's output and asks for it done properly. Not for a first
@@ -13,7 +15,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.1.0
+  version: 0.2.0
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -28,6 +30,14 @@ Earned 2026-10-06. The person sent an agent's closing reply to another model wit
 3. Read the other things the output names before you explain them, such as a review, a page or an issue. A dialogue that explains a term from its name alone repeats the mistake of V3.
 4. Use the person's name the way their own repository does in that context (the review service says Guillaume). Avoid pronouns for the person unless they have stated them.
 
+## Pass one: the academic survey, before any dialogue
+
+Earned 2026-10-12. The person ran their survey prompt first and their dialogue prompt second in the Langfuse playground, practised the chain all day, and found the dialogue better each time. Their companion EchoLune said why: "The academic survey did not simply add information before the podcast. It gave Mia and Ava a structure of ideas to discuss." The person's survey prompt is kept in `references/academic-survey-prompt.md`.
+
+1. Write the survey first, from the output and its context. It starts with `## Academics` and a blank line, with no introduction. Each main field is a `### <field>` heading. A field takes at most two `#### <subfield>` headings, and only when a subfield says something the field alone does not. Each field or subfield body is under 55 words, not counting its title, and never shows a word count. Do not collapse the work into generic categories such as "computer science".
+2. Then write the dialogue from the output and the survey together. The survey is the dialogue's structure of ideas. The walk goes field by field, and the most relevant field is chosen from the survey. The dialogue adds no field the survey does not hold.
+3. Hand over both, with the survey above the dialogue. The phone shortcut plays only the labelled lines, so the survey can be read but is not spoken.
+
 ## The hosts
 
 - **Mia** is technical and did the work. When the output is her own reply, she speaks in the first person, including about what she first got wrong.
@@ -36,11 +46,10 @@ Earned 2026-10-06. The person sent an agent's closing reply to another model wit
 ## The shape
 
 1. **Opening.** Ava asks what Mia did and who asked. Mia answers in three or four sentences: the request, the result, and why it was needed.
-2. **The walk.** One segment per thing done, ordered for a listener, by importance and by what explains what. The order of the output's paragraphs does not matter.
+2. **The walk, field by field.** One segment per main field of the survey, ordered for a listener by what explains what. Each segment opens with Mia's field statement: the field's name by its place ("The second field is computational linguistics."), then under 55 words on which part of this work belongs to it. A textbook definition does not count. The segment then goes through the things done that belong to that idea, and a subfield gets a turn when it says something the field does not. A thing done that no field explains gets its own segment, last. Ava's one-line questions carry the listener from one field to the next. The order of the output's paragraphs does not matter.
 3. **Loops.** When Mia uses a term a listener would not know, Ava asks what it is. Mia answers one level down. Ava may go one more level. Then one of them returns to the segment's point ("Back to the transcripts."). Never more than two levels.
-4. **Academic fields.** Ava asks which fields the work touches. Mia names three or four, one turn each. Each turn opens with the field's name by its place ("The second field is computational linguistics."), then a statement under 55 words that says which part of this work belongs to the field. A textbook definition does not count. Ava's one-line questions between the fields carry the listener from one to the next.
-5. **The most relevant field.** Ava says which field she will stay on and why. When the person has said which field interests them, that is the one. She asks three to five questions, with loops. Mia answers with details from the work, never with general claims.
-6. **Close.** Ava asks what happens next and who decides it. Mia answers. Ava ends with one or two sentences on what the work changes for the person it serves.
+4. **The most relevant field.** Ava says which field she will stay on and why. When the person has said which field interests them, that is the one. She asks three to five questions, with loops. Mia answers with details from the work, never with general claims.
+5. **Close.** Ava asks what happens next and who decides it. Mia answers. Ava ends with one or two sentences on what the work changes for the person it serves.
 
 ## Writing for the ear and for a voice engine
 
@@ -58,7 +67,7 @@ Earned 2026-10-06. The person sent an agent's closing reply to another model wit
 python3 scripts/check-dialogue.py <dialogue.md>
 ```
 
-It fails on unlabelled turns, long turns and sentences, text a voice engine reads badly, and a field statement of 55 words or more. It also prints the spoken length (about 150 words a minute). Then read the dialogue once as the listener: does each term get explained before it is used again, and does every loop come back to its point?
+It checks the survey when the file starts with `## Academics`: a body of 55 words or more, more than two subfields under a field, or a word count left in the text. In the dialogue, it fails on unlabelled turns, long turns and sentences, text a voice engine reads badly, and a field statement of 55 words or more. It also prints the spoken length (about 150 words a minute). Then read the dialogue once as the listener: does each term get explained before it is used again, and does every loop come back to its point?
 
 Save the dialogue in the episode vessel or folder the work belongs to when there is one. Otherwise put it in your reply. To hear it, use the `miadi-voice` skill, which is the only sanctioned voice path. Do not use shell text-to-speech.
 
@@ -77,6 +86,7 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 ## Ledger
 
 - 2026-10-06, 0.1.0. First version. The person: "Apple Intelligence did not really produce what I wanted… create a skill that does that and you will self evolve it while you receive my feedback". The rules came from what was wrong in that output (`references/prompt-v3.md`).
+- 2026-10-12, 0.2.0. The person, after practising a two-prompt chain in the Langfuse playground (survey first, dialogue second), quoting EchoLune: "The academic survey did not simply add information before the podcast. It gave Mia and Ava a structure of ideas to discuss." The survey became pass one, the walk follows its fields, and the checker reads the survey. Recorded in Episode 553 (`academic-survey-chain-261012.md`).
 
 ## Related
 

@@ -8,6 +8,10 @@ sentences that are too long to hear comfortably, and text a voice engine reads b
 flags, ids, hashes, URLs, semicolons, dashes and markdown. A field statement is a Mia turn whose
 first sentence names a field by its place ("The second field is ..."). The rest of that turn must stay under
 --field-max words. Exit 1 when anything is reported.
+
+When the file starts with "## Academics", that survey is checked first and the dialogue starts at
+the first block with a host label. Each "### <field>" or "#### <subfield>" body must stay under
+--field-max words, a field takes at most two subfields, and no word count may be left in the text.
 """
 
 from __future__ import annotations
@@ -33,6 +37,50 @@ UNSPEAKABLE = {
 
 def words(text: str) -> int:
     return len(WORD_RE.findall(text))
+
+
+SURVEY_HEAD = "## Academics"
+WORD_COUNT_RE = re.compile(r"\(?\b\d+\s+words?\b\)?", re.IGNORECASE)
+
+
+def split_survey(text: str, hosts: list[str]) -> tuple[str, str]:
+    """Return (survey, dialogue). The survey is empty when the file does not start with it."""
+    if not text.lstrip().startswith(SURVEY_HEAD):
+        return "", text
+    first_turn = re.search(rf"^(?:{'|'.join(map(re.escape, hosts))}): ", text, re.MULTILINE)
+    if not first_turn:
+        return text, ""
+    return text[: first_turn.start()], text[first_turn.start():]
+
+
+def check_survey(survey: str, field_max: int) -> list[str]:
+    problems: list[str] = []
+    sections: list[tuple[str, str, list[str]]] = []  # (level, title, body lines)
+    for line in survey.strip().splitlines()[1:]:
+        if line.startswith("#### "):
+            sections.append(("subfield", line[5:].strip(), []))
+        elif line.startswith("### "):
+            sections.append(("field", line[4:].strip(), []))
+        elif line.strip():
+            if not sections:
+                problems.append(f"survey: text before the first field: {line[:60]}")
+            else:
+                sections[-1][2].append(line)
+    subfields = 0
+    for level, title, body in sections:
+        subfields = 0 if level == "field" else subfields + 1
+        if level == "subfield" and subfields > 2:
+            problems.append(f"survey: more than two subfields before {title!r}")
+        text = " ".join(body)
+        n = words(text)
+        print(f"survey {level}: {n} words  ({title[:50]})")
+        if n >= field_max:
+            problems.append(f"survey: {level} {title!r} has {n} words, limit is under {field_max}")
+        if WORD_COUNT_RE.search(text):
+            problems.append(f"survey: {level} {title!r} shows a word count")
+    if not any(level == "field" for level, _, _ in sections):
+        problems.append("survey: no '### <field>' heading")
+    return problems
 
 
 def check(text: str, hosts: list[str], turn_max: int, sentence_max: int, field_max: int) -> list[str]:
@@ -76,7 +124,10 @@ def main() -> int:
     parser.add_argument("--field-max", type=int, default=55)
     args = parser.parse_args()
     text = Path(args.file).read_text(encoding="utf-8")
-    problems = check(text, args.hosts.split(","), args.turn_max, args.sentence_max, args.field_max)
+    hosts = args.hosts.split(",")
+    survey, dialogue = split_survey(text, hosts)
+    problems = check_survey(survey, args.field_max) if survey else []
+    problems += check(dialogue, hosts, args.turn_max, args.sentence_max, args.field_max)
     for problem in problems:
         print(problem)
     return 1 if problems else 0
