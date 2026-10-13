@@ -6,12 +6,14 @@
 //   resolve <prompt-name | trace-id> [--domain d]
 //   prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 //   launch  <mission> --authorized-by <who>
+//   prompt  <mission>                                                   (the seat reads its pinned version)
 //   observe <mission> --kind research|return --summary <text> [--detail-file F]
 //   observe --trace <trace-id> --kind research --summary <text>        (research before any mission)
 //   show    <mission>
 //
 // Prepare never executes: it asks `tide companion open` for its plan (no --run), and the guard in
-// run() refuses --run outside launch. Launch reuses `tide companion open --run`; no launcher here.
+// run() refuses --run outside launch. No prompt text is written to disk: the brief tide hands the
+// seat names the pinned version, and the seat reads it from the provider with `prompt`. Launch reuses `tide companion open --run`; no launcher here.
 // Langfuse is read over its public REST API with the domain's keys and written through
 // `coaia fuse traces add-observation`. Keys travel in headers and in coaia's environment only.
 
@@ -215,6 +217,28 @@ async function create(deps, opts) {
   }
 }
 
+// The brief tide asks the seat to read first. It carries no prompt text: the seat reads the pinned
+// version from the provider (Guillaume, 2026-10-13), and starts the work without waiting for a take
+// (the first launch, 2026-10-13, opened a seat that only listened).
+export function missionBrief({ id, reference, sha256: sum, episode, trace, script }) {
+  return `# Mission ${id}
+
+This seat was opened to carry out a mission, not only to listen. After your opening lines, begin the
+mission now and do not wait for a take. The listener keeps hearing takes in the background while you work.
+
+The mission prompt is ${reference} (sha256 ${sum}). Read it from the provider, not from a file:
+
+  node ${script} prompt ${id}
+
+It prints that version and refuses if the provider no longer holds the same text.
+
+Episode: ${episode}. Trace: ${trace}.
+When the mission is done, or stops, report on the trace:
+
+  node ${script} observe ${id} --kind return --summary "<what exists now>" --detail-file <findings, commits, open questions>
+`
+}
+
 // ---------- missions ----------
 
 const missionHome = (env) => env.MIADI_RUN_HOME || join(homedir(), ".miadi", "missions")
@@ -268,16 +292,16 @@ async function prepare(deps, opts) {
   const seat = opts.seat || "mia"
   const scratch = opts.dryRun ? mkdtempSync(join(tmpdir(), "miadi-run-")) : dir
   mkdirSync(scratch, { recursive: true })
-  const brief = join(scratch, "prompt.md")
+  const brief = join(scratch, "brief.md")
+  const promptRef = `miadi-tracing:${found.domain}/prompt/${opts.prompt}@${version}`
   let saved = false
   try {
-    writeFileSync(brief, pinned.text)
+    writeFileSync(brief, missionBrief({ id, reference: promptRef, sha256: pinned.sha256, episode: String(opts.episode), trace: trace.reference, script: fileURLToPath(import.meta.url) }))
     chmodSync(brief, 0o444)
     const planned = run(deps, "prepare", "tide", companionArgs({ episode: opts.episode, seat, brief, addDirs: opts.addDirs }))
     if (planned.status !== 0) throw new Refusal(6, `tide companion open (plan) failed: ${(planned.stderr || "").trim().slice(0, 300)}`)
     const plan = JSON.parse(planned.stdout)
 
-    const promptRef = `miadi-tracing:${found.domain}/prompt/${opts.prompt}@${version}`
     const relations = [
       await holdOnEpisode(deps, opts.episode, { reference: promptRef, name: opts.prompt, relation: "is-prompted-by" }, !!opts.dryRun),
       await holdOnEpisode(deps, opts.episode, { reference: trace.reference, name: trace.name ?? undefined, session: trace.session ?? undefined, relation: "is-traced-in" }, !!opts.dryRun),
@@ -317,9 +341,8 @@ async function launch(deps, opts) {
   if (mission.state !== "prepared") throw new Refusal(4, `mission ${id} is ${mission.state}; a mission launches once, a new run is a new prompt version`)
   if (typeof opts.authorizedBy !== "string" || !opts.authorizedBy.trim()) throw new Refusal(3, `launch needs --authorized-by <who>: the person's explicit word to run ${id}`)
 
-  const local = sha256(readFileSync(mission.prompt.brief, "utf8"))
   const remote = await getPromptVersion(deps, mission.prompt.domain, mission.prompt.name, mission.prompt.version)
-  if (local !== mission.prompt.sha256 || remote.sha256 !== mission.prompt.sha256) throw new Refusal(5, `prompt ${mission.prompt.reference} no longer matches what was prepared (sha256)`)
+  if (remote.sha256 !== mission.prompt.sha256) throw new Refusal(5, `prompt ${mission.prompt.reference} no longer matches what was prepared (sha256)`)
 
   // The seat may have changed since prepare: ask tide again and launch only where it types the brief.
   const seatArgs = { episode: mission.episode.ref, seat: mission.launcher.seat, brief: mission.prompt.brief, addDirs: mission.launcher.add_dirs }
@@ -347,6 +370,16 @@ async function launch(deps, opts) {
   }))
   saveMission(deps.env, mission)
   return mission
+}
+
+// What the seat reads first: the pinned version, from the provider, only while it matches.
+async function promptCmd(deps, opts) {
+  const id = opts.positional[0]
+  if (!id) throw new Refusal(2, "prompt needs a mission id")
+  const mission = loadMission(deps.env, id)
+  const remote = await getPromptVersion(deps, mission.prompt.domain, mission.prompt.name, mission.prompt.version)
+  if (remote.sha256 !== mission.prompt.sha256) throw new Refusal(5, `prompt ${mission.prompt.reference} no longer matches what was prepared (sha256)`)
+  return { promptText: remote.text }
 }
 
 async function observeCmd(deps, opts) {
@@ -406,6 +439,7 @@ const USAGE = `miadi-run create  <prompt-name> --text-file F [--domain d] [--tra
 miadi-run resolve <prompt-name | trace-id> [--domain d]
 miadi-run prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 miadi-run launch  <mission> --authorized-by <who>
+miadi-run prompt  <mission>
 miadi-run observe <mission> --kind research|return --summary <text> [--detail-file F]
 miadi-run observe --trace <trace-id> --kind research --summary <text>
 miadi-run show    <mission>`
@@ -418,6 +452,7 @@ export async function main(argv, deps = defaultDeps()) {
   if (verb === "resolve") return resolve(deps, opts)
   if (verb === "prepare") return prepare(deps, opts)
   if (verb === "launch") return launch(deps, opts)
+  if (verb === "prompt") return promptCmd(deps, opts)
   if (verb === "observe") return observeCmd(deps, opts)
   if (verb === "show") return loadMission(deps.env, opts.positional[0] ?? "")
   throw new Refusal(2, `unknown verb "${verb}"\n${USAGE}`)
@@ -439,7 +474,8 @@ export function warnings(out) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main(process.argv.slice(2)).then(
     (out) => {
-      console.log(out?.usage ?? JSON.stringify(out, null, 2))
+      if (typeof out?.promptText === "string") process.stdout.write(out.promptText)
+      else console.log(out?.usage ?? JSON.stringify(out, null, 2))
       const w = warnings(out)
       if (w.length) { for (const line of w) console.error(`miadi-run: ${line}`); process.exitCode = 8 }
     },

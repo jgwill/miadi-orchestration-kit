@@ -2,9 +2,10 @@
 name: miadi-run
 description: >
   Start a terminal mission from one pinned version of a miadiRun prompt
-  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in five
-  verbs: create, resolve, prepare, launch, observe. Create makes the person's text a new
-  prompt version and opens its research trace. Prepare pins the version, holds the prompt
+  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in six
+  verbs: create, resolve, prepare, launch, prompt, observe. Create makes the person's text a
+  new prompt version and opens its research trace. The launched seat reads its pinned version
+  from the provider with `prompt` and starts the mission without waiting. Prepare pins the version, holds the prompt
   and its research trace on the episode and asks `tide companion open` for its plan,
   and never executes. Launch runs only on the person's explicit word. Every step adds
   a typed observation (research, preparation, execution, return) to the mission's
@@ -14,7 +15,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.2.0
+  version: 0.3.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -33,15 +34,21 @@ $R create  <prompt-name> --text-file F [--domain ceremony|story|eng] [--trace <t
 $R resolve <prompt-name | trace-id> [--domain ceremony|story|eng]
 $R prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--dry-run]
 $R launch  <mission> --authorized-by <who>
+$R prompt  <mission>
 $R observe <mission> --kind research|return --summary "<text>" [--detail-file F]
 $R observe --trace <trace-id> --kind research --summary "<text>"
 $R show    <mission>
 ```
 
 A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/mission.json`
-(default `~/.miadi/missions/`), beside the pinned prompt text `prompt.md`, which is read-only.
+(default `~/.miadi/missions/`), beside `brief.md`, the read-only brief tide asks the seat to read
+first. The brief holds no prompt text. It names the pinned version and the `prompt` command that
+reads it from the provider, tells the seat to begin the mission without waiting for a take, and
+gives the `return` command. A seat therefore starts from the prompt in the provider, never from a
+copy on disk (Guillaume, 2026-10-13). The first launch, that day, opened a seat that read a copy and
+then only listened.
 
-## The five verbs
+## The six verbs
 
 0. **create** is for a person who gives the prompt name and its text together, for example
    `/miadi-run miadiRun-2610121041-pde-into-miadi-chronicle <the text>` (Guillaume,
@@ -67,9 +74,9 @@ A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/miss
    mission here. Send `--dry-run` first. It asks the episode door with `dryRun: true`, prints the
    observation it would send and leaves no record.
 3. **launch** needs `--authorized-by <who>`, the person's explicit word. Before it runs, it
-   compares the pinned text and the provider's version with the recorded sha256 and refuses on
-   any difference. It then runs `tide companion open --run`, which primes the seat and asks it to
-   read `prompt.md` first, and adds an `execution` observation with the seat's tmux session and
+   compares the provider's version with the recorded sha256 and refuses on any difference. It then
+   runs `tide companion open --run`, which primes the seat and asks it to read `brief.md` first,
+   and adds an `execution` observation with the seat's tmux session and
    tide session row. A mission launches once.
 
    tide types the brief's path only when its plan state is `create`, `archive-then-create` or
@@ -81,7 +88,11 @@ A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/miss
    tide runs only in controller mode from a terminal. When it refuses, the mission stays
    prepared and the script prints the command for the person to run themselves
    (`! node …/miadi-run.mjs launch …` or their own terminal).
-4. **observe** adds `research` (discussion of the prompt, with or without a mission) or
+4. **prompt** `<mission>` prints the pinned version, read from the provider, and refuses (exit 5)
+   when the provider no longer holds the text that was prepared. It is the seat's first read.
+   The prompt is not yet linked to the trace in Langfuse: every observation is an event, and
+   coaia cannot set a generation's prompt name and version (D2, held 2026-10-13).
+5. **observe** adds `research` (discussion of the prompt, with or without a mission) or
    `return` (findings, commits, new questions, after a launch). Only prepare writes
    `preparation`, and only launch writes `execution`.
 
@@ -133,6 +144,8 @@ episode door. It proves these things:
 - Prepare refuses `--run`, `--launch` and `--authorized-by`.
 - A version prepares once.
 - Launch needs authorization and a matching sha256.
+- The brief holds no prompt text, names the pinned version and starts the seat; `prompt` reads
+  the provider and refuses a changed text.
 - The four observation kinds stay distinct.
 - Create writes the text exactly as given, sets no label, refuses a repeated text, and opens a
   trace or appends under the given trace's root.

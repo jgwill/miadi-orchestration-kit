@@ -156,8 +156,13 @@ test("prepare cannot execute: tide is asked for its plan only, nothing starts a 
   assert.deepEqual(m.launch, { authorized_by: null, at: null, executed: false })
   assert.equal(m.prompt.version, 1)
   assert.equal(m.prompt.sha256, createHash("sha256").update(BODY_V1).digest("hex"))
-  assert.equal(readFileSync(m.prompt.brief, "utf8"), BODY_V1)
-  assert.equal(statSync(m.prompt.brief).mode & 0o222, 0, "the pinned prompt is read-only")
+  // the brief names the pinned version and starts the seat; the prompt text stays in the provider
+  const brief = readFileSync(m.prompt.brief, "utf8")
+  assert.doesNotMatch(brief, /the mission, version one/, "no prompt text is written to disk")
+  assert.match(brief, new RegExp(`miadi-tracing:ceremony/prompt/${PROMPT}@1 \\(sha256 ${m.prompt.sha256}\\)`))
+  assert.match(brief, new RegExp(`miadi-run\\.mjs prompt ${MISSION.replace(/\./g, "\\.")}\\n`))
+  assert.match(brief, /begin the\nmission now and do not wait for a take/)
+  assert.equal(statSync(m.prompt.brief).mode & 0o222, 0, "the brief is read-only")
   assert.equal(m.launcher.session, "episode-9-mia-companion")
 
   // the episode holds the prompt version and the trace, for real this time
@@ -180,6 +185,17 @@ test("a prepared mission is immutable: the same version cannot be prepared twice
   const r = await cli(PREPARE)
   assert.equal(r.code, 4, r.stderr)
   assert.equal(log("tide").length, before)
+})
+
+test("prompt prints the pinned version from the provider, and refuses once the provider's text differs", async () => {
+  const r = await cli(["prompt", MISSION])
+  assert.equal(r.code, 0, r.stderr)
+  assert.equal(r.stdout, BODY_V1)
+  promptBody = BODY_V1 + "changed\n"
+  const changed = await cli(["prompt", MISSION])
+  promptBody = BODY_V1
+  assert.equal(changed.code, 5, changed.stderr)
+  assert.equal(changed.stdout, "")
 })
 
 test("launch refuses without --authorized-by and leaves the mission prepared", async () => {
