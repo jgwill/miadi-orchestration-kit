@@ -2,6 +2,7 @@
 // miadi-run — a terminal mission prepared from one pinned prompt version, launched only on an
 // explicit word, reporting to its trace. jgwill/miadi-orchestration-kit#84.
 //
+//   create  <prompt-name> --text-file F [--domain d] [--trace <trace-id>] [--session S] [--commit-message T]
 //   resolve <prompt-name | trace-id> [--domain d]
 //   prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 //   launch  <mission> --authorized-by <who>
@@ -14,7 +15,7 @@
 // Langfuse is read over its public REST API with the domain's keys and written through
 // `coaia fuse traces add-observation`. Keys travel in headers and in coaia's environment only.
 
-import { createHash } from "node:crypto"
+import { createHash, randomBytes } from "node:crypto"
 import { spawnSync } from "node:child_process"
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
@@ -22,6 +23,8 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 export const DOMAINS = ["ceremony", "story", "eng"]
+// The name a terminal mission prompt carries (trace d87a4c119eb24fb4a718c29e130bd642).
+export const PROMPT_NAME_RE = /^miadiRun-\d{10}-[A-Za-z0-9][A-Za-z0-9._-]*$/
 export const OBSERVATION_KINDS = ["research", "preparation", "execution", "return"]
 // The tide companion plan states that type the starter prompt, which carries the brief's path
 // (tide_runtime/companion.py). In every other state (a seat already listening, re-armed or
@@ -161,6 +164,55 @@ async function holdOnEpisode(deps, episode, body, dryRun) {
   if (deps.env.MIADI_API_TOKEN_WRITER) headers.Authorization = `Bearer ${deps.env.MIADI_API_TOKEN_WRITER}`
   const res = await deps.fetch(`${api}/api/chronicle/episodes/${encodeURIComponent(episode)}/tracing`, { method: "POST", headers, body: JSON.stringify({ ...body, dryRun }) })
   return { reference: body.reference, relation: body.relation, status: res.status, held: res.ok && !dryRun }
+}
+
+// ---------- create: the person's text becomes a prompt version ----------
+
+// Adds one version and sets no label, so no earlier version and no label moves. The research trace
+// is the one given, or a new one opened with the version as its root observation.
+async function create(deps, opts) {
+  const name = opts.positional[0]
+  if (!name || !PROMPT_NAME_RE.test(name)) throw new Refusal(2, "create needs a prompt name miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>")
+  if (!opts.textFile) throw new Refusal(2, "create needs --text-file <F>: the prompt text as the person wrote it")
+  const text = readFileSync(opts.textFile, "utf8")
+  if (!text.trim()) throw new Refusal(2, `${opts.textFile} is empty`)
+
+  const existing = await findPromptVersions(deps, name, opts.domain)
+  const domain = existing?.domain ?? opts.domain ?? "ceremony"
+  if (!DOMAINS.includes(domain)) throw new Refusal(2, `unknown domain "${domain}" (${DOMAINS.join(", ")})`)
+  const trace = opts.trace ? await findTrace(deps, opts.trace, opts.domain) : null
+  if (opts.trace && !trace) throw new Refusal(4, `trace ${opts.trace} is in no configured domain`)
+  if (trace && !trace.root) throw new Refusal(4, `trace ${opts.trace} has no root observation to append under; appending would rename it`)
+  const latest = existing?.versions?.length ? Math.max(...existing.versions) : null
+  if (latest && (await getPromptVersion(deps, domain, name, latest)).sha256 === sha256(text)) {
+    throw new Refusal(4, `prompt ${name} v${latest} already holds this text`)
+  }
+
+  const made = run(deps, "create", "coaia", ["fuse", "prompts", "create", "--name", name, "--prompt", text, "--type", "text", "--commit-message", opts.commitMessage || "miadi-run create"], { env: coaiaEnv(deps.env, domain) })
+  if (made.status !== 0) throw new Refusal(1, `the provider refused prompt ${name}: ${(made.stderr || made.stdout || "").trim().slice(0, 300)}`)
+  const after = await findPromptVersions(deps, name, domain)
+  const version = after?.versions?.length ? Math.max(...after.versions) : null
+  if (!version || version === latest) throw new Refusal(1, `prompt ${name} shows no new version in ${domain}`)
+  const pinned = await getPromptVersion(deps, domain, name, version)
+  if (pinned.sha256 !== sha256(text)) throw new Refusal(5, `prompt ${name} v${version} does not hold the text that was sent (sha256)`)
+
+  const reference = `miadi-tracing:${domain}/prompt/${name}@${version}`
+  const input = { prompt: reference, prompt_sha256: pinned.sha256 }
+  const metadata = { miadi_run: { kind: "research", prompt: reference, created: true } }
+  let held
+  if (trace) {
+    held = { id: trace.id, reference: trace.reference, opened: false, ...observe(deps, "create", trace, "research", reference, { input, output: { created: version }, metadata: { prompt: reference, created: true } }) }
+  } else {
+    const id = randomBytes(16).toString("hex")
+    const session = opts.session || name
+    const r = run(deps, "create", "coaia", ["fuse", "traces", "create", "--name", name, "--trace-id", id, "--session-id", session, "--input", JSON.stringify(input), "--output", JSON.stringify({ created: version }), "--metadata", JSON.stringify(metadata)], { env: coaiaEnv(deps.env, domain) })
+    held = { id, reference: `miadi-tracing:${domain}/trace/${id}`, session, opened: true, kind: "research", ok: r.status === 0, ...(r.status === 0 ? {} : { error: (r.stderr || r.stdout || "").trim().slice(0, 300) }) }
+  }
+  return {
+    prompt: { domain, name, version, reference, sha256: pinned.sha256 },
+    trace: held,
+    next: `miadi-run prepare --prompt ${name} --version ${version} --trace ${held.id} --episode <ref>`,
+  }
 }
 
 // ---------- missions ----------
@@ -326,7 +378,7 @@ async function observeCmd(deps, opts) {
 
 export function parseArgs(argv) {
   const opts = { positional: [], addDirs: [] }
-  const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile" }
+  const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile", "--text-file": "textFile", "--session": "session", "--commit-message": "commitMessage" }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (takes[a]) opts[takes[a]] = argv[++i]
@@ -350,7 +402,8 @@ export const defaultDeps = () => ({
   },
 })
 
-const USAGE = `miadi-run resolve <prompt-name | trace-id> [--domain d]
+const USAGE = `miadi-run create  <prompt-name> --text-file F [--domain d] [--trace <trace-id>] [--session S] [--commit-message T]
+miadi-run resolve <prompt-name | trace-id> [--domain d]
 miadi-run prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 miadi-run launch  <mission> --authorized-by <who>
 miadi-run observe <mission> --kind research|return --summary <text> [--detail-file F]
@@ -361,6 +414,7 @@ export async function main(argv, deps = defaultDeps()) {
   const [verb, ...rest] = argv
   if (!verb || verb === "-h" || verb === "--help") return { usage: USAGE }
   const opts = parseArgs(rest)
+  if (verb === "create") return create(deps, opts)
   if (verb === "resolve") return resolve(deps, opts)
   if (verb === "prepare") return prepare(deps, opts)
   if (verb === "launch") return launch(deps, opts)
@@ -377,6 +431,7 @@ export function warnings(out) {
   for (const r of out?.episode?.relations ?? []) if (typeof r.status === "number" && r.status >= 400) w.push(`episode door refused ${r.reference} (HTTP ${r.status})`)
   const launcher = (out?.mission ?? out)?.launcher
   if (launcher?.delivers_brief === false && (out?.mission ?? out)?.state === "prepared") w.push(`tide's plan for ${launcher.session} is "${launcher.plan_state}": a launch now would not type the mission prompt`)
+  if (out?.trace?.ok === false) w.push(`${out.trace.kind} trace ${out.trace.id} not written: ${out.trace.error ?? "coaia failed"}`)
   if (out && out.kind && out.ok === false) w.push(`${out.kind} observation not written: ${out.error ?? "coaia failed"}`)
   return w
 }

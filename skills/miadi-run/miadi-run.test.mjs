@@ -17,6 +17,10 @@ const PROMPT = "miadiRun-2610110648-test-seat-checkPrepare"
 const TRACE = "d87a4c119eb24fb4a718c29e130bd642"
 const SECRETS = ["pk-lf-FAKE-PUBLIC-7f3a", "sk-lf-FAKE-SECRET-91c2", "FAKE-WRITER-TOKEN-55e0"]
 const BODY_V1 = "repo: example\n<input>\n  the mission, version one\n</input>\n"
+// create: a prompt the provider does not hold until coaia's stub records it in logs/created.<N>.txt
+const NEW = "miadiRun-2610130900-test-seat-createFromText"
+const NEW_V1 = "@app/pde @lib/pde  we have into @app/chronicle/\n(.pde/... could be an outside path)\n"
+const NEW_V2 = NEW_V1 + "and a second thought\n"
 
 let root, stubs, logs, home, server, base
 const requests = []
@@ -39,7 +43,12 @@ before(async () => {
   // tide prints a plan in the state written to logs/tide.state (default "create"); with --run it reports an executed seat
   stub("tide", `STATE=$(cat "${logs}/tide.state" 2>/dev/null || echo create)
 if printf '%s\\n' "$@" | grep -qx -- '--run'; then echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"executed\\":true,\\"session_id\\":\\"tide-row-1\\"}"; else echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"commands\\":[]}"; fi`)
-  stub("coaia", `echo "observation sent"`)
+  stub("coaia", `prev=""
+for a in "$@"; do
+  if [ "$prev" = "--prompt" ]; then n=$(ls "${logs}"/created.*.txt 2>/dev/null | wc -l); printf '%s' "$a" > "${logs}/created.$((n+1)).txt"; fi
+  prev="$a"
+done
+echo "observation sent"`)
   for (const never of ["tmux", "claude", "miacompanionyolo"]) stub(never, "exit 0")
 
   server = createServer((req, res) => {
@@ -53,6 +62,12 @@ if printf '%s\\n' "$@" | grep -qx -- '--run'; then echo "{\\"session\\":\\"episo
       if (u.pathname === `/api/public/v2/prompts/${PROMPT}`) {
         const v = Number(u.searchParams.get("version"))
         return v === 1 ? send(200, { name: PROMPT, version: 1, type: "text", prompt: promptBody, labels: ["latest", "production"] }) : send(404, {})
+      }
+      const made = readdirSync(logs).filter((f) => /^created\.\d+\.txt$/.test(f)).length
+      if (u.pathname === "/api/public/v2/prompts" && u.searchParams.get("name") === NEW) return send(200, { data: made ? [{ name: NEW, versions: Array.from({ length: made }, (_, i) => i + 1), labels: ["latest"], type: "text" }] : [] })
+      if (u.pathname === `/api/public/v2/prompts/${NEW}`) {
+        const file = join(logs, `created.${Number(u.searchParams.get("version"))}.txt`)
+        return existsSync(file) ? send(200, { name: NEW, version: Number(u.searchParams.get("version")), type: "text", prompt: readFileSync(file, "utf8"), labels: [] }) : send(404, {})
       }
       if (u.pathname === `/api/public/traces/${TRACE}`) return send(200, { id: TRACE, name: "Reciprocal mission inquiry — source and synthesis", sessionId: "miadi-reciprocal-mission-261011", input: "never printed", observations: [{ id: "child-1", parentObservationId: "root-1", startTime: "2026-10-11T10:48:01Z" }, { id: "root-1", parentObservationId: null, startTime: "2026-10-11T10:48:00Z" }] })
       if (u.pathname === "/api/chronicle/episodes/9/tracing" && req.method === "POST") return send(JSON.parse(body).dryRun ? 200 : 201, { ok: true })
@@ -219,6 +234,53 @@ test("research and return observations are distinct kinds", async () => {
   const kinds = log("coaia").map((c) => c.match(/miadi-run · (\w+) · /)[1])
   assert.deepEqual(kinds, ["preparation", "execution", "research", "return"])
   assert.ok(log("coaia").every((c) => c.includes("--parent-id root-1") && !c.includes("--trace-name")), "every observation hangs under the root and leaves the trace name alone")
+})
+
+test("create refuses a name outside the miadiRun convention, and a missing or empty text, before writing", async () => {
+  const empty = join(root, "empty.txt"); writeFileSync(empty, "  \n")
+  const text = join(root, "new-v1.txt"); writeFileSync(text, NEW_V1)
+  for (const args of [["create", "pde-into-chronicle", "--text-file", text], ["create", NEW], ["create", NEW, "--text-file", empty]]) {
+    const r = await cli(args)
+    assert.equal(r.code, 2, r.stderr)
+  }
+  assert.ok(log("coaia").every((c) => !c.startsWith("fuse prompts create")))
+})
+
+test("create makes the person's text a new version, sets no label, and opens its research trace", async () => {
+  const before = log("coaia").length
+  const r = await cli(["create", NEW, "--text-file", join(root, "new-v1.txt")])
+  assert.equal(r.code, 0, r.stderr)
+  const out = JSON.parse(r.stdout)
+  assert.equal(out.prompt.version, 1)
+  assert.equal(out.prompt.reference, `miadi-tracing:ceremony/prompt/${NEW}@1`)
+  assert.equal(readFileSync(join(logs, "created.1.txt"), "utf8"), NEW_V1, "the provider holds the text exactly as written")
+  assert.equal(out.prompt.sha256, createHash("sha256").update(NEW_V1).digest("hex"))
+  assert.equal(out.trace.opened, true)
+  assert.match(out.trace.id, /^[0-9a-f]{32}$/)
+  const calls = log("coaia").slice(before).join("\n")
+  assert.match(calls, /^fuse prompts create --name miadiRun-2610130900-test-seat-createFromText --prompt /m)
+  assert.doesNotMatch(calls, /--labels|--label |prompts update/)
+  assert.match(calls, new RegExp(`^fuse traces create --name ${NEW} --trace-id ${out.trace.id} --session-id ${NEW} `, "m"))
+  assert.equal(out.next, `miadi-run prepare --prompt ${NEW} --version 1 --trace ${out.trace.id} --episode <ref>`)
+})
+
+test("create refuses to add a version that repeats the latest text", async () => {
+  const r = await cli(["create", NEW, "--text-file", join(root, "new-v1.txt")])
+  assert.equal(r.code, 4, r.stderr)
+  assert.equal(existsSync(join(logs, "created.2.txt")), false)
+})
+
+test("create with --trace adds the new version as a research observation under that trace's root", async () => {
+  const text = join(root, "new-v2.txt"); writeFileSync(text, NEW_V2)
+  const r = await cli(["create", NEW, "--text-file", text, "--trace", TRACE])
+  assert.equal(r.code, 0, r.stderr)
+  const out = JSON.parse(r.stdout)
+  assert.equal(out.prompt.version, 2)
+  assert.equal(out.trace.opened, false)
+  const added = log("coaia").filter((c) => c.startsWith("fuse traces add-observation")).at(-1)
+  assert.match(added, /--parent-id root-1 /)
+  assert.match(added, new RegExp(`miadi-run · research · miadi-tracing:ceremony/prompt/${NEW}@2`))
+  assert.doesNotMatch(added, /--trace-name/)
 })
 
 test("no credential reaches telemetry, the mission record, a request body or the output", async () => {

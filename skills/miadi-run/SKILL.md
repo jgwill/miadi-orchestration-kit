@@ -2,17 +2,19 @@
 name: miadi-run
 description: >
   Start a terminal mission from one pinned version of a miadiRun prompt
-  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in four
-  verbs: resolve, prepare, launch, observe. Prepare pins the version, holds the prompt
+  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in five
+  verbs: create, resolve, prepare, launch, observe. Create makes the person's text a new
+  prompt version and opens its research trace. Prepare pins the version, holds the prompt
   and its research trace on the episode and asks `tide companion open` for its plan,
   and never executes. Launch runs only on the person's explicit word. Every step adds
   a typed observation (research, preparation, execution, return) to the mission's
   trace. Triggers on "miadiRun", "miadi-run", "prepare the mission", "launch the
   mission", "start a session from that prompt", "start a session with that trace",
-  a `miadiRun-…` prompt name, or a trace id given as the source of a mission.
+  a `miadiRun-…` prompt name (with or without the prompt text after it), or a trace id
+  given as the source of a mission.
 metadata:
   type: skill
-  version: 0.1.0
+  version: 0.2.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -27,6 +29,7 @@ existing doors only: the tracing provider, the episode door and `tide companion 
 
 ```bash
 R="node $MIADI_ORCHESTRATION_KIT_ROOT/skills/miadi-run/miadi-run.mjs"
+$R create  <prompt-name> --text-file F [--domain ceremony|story|eng] [--trace <trace-id>] [--session S]
 $R resolve <prompt-name | trace-id> [--domain ceremony|story|eng]
 $R prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--dry-run]
 $R launch  <mission> --authorized-by <who>
@@ -38,8 +41,18 @@ $R show    <mission>
 A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/mission.json`
 (default `~/.miadi/missions/`), beside the pinned prompt text `prompt.md`, which is read-only.
 
-## The four verbs
+## The five verbs
 
+0. **create** is for a person who gives the prompt name and its text together, for example
+   `/miadi-run miadiRun-2610121041-pde-into-miadi-chronicle <the text>` (Guillaume,
+   2026-10-13). Write the text after the name, exactly as given, to a file in your scratchpad,
+   and pass it as `--text-file`. Create adds one version in the domain that already holds the
+   name, else in `--domain` (default `ceremony`), and sets no label. It refuses a name outside
+   the `miadiRun-` convention and a text equal to the latest version. It then records the version
+   as `research` on the trace given with `--trace`, or opens a new trace (named after the prompt,
+   session `--session`, default the prompt name) whose root observation is that version. It
+   prints the `prepare` command to run next. Langfuse may take a minute to make a new trace
+   readable; prepare refuses until it is.
 1. **resolve** reads metadata only. For a prompt it returns the domain, versions and labels. For a
    trace it returns the domain, name, session and observation count. Use it to pick the version
    the person means.
@@ -79,8 +92,9 @@ A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/miss
   observation, without `--trace-name`. A parentless observation becomes another root, and
   Langfuse renames the trace after it. That was measured on 2026-10-11 on a scratch trace in the
   eng project. A trace with no root observation is refused before anything is written.
-- Earlier prompt versions. This script never creates, updates or relabels a prompt. The person
-  revises the prompt in the provider, which makes a new version.
+- Earlier prompt versions. Only `create` writes a prompt, and only as a new version with no
+  label, so no earlier version and no label moves. The person may also revise the prompt in the
+  provider, which makes a new version the same way.
 - Keys. The domain's keys (`<DOMAIN>_LANGFUSE_*`, from the environment or one literal line of
   `$MIADI_ENV_FILE`, default `$MIADI_SRC/.env`) travel only in request headers and in coaia's
   environment, under the three names coaia reads. `MIADI_API_TOKEN_WRITER` travels only in the
@@ -120,4 +134,6 @@ episode door. It proves these things:
 - A version prepares once.
 - Launch needs authorization and a matching sha256.
 - The four observation kinds stay distinct.
+- Create writes the text exactly as given, sets no label, refuses a repeated text, and opens a
+  trace or appends under the given trace's root.
 - No key reaches a log, a record, a request body or the output.
