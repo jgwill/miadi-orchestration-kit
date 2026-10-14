@@ -239,6 +239,7 @@ test("launch on an explicit word runs tide --run once and writes the execution o
   assert.equal(m.launch.tide_session_id, "tide-row-1")
   assert.equal(m.launch.state, "create")
   assert.match(log("coaia").at(-1), /miadi-run · execution · /)
+  assert.match(log("coaia").at(-1), new RegExp(`--type generation --prompt-name ${PROMPT} --prompt-version 1 `), "the execution is a generation linked to the pinned prompt version")
   assert.equal((await cli(["launch", MISSION, "--authorized-by", "Guillaume"])).code, 4, "a mission launches once")
 })
 
@@ -249,6 +250,9 @@ test("research and return observations are distinct kinds", async () => {
   assert.equal(JSON.parse(r.stdout).state, "returned")
   const kinds = log("coaia").map((c) => c.match(/miadi-run · (\w+) · /)[1])
   assert.deepEqual(kinds, ["preparation", "execution", "research", "return"])
+  const types = log("coaia").map((c) => c.match(/--type (\w+)/)[1])
+  assert.deepEqual(types, ["event", "generation", "event", "generation"], "execution and return link the prompt; research and preparation do not")
+  assert.match(log("coaia").at(-1), new RegExp(`--prompt-name ${PROMPT} --prompt-version 1 `))
   assert.ok(log("coaia").every((c) => c.includes("--parent-id root-1") && !c.includes("--trace-name")), "every observation hangs under the root and leaves the trace name alone")
 })
 

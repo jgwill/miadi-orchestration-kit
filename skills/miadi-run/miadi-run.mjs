@@ -137,14 +137,20 @@ function coaiaEnv(env, domain) {
 }
 
 // A new observation is appended; no earlier observation, trace name or prompt version is touched.
-export function observationArgs({ traceId, root, session, kind, subject, input, output, metadata }) {
+// Execution (the pinned version given to a seat) and return (what the seat made of it) are
+// generations linked to that prompt version, so the prompt's page in Langfuse lists the mission
+// (coaia >= 0.5.3, jgwill/coaiajs#14). Research and preparation stay events.
+export const LINKED_KINDS = ["execution", "return"]
+
+export function observationArgs({ traceId, root, session, kind, subject, input, output, metadata, prompt }) {
   if (!OBSERVATION_KINDS.includes(kind)) throw new Refusal(2, `unknown observation kind "${kind}"`)
   if (!root) throw new Refusal(4, `trace ${traceId} has no root observation to append under; appending would rename it`)
+  const linked = prompt && LINKED_KINDS.includes(kind)
   return [
     "fuse", "traces", "add-observation",
     "--trace-id", traceId,
     "--parent-id", root,
-    "--type", "event",
+    ...(linked ? ["--type", "generation", "--prompt-name", prompt.name, "--prompt-version", String(prompt.version)] : ["--type", "event"]),
     "--name", `miadi-run · ${kind} · ${subject}`,
     "--input", JSON.stringify(input ?? {}),
     "--output", JSON.stringify(output ?? {}),
@@ -364,6 +370,7 @@ async function launch(deps, opts) {
   mission.state = "launched"
   mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, state: result.state, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null }
   mission.observations.push(observe(deps, "launch", mission.trace, "execution", id, {
+    prompt: { name: mission.prompt.name, version: mission.prompt.version },
     input: { prompt: mission.prompt.reference, authorized_by: mission.launch.authorized_by },
     output: { state: "launched", plan_state: mission.launch.state, session: mission.launch.session, tide_session_id: mission.launch.tide_session_id },
     metadata: { mission: id, prompt: mission.prompt.reference, prompt_sha256: mission.prompt.sha256, episode: mission.episode.ref, launch_authorized: true },
@@ -397,6 +404,7 @@ async function observeCmd(deps, opts) {
   const mission = loadMission(deps.env, id)
   if (kind === "return" && mission.state === "prepared") throw new Refusal(4, `mission ${id} has not launched; a return follows a launch`)
   const done = observe(deps, "observe", mission.trace, kind, id, {
+    prompt: { name: mission.prompt.name, version: mission.prompt.version },
     input: { summary: opts.summary },
     output: detail ? { detail } : {},
     metadata: { mission: id, prompt: mission.prompt.reference, episode: mission.episode.ref, state: mission.state },

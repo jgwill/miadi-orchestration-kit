@@ -15,7 +15,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.3.0
+  version: 0.4.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -90,11 +90,15 @@ then only listened.
    (`! node …/miadi-run.mjs launch …` or their own terminal).
 4. **prompt** `<mission>` prints the pinned version, read from the provider, and refuses (exit 5)
    when the provider no longer holds the text that was prepared. It is the seat's first read.
-   The prompt is not yet linked to the trace in Langfuse: every observation is an event, and
-   coaia cannot set a generation's prompt name and version (D2, held 2026-10-13).
 5. **observe** adds `research` (discussion of the prompt, with or without a mission) or
    `return` (findings, commits, new questions, after a launch). Only prepare writes
    `preparation`, and only launch writes `execution`.
+
+   `execution` (the pinned version given to a seat) and `return` (what the seat made of it) are
+   written as generations linked to that prompt version (`--prompt-name`, `--prompt-version`), so
+   the prompt's page in Langfuse lists every mission it started. `research` and `preparation`
+   stay events. This needs coaia 0.5.3 or later (jgwill/coaiajs#14). An older coaia refuses the
+   options, and the observation is reported as not written (exit 8).
 
 ## What is never touched
 
@@ -146,7 +150,8 @@ episode door. It proves these things:
 - Launch needs authorization and a matching sha256.
 - The brief holds no prompt text, names the pinned version and starts the seat; `prompt` reads
   the provider and refuses a changed text.
-- The four observation kinds stay distinct.
+- The four observation kinds stay distinct. Execution and return are generations linked to the
+  pinned prompt version, and research and preparation are events.
 - Create writes the text exactly as given, sets no label, refuses a repeated text, and opens a
   trace or appends under the given trace's root.
 - No key reaches a log, a record, a request body or the output.
