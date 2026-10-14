@@ -23,7 +23,7 @@ Both test issues stay open: whether a session's issue closes is held by Guillaum
 
 ## Open
 
-- Installing on ilex and the `claudeissue` alias (`04-export.md` § 2). The alias goes in Guillaume's shell config.
+- Installed on ilex from the marketplace on 2026-10-14 (0.1.0, `claude/miadi-session-issue/AGENTS.md` § Where it is installed). The `claudeissue` alias is not set yet: it goes in Guillaume's shell config.
 - The model of an asked session does not know its issue was opened, and may say it opened none (#59's last answer). The opener prints nothing on purpose: its stdout would enter every first prompt's context.
 - The relatives to tell (`04-export.md` § After it ships).
 - The tracing sink (`04-export.md` § 3).

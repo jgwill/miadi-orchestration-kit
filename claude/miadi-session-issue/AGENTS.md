@@ -52,3 +52,4 @@ then the hooks, then the version in `.claude-plugin/plugin.json` and in the kit'
 
 | Host | Since | Version | Result |
 |---|---|---|---|
+| ilex (Termux, Pixel 2), u0_a194 | 2026-10-14, from the GitHub marketplace, on Guillaume's word | 0.1.0 (06f2412) | The installed copy passes `tests/session-issue.sh`. A new session loads it (`miadi-session-issue:session-issue` listed), and one that did not ask wrote no issue file. State goes to `MIADI_SESSION_DIR`, beside the capture. The live issues were opened with `--plugin-dir` from the same commit: miadisabelle/chronicle-sessions#58, #59. The `claudeissue` alias is not set: the shell config is Guillaume's |
