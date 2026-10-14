@@ -1,0 +1,29 @@
+{
+  "description": "miadi-session-issue: a session that opts in gets one GitHub issue at its first prompt and a comment at each exit. A session that does not opt in is untouched.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/first_prompt_issue.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/exit_comment.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
