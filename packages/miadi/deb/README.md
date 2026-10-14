@@ -311,8 +311,8 @@ bash "$publish" dist/miadi-music-video_<version>_all.deb   # after the two it de
 bash "$publish" dist/miadi-music_<version>_all.deb         # last
 ```
 
-The repository publishes `amd64` only, so the Termux build in `dist/termux/`
-is installed from the file. It is a Cloudflare Worker over R2, and an uploaded
+The repository publishes `amd64` only, so the Termux builds in `dist/termux/`
+go into a flat apt repository on the phone (`termux/README.md`). It is a Cloudflare Worker over R2, and an uploaded
 `.deb` must stay under 100 MB: split a package that grows past it, as the music
 wheels are split by Python.
 

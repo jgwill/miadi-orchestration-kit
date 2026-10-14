@@ -8,7 +8,9 @@
 # add what is built rather than kept in git (a binary, wheels); it sets its own
 # file modes.
 # A package with a directory under termux/ also gets a Termux build,
-#   -> dist/termux/<package>_<version>_all.deb (termux/README.md).
+#   -> dist/termux/<package>_<version>_all.deb (termux/README.md). A directory
+# under termux/ with no Ubuntu package beside it is a Termux-only package: its
+# control file carries its own Version and it needs no include file.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 stage=
@@ -63,7 +65,11 @@ for control in "$here"/termux/*/control; do
 	variant=$(dirname "$control")
 	package=$(basename "$variant")
 	[ -z "$only" ] || [ "$package" = "$only" ] || continue
-	version=$(sed -n 's/^Version: //p' "$here/$package/DEBIAN/control")
+	if [ -f "$here/$package/DEBIAN/control" ]; then
+		version=$(sed -n 's/^Version: //p' "$here/$package/DEBIAN/control")
+	else
+		version=$(sed -n 's/^Version: //p' "$control")
+	fi
 	stage=$(mktemp -d)
 	mkdir -p "$stage/DEBIAN" "$stage$PREFIX"
 	sed "s/@VERSION@/$version/" "$control" > "$stage/DEBIAN/control"
@@ -72,13 +78,14 @@ for control in "$here"/termux/*/control; do
 		[ -n "$path" ] || continue
 		mkdir -p "$stage$PREFIX/$(dirname "${path#usr/}")"
 		cp -a "$here/$package/$path" "$stage$PREFIX/${path#usr/}"
-	done < "$variant/include"
+	done < <(cat "$variant/include" 2>/dev/null || true)
 	find "$stage" -name __pycache__ -type d -prune -exec rm -rf {} +
 	find "$stage$PREFIX" -type f -exec sed -i "s#/usr/#$PREFIX/#g; s#/etc/miadi#$PREFIX/etc/miadi#g" {} +
 	find "$stage" -type d -exec chmod 0755 {} +
 	find "$stage$PREFIX" -type f -exec chmod 0644 {} +
 	if [ -d "$stage$PREFIX/bin" ]; then find "$stage$PREFIX/bin" -type f -exec chmod 0755 {} +; fi
 	mkdir -p "$stage$PREFIX/share/doc/$package"
+	chmod 0755 "$stage$PREFIX/share" "$stage$PREFIX/share/doc" "$stage$PREFIX/share/doc/$package"
 	copyright "$package" > "$stage$PREFIX/share/doc/$package/copyright"
 	chmod 0644 "$stage$PREFIX/share/doc/$package/copyright"
 	mkdir -p "$here/dist/termux"

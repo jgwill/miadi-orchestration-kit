@@ -1,0 +1,16 @@
+Package: miadi-termux
+Version: 0.1.0
+Section: metapackages
+Priority: optional
+Architecture: all
+Depends: miadi-terminal, tmux, git, openssh, gh, curl, jq, ripgrep, rsync, nodejs-lts, python, termux-api, termux-services, ffmpeg, fluidsynth, sox
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Sets up a Termux phone for the Miadi factory
+ The Termux counterpart of the miadi umbrella: one apt install brings what a
+ Miadi phone runs. tmux for every session and service, git, openssh and gh
+ for the repositories, Node.js and Python for the Miadi tools, termux-api
+ and termux-services for Android and services, ffmpeg, fluidsynth and sox
+ for recordings and scores, and miadi-terminal for clickable chronicle
+ references. Claude Code comes separately, from the claude-code-termux
+ launcher.
