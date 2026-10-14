@@ -89,7 +89,9 @@ Report the useful discoveries, the script's movement, all changed skills and wha
 
 ## Handoff and promotion
 
-An exploration may stop here, continue, or be set aside. Promotion requires a separate human choice. Only then load `chronicle-episode`, pass the staged path and its chronicle-sessions issue as provenance, declare earned lineage, dry-run the verified birth door, and prove all five stages. Do not open a circle solely because the procedure mentions one; participation, identity, and facilitator authority must be verified.
+An exploration may stop here, continue, or be set aside. Read the current owning naming sources: production context exploration names the activity, not an approved place/team rename. They distinguish two decisions: **Gate 1**, the authorized choice that births a Chronicle episode; **Gate 2**, the production team's separate approval that admits it to the series. An existing Chronicle is not automatic series approval, and no proposed team/place name becomes official through this skill.
+
+Only after Gate 1 is explicitly authorized load `chronicle-episode`, pass the staged path and any authorized chronicle-sessions issue as provenance, declare earned lineage, dry-run the verified birth door, and prove all five stages. A request for a possible script alone does not authorize an issue, circle, commit, push or birth: check each side effect against the task and inherited law. Do not open a circle solely because the procedure mentions one; participation, identity, and facilitator authority must be verified.
 
 ## Verification
 
