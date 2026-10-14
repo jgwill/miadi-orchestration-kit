@@ -26,6 +26,7 @@ Open the folder's `README.md` first. A folder holding a single file is read from
 | Folder | Surface | Issue |
 |--------|---------|-------|
 | [`agent-memory-provenance-framework/`](./agent-memory-provenance-framework/) | Observed, inferred and user-confirmed agent memory: provenance metadata, trust, scope | #15 |
+| [`chronicle-github-sessions-observability/`](./chronicle-github-sessions-observability/) | A session opens one GitHub issue at its first prompt and comments on it at each exit: the ilex prototype, specified for `claude/miadi-session-observability`, opt-in, with a tracing sink as option (specified, not built) | #89 |
 | [`claude-session-orchestrator-plugin/`](./claude-session-orchestrator-plugin/) | The first native Claude Code plugin of the kit, `claude/miadi-session-orchestrator` | — |
 | [`coaia-agent-orchestration-session/`](./coaia-agent-orchestration-session/) | Replayable session pack for the coaia-agent COAIA integration (README → `launch-context.md` → `session-charter.md`) | — |
 | [`codex-claw-dispatch-kit/`](./codex-claw-dispatch-kit/) | A Codex plugin that sends a bounded work commission to a Claw agent through Gaia and keeps the dispatch record | — |

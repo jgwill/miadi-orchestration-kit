@@ -118,6 +118,14 @@ those rules here goes there too.
   `MIADI_SRC`, or without the file, has no guard and keeps the full capture (0.1.14).
   To work in a clone on purpose, the config's localPath changes first. jgwill/workspace#60.
 
+## Specified, not built yet: the session issue
+
+The ilex prototype's two hooks, which open a GitHub issue at a session's first prompt and
+comment on it at each exit (jgwill/binscripts branch `hooks/portable-session-dir`), are not in
+this plugin. They are specified for it in
+`rispecs/chronicle-github-sessions-observability/`, opt-in through `CHRONICLE_SESSIONS_REPO`,
+with the build gates in its `04-export.md`. jgwill/miadi-orchestration-kit#89.
+
 ## Where it is installed
 
 - gaia, mia: installed on 2026-09-28 from this kit's marketplace, with the `hooks` block removed

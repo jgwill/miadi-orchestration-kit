@@ -1,0 +1,173 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/data/data/com.termux/files/home/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/session_start_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/user_prompt_submit_hook.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/corrective_feedback_hook.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/accepted_redirection_hook.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/session_issue_hook.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions BINSCRIPTS_ROOT=/data/data/com.termux/files/repos/jgwill/binscripts bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/pre_tool_use_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/post_tool_use_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/post_tool_use_failure_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/stop_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/notification_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/subagent_start_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/subagent_stop_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/pre_compact_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/session_end_hook.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/session_end_comment_hook.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_SESSION_DIR=/data/data/com.termux/files/repos/jgwill/chronicle-sessions bash /data/data/com.termux/files/repos/jgwill/binscripts/hooks/claude_hooks/permission_request_hook.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
