@@ -96,6 +96,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Leads:** William (human). The staging session `miadi-staging-episodes-circle:1791110394383:jj1ql8` (agent).
 - **Makes:** concepts in the staging folder before any episode exists, the Chronicle staging circle (`circle:1791110394383:jj1ql8`) and its ceremonies, `naming.md` and `production-context-exploration.md` in `jgwill/episodes`.
 - **Uses:** the chronicle-episode kit, to mint an episode once a concept is chosen.
+- **First-version practice (2026-10-14):** `skills/production-context-exploration/SKILL.md` and its Mia–Ava academic-interpretation reference: inspect current sources, preserve interpretation/correction under the Chronicle staging folder's `.mia/`, prepare one potential script, and leave birth to a human choice (jgwill/miadi-orchestration-kit#91). This adds a reusable practice, not new members, leads, names, automation, or implemented staging UI.
 - **Next:** William names the team and the place.
 
 ## T6 · Production (stub, 2026-10-06; name held as D11)

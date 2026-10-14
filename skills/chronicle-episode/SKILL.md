@@ -1,11 +1,15 @@
 ---
 name: chronicle-episode
-description: The one entry point for Miadi Chronicle episode work on any host and from any agent. Mint a vessel with mkepisode or the episode API, prove the five stages (created, committed, pushed, registered, receipt-verified), register on the chronicle medicine wheel, relate and sync an inquiry with inquiry-weave, author lineage, raise and answer Attention items, open a ceremony (a talking circle by default) held in a circle of people and bound to an episode, add a Miadi review to an episode (which opens a talking circle about it) or mint an episode from a review URL, seat the circle, speak and witness turns, close the ceremony, hold what the episode grew (foundations, specifications, prototypes, traces, notebooks, screenwalks) so its room shows them, redeem receipts, reconcile drift, adopt a manifest-less directory. Use for mkepisode, episode vessels, episode rooms, chronicle registration, closure, attention.json, inquiry weave, lineage, "a new ceremony", "talking circle", "open a circle", ceremony turns, a review URL in an episode, an episode from a review, or any write into the chronicle.
+description: Stage, create, relate, and verify Chronicle episodes.
 ---
 
 # Chronicle Episode
 
-Every verb below is given API first, MCP second, CLI third. Raw `git` and `curl` appear only as proof of record. Every path is an environment name. The episode API rows were reconciled on 2026-09-05 against `app/api/chronicle/episodes/**` in jgwill/Miadi (commit 123446ec); the design and the verification record are `foundations/chronicle-one-skill/03-api-design.md` and `04-api-implementation-plan.md` in the kit. The API base is `$MIADI_API_URL`; every POST needs writer authority (loopback, an allowlisted tailnet identity, or `Authorization: Bearer $MIADI_API_TOKEN_WRITER`), every GET is public. Send `dryRun: true` before any first real call.
+Every verb below is given API first, MCP second, CLI third. Raw `git` and `curl` appear only as proof of record. Every path is an environment name. The episode API rows were reconciled on 2026-09-05 against `app/api/chronicle/episodes/**` in jgwill/Miadi (commit 123446ec); the design and the verification record are `foundations/chronicle-one-skill/03-api-design.md` and `04-api-implementation-plan.md` in the kit. The API base is `$MIADI_API_URL`; every POST needs writer authority (loopback, an allowlisted tailnet identity, or `Authorization: Bearer $MIADI_API_TOKEN_WRITER`), most record-level GETs are public, while host-working-state and operator views (including sessions) can require reader authority. Verify the current route and audience; a protected GET is not a missing capability. Send `dryRun: true` before any first real call.
+
+## Before an episode: T5 production context exploration
+
+When the request is to explore a possible Chronicle or prepare its context/script without creating an episode, use [`production-context-exploration`](../production-context-exploration/SKILL.md) first. Its shared practice keeps the actual workspace under `$MIADI_CHRONICLE_ROOT/_staging_for_new_episodes/`, preserves supplied Mia–Ava interpretations and corrections under `.mia/`, and keeps academic lenses subordinate to the work. It authorizes no number, manifest, mint, registration, or episode lineage. This routing addition is the first-version T5 practice (jgwill/miadi-orchestration-kit#91); team names and the choice to mint remain with their owners.
 
 ## S0. Desired outcome
 
@@ -87,11 +91,13 @@ Owner, stated once: the tool or API that minted the vessel commits and pushes it
 ```bash
 git -C "$GIT_ROOT" add "$LEDGER/$EP/episode.yaml" "$LEDGER/$EP/.mw-registration.json"   # named files only
 git -C "$GIT_ROOT" commit -m "ep<N>: <imperative subject>" -m "Ref: owner/repo#n"
-git -C "$GIT_ROOT" pull --rebase origin main   # no autostash: a dirty tree makes it refuse, and refusal is the safe answer
+git -C "$GIT_ROOT" fetch -q origin main
+# Do not rebase guarded shared main. If origin advanced, obey the host's inherited
+# shared-tree law before integrating; a rejected push is a boundary to report.
 git -C "$GIT_ROOT" push origin main
 ```
 
-On a rebase conflict: `git rebase --abort`, report the exact stage, stop. The ledger is main-only: no branches, no worktrees, no non-main push. Never `add .`, `-A`, or `commit -a`; the receipt is a dotfile and is left behind by habit. Never force-push, reset, clean, or stash to make the tree look clean; other hosts pull the same origin. Message shape and trailers follow `$GIT_ROOT/CLAUDE.md`; read it on the host you are on. An unpushed vessel is invisible to every other host.
+On an integration or push refusal: preserve the tree and report the exact stage. Never force, rewind, clean, stash, or automatically merge over another occupant to finish the report. The API's landing behavior described above is implementation evidence, not permission to override a stricter inherited repository rule; inspect that boundary before delegating automatic landing. The ledger is main-only: no branches, no worktrees, no non-main push. Never `add .`, `-A`, or `commit -a`; the receipt is a dotfile and is left behind by habit. Message shape and trailers follow `$GIT_ROOT/CLAUDE.md`; read it on the host you are on. An unpushed vessel is invisible to every other host.
 
 ## S6. Status and closure report
 
