@@ -37,9 +37,10 @@ Scope:
 - [ ] Required wording appears: `Reverse-engineer -> Intent-extract -> Specify -> Export`.
 - [ ] `README.md` exists.
 - [ ] `01-reverse-engineer.md` exists.
-- [ ] `02-intent-extract.md` exists.
+- [ ] `02-intent.md` exists.
 - [ ] `03-specify.md` exists.
 - [ ] `04-export.md` exists.
+- [ ] `05-source-ledger.md` exists.
 - [ ] Source ledger path is linked.
 
 ## Plugin Gaps
