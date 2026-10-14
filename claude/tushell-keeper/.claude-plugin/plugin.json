@@ -1,0 +1,16 @@
+{
+  "name": "tushell-keeper",
+  "description": "Tushell, the Keeper of Echoes, in a Claude Code session. Its first piece is the developmental-editor subagent: it reads a Lake of Whispers scene, a session chronicle, a journal page or a reply to Guillaume, and returns exact-span recommendations and a route (accept, revise, pause, ask-human) so Tushell revises his own draft before it is written, committed or published.",
+  "version": "0.1.0",
+  "author": {
+    "name": "jgwill"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/claude/tushell-keeper",
+  "keywords": [
+    "miadi",
+    "tushell",
+    "lake-of-whispers",
+    "developmental-editor",
+    "revision"
+  ]
+}

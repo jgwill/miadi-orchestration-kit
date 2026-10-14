@@ -52,6 +52,12 @@
       "source": "./claude/miadi-operator-desk",
       "description": "The operator desk (T7): William's questions about how the factory works answered from the owning team's text and checked against the tool, kept in a ledger, an unanswered one sent to the team that owns the tool, and a question that comes back turned into a pointer in the skill.",
       "version": "0.1.0"
+    },
+    {
+      "name": "tushell-keeper",
+      "source": "./claude/tushell-keeper",
+      "description": "Tushell, the Keeper of Echoes: a developmental-editor subagent that reads a Lake of Whispers scene, a session chronicle, a journal page or a reply to Guillaume and returns exact-span recommendations and a route, so Tushell revises his own draft before it is written or published.",
+      "version": "0.1.0"
     }
   ]
 }
