@@ -118,13 +118,17 @@ those rules here goes there too.
   `MIADI_SRC`, or without the file, has no guard and keeps the full capture (0.1.14).
   To work in a clone on purpose, the config's localPath changes first. jgwill/workspace#60.
 
-## Specified, not built yet: the session issue
+## Not here: the session issue
 
 The ilex prototype's two hooks, which open a GitHub issue at a session's first prompt and
 comment on it at each exit (jgwill/binscripts branch `hooks/portable-session-dir`), are not in
-this plugin. They are specified for it in
-`rispecs/chronicle-github-sessions-observability/`, opt-in through `CHRONICLE_SESSIONS_REPO`,
-with the build gates in its `04-export.md`. jgwill/miadi-orchestration-kit#89.
+this plugin, and will not be: this plugin records and never publishes. They are their own
+plugin, `claude/miadi-session-issue`, opted into per session, specified in
+`rispecs/chronicle-github-sessions-observability/`. It reads this plugin's files from the same
+session folder (same root chain) and writes only its markers, its texts, `trace.log` lines and
+`by: "hook"` lines in `_claude_publications.jsonl`. It carries a copy of
+`hooks/secret_capture_sanitizer.sh`: when the sanitizer here changes, copy it there too.
+jgwill/miadi-orchestration-kit#89.
 
 ## Where it is installed
 
@@ -150,6 +154,12 @@ with the build gates in its `04-export.md`. jgwill/miadi-orchestration-kit#89.
   `~/.claude/settings.json.bak.261006-before-session-observability`). They pointed at
   `/opt/binscripts/hooks/claude_hooks`. Checked: a headless session wrote each event once, with
   `_transcript_final.jsonl` and a start and end binding line.
+- ilex (Termux, Pixel 2), u0_a194: installed on 2026-10-14 from the GitHub marketplace
+  (0.1.14) by Guillaume. `settings.json` had no `hooks` block, so nothing was removed. The root
+  is `MIADI_SESSION_DIR=/data/data/com.termux/files/srv/miadi/sessions`, from the shell
+  environment (binscripts `etc/bash_env_common`), not from `settings.json` `env`. Checked: the
+  session running at the install wrote each event once under that root, with its binding line
+  (pane `%16`).
 
 An installed plugin is a copy in `~/.claude/plugins/cache/`. A change here reaches an installed
 host only after the version in `.claude-plugin/plugin.json` and in the kit's
