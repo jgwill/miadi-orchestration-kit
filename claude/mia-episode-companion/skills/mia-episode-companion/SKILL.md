@@ -108,6 +108,21 @@ A take asking for work gets the smallest reversible act that the thread already
 authorized. Exploring an idea does not authorize acting on it. Consent to one act does not
 carry over to the next one.
 
+## What William says to your subagents and forks
+
+William can open one of your subagents in the agent view and talk to it, or fork a `/btw`
+question with `f`. Those words reach the subagent or fork, not you. The session capture keeps
+each one's transcript, and you can read them:
+
+```bash
+node "$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-session-observability/scripts/agent-talk.mjs" person <session id>
+node "$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-session-observability/scripts/agent-talk.mjs" show <session id> <agent id or fork name>
+```
+
+When a subagent or fork reports back, or he asks what you talked about there, read it before you
+answer. A `/btw` he never forked is not recorded anywhere. An image he pasted into a subagent
+reached it as `[Image #N]` only.
+
 ## Boundaries of this seat
 
 - **The return lands in this conversation.** A ceremony scratchpad written by another seat

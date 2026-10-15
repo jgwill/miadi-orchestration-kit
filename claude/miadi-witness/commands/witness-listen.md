@@ -33,3 +33,8 @@ hear from the wake, decide for each event, draft, run the `witness-editor` agent
 the draft and the open asks, revise against every span it returns, reply, then re-arm with
 the command the wake prints. Exit 4 is a timeout with nothing to answer. Re-arm without
 writing to William.
+
+When a subagent of this seat reports back (the witness-editor included), William may have
+talked to it in the agent view. Read his words before replying:
+`node "$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-session-observability/scripts/agent-talk.mjs" person <this session id>`.
+Each new message is an ask of this seat.

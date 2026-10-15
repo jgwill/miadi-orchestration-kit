@@ -76,6 +76,27 @@ jgwill/miadi-orchestration-kit#82.
   command writes after its PostToolUse. A file written by another process during the call is
   listed as if the call wrote it.
 
+## Subagents, forks and what a person said to them
+
+A person can open a running subagent in the agent view and talk to it, or fork a `/btw` side
+question with `f`. Those words reach the subagent or fork, never the main session. At every
+SubagentStop the hook archives the agent's transcript to
+`<root>/<session_id>/agents/<agent_id>.transcript.jsonl`, beside `.meta.json`, `.launch.json`
+(when the main session launched it) and `.output.md` (its last reply only).
+`scripts/agent-talk.mjs` reads them back for any agent that can run node:
+
+```bash
+node scripts/agent-talk.mjs list   <session>            # each subagent and fork, person messages, replies
+node scripts/agent-talk.mjs show   <session> <agent>    # directive, each person message, each reply
+node scripts/agent-talk.mjs person <session>            # only what the person said, across all of them
+```
+
+`<session>` is an id, a prefix, a tmux name or a session name. A fork with no launch manifest is
+listed as `btw-fork`: the person made it. Two things are not in the capture. A `/btw` question
+that was never forked runs in a panel, fires no hook and is written nowhere. An image pasted into
+a subagent arrives as the text `[Image #N]` only, and `show` says so. Since 0.1.15, after three
+messages from Guillaume to the witness-editor sat unread on 2026-10-15.
+
 ## Publications
 
 What a session put where other people can see it is one line in
