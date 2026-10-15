@@ -10,7 +10,8 @@ built from the prototype Guillaume ran on ilex in July 2026.
 
 ## How a session asks
 
-- **At launch.** Start it with `MIADI_SESSION_ISSUE` set. An alias in your shell config does it:
+- **At launch.** Start it with `MIADI_SESSION_ISSUE` set. binscripts `etc/bash_aliases_common`
+  defines this alias on Miadi hosts:
 
   ```bash
   alias claudeissue='MIADI_SESSION_ISSUE=1 claude'
