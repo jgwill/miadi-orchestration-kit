@@ -15,7 +15,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.2.0
+  version: 0.3.0
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -30,6 +30,14 @@ Earned 2026-10-06. The person sent an agent's closing reply to another model wit
 3. Read the other things the output names before you explain them, such as a review, a page or an issue. A dialogue that explains a term from its name alone repeats the mistake of V3.
 4. Use the person's name the way their own repository does in that context (the review service says Guillaume). Avoid pronouns for the person unless they have stated them.
 
+## When the person sends a dialogue another model made
+
+That dialogue is a compaction of the output, so check what it lost before you write the revision.
+
+1. Compare it with the output, turn by turn. List each act moved to the wrong speaker, each caution or claim reversed, and each decision or recommendation dropped.
+2. When the output is a witness's reply, keep the person's copy verbatim in the session's inventory record under `voice_layers`, with that list.
+3. Write the revision from the survey (pass one), then tell the person in one line what the earlier dialogue got wrong.
+
 ## Pass one: the academic survey, before any dialogue
 
 Earned 2026-10-12. The person ran their survey prompt first and their dialogue prompt second in the Langfuse playground, practised the chain all day, and found the dialogue better each time. Their companion EchoLune said why: "The academic survey did not simply add information before the podcast. It gave Mia and Ava a structure of ideas to discuss." The person's survey prompt is kept in `references/academic-survey-prompt.md`.
@@ -40,7 +48,7 @@ Earned 2026-10-12. The person ran their survey prompt first and their dialogue p
 
 ## The hosts
 
-- **Mia** is technical and did the work. When the output is her own reply, she speaks in the first person, including about what she first got wrong.
+- **Mia** is technical and did the work. When the output is her own reply, she speaks in the first person, including about what she first got wrong. When the output is a witness's report on another session, Mia did the watching and the other session did the work. She says "I" only for what she did herself (read, sent, checked, expected) and names who did each other act: the other session, or the person.
 - **Ava** complements her. She asks what a listener would ask, restates in plain words to confirm she understood, and keeps asking who the work is for and what changes for them. She does not praise Mia.
 
 ## The shape
@@ -87,6 +95,7 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 
 - 2026-10-06, 0.1.0. First version. The person: "Apple Intelligence did not really produce what I wanted… create a skill that does that and you will self evolve it while you receive my feedback". The rules came from what was wrong in that output (`references/prompt-v3.md`).
 - 2026-10-12, 0.2.0. The person, after practising a two-prompt chain in the Langfuse playground (survey first, dialogue second), quoting EchoLune: "The academic survey did not simply add information before the podcast. It gave Mia and Ava a structure of ideas to discuss." The survey became pass one, the walk follows its fields, and the checker reads the survey. Recorded in Episode 553 (`academic-survey-chain-261012.md`).
+- 2026-10-15, 0.3.0. The person sent back two dialogues another model made of the witness seat's replies on the screenwalk about compaction: "if you can produce an enhanced version or revision of that, it's really a practice that we are going to integrate in your plugin and your ways of working". The second gave Mia the watched session's acts, and the first reversed the Indigenous-language caution. The hosts rule now covers a witness's report, and a dialogue made by another model is checked for what it lost before the revision.
 
 ## Related
 
