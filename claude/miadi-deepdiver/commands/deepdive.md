@@ -13,6 +13,7 @@ Arguments: `$ARGUMENTS`
 - **An episode** (number like `140`, or its folder name): the reviews are its `episode.yaml` `reviews:` list.
 - **A review id**: the episode is the one whose `episode.yaml` lists it under `reviews:`:
   `grep -l '<review id>' "$MIADI_CHRONICLE_ROOT"/*/episode.yaml`. If no episode holds it, stop with `NO EPISODE HOLDS <review id>`. Putting a review into an episode is the `chronicle-episode` skill's episode door, a separate act.
+  Several episodes can hold one review (4346d23a: Episode 552 `discusses` it, Episode 555 `surveys` it with twelve others). The media lands in the episode the review is about: a map of where reviews belong (Episode 555's `review-episode-map.md`) names it; otherwise the one whose relation is not a survey. If two remain, stop with `SEVERAL EPISODES HOLD <review id>: <folders>`.
 - **Both**: use them. A review the episode does not list yet enters through the episode door before the notebook is made (`chronicle-episode` skill, S16). The door writes the `reviews:` entry and the review's node and edge on the wheel, which a hand edit does not:
   ```bash
   curl -s -X POST "$MIADI_API_URL/api/chronicle/episodes/<episode folder name>/reviews" \
@@ -28,7 +29,7 @@ A review says how it will be used next, under `## Intended Use & Continuation` (
 
 - **A line that names the Deep Diver** (`**The Deep Diver path.**`, or `production/deepdiver` in the header's `branches:`) is the brief: what the notebook questions the review against, and which media it wants (an image of the episode's essence, a short cut, a report).
 - **No Deep Diver line** (Episode 120's reviews had none): the media's focus is the episode's `goal:` in `episode.yaml`.
-- **Questions**, two to four: the ones given in the arguments, word for word. Otherwise the person's own questions for the run. Otherwise one per review: that review's `### Open inquiries for the community` paragraph, asked whole as one question. Otherwise its `## Potential Future questions` headings.
+- **Questions**, two to four: the ones given in the arguments, word for word. Otherwise the person's own questions for the run. Otherwise one per review: that review's `### Open inquiries for the community` paragraph, asked whole as one question. Otherwise its `## Potential Future questions` headings. A review with none of these (4346d23a) gets two written here, and the README says so: what its screenwalk shows working against what it states only as requirements (its `## Aspects` and `### Results` draw that line), and what the episode's goal asks of what the review describes.
 - **Other sources the brief names** ("against Episodes 339, 550 and 551"): those episodes' reviews, as Markdown.
 - **Not done here**: a video cut by timecode (DeepDiver does not edit video), publishing anywhere, talking circle posts.
 
@@ -47,7 +48,7 @@ If the episode's `notebooks:` already lists a notebook made from these reviews, 
 
 ## 5. The media
 
-An infographic focused on what the Deep Diver line asks for (for "an image of the episode's essence": the episode's essence; with no line: the episode's goal), a video overview, then an Interactive report whose prompt names those two. Make the report only after both are finished: Episode 120's report, made then, embeds them; Episode 140's and 550's show "Recommended" tiles instead.
+An infographic focused on what the Deep Diver line asks for (for "an image of the episode's essence": the episode's essence; with no line: the episode's goal), a video overview, then an Interactive report whose prompt names those two. The saved report never holds the media: in all four runs (Episodes 550, 140, 120, 552) its HTML shows "Recommended · Infographic" and "Recommended · Video" tiles where they would be, whatever the order they were made in. The media are kept as their own files, and the README says so.
 
 ```bash
 deepdiver studio download -n <id> -o <episode>/captures/notebook-<id> --keep
@@ -57,25 +58,15 @@ deepdiver studio download -n <id> -o <episode>/captures/notebook-<id> --keep
 
 ## 6. Land it in the episode
 
-In the episode's `episode.yaml`, the shape Episodes 550, 140 and 120 share:
+Commit the kept files first (below), then hold the notebook through the episode's notebook door, the `chronicle_episode_notebook` tool of the chronicle-episode kit (`inquiry-weave-mcp`). It writes the `notebooks:` entry, the `notebook:<uuid>` node and the episode's edge on the wheel, which a hand edit does not:
 
-```yaml
-notebooks:
-  - id: <notebook id>
-    url: https://notebook.google.com/notebook/<notebook id>
-    path: captures/notebook-<notebook id>
-    relation: cites
-    made_by: miadisabelle/deepdiver <commit> with /deepdive (miadi-deepdiver <version>), <who ran it>
-    sources:
-      - miadi-review:<review id> v<version used>
-      - <video url>
-    files:
-      - manifest.json
-      - asked.md
-      - README.md
-      - <each kept file, as manifest.json's kept paths>
-    added: <YYYY-MM-DD>
 ```
+chronicle_episode_notebook {episode: "<episode folder name>", notebook: "<notebook id>", relation: "cites",
+  made_by: "miadisabelle/deepdiver <commit> with /deepdive (miadi-deepdiver <version>), <who ran it>",
+  sources: ["miadi-review:<review id> v<version used>", "<video url>"], land: false}
+```
+
+`land: false`, then commit `episode.yaml` by name: landing stages more of the vessel than the entry. The door lists every file in the folder, the git-ignored downloads too (Episode 552, 2026-10-15); remove those from `files:` so the entry names only what git keeps. It writes quoted strings, so edit the quoted line.
 
 The version a notebook used goes in its `sources:`; the `reviews:` entry keeps the version the door pinned. Write a short `README.md` in the notebook folder: sources (imported and not), questions, each kept file, anything a reader should check (the answers are the notebook's reading, not verified facts).
 

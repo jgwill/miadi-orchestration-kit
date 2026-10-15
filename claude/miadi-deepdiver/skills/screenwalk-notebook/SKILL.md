@@ -74,7 +74,7 @@ deepdiver studio report --prompt "Include only the infographic and the video ove
 deepdiver studio report --format document --template "Briefing Doc" -n <id>
 ```
 
-- Make the report last, after the infographic and video have finished. Made then, an Interactive report embeds them (Episode 120, 2026-10-10); made earlier, it shows "Recommended · Infographic / Video" tiles in their place (Episodes 550 and 140).
+- Make the report last. Its prompt can name the infographic and the video, but the saved report never holds them: in four runs (Episodes 550, 140, 120 and 552) its HTML shows "Recommended · Infographic / Video" tiles in their place, whatever the order. Keep the media as their own files. A claim in the Episode 120 run's reply that its report embedded them was checked against the saved HTML on 2026-10-15 and is not true.
 - Video Overview has two formats: `--format short` (vertical 9:16, about a minute) and `--format explainer` (16:9, several minutes). A one-minute Short took 17 minutes to generate.
 - Audio Overview can take ten minutes or more.
 - Each command exits 1 when nothing was generated. A command that times out may still leave a card; `deepdiver studio list -n <id>` shows what exists.
@@ -126,6 +126,8 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 - **0.2.0, 2026-10-09.** From the Episode 140 run, on William's word ("a skill that we give it the episode or the review … and the whole process starts"): `/deepdive` takes an episode, a review, or both and runs to the landing in the episode. Every DeepDiver launch had cloned the profile into a new folder that Google did not keep signed in, so each run needed a new sign-in; DeepDiver now keeps `~/.chrome-deepdiver` signed in once, and `chrome status` says whether it is (`miadisabelle/deepdiver` 5ef6f00, Episode 251 DD8; verified live that night: the folder William signed in to was moved into the home and relaunched signed in). The first run, Episode 140, kept its 31 MB video overview out of git and its video traveled re-encoded in `keep/` at 6.5 MB. `/trynow` counts as signed out.
 
 - **0.2.1, 2026-10-10.** From `/deepdive 120`, the command's first run by a seat that did not write it (findings F4 to F8): a review the episode lacks enters through the episode door, which writes its wheel node and edge (a hand edit left them out); the door's pinned `reviews:` version is never rewritten; the media's focus falls back to the episode's goal; each review's open inquiries are one question; one `notebooks:` shape for every episode; `studio download --keep` replaces the hand conversion, and its manifest records what is kept.
+
+- **0.2.2, 2026-10-15.** From the first pass started by "Ready for Deep Diver" (review 4346d23a, Episode 552, notebook 3eb56742): a notebook enters its episode through the notebook door (`chronicle_episode_notebook`), which puts its node and edge on the wheel; several episodes can hold one review, and the media goes to the one the review is about; a review with no questions to borrow gets two written by the seat; the saved report never embeds the media (checked in all four runs). DeepDiver now drives a notebook tab or a blank one, never a person's tab on another site (`miadisabelle/deepdiver` 9b40f6f).
 
 ## Related
 
