@@ -36,11 +36,11 @@ A review says how it will be used next, under `## Intended Use & Continuation` (
 ## 3. Chrome, signed in
 
 ```bash
-deepdiver chrome status            # 0 signed in · 2 not signed in · 1 no Chrome on 9222
+deepdiver chrome status            # 0 signed in · 2 not signed in · 1 no Chrome on 9222 · 3 a tab hangs
 deepdiver chrome launch            # when 1: starts DeepDiver's own home, ~/.chrome-deepdiver
 ```
 
-When status says 2, stop with one line, `SIGN-IN NEEDED`. The person signs in once in that window, and the home keeps it for every later run. Never use `--fresh` for a run: a fresh clone is not signed in.
+When status says 3, stop with one line, `CHROME BLOCKED: <the tab that hangs>`. That Chrome is also a person's browser: never close or reload their tab. The run resumes when every tab answers (DeepDiver 0e9fe65 names the open tabs). When status says 2, stop with one line, `SIGN-IN NEEDED`. The person signs in once in that window, and the home keeps it for every later run. Never use `--fresh` for a run: a fresh clone is not signed in.
 
 ## 4. The notebook
 
