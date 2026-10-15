@@ -24,7 +24,7 @@ import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-export const DOMAINS = ["ceremony", "story", "eng"]
+export const DOMAINS = ["ceremony", "creative", "eng"]
 // The name a terminal mission prompt carries (trace d87a4c119eb24fb4a718c29e130bd642).
 export const PROMPT_NAME_RE = /^miadiRun-\d{10}-[A-Za-z0-9][A-Za-z0-9._-]*$/
 export const OBSERVATION_KINDS = ["research", "preparation", "execution", "return"]

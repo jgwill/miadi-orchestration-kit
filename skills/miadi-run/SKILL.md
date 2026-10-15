@@ -15,7 +15,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.4.0
+  version: 0.4.1
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -30,8 +30,8 @@ existing doors only: the tracing provider, the episode door and `tide companion 
 
 ```bash
 R="node $MIADI_ORCHESTRATION_KIT_ROOT/skills/miadi-run/miadi-run.mjs"
-$R create  <prompt-name> --text-file F [--domain ceremony|story|eng] [--trace <trace-id>] [--session S]
-$R resolve <prompt-name | trace-id> [--domain ceremony|story|eng]
+$R create  <prompt-name> --text-file F [--domain ceremony|creative|eng] [--trace <trace-id>] [--session S]
+$R resolve <prompt-name | trace-id> [--domain ceremony|creative|eng]
 $R prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--dry-run]
 $R launch  <mission> --authorized-by <who>
 $R prompt  <mission>
