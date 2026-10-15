@@ -15,7 +15,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.3.0
+  version: 0.4.0
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -79,6 +79,17 @@ It checks the survey when the file starts with `## Academics`: a body of 55 word
 
 Save the dialogue in the episode vessel or folder the work belongs to when there is one. Otherwise put it in your reply. To hear it, use the `miadi-voice` skill, which is the only sanctioned voice path. Do not use shell text-to-speech.
 
+## Speak it in the episode's circle
+
+When the episode the session serves has a circle with Mia and Ava seated (the first is `circle:1792081081517:x4srth`, "Episode 558 witness circle"), the dialogue becomes a talking-circle ceremony there. Guillaume's intention for that circle: "what you are doing for AvaMia could be added as automated talking circle where they both discuss what is going on in the related session they were triggered from".
+
+1. Open the ceremony as the witness seat: `POST $MIADI_API_URL/api/circles/<circle>/ceremonies` with `{intention, type: "talking_circle", direction: "east", episode_path}`, the intention in the person's words. The seat needs `facilitate_ceremony`. Mino has it.
+2. Write the diary entry first, under the seat's own token: `POST /api/ceremony/<id>/diary`. It says the seat composed the dialogue, names the source file, and says the hosts speak words they did not say elsewhere. A turn's speaker is its token's person, so this entry is the provenance.
+3. Post each turn in order with `POST /api/ceremony/<id>/turns {said}`: a Mia line with `MIADI_MIA_TOKEN`, an Ava line with `MIADI_AVA_TOKEN` (on gaia, in `/home/ava/.env`). Stop at the first refusal and report it. Never print a token.
+4. Read the ceremony back (`GET /api/ceremony/<id>`: turn and diary counts), then add one line to the episode's `status.md` naming `miadi-ceremony://<id>`.
+
+A circle that does not exist is opened by a person with `create_circles`. The seat asks for it and does not open one.
+
 ## When the person reacts: change this skill in the same turn
 
 A reaction to a dialogue is a rule for the next one.
@@ -96,6 +107,8 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 - 2026-10-06, 0.1.0. First version. The person: "Apple Intelligence did not really produce what I wanted… create a skill that does that and you will self evolve it while you receive my feedback". The rules came from what was wrong in that output (`references/prompt-v3.md`).
 - 2026-10-12, 0.2.0. The person, after practising a two-prompt chain in the Langfuse playground (survey first, dialogue second), quoting EchoLune: "The academic survey did not simply add information before the podcast. It gave Mia and Ava a structure of ideas to discuss." The survey became pass one, the walk follows its fields, and the checker reads the survey. Recorded in Episode 553 (`academic-survey-chain-261012.md`).
 - 2026-10-15, 0.3.0. The person sent back two dialogues another model made of the witness seat's replies on the screenwalk about compaction: "if you can produce an enhanced version or revision of that, it's really a practice that we are going to integrate in your plugin and your ways of working". The second gave Mia the watched session's acts, and the first reversed the Indigenous-language caution. The hosts rule now covers a witness's report, and a dialogue made by another model is checked for what it lost before the revision.
+
+- 2026-10-15, 0.4.0. Guillaume: "Maybe what you are doing for AvaMia could be added as automated talking circle where they both discuss what is going on in the related session they were triggered from". He then opened the Episode 558 witness circle with Mia and Ava seated. The first ceremony, `c2b86b9c-7987-41ed-8a70-b80f2b5249a8`, holds the 2026-10-15 dialogue: 47 turns and a provenance diary entry. The new section names those four steps. Making them run without a hand is the next step.
 
 ## Related
 
