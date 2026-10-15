@@ -14,4 +14,4 @@ answer is in this turn's hook context, a line that begins `miadi-session-issue:`
   act until the next one. Say so in one line.
 
 The repository is `$ARGUMENTS` when given, else `MIADI_SESSION_ISSUE` when it names one, else
-the host's `MIADI_CHRONICLE_SESSION_REPO`. Only a private repository receives session issues.
+the host's `MIADI_SESSION_ISSUE_REPO`, else its `MIADI_CHRONICLE_SESSION_REPO`. Only a private repository receives session issues.

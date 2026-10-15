@@ -110,7 +110,7 @@ Decides, in the opener, whether anything is to be done. A session that did not a
 - **Behavior:** The commenter needs no opt-in. A session with `.issue_created` comments at each exit, however it was started.
 
 ### RepositoryChoice
-- **Behavior:** The repository is the first of these that has the shape `owner/repo`: the `/session-issue` argument (kept in `.issue_optin` when it waits for the next prompt), `MIADI_SESSION_ISSUE`, then `MIADI_CHRONICLE_SESSION_REPO`. `MIADI_SESSION_ISSUE=1` therefore means "the host's repository".
+- **Behavior:** The repository is the first of these that has the shape `owner/repo`: the `/session-issue` argument (kept in `.issue_optin` when it waits for the next prompt), `MIADI_SESSION_ISSUE`, then `MIADI_SESSION_ISSUE_REPO`, then `MIADI_CHRONICLE_SESSION_REPO`. `MIADI_SESSION_ISSUE=1` therefore means "the host's repository".
 - **Behavior:** When none names one, the automatic path writes `.issue_skipped` holding `no repository`. `/session-issue` answers how to name one, and writes nothing.
 
 ### HeadlessRule
@@ -180,9 +180,9 @@ A `UserPromptSubmit` hook, `hooks/first_prompt_issue.sh`.
 
 ### SessionEndCommenter
 A `SessionEnd` hook, `hooks/exit_comment.sh`.
-- **Behavior:** Returns at once unless `.issue_created` holds a URL. Otherwise it hands the rest to a detached job and returns well inside the 1.5 s Claude Code allows a SessionEnd hook. It prints nothing.
+- **Behavior:** Returns at once unless `.issue_created` holds a URL or the opener holds a lock that is not stale. Otherwise it hands the rest to a detached job and returns well inside the 1.5 s Claude Code allows a SessionEnd hook. It prints nothing.
 - **Behavior (detached job):**
-  1. Waits `MIADI_SESSION_ISSUE_SETTLE` seconds (2), so the capture's own detached work on the last tool calls can land.
+  1. Waits `MIADI_SESSION_ISSUE_SETTLE` seconds (2), so the capture's own detached work on the last tool calls can land. While the opener holds `.issue_lock`, it waits up to 60 s more, then reads `.issue_created` and returns when it is empty.
   2. Builds `SessionEndComment` and posts it with `gh issue comment <url> --body-file _session_end_comment.md`.
   3. `trace.log` gets `Session end comment posted to <url> at <time>`, or `Session end comment failed: <first line> at <time>`. `_claude_publications.jsonl` gets `{timestamp, session_id, kind: "issue-comment", action: "session end", url, repo, number, by: "hook"}`.
   4. When the tracing sink is active, it adds the `TracingSink` closing.
@@ -236,6 +236,7 @@ The same opening and closing, recorded as a trace that `@miadi/tracing` resolves
 | Name | Meaning | Default |
 |---|---|---|
 | `MIADI_SESSION_ISSUE` | Set at launch, the session asks. `1`, or `owner/repo` to name the repository | unset: the session does not ask |
+| `MIADI_SESSION_ISSUE_REPO` | The host's session repository, read before `MIADI_CHRONICLE_SESSION_REPO`. Set by binscripts `etc/bash_env_common` | unset |
 | `MIADI_CHRONICLE_SESSION_REPO` | The host's session repository, set by binscripts `etc/bash_env_common` | unset |
 | `MIADI_SESSION_ISSUE_HEADLESS` | `1` opens issues for headless sessions that inherited the variable | unset |
 | `MIADI_SESSION_ISSUE_SETTLE` | Seconds the commenter waits for the capture's last work | `2` |

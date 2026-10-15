@@ -1,7 +1,7 @@
 {
   "name": "miadi-session-issue",
   "description": "A session that asks gets one GitHub issue, opened from its first prompt, and a comment at each exit with what it did, what it published and its last answer. Ask at launch with MIADI_SESSION_ISSUE (the claudeissue alias), or during the session with /session-issue. A session that does not ask is untouched. Issues go only to a private repository, and every text passes the capture sanitizer first. It reads miadi-session-observability's capture when that plugin is installed, and the transcript when not.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "jgwill"
   },

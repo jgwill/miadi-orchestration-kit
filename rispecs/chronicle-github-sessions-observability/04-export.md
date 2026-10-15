@@ -51,6 +51,8 @@ Run with a stub `gh` first on `PATH`. The stub logs its arguments and keeps each
 | G19 | `/session-issue` with no capture, a transcript starting with a `/model` command and a meta entry | titled by the first real prompt |
 | G20 | `/session-issue acme/open` on a public repository | no issue, the refusal is the answer |
 | G21 | a prompt that only mentions session-issue, the session not asked | no call, nothing printed |
+| G22 | SessionEnd while the opener of the first prompt still holds `.issue_lock` | the hook returns in under 1 s. One `issue create`, then one `issue comment` |
+| G23 | `MIADI_SESSION_ISSUE_REPO=acme/issues` beside `MIADI_CHRONICLE_SESSION_REPO` | created in `acme/issues` |
 
 Also the bundled sanitizer's `--self-test`.
 

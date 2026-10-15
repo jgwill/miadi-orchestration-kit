@@ -65,10 +65,10 @@ si_locked() {  # <dir>: a job holds the lock and it is not stale
 }
 
 # The repository: the /session-issue argument, else MIADI_SESSION_ISSUE when it names one,
-# else the host's session repository.
+# else the host's session repository (MIADI_SESSION_ISSUE_REPO, then MIADI_CHRONICLE_SESSION_REPO).
 si_repo() {  # [explicit]
     local re='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' c
-    for c in "${1:-}" "${MIADI_SESSION_ISSUE:-}" "${MIADI_CHRONICLE_SESSION_REPO:-}"; do
+    for c in "${1:-}" "${MIADI_SESSION_ISSUE:-}" "${MIADI_SESSION_ISSUE_REPO:-}" "${MIADI_CHRONICLE_SESSION_REPO:-}"; do
         if [[ $c =~ $re ]]; then printf '%s' "$c"; return 0; fi
     done
     return 1
@@ -228,8 +228,10 @@ si_last_answer() {  # <dir> <session_id> <transcript>
 
 # The detached job of SessionEnd: one comment, what the session did since the last one.
 si_comment() {  # <dir> <session_id> <reason> <transcript>
-    local dir=$1 sid=$2 reason=$3 tp=$4 url repo total offset answer file out curl
+    local dir=$1 sid=$2 reason=$3 tp=$4 url repo total offset answer file out curl waited=0
     sleep "${MIADI_SESSION_ISSUE_SETTLE:-2}"
+    # An exit soon after the first prompt finds the opener still at work: wait for its issue.
+    while si_locked "$dir" && [ "$waited" -lt 60 ]; do sleep 1; waited=$((waited + 1)); done
     url=$(head -n 1 "$dir/.issue_created" 2>/dev/null)
     [ -n "$url" ] || return 0
     repo=$(printf '%s' "$url" | sed -E 's#^https://github\.com/([^/]+/[^/]+)/.*#\1#')

@@ -45,7 +45,7 @@ export HOME="$WORK/home"
 mkdir -p "$HOME"
 export MIADI_SESSION_ISSUE_SETTLE=0
 unset CLAUDE_SESSIONDATA_ROOT MIADI_SESSIONDATA_ROOT SESSION_DATA_ROOT SI_SESSIONDATA_ROOT
-unset MIADI_SESSION_ISSUE MIADI_SESSION_ISSUE_HEADLESS CLAUDE_PID
+unset MIADI_SESSION_ISSUE MIADI_SESSION_ISSUE_HEADLESS MIADI_SESSION_ISSUE_REPO CLAUDE_PID
 export CLAUDE_CODE_SESSION_ATTENDED=1
 export MIADI_CHRONICLE_SESSION_REPO=acme/sessions
 
@@ -326,6 +326,25 @@ fresh
 prompt "what does session-issue do?"
 expect "G21 no opt-in, no call" "0" "$(calls '')"
 expect "G21 and no answer printed" "0" "$(wc -c < "$WORK/stdout" | tr -d ' ')"
+
+# G22: /exit while the opener still works on the first prompt: the comment waits for the issue.
+export MIADI_SESSION_ISSUE=1
+fresh
+GH_DELAY=1 prompt "first, then /exit at once"
+start=$(date +%s%N)
+session_end prompt_input_exit
+elapsed=$(( ($(date +%s%N) - start) / 1000000 ))
+expect "G22 the hook returns in under 1 s" "yes" "$([ "$elapsed" -lt 1000 ] && echo yes || echo "no (${elapsed} ms)")"
+settle; await_comment 1
+expect "G22 one issue create" "1" "$(calls 'issue create')"
+expect "G22 one issue comment, after it" "1" "$(calls 'issue comment https://github.com/acme/sessions/issues/7 ')"
+
+# G23: MIADI_SESSION_ISSUE_REPO names the host's repository before MIADI_CHRONICLE_SESSION_REPO.
+fresh
+MIADI_SESSION_ISSUE_REPO=acme/issues prompt "one"
+settle
+expect "G23 MIADI_SESSION_ISSUE_REPO opens there" "1" "$(grep -c '^issue create --repo acme/issues ' "$GH_LOG")"
+unset MIADI_SESSION_ISSUE
 
 # The bundled sanitizer still passes its own self-test.
 expect "the sanitizer self-test" "secret_capture_sanitizer self-test passed" "$(bash "$HOOKS/secret_capture_sanitizer.sh" --self-test 2>&1)"

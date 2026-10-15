@@ -22,11 +22,12 @@ built from the prototype Guillaume ran on ilex in July 2026.
   then, from the session's first prompt, and the link is answered in the conversation. Typed
   as the session's very first prompt, it opens the issue at the next prompt instead.
 
-Either way, each `/exit` afterwards adds one comment, a resumed session included.
+Either way, each `/exit` afterwards adds one comment, a resumed session included. An `/exit`
+sent while the issue is still being opened waits for it, up to 60 s, and then comments.
 
 The repository is the `/session-issue` argument, else `MIADI_SESSION_ISSUE` when it names one,
-else `MIADI_CHRONICLE_SESSION_REPO`, which binscripts `etc/bash_env_common` sets on Miadi hosts
-(`miadisabelle/chronicle-sessions`).
+else `MIADI_SESSION_ISSUE_REPO`, else `MIADI_CHRONICLE_SESSION_REPO`. binscripts
+`etc/bash_env_common` sets both on Miadi hosts (`miadisabelle/chronicle-sessions`).
 
 ## What is posted
 

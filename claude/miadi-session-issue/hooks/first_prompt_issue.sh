@@ -87,7 +87,7 @@ fi
 mkdir -p "$dir"
 if ! repo=$(si_repo "$(head -n 1 "$dir/.issue_optin" 2>/dev/null)"); then
     printf 'no repository\n' > "$dir/.issue_skipped"
-    si_trace "$dir" "Session issue skipped: no repository (MIADI_SESSION_ISSUE, MIADI_CHRONICLE_SESSION_REPO)"
+    si_trace "$dir" "Session issue skipped: no repository (MIADI_SESSION_ISSUE, MIADI_SESSION_ISSUE_REPO, MIADI_CHRONICLE_SESSION_REPO)"
     exit 0
 fi
 # A session asked by /session-issue is never headless for this rule: someone asked.

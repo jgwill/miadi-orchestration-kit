@@ -33,7 +33,7 @@
       "name": "miadi-session-issue",
       "source": "./claude/miadi-session-issue",
       "description": "A session that asks (MIADI_SESSION_ISSUE at launch, or /session-issue) gets one GitHub issue from its first prompt and a comment at each exit: what it did, what it published, its last answer. Private repositories only, every text sanitized first. Sessions that do not ask are untouched.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "name": "miadi-witness",
