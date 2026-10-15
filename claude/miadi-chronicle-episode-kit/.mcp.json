@@ -2,7 +2,7 @@
   "mcpServers": {
     "inquiry-weave": {
       "command": "npx",
-      "args": ["-y", "-p", "${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.17.3}", "inquiry-weave-mcp"],
+      "args": ["-y", "-p", "${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.17.4}", "inquiry-weave-mcp"],
       "env": {
         "MIADI_EPISODE_DOOR": "http",
         "MIADI_INQUIRY_API_BASE": "${MIADI_API_URL:-https://miadi.tail3b11eb.ts.net}",
@@ -27,7 +27,7 @@
     },
     "medicine-wheel-miadi-chronicle": {
       "command": "npx",
-      "args": ["-y", "${MWCV:-@medicine-wheel/mcp@4.17.11}"],
+      "args": ["-y", "${MWCV:-@medicine-wheel/mcp@4.18.0}"],
       "env": {
         "MW_API_URL": "${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}"
       }
