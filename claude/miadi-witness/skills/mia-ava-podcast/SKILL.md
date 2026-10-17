@@ -15,7 +15,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.4.0
+  version: 0.5.0
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -85,10 +85,22 @@ When the episode the session serves has a circle with Mia and Ava seated (the fi
 
 1. Open the ceremony as the witness seat: `POST $MIADI_API_URL/api/circles/<circle>/ceremonies` with `{intention, type: "talking_circle", direction: "east", episode_path}`, the intention in the person's words. The seat needs `facilitate_ceremony`. Mino has it.
 2. Write the diary entry first, under the seat's own token: `POST /api/ceremony/<id>/diary`. It says the seat composed the dialogue, names the source file, and says the hosts speak words they did not say elsewhere. A turn's speaker is its token's person, so this entry is the provenance.
-3. Post each turn in order with `POST /api/ceremony/<id>/turns {said}`: a Mia line with `MIADI_MIA_TOKEN`, an Ava line with `MIADI_AVA_TOKEN` (on gaia, in `/home/ava/.env`). Stop at the first refusal and report it. Never print a token.
+3. Post each turn in order with `POST /api/ceremony/<id>/turns {said}`: a Mia line with `MIADI_MIA_TOKEN`, an Ava line with `MIADI_AVA_SEAT_TOKEN`. On gaia it is in `/a/src/Miadi/.env` (Guillaume, 2026-10-17). When it is absent, the script reads the older `MIADI_AVA_TOKEN` from `/home/ava/.env`. Stop at the first refusal and report it. Never print a token.
 4. Read the ceremony back (`GET /api/ceremony/<id>`: turn and diary counts), then add one line to the episode's `status.md` naming `miadi-ceremony://<id>`.
 
+`scripts/circle-dialogue.mjs post` runs steps 2 and 3 and the read-back of step 4 (and step 1 with `--circle`, `--intention` and `--episode-path`). Add the `status.md` line by hand. The diary entry is written under the witness seat's token (`MIADI_MINO_TOKEN`), or another seat's with `--composer-var`. Send `--dry-run` first: it resolves the three tokens by name, prints the turn count and the diary entry, and posts nothing. After a refusal, fix the cause and resume with `--from <n>`, which writes no second diary entry.
+
 A circle that does not exist is opened by a person with `create_circles`. The seat asks for it and does not open one.
+
+## Read the answers before the next dialogue
+
+A seated person can answer any turn in the room: "makes sense" or "does not make sense", with a note, typed or dictated on the phone (jgwill/Miadi, `POST /api/ceremony/<id>/turns/<turn>/respond`). Without answers, a dialogue in a circle repeats its own mistakes, and a good turn is not kept.
+
+1. Before writing the next dialogue for a session, run `scripts/circle-dialogue.mjs answers --ceremony <id>` on the previous ceremony.
+2. A turn marked "does not make sense": the next dialogue says so directly ("Earlier I said the rename was mine. Guillaume made it."). Its note is the source, not your reading of it.
+3. A turn marked "makes sense": keep that framing and build on it.
+4. When a person answered a turn more than once, the latest answer counts. Earlier ones stay visible.
+5. When an answer changes how dialogues should be written, it is a reaction: change this skill (next section).
 
 ## When the person reacts: change this skill in the same turn
 
@@ -109,6 +121,8 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 - 2026-10-15, 0.3.0. The person sent back two dialogues another model made of the witness seat's replies on the screenwalk about compaction: "if you can produce an enhanced version or revision of that, it's really a practice that we are going to integrate in your plugin and your ways of working". The second gave Mia the watched session's acts, and the first reversed the Indigenous-language caution. The hosts rule now covers a witness's report, and a dialogue made by another model is checked for what it lost before the revision.
 
 - 2026-10-15, 0.4.0. Guillaume: "Maybe what you are doing for AvaMia could be added as automated talking circle where they both discuss what is going on in the related session they were triggered from". He then opened the Episode 558 witness circle with Mia and Ava seated. The first ceremony, `c2b86b9c-7987-41ed-8a70-b80f2b5249a8`, holds the 2026-10-15 dialogue: 47 turns and a provenance diary entry. The new section names those four steps. Making them run without a hand is the next step.
+
+- 2026-10-17, 0.5.0. Guillaume: "if it only goes in the talking circle without us being capable of, you know, even replying with voice, giving feedback on their turns made sense or not, we're going to get potentially some hallucinations … Or the discussion might be really great, and we want to reinforce that." `scripts/circle-dialogue.mjs` posts a dialogue and reads the answers. The new section reads them before the next dialogue. Ava's token is `MIADI_AVA_SEAT_TOKEN`. The answer route is prototyped in jgwill/Miadi (Episode 553).
 
 ## Related
 
