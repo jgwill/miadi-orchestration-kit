@@ -11,6 +11,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createHash } from "node:crypto"
+import { domainKeys } from "./miadi-run.mjs"
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "miadi-run.mjs")
 const PROMPT = "miadiRun-2610110648-test-seat-checkPrepare"
@@ -22,7 +23,12 @@ const NEW = "miadiRun-2610130900-test-seat-createFromText"
 const NEW_V1 = "@app/pde @lib/pde  we have into @app/chronicle/\n(.pde/... could be an outside path)\n"
 const NEW_V2 = NEW_V1 + "and a second thought\n"
 
-let root, stubs, logs, home, server, base
+// the binding line: one seat named after NEW's prompt, and one session that recorded MISSION at its start
+const SEAT_ID = "aaaa1111-2222-4333-8444-555566667777"
+const SEAT_TMUX = `${NEW}-seat`
+const LAUNCHED_ID = "bbbb2222-3333-4444-8555-666677778888"
+
+let root, stubs, logs, home, server, base, sessiondata
 const requests = []
 let promptBody = BODY_V1
 
@@ -40,6 +46,11 @@ before(async () => {
   root = mkdtempSync(join(tmpdir(), "miadi-run-test-"))
   stubs = join(root, "bin"); logs = join(root, "logs"); home = join(root, "missions")
   for (const d of [stubs, logs]) mkdirSync(d)
+  sessiondata = join(root, "sessiondata"); mkdirSync(join(sessiondata, "data"), { recursive: true })
+  writeFileSync(join(sessiondata, "data", "terminal_bindings.jsonl"), [
+    { session_id: SEAT_ID, at: "2026-10-15T12:34:36Z", host: "gaia", tmux: { session: SEAT_TMUX, pane_id: "%7" } },
+    { session_id: LAUNCHED_ID, at: "2026-10-15T12:40:00Z", event: "session.mission", tmux: { session: "episode-9-mia-companion", pane_id: "%9" }, mission: { id: `${PROMPT}.v1`, source: "prompt" } },
+  ].map((l) => JSON.stringify(l)).join("\n") + "\n")
   // tide prints a plan in the state written to logs/tide.state (default "create"); with --run it reports an executed seat
   stub("tide", `STATE=$(cat "${logs}/tide.state" 2>/dev/null || echo create)
 if printf '%s\\n' "$@" | grep -qx -- '--run'; then echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"executed\\":true,\\"session_id\\":\\"tide-row-1\\"}"; else echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"commands\\":[]}"; fi`)
@@ -91,6 +102,7 @@ function cli(args) {
     CEREMONY_LANGFUSE_BASE_URL: base,
     MIADI_API_URL: base,
     MIADI_API_TOKEN_WRITER: SECRETS[2],
+    CLAUDE_SESSIONDATA_ROOT: sessiondata,
   }
   return new Promise((resolve) => execFile(process.execPath, [SCRIPT, ...args], { env }, (error, stdout, stderr) => resolve({ code: error ? error.code : 0, stdout, stderr })))
 }
@@ -238,6 +250,7 @@ test("launch on an explicit word runs tide --run once and writes the execution o
   assert.equal(m.launch.authorized_by, "Guillaume")
   assert.equal(m.launch.tide_session_id, "tide-row-1")
   assert.equal(m.launch.state, "create")
+  assert.equal(m.launch.claude_session_id, LAUNCHED_ID, "the seat's own session, from its session.mission line")
   assert.match(log("coaia").at(-1), /miadi-run · execution · /)
   assert.match(log("coaia").at(-1), new RegExp(`--type generation --prompt-name ${PROMPT} --prompt-version 1 `), "the execution is a generation linked to the pinned prompt version")
   assert.equal((await cli(["launch", MISSION, "--authorized-by", "Guillaume"])).code, 4, "a mission launches once")
@@ -301,6 +314,53 @@ test("create with --trace adds the new version as a research observation under t
   assert.match(added, /--parent-id root-1 /)
   assert.match(added, new RegExp(`miadi-run · research · miadi-tracing:ceremony/prompt/${NEW}@2`))
   assert.doesNotMatch(added, /--trace-name/)
+})
+
+const GIVEN = `${NEW}.v2`
+
+test("given refuses without a seat, an authorization or a known session, and starts nothing", async () => {
+  const prep = await cli(["prepare", "--prompt", NEW, "--version", "2", "--trace", TRACE, "--episode", "9"])
+  assert.equal(prep.code, 0, prep.stderr)
+  const tideBefore = log("tide").length
+  assert.equal((await cli(["given", GIVEN, "--authorized-by", "Guillaume"])).code, 2)
+  assert.equal((await cli(["given", GIVEN, "--session", SEAT_TMUX])).code, 3)
+  assert.equal((await cli(["given", GIVEN, "--session", "ffffffff", "--authorized-by", "Guillaume"])).code, 4)
+  assert.equal((await cli(["given", GIVEN, "--session", SEAT_TMUX, "--authorized-by", "Guillaume", "--at", "yesterday-ish"])).code, 2)
+  assert.equal(log("tide").length, tideBefore)
+  assert.equal(JSON.parse(readFileSync(join(home, GIVEN, "mission.json"), "utf8")).state, "prepared")
+})
+
+test("given records the seat a mission was handed to and links it to the prompt version, typing nothing", async () => {
+  const tideBefore = log("tide").length
+  const r = await cli(["given", GIVEN, "--session", SEAT_ID.slice(0, 8), "--authorized-by", "Guillaume", "--at", "2026-10-15T15:20:00Z"])
+  assert.equal(r.code, 0, r.stderr)
+  const m = JSON.parse(r.stdout)
+  assert.equal(m.state, "launched")
+  assert.equal(m.launch.via, "given")
+  assert.equal(m.launch.claude_session_id, SEAT_ID)
+  assert.equal(m.launch.session, SEAT_TMUX)
+  assert.equal(m.launch.at, "2026-10-15T15:20:00Z")
+  assert.equal(log("tide").length, tideBefore, "given asks tide nothing")
+  for (const never of ["tmux", "claude", "miacompanionyolo"]) assert.deepEqual(log(never), [], `${never} was called`)
+  const exec = log("coaia").at(-1)
+  assert.match(exec, /miadi-run · execution · /)
+  assert.match(exec, new RegExp(`--type generation --prompt-name ${NEW} --prompt-version 2 `))
+  assert.match(exec, new RegExp(`"claude_session_id":"${SEAT_ID}"`))
+  assert.equal((await cli(["given", GIVEN, "--session", SEAT_TMUX, "--authorized-by", "Guillaume"])).code, 4, "a mission is given once")
+})
+
+test("show and a return name the seat sessions of a mission", async () => {
+  const shown = JSON.parse((await cli(["show", MISSION])).stdout)
+  assert.deepEqual(shown.seats.map((s) => s.session_id), [LAUNCHED_ID])
+  const r = await cli(["observe", GIVEN, "--kind", "return", "--summary", "done in its own seat"])
+  assert.equal(r.code, 0, r.stderr)
+  assert.match(log("coaia").at(-1), new RegExp(`"seat_sessions":\\["${SEAT_ID}"\\]`))
+})
+
+test("the creative domain's keys are read from the env file", () => {
+  const file = join(root, "creative.env")
+  writeFileSync(file, "CREATIVE_LANGFUSE_PUBLIC_KEY=pk-c\nCREATIVE_LANGFUSE_SECRET_KEY=sk-c\n")
+  assert.deepEqual(domainKeys({ MIADI_ENV_FILE: file }, "creative"), { pub: "pk-c", sec: "sk-c", base: "https://cloud.langfuse.com" })
 })
 
 test("no credential reaches telemetry, the mission record, a request body or the output", async () => {

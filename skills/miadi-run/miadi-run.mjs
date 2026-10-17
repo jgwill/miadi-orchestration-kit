@@ -6,6 +6,7 @@
 //   resolve <prompt-name | trace-id> [--domain d]
 //   prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 //   launch  <mission> --authorized-by <who>
+//   given   <mission> --session <claude-session-id | prefix | tmux-session> --authorized-by <who> [--at <iso>]
 //   prompt  <mission>                                                   (the seat reads its pinned version)
 //   observe <mission> --kind research|return --summary <text> [--detail-file F]
 //   observe --trace <trace-id> --kind research --summary <text>        (research before any mission)
@@ -45,7 +46,7 @@ function envFileValues(env) {
   if (!file || !existsSync(file)) return {}
   const out = {}
   for (const line of readFileSync(file, "utf8").split("\n")) {
-    const m = line.match(/^((?:CEREMONY|STORY|ENG)_LANGFUSE_[A-Z_]+)=(.*)$/)
+    const m = line.match(new RegExp(`^((?:${DOMAINS.map((d) => d.toUpperCase()).join("|")})_LANGFUSE_[A-Z_]+)=(.*)$`))
     if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, "")
   }
   return out
@@ -245,6 +246,45 @@ When the mission is done, or stops, report on the trace:
 `
 }
 
+// ---------- seats, from the binding line ----------
+
+// The capture plugin (claude/miadi-session-observability) keeps one line per event of every Claude
+// session: its tmux pane, its names and, from 0.1.12, the `session.mission` it was launched with.
+export function sessionRoot(env) {
+  return env.CLAUDE_SESSIONDATA_ROOT || env.MIADI_SESSION_DIR || env.MIADI_SESSIONDATA_ROOT || env.SESSION_DATA_ROOT || env.CONDUCTOR_SESSION_ROOT || "/src/_sessiondata"
+}
+
+function bindingLines(env) {
+  const file = join(sessionRoot(env), "data", "terminal_bindings.jsonl")
+  if (!existsSync(file)) return []
+  const out = []
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (!line.trim()) continue
+    try { out.push(JSON.parse(line)) } catch { /* a torn line is skipped */ }
+  }
+  return out
+}
+
+const seatOf = (b) => ({ session_id: b.session_id, tmux: b.tmux?.session ?? null, pane_id: b.tmux?.pane_id ?? null, host: b.host ?? null, at: b.at ?? null })
+
+// The sessions that recorded this mission at their start (`session.mission`).
+export function seatsOf(env, id) {
+  const seats = new Map()
+  for (const b of bindingLines(env)) {
+    if (b.event === "session.mission" && b.mission?.id === id && b.session_id) seats.set(b.session_id, { ...seatOf(b), source: b.mission.source ?? null })
+  }
+  return [...seats.values()]
+}
+
+// A session named by its id, an 8-character prefix of it, or its tmux session; the latest wins.
+export function findSeat(env, ref) {
+  const hits = bindingLines(env).filter((b) => b.session_id && (b.session_id === ref || (ref.length >= 8 && b.session_id.startsWith(ref)) || b.tmux?.session === ref))
+  if (!hits.length) return null
+  const latest = hits.at(-1)
+  const others = [...new Set(hits.map((b) => b.session_id))].filter((s) => s !== latest.session_id)
+  return { ...seatOf(latest), ...(others.length ? { others } : {}) }
+}
+
 // ---------- missions ----------
 
 const missionHome = (env) => env.MIADI_RUN_HOME || join(homedir(), ".miadi", "missions")
@@ -368,12 +408,45 @@ async function launch(deps, opts) {
     throw new Refusal(7, `tide did not open the seat (exit ${ran.status}); the mission stays prepared. From your own terminal: tide mode controller, then\n  node ${fileURLToPath(import.meta.url)} launch ${id} --authorized-by "${opts.authorizedBy}"\n${(ran.stderr || "").trim().slice(0, 300)}`)
   }
   mission.state = "launched"
-  mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, state: result.state, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null }
+  const seen = seatsOf(deps.env, id).at(-1)
+  mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, via: "tide", state: result.state, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null, claude_session_id: seen?.session_id ?? null }
   mission.observations.push(observe(deps, "launch", mission.trace, "execution", id, {
     prompt: { name: mission.prompt.name, version: mission.prompt.version },
     input: { prompt: mission.prompt.reference, authorized_by: mission.launch.authorized_by },
-    output: { state: "launched", plan_state: mission.launch.state, session: mission.launch.session, tide_session_id: mission.launch.tide_session_id },
+    output: { state: "launched", via: "tide", plan_state: mission.launch.state, session: mission.launch.session, tide_session_id: mission.launch.tide_session_id, claude_session_id: mission.launch.claude_session_id },
     metadata: { mission: id, prompt: mission.prompt.reference, prompt_sha256: mission.prompt.sha256, episode: mission.episode.ref, launch_authorized: true },
+  }))
+  saveMission(deps.env, mission)
+  return mission
+}
+
+// A mission given by hand to a seat that already runs: a tmux session named after the prompt, where
+// the person or a coordinator at the person's word sends the mission (miadi-chronicle:558,
+// 2026-10-15: two missions done this way stayed "prepared", and their prompt pages listed nothing).
+// Nothing is typed or started here. The record names the seat and who gave the word, and the
+// execution generation links that seat to the pinned prompt version.
+async function given(deps, opts) {
+  const id = opts.positional[0]
+  if (!id) throw new Refusal(2, "given needs a mission id")
+  if (!opts.session) throw new Refusal(2, "given needs --session <claude-session-id | 8-character prefix | tmux session>: the seat that received the mission")
+  const mission = loadMission(deps.env, id)
+  if (mission.state !== "prepared") throw new Refusal(4, `mission ${id} is ${mission.state}; a mission is given or launched once`)
+  if (typeof opts.authorizedBy !== "string" || !opts.authorizedBy.trim()) throw new Refusal(3, `given needs --authorized-by <who>: the person whose word gave ${id} to that seat`)
+  const at = opts.at ?? deps.now().toISOString()
+  if (Number.isNaN(Date.parse(at))) throw new Refusal(2, `--at ${opts.at} is not a time`)
+  const seat = findSeat(deps.env, opts.session)
+  if (!seat) throw new Refusal(4, `no session ${opts.session} in ${join(sessionRoot(deps.env), "data", "terminal_bindings.jsonl")}`)
+
+  const remote = await getPromptVersion(deps, mission.prompt.domain, mission.prompt.name, mission.prompt.version)
+  if (remote.sha256 !== mission.prompt.sha256) throw new Refusal(5, `prompt ${mission.prompt.reference} no longer matches what was prepared (sha256)`)
+
+  mission.state = "launched"
+  mission.launch = { authorized_by: opts.authorizedBy.trim(), at, executed: true, via: "given", session: seat.tmux, pane_id: seat.pane_id, host: seat.host, claude_session_id: seat.session_id, recorded_at: deps.now().toISOString() }
+  mission.observations.push(observe(deps, "given", mission.trace, "execution", id, {
+    prompt: { name: mission.prompt.name, version: mission.prompt.version },
+    input: { prompt: mission.prompt.reference, authorized_by: mission.launch.authorized_by },
+    output: { state: "launched", via: "given", given_at: at, session: seat.tmux, claude_session_id: seat.session_id },
+    metadata: { mission: id, prompt: mission.prompt.reference, prompt_sha256: mission.prompt.sha256, episode: mission.episode.ref, launch_authorized: true, via: "given" },
   }))
   saveMission(deps.env, mission)
   return mission
@@ -407,7 +480,7 @@ async function observeCmd(deps, opts) {
     prompt: { name: mission.prompt.name, version: mission.prompt.version },
     input: { summary: opts.summary },
     output: detail ? { detail } : {},
-    metadata: { mission: id, prompt: mission.prompt.reference, episode: mission.episode.ref, state: mission.state },
+    metadata: { mission: id, prompt: mission.prompt.reference, episode: mission.episode.ref, state: mission.state, seat_sessions: missionSeats(deps.env, mission).map((s) => s.session_id) },
   })
   mission.observations.push(done)
   if (kind === "return" && done.ok) mission.state = "returned"
@@ -415,11 +488,24 @@ async function observeCmd(deps, opts) {
   return mission
 }
 
+// The seat the launch or the hand-off recorded, and every session that recorded the mission itself.
+function missionSeats(env, mission) {
+  const seats = seatsOf(env, mission.id)
+  const named = mission.launch?.claude_session_id
+  if (named && !seats.some((s) => s.session_id === named)) seats.unshift({ session_id: named, tmux: mission.launch.session ?? null, source: mission.launch.via ?? null })
+  return seats
+}
+
+function show(deps, opts) {
+  const mission = loadMission(deps.env, opts.positional[0] ?? "")
+  return { ...mission, seats: missionSeats(deps.env, mission) }
+}
+
 // ---------- cli ----------
 
 export function parseArgs(argv) {
   const opts = { positional: [], addDirs: [] }
-  const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile", "--text-file": "textFile", "--session": "session", "--commit-message": "commitMessage" }
+  const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile", "--text-file": "textFile", "--session": "session", "--commit-message": "commitMessage", "--at": "at" }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (takes[a]) opts[takes[a]] = argv[++i]
@@ -447,6 +533,7 @@ const USAGE = `miadi-run create  <prompt-name> --text-file F [--domain d] [--tra
 miadi-run resolve <prompt-name | trace-id> [--domain d]
 miadi-run prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 miadi-run launch  <mission> --authorized-by <who>
+miadi-run given   <mission> --session <claude-session-id | prefix | tmux-session> --authorized-by <who> [--at <iso>]
 miadi-run prompt  <mission>
 miadi-run observe <mission> --kind research|return --summary <text> [--detail-file F]
 miadi-run observe --trace <trace-id> --kind research --summary <text>
@@ -460,9 +547,10 @@ export async function main(argv, deps = defaultDeps()) {
   if (verb === "resolve") return resolve(deps, opts)
   if (verb === "prepare") return prepare(deps, opts)
   if (verb === "launch") return launch(deps, opts)
+  if (verb === "given") return given(deps, opts)
   if (verb === "prompt") return promptCmd(deps, opts)
   if (verb === "observe") return observeCmd(deps, opts)
-  if (verb === "show") return loadMission(deps.env, opts.positional[0] ?? "")
+  if (verb === "show") return show(deps, opts)
   throw new Refusal(2, `unknown verb "${verb}"\n${USAGE}`)
 }
 

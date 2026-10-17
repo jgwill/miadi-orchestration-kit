@@ -2,12 +2,13 @@
 name: miadi-run
 description: >
   Start a terminal mission from one pinned version of a miadiRun prompt
-  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in six
-  verbs: create, resolve, prepare, launch, prompt, observe. Create makes the person's text a
+  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in seven
+  verbs: create, resolve, prepare, launch, given, prompt, observe. Create makes the person's text a
   new prompt version and opens its research trace. The launched seat reads its pinned version
   from the provider with `prompt` and starts the mission without waiting. Prepare pins the version, holds the prompt
   and its research trace on the episode and asks `tide companion open` for its plan,
-  and never executes. Launch runs only on the person's explicit word. Every step adds
+  and never executes. Launch runs only on the person's explicit word. Given records a mission the person handed by
+  hand to a seat that already runs, typing nothing. Every step adds
   a typed observation (research, preparation, execution, return) to the mission's
   trace. Triggers on "miadiRun", "miadi-run", "prepare the mission", "launch the
   mission", "start a session from that prompt", "start a session with that trace",
@@ -15,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.4.1
+  version: 0.5.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -34,6 +35,7 @@ $R create  <prompt-name> --text-file F [--domain ceremony|creative|eng] [--trace
 $R resolve <prompt-name | trace-id> [--domain ceremony|creative|eng]
 $R prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--dry-run]
 $R launch  <mission> --authorized-by <who>
+$R given   <mission> --session <claude-session-id | 8-char prefix | tmux-session> --authorized-by <who> [--at <iso>]
 $R prompt  <mission>
 $R observe <mission> --kind research|return --summary "<text>" [--detail-file F]
 $R observe --trace <trace-id> --kind research --summary "<text>"
@@ -48,7 +50,7 @@ gives the `return` command. A seat therefore starts from the prompt in the provi
 copy on disk (Guillaume, 2026-10-13). The first launch, that day, opened a seat that read a copy and
 then only listened.
 
-## The six verbs
+## The seven verbs
 
 0. **create** is for a person who gives the prompt name and its text together, for example
    `/miadi-run miadiRun-2610121041-pde-into-miadi-chronicle <the text>` (Guillaume,
@@ -88,11 +90,27 @@ then only listened.
    tide runs only in controller mode from a terminal. When it refuses, the mission stays
    prepared and the script prints the command for the person to run themselves
    (`! node …/miadi-run.mjs launch …` or their own terminal).
+3b. **given** records a mission that was handed by hand to a seat that already runs. That is
+   usually a tmux session named after the prompt, where the person, or a coordinator acting on the
+   person's word, sends the mission. This is how both missions of miadi-chronicle:558 ran on
+   2026-10-15, and until this verb existed their records stayed `prepared` and their prompt pages
+   listed nothing. It needs `--session`, which takes the seat's Claude session id, an 8-character
+   prefix of it, or its tmux session, looked up in the binding line. It also needs `--authorized-by`
+   (exit 3 without it), and the provider's version must still match the pinned sha256 (exit 5).
+   `--at` records when the mission was given, if that was earlier. Nothing is typed and nothing is
+   started. The record gets `launch.via: "given"` and the seat's `claude_session_id`, and an
+   `execution` generation links that seat to the prompt version. A mission is given or launched
+   once.
+
+   **show** lists `seats`: the session a launch or a hand-off recorded, and every session whose
+   binding line has a `session.mission` line for this mission (capture plugin 0.1.12 and later).
+   A `return` carries the same ids as `seat_sessions`. From the trace you can then open the
+   session that did the work.
 4. **prompt** `<mission>` prints the pinned version, read from the provider, and refuses (exit 5)
    when the provider no longer holds the text that was prepared. It is the seat's first read.
 5. **observe** adds `research` (discussion of the prompt, with or without a mission) or
    `return` (findings, commits, new questions, after a launch). Only prepare writes
-   `preparation`, and only launch writes `execution`.
+   `preparation`, and only launch and given write `execution`.
 
    `execution` (the pinned version given to a seat) and `return` (what the seat made of it) are
    written as generations linked to that prompt version (`--prompt-name`, `--prompt-version`), so
@@ -120,7 +138,7 @@ When `MIADI_API_URL` is unset, the relations are recorded as `pending`. Hold the
 
 ## Exit codes
 
-`2` usage or a refused flag. `3` launch without authorization. `4` unknown prompt, trace or
+`2` usage or a refused flag. `3` launch or given without authorization. `4` unknown prompt, trace, session or
 mission, a mission already prepared or launched, or a return before a launch. `5` the pinned
 version no longer matches. `6` tide could not plan. `7` tide did not open the seat, or its plan
 would not type the mission prompt. `8` the record was written, but an observation or an episode
@@ -128,6 +146,10 @@ relation was refused, or tide's plan would not type the mission prompt (stderr n
 `9` the guard refused `--run` outside launch.
 
 ## Not yet
+
+- **The episode room does not list missions.** The episode's sessions endpoint
+  (`GET /api/chronicle/episodes/<ref>/sessions`, jgwill/Miadi#769) reads the binding line but not
+  its `session.mission` lines. That change belongs in jgwill/Miadi.
 
 - **A session-fork lane.** `miadi-fork open` (`claude/miadi-session-observability`) opens a
   branch with no starting prompt, so it cannot deliver a pinned version. It needs a `--brief`
