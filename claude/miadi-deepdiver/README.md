@@ -18,6 +18,7 @@ claude plugin install miadi-deepdiver@miadi-orchestration-kit
 | skill `screenwalk-notebook` | The NotebookFed and MediaMade transitions of the screenwalk media cycle: reviews and videos into a notebook (with a stored transcript for a video too new to import), questions with cited answers, infographic, video and audio overviews, Interactive and Document reports, everything kept with a manifest, and `studio open` to show it in the next screenwalk. Ends with a log the skill keeps from each run. |
 | command `/deepdive` | Give it an episode, a review, or both. It finds the other, takes the review's Deep Diver line as its brief, checks Chrome is signed in, builds the notebook, asks the questions, makes the media, and lands it in the episode with `notebooks:` in `episode.yaml`. Ends with `DONE <notebook url> <commit>`. |
 | command `/notebook-from-reviews` | The notebook and media only, for a set of review IDs or an episode's reviews. It never posts to a talking circle or writes into an episode. |
+| command `/notebook-from-handoff` | A notebook from a handoff or spec written in a repository — a session's `docs/handoffs/*.md` and the spec it links — asked the handoff's open inquiries, with its media kept beside it (`<handoff>.notebook-<id>/`). The brief is the handoff's **The Deep Diver path.** line. First handoff written for it: jgwill/smcraft `docs/handoffs/2026-10-18-stage-and-marks.md`. |
 
 The plugin has no hooks and no MCP server. DeepDiver is a command line.
 
