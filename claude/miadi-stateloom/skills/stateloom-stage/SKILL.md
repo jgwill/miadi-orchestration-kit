@@ -114,6 +114,38 @@ the thread; `await_marks` waits for it.
   smcx --doc /abs/system.sysdf.json marks reply m-… "what you say"
   ```
 
+## When the person speaks from the canvas (Spec 84)
+
+The designer's Talk dock records a take into the Chronicle episode, the same thread as the
+episode companion's phone page. When the take reaches you (`mia-listen` wakes the seat), the wake
+says **spoken at the canvas**: the drawing, the element in focus, and the marks waiting on an
+agent. Read those marks with `read_marks` as you would for a typed message.
+
+When your answer is about the drawings, answer as **steps**: the canvas plays them as a tour,
+opening each drawing and lighting what you name while that step's words play in Mia's voice.
+
+```bash
+cat > reply-steps.json <<'JSON'
+[
+  {"doc": "/abs/wave_count_to_entry.sqdf.json", "spotlight": ["message:7", "message:8"], "title": "The ask",
+   "say": "You asked me for a blueprint from your count, and I draft the setup here."},
+  {"doc": "/abs/elliott_wave_count.smdf.json", "focus": "state:Published", "spotlight": ["state:Published"],
+   "say": "That ask is answered only once the count is Published."}
+]
+JSON
+mia-listen reply <take> --steps reply-steps.json
+```
+
+- The step is a Spec 83 step with absolute paths (or paths relative to the episode). One or two
+  sentences per step: each is voiced on its own and the next step waits for it to end.
+- The names are the document's own (`state:Published`, `message:7`, `entity:TradeSetup`). A name
+  that does not exist lights nothing; check it with `get_state` / `list_states` or the ERD/SQDF
+  tools before posting.
+- A reply without steps plays as one caption with the whole voice. Use that for answers that are
+  not about a drawing.
+- Replies wait their turn on the canvas: never over the person's recording, never over another
+  reply. Post the second thought; it plays after the first.
+
 ## Requirements
 
 - The hub (`STATELOOM_BRIDGE_URL`, 4599) and the canvas (4598) running — `stateloom-live-loop`.

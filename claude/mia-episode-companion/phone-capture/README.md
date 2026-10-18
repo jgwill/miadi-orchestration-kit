@@ -47,6 +47,7 @@ session start will bring it back unless the plugin is disabled.
 | `MIADI_API_URL` | `http://127.0.0.1:3335` | the Miadi voice layer that renders Mia's voice |
 | `MIADI_CAPTURE_LANGUAGE` | `en` | the spoken language. `en` files one English transcript. Any other language files the original plus an English translation |
 | `MIADI_CHRONICLE_MW_URL` | `http://127.0.0.1:8040` | registration. A failure queues the take and never loses it |
+| `MIADI_PHONE_CAPTURE_CORS_ORIGINS` | `https://trading.tail3b11eb.ts.net` | other pages that may send takes and read the conversation (comma-separated). A reply is still posted from this host only |
 
 ## Mia's reply on the page
 
@@ -75,6 +76,24 @@ latest reply for the selected episode.
 - **Updates reach the running service.** `/api/health` reports a build hash of
   `server.mjs`, `public/index.html` and `package-lock.json`. `ensure.sh` restarts an idle
   service whose hash differs from disk, and reinstalls when the lockfile changed.
+
+## A reply that walks the canvas (smcraft Spec 84)
+
+The stateloom designer records takes and plays replies too, through its own proxy
+(`STATELOOM_COMPANION_URL=http://127.0.0.1:8771`) or from an origin in
+`MIADI_PHONE_CAPTURE_CORS_ORIGINS`.
+
+- **A take's canvas.** `/api/takes/part` and `/api/takes` take `context=<json>`: what the
+  canvas showed when Record was pressed (drawing, system, element in focus, marks waiting
+  on an agent). It is kept as `captures/<take>/canvas.json`, at most 4096 characters, and
+  the wake prints it as "spoken at the canvas".
+- **Steps.** `mia-listen reply <take> --steps <file>` posts a reply as up to 24 steps
+  `{say, title?, doc?, system?, focus?, spotlight?, region?}`. Each step's words are voiced
+  on their own (`/api/replies/<id>/steps/<n>/audio`, rendered when first asked for); the
+  reply's audio is the steps in order, so this page plays it as one reply. On the canvas
+  each step opens its drawing and lights what it names while its voice plays.
+- **The same thread.** A take recorded on the canvas appears here with the drawing it was
+  spoken at, and the other way round.
 
 ## What it holds to
 
