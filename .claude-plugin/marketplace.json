@@ -44,8 +44,8 @@
     {
       "name": "miadi-stateloom",
       "source": "./claude/miadi-stateloom",
-      "description": "The stateloom design loom in one install: its MCP server from npm and the design skills. Design a system's data, behaviours and scenarios as one system; check the names that cross between them; replay a scenario through the machines; let it update the machines, the ERD and the actors (propose or auto); point the live canvas while talking.",
-      "version": "0.1.5"
+      "description": "The stateloom design loom in one install: its MCP server from npm and the design skills. Design a system's data, behaviours and scenarios as one system; check the names that cross between them; replay a scenario through the machines; let it update the machines, the ERD and the actors (propose or auto); point the live canvas while talking; the agent shows its work on the live canvas as steps or tours and reads what the person marks.",
+      "version": "0.2.0"
     },
     {
       "name": "miadi-deepdiver",
