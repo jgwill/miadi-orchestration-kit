@@ -203,7 +203,12 @@ function listTakes(dir) {
       try { at = JSON.parse(readFileSync(join(folder, "capture.json"), "utf8")).storedAt || ""; } catch {}
       let text = "";
       try { text = readFileSync(join(folder, `transcription_${take}_EN.txt`), "utf8").trim(); } catch {}
-      return { kind: "take", take, at: at || statSync(folder).mtime.toISOString(), text };
+      let canvas = null;
+      try {
+        const seen = JSON.parse(readFileSync(join(folder, "canvas.json"), "utf8"));
+        canvas = { doc: seen.doc ?? null, kind: seen.kind ?? null, focus: seen.focus ?? null };
+      } catch {}
+      return { kind: "take", take, at: at || statSync(folder).mtime.toISOString(), text, ...(canvas ? { canvas } : {}) };
     });
 }
 
@@ -354,6 +359,63 @@ function cleanRelated(list) {
   });
 }
 
+// A reply may walk the person through diagrams on their stateloom canvas while it is
+// heard (smcraft Spec 84): each step names a drawing, what to light in it, and the words
+// said there. Each step is voiced on its own, so the canvas plays a step's words while that
+// step is lit; the reply's own audio is the steps' words in order, for this page.
+const MAX_STEPS = 24;
+const MAX_STEP_CHARS = 2000;
+const FOCUS = /^(entity|attribute|machine|object|event|state|participant|message):[^\n]{1,200}$/;
+const JSON_PATH = /^\/[^\0\n]{1,500}\.json$/;
+export function cleanSteps(list) {
+  if (!Array.isArray(list)) return [];
+  const text = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+  const finite = (v) => typeof v === "number" && Number.isFinite(v);
+  return list.slice(0, MAX_STEPS).flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const say = text(item.say, MAX_STEP_CHARS);
+    if (!say) return [];
+    const step = { say };
+    const title = text(item.title, 120);
+    if (title) step.title = title;
+    if (typeof item.doc === "string" && JSON_PATH.test(item.doc)) step.doc = item.doc;
+    if (typeof item.system === "string" && JSON_PATH.test(item.system) && item.system.endsWith(".sysdf.json")) step.system = item.system;
+    if (typeof item.focus === "string" && FOCUS.test(item.focus)) step.focus = item.focus;
+    const spotlight = (Array.isArray(item.spotlight) ? item.spotlight : []).filter((f) => typeof f === "string" && FOCUS.test(f)).slice(0, 20);
+    if (spotlight.length) step.spotlight = spotlight;
+    const r = item.region;
+    if (r && [r.x, r.y, r.width, r.height].every(finite) && r.width > 0 && r.height > 0) step.region = { x: r.x, y: r.y, width: r.width, height: r.height };
+    return [step];
+  });
+}
+
+// What the person's canvas showed when a take was recorded there: the drawing, the element
+// in hand, the marks open on it. Kept with the take (captures/<take>/canvas.json), so the
+// listening seat hears what was being pointed at, not what is on screen when it wakes.
+const MAX_CONTEXT_CHARS = 4096;
+export function cleanContext(raw) {
+  if (!raw) return null;
+  let value = raw;
+  if (typeof raw === "string") {
+    if (raw.length > MAX_CONTEXT_CHARS) throw new Refusal(413, `a take's canvas context is limited to ${MAX_CONTEXT_CHARS} characters`);
+    try { value = JSON.parse(raw); } catch { throw new Refusal(400, "context is not JSON"); }
+  }
+  if (!value || typeof value !== "object") return null;
+  const out = {};
+  for (const key of ["stage", "doc", "kind", "system", "focus", "who", "at", "url"]) {
+    if (typeof value[key] === "string" && value[key]) out[key] = value[key].slice(0, 500);
+  }
+  for (const key of ["marks", "spotlight"]) {
+    if (Array.isArray(value[key])) out[key] = value[key].filter((x) => typeof x === "string").slice(0, 20).map((x) => x.slice(0, 200));
+  }
+  if (value.visible && typeof value.visible === "object") out.visible = value.visible;
+  if (value.tour && typeof value.tour === "object") out.tour = value.tour;
+  if (value.step && typeof value.step === "object") out.step = value.step;
+  return Object.keys(out).length ? out : null;
+}
+
+const stepAudio = (repliesDir, id, index) => join(repliesDir, "audio", id, `step-${index}.mp3`);
+
 function readFeedback(repliesDir, episode) {
   const file = join(repliesDir, "feedback", `${episode}.jsonl`);
   const latest = new Map();
@@ -373,6 +435,9 @@ function publicReply(reply, repliesDir, feedback = null) {
     ...(problem ? { unvoiced: `This reply cannot be voiced: ${problem}.` } : {}),
     ...(feedback?.get(reply.id) ? { feedback: feedback.get(reply.id) } : {}),
     ...(reply.related?.length ? { related: reply.related } : {}),
+    ...(reply.steps?.length
+      ? { steps: reply.steps.map((step, index) => ({ ...step, audio: existsSync(stepAudio(repliesDir, reply.id, index)) ? `api/replies/${reply.id}/steps/${index}/audio` : null })) }
+      : {}),
   };
 }
 
@@ -480,10 +545,13 @@ export function createApp({
       voicing.set(reply.id, (async () => {
         const moved = locate(reply.origin, reply.at);
         if (moved) log(`reply ${reply.id}: its seat moved from ${reply.origin.session} ${reply.origin.pane} to ${moved.session} ${moved.pane} (Claude session ${moved.occupantId})`);
-        const parts = voiceParts(speakable(reply.text));
+        // With steps, her voice is the steps' words, each step voiced as its own file so
+        // the canvas plays it while that step is lit; the reply's audio joins them in order.
+        const sections = reply.steps?.length ? reply.steps.map((step) => step.say) : [reply.text];
+        const parts = sections.flatMap((section, index) => voiceParts(speakable(section)).map((text) => ({ text, index })));
         const voiced = [];
         for (let at = 0; at < parts.length; at += VOICE_PARTS_AT_ONCE) {
-          voiced.push(...await Promise.all(parts.slice(at, at + VOICE_PARTS_AT_ONCE).map((text) => voice.render({
+          voiced.push(...await Promise.all(parts.slice(at, at + VOICE_PARTS_AT_ONCE).map(({ text }) => voice.render({
             text,
             episode: reply.episode,
             persona: "mia",
@@ -493,6 +561,13 @@ export function createApp({
           }))));
         }
         mkdirSync(join(repliesDir, "audio"), { recursive: true });
+        if (reply.steps?.length) {
+          mkdirSync(join(repliesDir, "audio", reply.id), { recursive: true });
+          reply.steps.forEach((_, index) => {
+            const own = voiced.filter((__, at) => parts[at].index === index);
+            writeFileSync(stepAudio(repliesDir, reply.id, index), Buffer.concat(own), { mode: 0o600 });
+          });
+        }
         writeFileSync(join(repliesDir, "audio", `${reply.id}.mp3`), Buffer.concat(voiced), { mode: 0o600 });
       })().finally(() => voicing.delete(reply.id)));
     }
@@ -503,8 +578,10 @@ export function createApp({
     if (!fromThisHost(req)) throw new Refusal(403, "replies are posted from this host only");
     const body = await readJson(req, MAX_REPLY_CHARS * 4 + 8192);
     episodeDir(chronicleRoot, body.episode);
-    const text = typeof body.text === "string" ? body.text.trim() : "";
-    if (!text) throw new Refusal(400, "a reply needs text");
+    const steps = cleanSteps(body.steps);
+    // A reply that is only steps reads as its steps' words.
+    const text = (typeof body.text === "string" ? body.text.trim() : "") || steps.map((step) => step.say).join("\n\n");
+    if (!text) throw new Refusal(400, "a reply needs text, or steps that say something");
     if (text.length > MAX_REPLY_CHARS) throw new Refusal(413, `a reply is limited to ${MAX_REPLY_CHARS} characters`);
     if (body.take !== undefined && !/^\d{12}$/.test(String(body.take))) throw new Refusal(400, "take must be a 12-digit take id");
     const reply = {
@@ -518,6 +595,7 @@ export function createApp({
     };
     const related = cleanRelated(body.related);
     if (related.length) reply.related = related;
+    if (steps.length) reply.steps = steps;
     const loop = cleanLoop(body.loop);
     if (loop) reply.loop = loop;
     mkdirSync(repliesDir, { recursive: true });
@@ -527,8 +605,9 @@ export function createApp({
     const recording = recorderState(reply.episode).recording ? { recording: true } : {};
     // The text is kept either way: William can still read and copy it.
     const problem = originProblem(reply.origin);
-    if (problem) return { success: true, id: reply.id, ...recording, unvoiced: `${problem}. ${POST_WITH_MIA_LISTEN}` };
-    if (!voice) return { success: true, id: reply.id, ...recording };
+    const counted = steps.length ? { steps: steps.length } : {};
+    if (problem) return { success: true, id: reply.id, ...recording, ...counted, unvoiced: `${problem}. ${POST_WITH_MIA_LISTEN}` };
+    if (!voice) return { success: true, id: reply.id, ...recording, ...counted };
     // Voiced now, while the pane that wrote it is the pane its origin names. The mp3 is a
     // file on this host, so a later reboot that renumbers the panes cannot take it away.
     let timer;
@@ -540,7 +619,10 @@ export function createApp({
       }),
       new Promise((done) => { timer = setTimeout(done, VOICE_AT_POST_MS, ""); }),
     ]).finally(() => clearTimeout(timer));
-    return { success: true, id: reply.id, ...recording, ...(refused ? { unvoiced: `the voice layer refused: ${refused}` } : {}) };
+    return {
+      success: true, id: reply.id, ...recording, ...(steps.length ? { steps: steps.length } : {}),
+      ...(refused ? { unvoiced: `the voice layer refused: ${refused}` } : {}),
+    };
   }
 
   function listReplies(url) {
@@ -607,7 +689,7 @@ export function createApp({
 
   // The take pipeline for audio already on disk: import, finalize, transcribe, assign.
   // Runs inside serial(): the capture service holds a single recorder.
-  async function storeFile({ path, bytes, episode, purpose = "", recordedBy }) {
+  async function storeFile({ path, bytes, episode, purpose = "", recordedBy, canvas = null }) {
     await service.start({
       import_path: path,
       episode_path: episode,
@@ -632,10 +714,11 @@ export function createApp({
     // Bound either way: the audio is safe in its episode, and a later
     // transcription re-stores the bundle rather than duplicating it.
     const assigned = await service.assign({ filename: stopped.filename, episode_path: episode });
-    if (purpose) {
+    if (purpose || canvas) {
       const takeDir = join(episodeDir(chronicleRoot, episode), "captures", stopped.tlid);
       mkdirSync(takeDir, { recursive: true });
-      writeFileSync(join(takeDir, "purpose.json"), `${JSON.stringify({ purpose, at: new Date().toISOString() })}\n`);
+      if (purpose) writeFileSync(join(takeDir, "purpose.json"), `${JSON.stringify({ purpose, at: new Date().toISOString() })}\n`);
+      if (canvas) writeFileSync(join(takeDir, "canvas.json"), `${JSON.stringify(canvas, null, 2)}\n`);
     }
     const presence = listenerState(listenerDir, episode);
     return {
@@ -650,6 +733,7 @@ export function createApp({
       registered: assigned.registered,
       english,
       ...(purpose ? { purpose } : {}),
+      ...(canvas ? { canvas: true } : {}),
       ...(transcriptError ? { transcriptError } : {}),
     };
   }
@@ -697,11 +781,13 @@ export function createApp({
     if (!Number.isInteger(offset) || offset < 0) throw new Refusal(400, "offset is a whole number of bytes");
     const purpose = url.searchParams.get("purpose") || "";
     if (purpose && !PURPOSES.has(purpose)) throw new Refusal(400, `unknown purpose: ${purpose}`);
+    const canvas = cleanContext(url.searchParams.get("context"));
     const body = await readBody(req, MAX_BYTES);
 
     const now = new Date().toISOString();
     const meta = readPartMeta(rec) ?? {
       rec, episode, type, extension, purpose,
+      ...(canvas ? { canvas } : {}),
       recordedBy: String(req.headers["tailscale-user-login"] ?? "") || undefined,
       state: "open", bytes: 0, startedAt: now, diagnostics: [],
     };
@@ -745,7 +831,7 @@ export function createApp({
         let file = "";
         try {
           file = await playable(partPath(rec), fresh.extension);
-          const stored = await storeFile({ path: file, bytes: fresh.bytes, episode: fresh.episode, purpose: fresh.purpose, recordedBy: fresh.recordedBy });
+          const stored = await storeFile({ path: file, bytes: fresh.bytes, episode: fresh.episode, purpose: fresh.purpose, recordedBy: fresh.recordedBy, canvas: fresh.canvas ?? null });
           await closePart(rec, { state: "recovered", take: stored.take });
           log(`recording ${rec}: recovered ${fresh.bytes} bytes as take ${stored.take} in ${fresh.episode}`);
           return stored;
@@ -777,6 +863,7 @@ export function createApp({
     const purpose = url.searchParams.get("purpose") || "";
     if (purpose && !PURPOSES.has(purpose)) throw new Refusal(400, `unknown purpose: ${purpose}`);
     const rec = recordingId(url);
+    const given = cleanContext(url.searchParams.get("context"));
     const upload = await receive(req, uploadsDir, extension);
     const recordedBy = String(req.headers["tailscale-user-login"] ?? "") || undefined;
     try {
@@ -784,7 +871,8 @@ export function createApp({
         // Sent again after gaia already stored its parts: answer with that take, never a second one.
         const earlier = rec ? readPartMeta(rec) : null;
         if (earlier && earlier.state !== "open" && earlier.take) return doneAnswer(earlier);
-        const answer = await storeFile({ path: upload.path, bytes: upload.bytes, episode, purpose, recordedBy });
+        const canvas = given ?? earlier?.canvas ?? null;
+        const answer = await storeFile({ path: upload.path, bytes: upload.bytes, episode, purpose, recordedBy, canvas });
         if (rec) await closePart(rec, { state: "stored", take: answer.take });
         return answer;
       });
@@ -796,7 +884,9 @@ export function createApp({
   const handle = async function handle(req, res) {
     const url = new URL(req.url ?? "/", "http://phone-capture");
     try {
-      if (url.pathname.startsWith("/api/takes") && req.headers.origin) {
+      // The listed origins (the trading chart, a stateloom canvas) may send takes and read the
+      // conversation. A reply is still posted from this host only (postReply checks it).
+      if (url.pathname.startsWith("/api/") && req.headers.origin) {
         const allowed = CORS_ORIGINS.includes(req.headers.origin);
         if (allowed) {
           res.setHeader("access-control-allow-origin", req.headers.origin);
@@ -805,7 +895,7 @@ export function createApp({
         if (req.method === "OPTIONS") {
           if (!allowed) throw new Refusal(403, `origin not allowed: ${req.headers.origin}`);
           res.writeHead(204, {
-            "access-control-allow-methods": "POST",
+            "access-control-allow-methods": "GET, POST",
             "access-control-allow-headers": "content-type",
             "access-control-max-age": "600",
           }).end();
@@ -854,6 +944,17 @@ export function createApp({
       if (url.pathname === "/api/replies") {
         if (req.method === "POST") { sendJson(res, 200, await postReply(req)); return; }
         if (req.method === "GET") { sendJson(res, 200, listReplies(url)); return; }
+      }
+      const stepRoute = url.pathname.match(/^\/api\/replies\/([0-9a-f-]{36})\/steps\/(\d{1,2})\/audio$/);
+      if (stepRoute && (req.method === "GET" || req.method === "HEAD")) {
+        const [, id, at] = stepRoute;
+        const reply = findReply(repliesDir, id);
+        const index = Number(at);
+        if (!reply?.steps?.[index]) throw new Refusal(404, `no step ${index} in reply ${id}`);
+        const file = stepAudio(repliesDir, id, index);
+        if (!existsSync(file)) await voiceReply(id);
+        await serveFileRanged(req, res, file, "audio/mpeg");
+        return;
       }
       const replyRoute = url.pathname.match(/^\/api\/replies\/([0-9a-f-]{36})\/(voice|audio|feedback)$/);
       if (replyRoute) {

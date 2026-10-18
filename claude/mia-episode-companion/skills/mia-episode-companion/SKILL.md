@@ -113,6 +113,14 @@ those elements in mind. To point at what you mean, put it on his canvas (`show_s
 its thread (`answer_mark`, or the `smcx … marks reply` the wake prints). The phone return
 stays the return; the canvas only shows what it names. No line when no hub answers.
 
+**When he spoke at the canvas** (the take carries `canvas.json`, and the wake says
+`spoken at his stateloom canvas, looking at …`), the return can be a walk through the
+diagram: write it as steps — one or two sentences each, with the drawing and what to light
+(`spotlight` for several elements, `focus` for one) — and post them with `reply <take>
+--steps <file>`. Each step's words are voiced on their own and play on his canvas while that
+step is lit; his phone plays them as one reply. The same turn applies: the editor reads the
+steps' words as the draft, Jev checks them, and they stay short enough to hear.
+
 A take asking for work gets the smallest reversible act that the thread already
 authorized. Exploring an idea does not authorize acting on it. Consent to one act does not
 carry over to the next one.

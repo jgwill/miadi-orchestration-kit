@@ -326,3 +326,55 @@ test("the wake says what William's stateloom canvas shows and the marks waiting 
     server.close();
   }
 });
+
+test("reply --steps posts a walk through diagrams, docs resolved in the episode, and stdin may be empty", async () => {
+  const fx = fixture();
+  const { createServer } = await import("node:http");
+  const received = [];
+  const server = createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    received.push(JSON.parse(body));
+    res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ success: true, id: "stub-id", steps: 2 }));
+  });
+  await new Promise((done) => server.listen(0, "127.0.0.1", done));
+  const stepsFile = join(fx.base, "steps.json");
+  writeFileSync(stepsFile, JSON.stringify([
+    { say: "This is where the count starts.", doc: "diagrams/wave.smdf.json", spotlight: ["state:Reading"] },
+    { say: "And here it waits.", doc: "/abs/other.sqdf.json", focus: "message:9" },
+  ]));
+  const runReply = (args, input) => new Promise((done) => {
+    const child = spawn("node", [SCRIPT, "reply", "260101000001", ...args, "--episode", fx.episodeRoot], {
+      env: { ...process.env, MIADI_PHONE_CAPTURE_PORT: String(server.address().port), TMUX_PANE: "%999", MIADI_MIA_COMPANION_STATE_DIR: fx.state },
+    });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("exit", (status) => done({ status, stdout, stderr }));
+    child.stdin.end(input);
+  });
+  const posted = await runReply(["--steps", stepsFile], "");
+  const empty = join(fx.base, "empty.json");
+  writeFileSync(empty, JSON.stringify([{ say: "" }]));
+  const refused = await runReply(["--steps", empty], "");
+  server.close();
+  assert.equal(posted.status, 0, posted.stderr);
+  assert.match(posted.stdout, /with 2 steps for the canvas/);
+  assert.equal(received[0].text, "");
+  assert.equal(received[0].steps[0].doc, join(fx.episodeRoot, "diagrams/wave.smdf.json"));
+  assert.equal(received[0].steps[1].doc, "/abs/other.sqdf.json");
+  assert.deepEqual(received[0].steps[0].spotlight, ["state:Reading"]);
+  assert.equal(refused.status, 2);
+  assert.match(refused.stderr, /step 1 .* says nothing/);
+});
+
+test("a take spoken at the canvas says what the canvas showed, and the wake offers to answer in steps", () => {
+  const fx = fixture();
+  writeFileSync(join(fx.episodeRoot, "captures", "260101000001", "canvas.json"), JSON.stringify({
+    stage: "default", doc: "/ep/diagrams/wave.smdf.json", kind: "machine", focus: "state:Reading", marks: ["m-1"],
+  }));
+  const shown = run(fx, ["show", "260101000001", "--no-fetch"]);
+  assert.equal(shown.code, 0, shown.stderr);
+  assert.match(shown.stdout, /spoken at his stateloom canvas, looking at wave\.smdf\.json \(machine\), state:Reading in hand, marks open: m-1/);
+  assert.match(shown.stdout, /--steps <that file>/);
+});

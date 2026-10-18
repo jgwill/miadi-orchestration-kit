@@ -483,6 +483,24 @@ export async function canvasContext(env = process.env) {
   return lines;
 }
 
+// What William's canvas showed when he recorded a take there (phone-capture keeps it as
+// captures/<take>/canvas.json): the drawing, the element in hand, the marks open on it.
+// More exact than the canvas at wake time, which may have moved on.
+function spokenAtLines(episode, take) {
+  if (take.source !== "worktree") return [];
+  try {
+    const seen = JSON.parse(readFileSync(join(episode.root, "captures", take.takeId, "canvas.json"), "utf8"));
+    if (!seen?.doc) return [];
+    const parts = [`${basename(seen.doc)}${seen.kind ? ` (${seen.kind})` : ""}`];
+    if (seen.focus) parts.push(`${seen.focus} in hand`);
+    if (Array.isArray(seen.spotlight) && seen.spotlight.length) parts.push(`the step lit ${seen.spotlight.join(", ")}`);
+    if (Array.isArray(seen.marks) && seen.marks.length) parts.push(`marks open: ${seen.marks.join(", ")}`);
+    return [`  spoken at his stateloom canvas, looking at ${parts.join(", ")} (${seen.doc})`, ""];
+  } catch {
+    return [];
+  }
+}
+
 export function formatWake(episode, takes, { rearm = true, canvas = [] } = {}) {
   const lines = [
     `NEW TAKE${takes.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`,
@@ -496,6 +514,7 @@ export function formatWake(episode, takes, { rearm = true, canvas = [] } = {}) {
       `  audio (custody only, never read): ${take.sourceFilename || "unknown"}`,
       "",
       ...purposeLines(episode, take),
+      ...spokenAtLines(episode, take),
       "English translation, exact validated contents:",
       take.english.text.trim(),
       "",
@@ -523,6 +542,13 @@ export function formatWake(episode, takes, { rearm = true, canvas = [] } = {}) {
     "  <the final return, exactly as given>",
     "  MIA",
   );
+  if (canvas.length || takes.some((take) => spokenAtLines(episode, take).length)) {
+    lines.push(
+      "He is at a diagram: you may answer as a walk through it. Write the return as steps, one sentence or two each, with what to light:",
+      `  [{"say": "…", "doc": "diagrams/<name>.smdf.json", "spotlight": ["state:…"]}, {"say": "…", "focus": "message:9"}]`,
+      `  and add --steps <that file> to the reply above (stdin may then be empty). Each step's words are voiced on their own and play on his canvas while that step is lit; the phone page plays them as one reply.`,
+    );
+  }
   if (rearm) {
     lines.push(`After your return, re-arm in the background: node "${SCRIPT}" await --episode "${episode.root}"`);
   }
@@ -563,6 +589,7 @@ function parseArgs(argv) {
     else if (arg === "--timeout") args.timeout = Number(argv[++i]);
     else if (arg === "--no-fetch") args.fetch = false;
     else if (arg === "--related") (args.related ??= []).push(argv[++i] ?? "");
+    else if (arg === "--steps") args.steps = argv[++i];
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }
@@ -579,6 +606,10 @@ const USAGE = `usage: mia-listen.mjs <command> [--episode <dir>] [--no-fetch]
                       without a take id it is a message that answers no take
                       [--related "<label>=<target>"]... a card under the reply for something it
                       names: a file in the episode, miadi-review:<id>, owner/repo#n, or a URL
+                      [--steps <steps.json>] a walk through diagrams on William's stateloom canvas:
+                      [{say, doc?, focus?, spotlight?, region?, title?}], each step's words voiced on
+                      their own and played while the canvas lights that step; a doc relative to the
+                      episode resolves there. With steps, stdin may be empty: the words are theirs
 The episode defaults to the nearest directory above the cwd carrying episode.yaml.
 State: $MIADI_MIA_COMPANION_STATE_DIR, else $XDG_STATE_HOME/miadi-mia-companion.`;
 
@@ -669,7 +700,24 @@ export function loopOf(takeId, text, env = process.env) {
   };
 }
 
-async function postReply(episode, takeId, text, related = []) {
+// The steps of a reply that walks William through diagrams (smcraft Spec 84). A drawing
+// named relative to the episode (`diagrams/wave.smdf.json`) is made absolute here, where
+// the episode is known; phone-capture keeps only steps that say something.
+export function readSteps(file, episodeRoot) {
+  const parsed = JSON.parse(readFileSync(resolve(file), "utf8"));
+  const list = Array.isArray(parsed) ? parsed : parsed?.steps;
+  if (!Array.isArray(list) || !list.length) throw new Error(`${file} holds no steps: a JSON list of {say, doc?, focus?, spotlight?}`);
+  return list.map((step, index) => {
+    if (!step || typeof step.say !== "string" || !step.say.trim()) throw new Error(`step ${index + 1} of ${file} says nothing`);
+    const out = { ...step };
+    for (const key of ["doc", "system"]) {
+      if (typeof out[key] === "string" && out[key] && !out[key].startsWith("/")) out[key] = resolve(episodeRoot, out[key]);
+    }
+    return out;
+  });
+}
+
+async function postReply(episode, takeId, text, related = [], steps = []) {
   const port = process.env.MIADI_PHONE_CAPTURE_PORT || "8771";
   const origin = currentOrigin();
   const response = await fetch(`http://127.0.0.1:${port}/api/replies`, {
@@ -678,6 +726,7 @@ async function postReply(episode, takeId, text, related = []) {
     body: JSON.stringify({
       episode: episode.folder, take: takeId, text, seat: `claude-code@${origin.host}`, origin,
       ...(related.length ? { related } : {}),
+      ...(steps.length ? { steps } : {}),
       ...(loopOf(takeId, text) ? { loop: loopOf(takeId, text) } : {}),
     }),
   });
@@ -716,9 +765,18 @@ async function main() {
       console.error("mia-listen: reply takes an optional 12-digit take id, and the return on stdin");
       return EXIT_NO_EPISODE;
     }
+    let steps = [];
+    if (args.steps) {
+      try {
+        steps = readSteps(args.steps, episode.root);
+      } catch (error) {
+        console.error(`mia-listen: ${message(error)}`);
+        return EXIT_NO_EPISODE;
+      }
+    }
     const text = (await readStdin()).trim();
-    if (!text) {
-      console.error("mia-listen: reply read no text on stdin");
+    if (!text && !steps.length) {
+      console.error("mia-listen: reply read no text on stdin (and no --steps)");
       return EXIT_NO_EPISODE;
     }
     let related = [];
@@ -729,10 +787,10 @@ async function main() {
       return EXIT_NO_EPISODE;
     }
     try {
-      const answer = await postReply(episode, takeId, text, related);
+      const answer = await postReply(episode, takeId, text, related, steps);
       const present = listenerOf(episode);
       if (present?.state === "answering") writeBeat(episode, { state: "answered", takes: present.takes, reply: answer.id });
-      console.log(`mia-listen: reply${takeId ? ` to ${takeId}` : ""} delivered to the phone page (${answer.id})`);
+      console.log(`mia-listen: reply${takeId ? ` to ${takeId}` : ""} delivered to the phone page (${answer.id})${answer.steps ? `, with ${answer.steps} step${answer.steps === 1 ? "" : "s"} for the canvas` : ""}`);
       if (answer.recording) console.log("mia-listen: William is recording right now. The reply is on his page, silent, and waits until he has sent his take.");
       if (answer.unvoiced) console.error(`mia-listen: William can read it but not hear it: ${answer.unvoiced}`);
       return 0;

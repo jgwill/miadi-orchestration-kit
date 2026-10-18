@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CaptureService, ConcatSegmentJoiner, FileImportDriver, resolveConfig } from "@miadi/capture-service";
-import { createApp, followSeat, listenerState, speakable, SpokenLanguageTranscriber, voiceParts } from "../server.mjs";
+import { cleanContext, cleanSteps, createApp, followSeat, listenerState, speakable, SpokenLanguageTranscriber, voiceParts } from "../server.mjs";
 
 const LISTENER = fileURLToPath(new URL("../../scripts/mia-listen.mjs", import.meta.url));
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
@@ -571,3 +571,96 @@ test("a thumb on a reply that carries its loop is written as a ruling on that Je
   }
 });
 
+
+// smcraft Spec 84: a reply that walks William through diagrams on his canvas. Each step is
+// voiced on its own, so the canvas plays a step's words while that step is lit.
+test("a reply with steps is voiced step by step, joined in order, and the thread carries each step's audio", async () => {
+  const requests = [];
+  const voice = { async render(request) { requests.push(request.text); return Buffer.from(`<${request.text.slice(0, 5)}>`); } };
+  const b = await bridge({ transcriber: stubTranscriber, voice });
+  try {
+    const steps = [
+      { say: "🧠: This is where the count starts.", doc: "/srv/ep/diagrams/wave.smdf.json", spotlight: ["state:Reading", "Reading", 7], title: "Start" },
+      { say: "And here it waits for the chart.", focus: "message:9", region: { x: 0, y: 0, width: 10, height: -1 } },
+      { say: "", focus: "state:Dropped" },
+    ];
+    const posted = await (await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, take: "260920235421", steps, origin: { ...WRITTEN, pane: "%1" } }) })).json();
+    assert.equal(posted.success, true, JSON.stringify(posted));
+    assert.equal(posted.steps, 2, "a step that says nothing is dropped");
+    assert.deepEqual(requests, ["This is where the count starts.", "And here it waits for the chart."]);
+
+    const thread = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    const reply = thread.items.find((item) => item.kind === "reply");
+    assert.equal(reply.text, "🧠: This is where the count starts.\n\nAnd here it waits for the chart.", "a reply of steps reads as their words");
+    assert.equal(reply.steps.length, 2);
+    assert.deepEqual(reply.steps[0].spotlight, ["state:Reading"], "only element names survive");
+    assert.equal(reply.steps[0].doc, "/srv/ep/diagrams/wave.smdf.json");
+    assert.equal(reply.steps[1].region, undefined, "a region with no size is dropped");
+    assert.equal(reply.steps[1].audio, `api/replies/${posted.id}/steps/1/audio`);
+
+    assert.equal(await (await fetch(`${b.url}/${reply.steps[0].audio}`)).text(), "<This >");
+    assert.equal(await (await fetch(`${b.url}/${reply.steps[1].audio}`)).text(), "<And h>");
+    assert.equal(await (await fetch(`${b.url}/${reply.audio}`)).text(), "<This ><And h>", "the whole reply is the steps in order");
+    const ranged = await fetch(`${b.url}/${reply.steps[1].audio}`, { headers: { range: "bytes=0-1" } });
+    assert.equal(ranged.status, 206);
+    assert.equal((await fetch(`${b.url}/api/replies/${posted.id}/steps/5/audio`)).status, 404);
+  } finally {
+    b.close();
+  }
+});
+
+test("steps and a canvas context are cleaned before they are kept", () => {
+  assert.deepEqual(cleanSteps("nope"), []);
+  assert.deepEqual(cleanSteps([{ say: " x ", doc: "relative.json", system: "/a/b.smdf.json", focus: "bogus" }]), [{ say: "x" }]);
+  assert.equal(cleanSteps(Array.from({ length: 40 }, () => ({ say: "s" }))).length, 24);
+  assert.equal(cleanContext(""), null);
+  assert.deepEqual(cleanContext('{"doc":"/d/w.smdf.json","focus":"state:A","marks":["m-1",2],"secret":{"x":1}}'), { doc: "/d/w.smdf.json", focus: "state:A", marks: ["m-1"] });
+  assert.throws(() => cleanContext("{not json"), /not JSON/);
+  assert.throws(() => cleanContext(JSON.stringify({ doc: "x".repeat(5000) })), /limited/);
+});
+
+test("a take recorded on a canvas keeps what the canvas showed, whole or recovered from its parts", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const context = encodeURIComponent(JSON.stringify({ stage: "default", doc: "/srv/ep/diagrams/wave.smdf.json", kind: "machine", focus: "state:Reading", marks: ["m-1"] }));
+    const posted = await (await fetch(`${b.url}/api/takes?episode=${EPISODE}&context=${context}`, {
+      method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("spoken at the canvas"),
+    })).json();
+    assert.equal(posted.success, true, JSON.stringify(posted));
+    assert.equal(posted.canvas, true);
+    const kept = JSON.parse(readFileSync(join(b.chronicleRoot, EPISODE, "captures", posted.take, "canvas.json"), "utf8"));
+    assert.equal(kept.focus, "state:Reading");
+    assert.deepEqual(kept.marks, ["m-1"]);
+    const thread = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    assert.deepEqual(thread.items.find((item) => item.take === posted.take).canvas, { doc: "/srv/ep/diagrams/wave.smdf.json", kind: "machine", focus: "state:Reading" });
+
+    // A canvas recording that never finishes still carries its context into the take.
+    const rec = "canvas-rec-0001";
+    await fetch(`${b.url}/api/takes/part?episode=${EPISODE}&rec=${rec}&offset=0&context=${context}`, { method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("first ten seconds") });
+    const recovered = await b.recover({ now: Date.now() + 10 * 60 * 1000 });
+    assert.equal(recovered.length, 1);
+    assert.ok(existsSync(join(b.chronicleRoot, EPISODE, "captures", recovered[0].take, "canvas.json")));
+
+    const bad = await fetch(`${b.url}/api/takes?episode=${EPISODE}&context=%7Bnope`, { method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("x") });
+    assert.equal(bad.status, 400);
+  } finally {
+    b.close();
+  }
+});
+
+test("an allowed origin may read the conversation; a reply is still posted from this host only", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const chart = "https://trading.tail3b11eb.ts.net";
+    const read = await fetch(`${b.url}/api/thread?episode=${EPISODE}`, { headers: { origin: chart } });
+    assert.equal(read.headers.get("access-control-allow-origin"), chart);
+    const pre = await fetch(`${b.url}/api/recorder`, { method: "OPTIONS", headers: { origin: chart, "access-control-request-method": "POST" } });
+    assert.equal(pre.status, 204);
+    assert.match(pre.headers.get("access-control-allow-methods") || "", /GET/);
+    const forwarded = await fetch(`${b.url}/api/replies`, { method: "POST", headers: { origin: chart, "content-type": "application/json", "x-forwarded-for": "100.1.2.3" }, body: JSON.stringify({ episode: EPISODE, text: "x" }) });
+    assert.equal(forwarded.status, 403);
+  } finally {
+    b.close();
+  }
+});
