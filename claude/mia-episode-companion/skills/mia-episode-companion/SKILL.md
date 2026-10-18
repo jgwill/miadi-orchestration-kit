@@ -104,6 +104,15 @@ existed. Spend beyond it only when the take asks for work, and say that you are 
    `run_in_background: true`. A reply that cannot be delivered stays in this
    conversation. Say so in one line.
 
+**When William is looking at a diagram.** With `STATELOOM_BRIDGE_URL` set in this seat, the
+wake adds a line `On William's canvas (stage '…'): …` — the stateloom drawing open on his
+canvas, the element in hand, where a tour stands — and the marks on that drawing he has not
+had answered (smcraft Spec 83). He may be speaking about what he marked: hear the take with
+those elements in mind. To point at what you mean, put it on his canvas (`show_step`, or
+`smcx stage show --say "…" --spotlight kind:name`) in the same turn, and answer a mark in
+its thread (`answer_mark`, or the `smcx … marks reply` the wake prints). The phone return
+stays the return; the canvas only shows what it names. No line when no hub answers.
+
 A take asking for work gets the smallest reversible act that the thread already
 authorized. Exploring an idea does not authorize acting on it. Consent to one act does not
 carry over to the next one.

@@ -18,7 +18,7 @@ import {
   existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync,
 } from "node:fs";
 import { homedir, hostname, userInfo } from "node:os";
-import { join, posix, resolve, sep } from "node:path";
+import { basename, join, posix, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(import.meta.url);
@@ -443,7 +443,47 @@ function purposeLines(episode, take) {
   }
 }
 
-export function formatWake(episode, takes, { rearm = true } = {}) {
+// What William's stateloom canvas shows while he speaks (smcraft Spec 83): the drawing,
+// the element in hand, where a tour stands, and the marks on that drawing waiting for an
+// agent. Read from the hub's `GET /stage/<name>` and the drawing's `.marks.json` beside it.
+// Only when STATELOOM_BRIDGE_URL is set; a hub that does not answer in two seconds is a
+// wake without the canvas, never a wake held back.
+export async function canvasContext(env = process.env) {
+  const bridge = env.STATELOOM_BRIDGE_URL || env.SMCRAFT_BRIDGE_URL;
+  if (!bridge) return [];
+  const stage = env.STATELOOM_STAGE || "default";
+  let state;
+  try {
+    const token = env.STATELOOM_BRIDGE_TOKEN || env.SMCRAFT_BRIDGE_TOKEN;
+    const response = await fetch(`${bridge.replace(/\/$/, "")}/stage/${encodeURIComponent(stage)}`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!response.ok) return [];
+    state = await response.json();
+  } catch {
+    return [];
+  }
+  const ctx = state?.context;
+  if (!ctx?.doc) return [];
+  const where = [`${basename(ctx.doc)}${ctx.kind ? ` (${ctx.kind})` : ""}`];
+  if (ctx.focus) where.push(`${ctx.focus} in hand`);
+  if (ctx.tour) where.push(`tour '${ctx.tour.title ?? ""}' at step ${ctx.tour.index + 1} of ${ctx.tour.count}`);
+  const lines = [`On William's canvas (stage '${stage}', reported ${ctx.at ?? "?"}): ${where.join(", ")}.`];
+  try {
+    const sidecar = ctx.doc.replace(/\.json$/i, ".marks.json");
+    const marks = existsSync(sidecar) ? (JSON.parse(readFileSync(sidecar, "utf8")).marks ?? []) : [];
+    const waiting = marks.filter((m) => m?.status === "open" && m?.author?.role !== "agent");
+    for (const m of waiting.slice(0, 6)) {
+      lines.push(`  mark ${m.id} · ${m.author?.name ?? "someone"} on ${(m.elements ?? []).join(", ") || "an area"}: "${String(m.text ?? "").replace(/\s+/g, " ").trim()}"`);
+    }
+    if (waiting.length) lines.push(`  He may be speaking about these. Answer one in its thread: smcx --doc "${ctx.doc}" marks reply <id> "<words>" (or answer_mark).`);
+  } catch { /* an unreadable sidecar is context lost, not a failure to wake */ }
+  lines.push("  To point at what you mean in your return: show_step (stateloom MCP) or smcx stage show --say \"…\" --spotlight kind:name.", "");
+  return lines;
+}
+
+export function formatWake(episode, takes, { rearm = true, canvas = [] } = {}) {
   const lines = [
     `NEW TAKE${takes.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`,
     "",
@@ -465,6 +505,7 @@ export function formatWake(episode, takes, { rearm = true } = {}) {
   }
   lines.push(
     ...wakeContext(episode.root),
+    ...canvas,
     "This is William speaking in the episode. Answer what he says; do not read it as a task list.",
     "Turn budget (mia-episode-companion skill): this wake carries what an ordinary take needs.",
     "1. Hear from the wake. Read a file only if the take names something the wake does not carry; at most two reads.",
@@ -710,7 +751,7 @@ async function main() {
       return EXIT_NO_EPISODE;
     }
     if (command === "show") {
-      console.log(formatWake(episode, matches, { rearm: false }));
+      console.log(formatWake(episode, matches, { rearm: false, canvas: await canvasContext() }));
       return 0;
     }
     const { state } = ensureState(episode, scan.takes);
@@ -758,7 +799,7 @@ async function main() {
       saveState(episode, state);
       woke = true;
       writeBeat(episode, { state: "answering", takes: [...new Set(ready.map((take) => take.takeId))], since: listeningSince });
-      console.log(formatWake(episode, ready));
+      console.log(formatWake(episode, ready, { canvas: await canvasContext() }));
       return 0;
     }
     if (Date.now() >= deadline) {

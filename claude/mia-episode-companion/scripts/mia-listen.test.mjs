@@ -287,3 +287,42 @@ test("a reply's loop is read from the Jev ledger: its run, its flags, and whethe
   assert.equal(loopOf("261012155615", "Revised words.", env).revised_after_check, true);
   assert.equal(loopOf(undefined, draft, env), null, "a reply to no take has no loop");
 });
+
+test("the wake says what William's stateloom canvas shows and the marks waiting on that drawing", async () => {
+  const { createServer } = await import("node:http");
+  const { canvasContext, formatWake } = await import("./mia-listen.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "mia-canvas-"));
+  const doc = join(dir, "wave.smdf.json");
+  writeFileSync(doc, "{}");
+  writeFileSync(join(dir, "wave.smdf.marks.json"), JSON.stringify({
+    doc: "wave.smdf.json",
+    marks: [
+      { id: "m-1", kind: "comment", elements: ["state:Reading"], text: "why does it stop\nhere?", author: { id: "g", name: "Guillaume", role: "person" }, status: "open" },
+      { id: "m-2", kind: "question", elements: ["state:Published"], text: "mine", author: { id: "mia", name: "Mia", role: "agent" }, status: "open" },
+      { id: "m-3", kind: "comment", text: "done", author: { id: "g", name: "Guillaume", role: "person" }, status: "resolved" },
+    ],
+  }));
+  const server = createServer((req, res) => {
+    if (req.url !== "/stage/trading") return res.writeHead(404).end();
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ stage: "trading", context: { stage: "trading", doc, kind: "machine", focus: "state:Reading", at: "now", tour: { title: "Walk", index: 1, count: 3, playing: false } } }));
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  try {
+    const env = { STATELOOM_BRIDGE_URL: `http://127.0.0.1:${server.address().port}`, STATELOOM_STAGE: "trading" };
+    const lines = await canvasContext(env);
+    const text = lines.join("\n");
+    assert.match(text, /On William's canvas \(stage 'trading', reported now\): wave\.smdf\.json \(machine\), state:Reading in hand, tour 'Walk' at step 2 of 3\./);
+    assert.match(text, /mark m-1 · Guillaume on state:Reading: "why does it stop here\?"/);
+    assert.doesNotMatch(text, /m-2|m-3/, "an agent's own question and a resolved mark are not waiting on Mia");
+    assert.match(text, /marks reply <id>/);
+    assert.deepEqual(await canvasContext({}), [], "no hub configured: no canvas lines");
+    assert.deepEqual(await canvasContext({ STATELOOM_BRIDGE_URL: "http://127.0.0.1:9" }), [], "an unreachable hub is a wake without the canvas");
+
+    const episode = { root: dir, folder: "2026-10-18-episode-999-test", number: 999, git: null };
+    const take = { takeId: "261018000000", source: "origin/main", key: "k", capturedAt: "t", outputs: [], sourceFilename: "a.m4a", english: { text: "look at this state" } };
+    assert.match(formatWake(episode, [take], { rearm: false, canvas: lines }), /On William's canvas[\s\S]*This is William speaking/);
+  } finally {
+    server.close();
+  }
+});
