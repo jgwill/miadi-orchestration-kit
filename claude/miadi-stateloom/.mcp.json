@@ -2,7 +2,7 @@
   "mcpServers": {
     "stateloom": {
       "command": "npx",
-      "args": ["-y", "-p", "${STATELOOM_MCP:-@miadi/stateloom-mcp@0.3.5}", "stateloom-mcp"],
+      "args": ["-y", "-p", "${STATELOOM_MCP:-@miadi/stateloom-mcp@0.4.0}", "stateloom-mcp"],
       "env": {
         "STATELOOM_PROJECT_FILE": "${STATELOOM_PROJECT_FILE:-}",
         "STATELOOM_BRIDGE_URL": "${STATELOOM_BRIDGE_URL:-http://127.0.0.1:4599}",
