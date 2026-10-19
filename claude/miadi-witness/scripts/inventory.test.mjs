@@ -210,3 +210,24 @@ test("the question skips messages between sessions, and an origin must name the 
   assert.equal(originNames("https://github.com/jgwill/Miadi", "will/Miadi"), false);
   assert.equal(originNames("ssh://mia@gaia:/srv/git/jgwill/episodes.git", "jgwill/episodes"), true);
 });
+
+test("a review the session is named after or handed becomes an evidence link, once", () => {
+  const fx = fixture();
+  const REVIEWED = "eeeeeeee-0000-4000-8000-000000000005";
+  const A = "a425d070-fc40-43a1-8a26-024a290e8c95";
+  const B = "09de3362-2418-4172-8250-fdcd913c0aa0";
+  bind(fx, REVIEWED, { name: `review-261019-${A}`, tmux: `review-261019-${A}` });
+  mkdirSync(join(fx.sessiondata, REVIEWED));
+  writeFileSync(join(fx.sessiondata, REVIEWED, "_claude_user_inputs.jsonl"), [
+    { prompt: `${"x".repeat(900)} from : https://miadi-review-service.vercel.app/review/${A} and miadi-review://${B}` },
+    { prompt: `<cross-session-message from="x">miadi-review://ffffffff-0000-4000-8000-000000000006</cross-session-message>` },
+  ].map((l) => JSON.stringify(l)).join("\n") + "\n");
+  assert.equal(run(fx, ["write", "--session", REVIEWED]).code, 0);
+  const evidence = read(fx, `${REVIEWED}.json`).links.evidence;
+  assert.deepEqual(evidence.map((e) => e.ref), [
+    `https://miadi-review-service.vercel.app/review/${A}`,
+    `https://miadi-review-service.vercel.app/review/${B}`,
+  ]);
+  assert.match(evidence[0].note, /session name review-261019-/);
+  assert.match(run(fx, ["plan", "--session", REVIEWED]).stdout, new RegExp(`unchanged\\s+${REVIEWED}`));
+});

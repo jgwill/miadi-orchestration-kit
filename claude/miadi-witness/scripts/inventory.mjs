@@ -13,7 +13,8 @@
 //                                                      --check verifies commits and writes the result
 //
 // The five links (links-lib.mjs): question, trace, evidence, criteria, judgment. The script
-// fills question from the hook capture; the rest are added with `link`. `--kind derived_from`
+// fills question from the hook capture, and evidence with the Miadi reviews the session is named
+// after (review-<yymmdd>-<id>) or that a person's prompt names; the rest are added with `link`. `--kind derived_from`
 // sets the parent session of a fork or a resume.
 //
 // A name is verified by a binding line whose tmux session is that name, or by a pane reading
@@ -28,7 +29,7 @@ import { fileURLToPath } from "node:url";
 
 import { defaultPaths, lastWilliamInput, readBindings } from "../service/threads.mjs";
 import { transcriptDirForCwd } from "../service/lineage.mjs";
-import { LINK_KINDS, addLink, checkRef, emptyLinks, firstInput, linkGaps } from "./links-lib.mjs";
+import { LINK_KINDS, addLink, checkRef, emptyLinks, firstInput, linkGaps, personPrompts, reviewPage, reviewsNamed } from "./links-lib.mjs";
 
 const SCRIPT = fileURLToPath(import.meta.url);
 const BY = "inventory-keeper (miadi-witness scripts/inventory.mjs)";
@@ -126,6 +127,10 @@ export function factsFor(sessionId, entry, sessiondata) {
     }
     : { dir, missing: true };
   const first = existsSync(dir) ? firstInput(sessiondata, sessionId) : null;
+  const reviews = reviewsNamed({
+    names: [line.tmux?.session, ...entry.names],
+    prompts: existsSync(dir) ? personPrompts(sessiondata, sessionId) : [],
+  });
   return {
     session_id: sessionId,
     tmux_session_name: line.tmux?.session ?? null,
@@ -146,6 +151,7 @@ export function factsFor(sessionId, entry, sessiondata) {
     },
     hook_capture: capture,
     first_input: first,
+    reviews,
   };
 }
 
@@ -155,6 +161,16 @@ function fillQuestion(record, facts, now, changes) {
   if (record.links?.question?.length) return;
   addLink(record, "question", facts.first_input.ref, { note: facts.first_input.text, by: BY, now });
   changes.push("question link filled");
+}
+
+// A review the session was started from, or that a person handed it, is evidence of what it
+// worked from. Its page is added once; an entry already there is never changed.
+function fillEvidence(record, facts, now, changes) {
+  let added = 0;
+  for (const review of facts.reviews ?? []) {
+    if (addLink(record, "evidence", reviewPage(review.id), { note: `Miadi review, ${review.where}`, by: BY, now })) added += 1;
+  }
+  if (added) changes.push(`evidence link${added > 1 ? "s" : ""} to ${added} review${added > 1 ? "s" : ""}`);
 }
 
 // ---------- the plan ----------
@@ -180,6 +196,7 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
       metadata: { created_by: BY, closed_by: null, notes: "" },
     };
     fillQuestion(record, facts, now, []);
+    fillEvidence(record, facts, now, []);
     return { action: "create", file: `${facts.session_id}.json`, changes: ["new record"], record };
   }
   const record = structuredClone(existing.record);
@@ -197,6 +214,7 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
     }
   }
   fillQuestion(record, facts, now, changes);
+  fillEvidence(record, facts, now, changes);
   if (!changes.length) return { action: "unchanged", file: existing.file, changes, record };
   record.observations = [...(record.observations ?? []), { at: now, by: BY, what: `Facts updated from the binding line and the hook capture: ${changes.join(", ")}.` }];
   return { action: "update", file: existing.file, changes, record };

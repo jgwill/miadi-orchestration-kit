@@ -6,7 +6,7 @@
 //
 //   question   his first words to the session, verbatim (filled from the hook capture)
 //   trace      owner/repo@sha for what the session committed
-//   evidence   a page, a review, an artifact URL
+//   evidence   a page, a review, an artifact URL (reviews the session started from are filled)
 //   criteria   the elements of performance it was held to, or nothing
 //   judgment   turn:<turn id>@<ceremony id>, the person's answer in a circle
 //
@@ -56,6 +56,54 @@ export function addLink(record, kind, ref, { note, by, now = new Date().toISOStr
 export function linkGaps(record) {
   const links = { ...emptyLinks(), ...(record.links ?? {}) };
   return LINK_KINDS.filter((kind) => !links[kind].length);
+}
+
+// Miadi reviews a session started from. A review is named three ways: its page
+// (https://miadi-review-service.vercel.app/review/<id>), its address (miadi-review://<id>), and a
+// session name made from it (review-<yymmdd>-<id>, as William named review-261019-a425d070-…).
+const REVIEW_PAGE = "https://miadi-review-service.vercel.app/review/";
+const REVIEW_ID = "([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})";
+const REVIEW_IN_TEXT = new RegExp(`(?:miadi-review-service\\.vercel\\.app/review/|miadi-review://)${REVIEW_ID}`, "gi");
+const REVIEW_IN_NAME = new RegExp(`^review-\\d{6}-${REVIEW_ID}`, "i");
+
+export function reviewPage(id) {
+  return `${REVIEW_PAGE}${id.toLowerCase()}`;
+}
+
+// [{ id, where }] in first-seen order, one entry per review. `names` are session names,
+// `prompts` are { text, ref } of what a person typed.
+export function reviewsNamed({ names = [], prompts = [] } = {}) {
+  const found = new Map();
+  for (const name of names) {
+    const m = typeof name === "string" ? REVIEW_IN_NAME.exec(name) : null;
+    if (m && !found.has(m[1].toLowerCase())) found.set(m[1].toLowerCase(), { id: m[1].toLowerCase(), where: `session name ${name}` });
+  }
+  for (const prompt of prompts) {
+    for (const m of String(prompt.text ?? "").matchAll(REVIEW_IN_TEXT)) {
+      const id = m[1].toLowerCase();
+      if (!found.has(id)) found.set(id, { id, where: `named in ${prompt.ref ?? "a prompt"}` });
+    }
+  }
+  return [...found.values()];
+}
+
+// Every prompt a person typed into the session, from the hook capture, whole.
+export function personPrompts(sessiondata, sessionId) {
+  const path = join(sessiondata, sessionId, "_claude_user_inputs.jsonl");
+  if (!existsSync(path)) return [];
+  const out = [];
+  readFileSync(path, "utf8").split("\n").forEach((line, i) => {
+    if (!line.trim()) return;
+    let record;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      return;
+    }
+    const text = typeof record.prompt === "string" ? record.prompt : "";
+    if (text.trim() && !MACHINE_PROMPT.test(text)) out.push({ text, ref: `file:${path}#${i + 1}` });
+  });
+  return out;
 }
 
 // The first thing typed into the session, from the hook capture. The hook records no time.
