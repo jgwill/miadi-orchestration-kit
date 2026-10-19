@@ -162,3 +162,10 @@ test("answers says so when this Miadi does not return answers", async () => {
   await assert.rejects(answers({ ceremony: "c1" }, ENV(s.url), () => {}), /does not return answers yet/);
   s.server.close();
 });
+
+test("post opens a ceremony with no episode when none is given (a staged folder)", async () => {
+  const s = await stub((call) => (call.url.startsWith("/api/circles/") ? [201, { ceremony: { id: "st1" } }] : call.method === "GET" ? [200, { turns: [], diary: [] }] : [201, {}]));
+  await post({ circle: "circle:1:x", intention: "the person's words", file }, ENV(s.url), () => {});
+  s.server.close();
+  assert.deepEqual(s.calls[0].body, { intention: "the person's words", type: "talking_circle", direction: "east" });
+});

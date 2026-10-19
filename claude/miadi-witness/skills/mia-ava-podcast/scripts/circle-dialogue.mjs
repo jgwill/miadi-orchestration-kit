@@ -4,10 +4,11 @@
 //
 //   node circle-dialogue.mjs post --ceremony <id> --file <dialogue.md> [--source <text>] [--from <n>] [--dry-run]
 //   node circle-dialogue.mjs post --circle <circle-id> --intention "<the person's words>" \
-//        --episode-path <episode folder name> --file <dialogue.md> [--source <text>] [--dry-run]
+//        [--episode-path <episode folder name>] --file <dialogue.md> [--source <text>] [--dry-run]
 //   node circle-dialogue.mjs answers --ceremony <id> [--json]
 //
-// post: opens the ceremony when --circle is given, writes the provenance diary entry under
+// post: opens the ceremony when --circle is given (bound to an episode only with --episode-path,
+// since a staged folder has none), writes the provenance diary entry under
 // the composer's token, then posts each turn under its host's token, in order, and stops at
 // the first refusal. --from <n> resumes at turn n and writes no second diary entry. It refuses
 // a file with text after the first turn that is not a turn (a turn is one paragraph).
@@ -103,7 +104,7 @@ export async function post(opts, env = process.env, out = console.log) {
   }
   let ceremony = opts.ceremony;
   if (!ceremony) {
-    const r = await call(base, tokens.composer, "POST", `/api/circles/${encodeURIComponent(opts.circle)}/ceremonies`, { intention: opts.intention, type: "talking_circle", direction: "east", episode_path: basename(opts.episodePath) });
+    const r = await call(base, tokens.composer, "POST", `/api/circles/${encodeURIComponent(opts.circle)}/ceremonies`, { intention: opts.intention, type: "talking_circle", direction: "east", ...(opts.episodePath ? { episode_path: basename(opts.episodePath) } : {}) });
     if (!r.ok) throw new Error(`opening the ceremony: HTTP ${r.status} ${r.data.error ?? ""}`);
     ceremony = r.data.ceremony.id;
     out(`opened miadi-ceremony://${ceremony}`);
@@ -165,7 +166,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const verb = o._[0];
   const usage = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 9).map((l) => l.replace(/^\/\/ ?/, "")).join("\n");
   try {
-    if (verb === "post" && o.file && existsSync(o.file) && (o.ceremony || (o.circle && o.intention && o.episodePath))) await post(o);
+    if (verb === "post" && o.file && existsSync(o.file) && (o.ceremony || (o.circle && o.intention))) await post(o);
     else if (verb === "answers" && o.ceremony) await answers(o);
     else {
       console.error(usage);

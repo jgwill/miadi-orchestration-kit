@@ -92,6 +92,8 @@ When the episode the session serves has a circle with Mia and Ava seated (the fi
 
 A circle that does not exist is opened by a person with `create_circles`. The seat asks for it and does not open one.
 
+A staged folder under `_staging_for_new_episodes/` has no episode yet. Its home is the Chronicle staging circle (`circle:1791110394383:jj1ql8`), where Guillaume facilitates and Mia and Ava are seated. Open the ceremony there with no `--episode-path`. The first one is `miadi-ceremony://d2f69807-308e-4e96-93a3-10bc5f5a83de` (2026-10-19), about Mino's session inventory.
+
 ## Read the answers before the next dialogue
 
 A seated person can answer any turn in the room: "makes sense" or "does not make sense", with a note, typed or dictated on the phone (jgwill/Miadi, `POST /api/ceremony/<id>/turns/<turn>/respond`). Without answers, a dialogue in a circle repeats its own mistakes, and a good turn is not kept.
