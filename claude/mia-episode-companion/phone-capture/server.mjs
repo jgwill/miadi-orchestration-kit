@@ -207,6 +207,14 @@ function listTakes(dir) {
       try {
         const seen = JSON.parse(readFileSync(join(folder, "canvas.json"), "utf8"));
         canvas = { doc: seen.doc ?? null, kind: seen.kind ?? null, focus: seen.focus ?? null };
+        // The step on the board while he spoke (a tour, or one of Mia's replies walking it).
+        if (seen.step && typeof seen.step === "object") {
+          canvas.step = {
+            ...(typeof seen.step.title === "string" ? { title: seen.step.title.slice(0, 200) } : {}),
+            ...(Number.isInteger(seen.step.index) ? { index: seen.step.index } : {}),
+            ...(Number.isInteger(seen.step.count) ? { count: seen.step.count } : {}),
+          };
+        }
       } catch {}
       return { kind: "take", take, at: at || statSync(folder).mtime.toISOString(), text, ...(canvas ? { canvas } : {}) };
     });

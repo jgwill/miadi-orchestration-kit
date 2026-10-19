@@ -119,7 +119,11 @@ diagram: write it as steps — one or two sentences each, with the drawing and w
 (`spotlight` for several elements, `focus` for one) — and post them with `reply <take>
 --steps <file>`. Each step's words are voiced on their own and play on his canvas while that
 step is lit; his phone plays them as one reply. The same turn applies: the editor reads the
-steps' words as the draft, Jev checks them, and they stay short enough to hear.
+steps' words as the draft, Jev checks them, and they stay short enough to hear. `reply` reads
+each step's drawing first and refuses a step whose drawing is missing or does not hold a name it
+lights, listing the names that drawing does hold: correct the step and send again. When the wake
+says a step was on screen while he spoke (`while the step … was on screen`), he is speaking
+about that step.
 
 A take asking for work gets the smallest reversible act that the thread already
 authorized. Exploring an idea does not authorize acting on it. Consent to one act does not

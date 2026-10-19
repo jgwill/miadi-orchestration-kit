@@ -339,9 +339,14 @@ test("reply --steps posts a walk through diagrams, docs resolved in the episode,
   });
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const stepsFile = join(fx.base, "steps.json");
+  // The drawings the steps light exist and hold those names: the reply is checked against them.
+  mkdirSync(join(fx.episodeRoot, "diagrams"), { recursive: true });
+  writeFileSync(join(fx.episodeRoot, "diagrams", "wave.smdf.json"), JSON.stringify({ settings: { name: "W" }, events: [], state: { name: "Root", states: [{ name: "Reading" }] } }));
+  const other = join(fx.base, "other.sqdf.json");
+  writeFileSync(other, JSON.stringify({ participants: [{ name: "A" }], messages: Array.from({ length: 9 }, () => ({ from: "A", to: "A", label: "m" })) }));
   writeFileSync(stepsFile, JSON.stringify([
     { say: "This is where the count starts.", doc: "diagrams/wave.smdf.json", spotlight: ["state:Reading"] },
-    { say: "And here it waits.", doc: "/abs/other.sqdf.json", focus: "message:9" },
+    { say: "And here it waits.", doc: other, focus: "message:9" },
   ]));
   const runReply = (args, input) => new Promise((done) => {
     const child = spawn("node", [SCRIPT, "reply", "260101000001", ...args, "--episode", fx.episodeRoot], {
@@ -362,7 +367,7 @@ test("reply --steps posts a walk through diagrams, docs resolved in the episode,
   assert.match(posted.stdout, /with 2 steps for the canvas/);
   assert.equal(received[0].text, "");
   assert.equal(received[0].steps[0].doc, join(fx.episodeRoot, "diagrams/wave.smdf.json"));
-  assert.equal(received[0].steps[1].doc, "/abs/other.sqdf.json");
+  assert.equal(received[0].steps[1].doc, other);
   assert.deepEqual(received[0].steps[0].spotlight, ["state:Reading"]);
   assert.equal(refused.status, 2);
   assert.match(refused.stderr, /step 1 .* says nothing/);
@@ -377,4 +382,32 @@ test("a take spoken at the canvas says what the canvas showed, and the wake offe
   assert.equal(shown.code, 0, shown.stderr);
   assert.match(shown.stdout, /spoken at his stateloom canvas, looking at wave\.smdf\.json \(machine\), state:Reading in hand, marks open: m-1/);
   assert.match(shown.stdout, /--steps <that file>/);
+});
+
+// smcraft Spec 84: a reply's steps are checked against their drawings before it is sent,
+// so William never hears a walk whose steps light nothing.
+test("a reply's steps that name what their drawings do not hold are refused, with what is there", async () => {
+  const { stepProblems } = await import("./mia-listen.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "mia-steps-"));
+  const machine = join(dir, "wave.smdf.json");
+  const scenario = join(dir, "walk.sqdf.json");
+  const data = join(dir, "wave.erdf.json");
+  writeFileSync(machine, JSON.stringify({ settings: { name: "M" }, events: [{ name: "G", events: [{ id: "Evaluate" }] }], state: { name: "Root", states: [{ name: "Reading", states: [{ name: "Labelled" }] }, { name: "Published" }] } }));
+  writeFileSync(scenario, JSON.stringify({ participants: [{ name: "Chart" }], messages: [{ from: "Chart", to: "Chart", label: "a", event: "Publish" }], fragments: [{ kind: "alt", after: 1, messages: [{ from: "Chart", to: "Chart", label: "b" }] }] }));
+  writeFileSync(data, JSON.stringify({ entities: [{ name: "WaveCount", attributes: [{ name: "id" }] }] }));
+  assert.deepEqual(stepProblems([
+    { say: "a", doc: machine, spotlight: ["state:Published", "state:Labelled", "event:Evaluate"] },
+    { say: "b", focus: "state:Reading" },
+    { say: "c", doc: scenario, spotlight: ["message:1", "message:f1.1", "participant:Chart", "event:Publish"] },
+    { say: "d", doc: data, spotlight: ["entity:WaveCount", "attribute:WaveCount.id", "machine:Anything"] },
+  ]), [], "names the drawings hold, a step that keeps the previous drawing, and a kind not checked");
+  const problems = stepProblems([
+    { say: "a", doc: machine, spotlight: ["state:Publshed"] },
+    { say: "b", doc: scenario, focus: "message:2" },
+    { say: "c", doc: join(dir, "absent.erdf.json"), spotlight: ["entity:X"] },
+  ]);
+  assert.equal(problems.length, 3, problems.join("\n"));
+  assert.match(problems[0], /step 1: wave\.smdf\.json holds no state:Publshed \(its states: .*Published/);
+  assert.match(problems[1], /step 2: walk\.sqdf\.json holds no message:2/);
+  assert.match(problems[2], /step 3: no drawing at .*absent\.erdf\.json/);
 });

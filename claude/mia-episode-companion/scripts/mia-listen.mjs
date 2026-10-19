@@ -493,6 +493,11 @@ function spokenAtLines(episode, take) {
     if (!seen?.doc) return [];
     const parts = [`${basename(seen.doc)}${seen.kind ? ` (${seen.kind})` : ""}`];
     if (seen.focus) parts.push(`${seen.focus} in hand`);
+    if (seen.step && typeof seen.step === "object") {
+      const place = Number.isInteger(seen.step.index) && Number.isInteger(seen.step.count) ? ` ${seen.step.index + 1} of ${seen.step.count}` : "";
+      const said = typeof seen.step.say === "string" && seen.step.say ? `, which said "${seen.step.say.replace(/\s+/g, " ").slice(0, 160)}"` : "";
+      parts.push(`while the step${place}${seen.step.title ? ` '${seen.step.title}'` : ""}${seen.step.by ? ` by ${seen.step.by}` : ""} was on screen${said}`);
+    }
     if (Array.isArray(seen.spotlight) && seen.spotlight.length) parts.push(`the step lit ${seen.spotlight.join(", ")}`);
     if (Array.isArray(seen.marks) && seen.marks.length) parts.push(`marks open: ${seen.marks.join(", ")}`);
     return [`  spoken at his stateloom canvas, looking at ${parts.join(", ")} (${seen.doc})`, ""];
@@ -717,6 +722,82 @@ export function readSteps(file, episodeRoot) {
   });
 }
 
+// The names a drawing holds, by kind, as a step lights them (smcraft Spec 83 focus names).
+// Read from the file itself, so a step that names what is not there is caught before
+// William hears a reply that lights nothing. A kind this does not know is never refused.
+export function drawingNames(def, file) {
+  const names = new Map();
+  const add = (kind, name) => {
+    if (typeof name !== "string" || !name) return;
+    if (!names.has(kind)) names.set(kind, new Set());
+    names.get(kind).add(name);
+  };
+  if (/\.smdf\.json$/i.test(file)) {
+    const walk = (state) => {
+      if (!state || typeof state !== "object") return;
+      add("state", state.name);
+      for (const child of Array.isArray(state.states) ? state.states : []) walk(child);
+    };
+    for (const child of Array.isArray(def?.state?.states) ? def.state.states : []) walk(child);
+    for (const group of Array.isArray(def?.events) ? def.events : []) {
+      for (const event of Array.isArray(group?.events) ? group.events : []) add("event", event?.id ?? event?.name);
+    }
+  } else if (/\.erdf\.json$/i.test(file)) {
+    for (const entity of Array.isArray(def?.entities) ? def.entities : []) {
+      add("entity", entity?.name);
+      for (const attribute of Array.isArray(entity?.attributes) ? entity.attributes : []) add("attribute", `${entity?.name}.${attribute?.name}`);
+    }
+  } else if (/\.sqdf\.json$/i.test(file)) {
+    for (const participant of Array.isArray(def?.participants) ? def.participants : []) add("participant", participant?.name);
+    const messages = Array.isArray(def?.messages) ? def.messages : [];
+    messages.forEach((message, index) => {
+      add("message", String(index + 1));
+      add("event", message?.event);
+    });
+    (Array.isArray(def?.fragments) ? def.fragments : []).forEach((fragment, f) => {
+      (Array.isArray(fragment?.messages) ? fragment.messages : []).forEach((message, index) => {
+        add("message", `f${f + 1}.${index + 1}`);
+        add("event", message?.event);
+      });
+    });
+  }
+  return names;
+}
+
+/** What is wrong with a reply's steps against its drawings: missing files, names not there. */
+export function stepProblems(steps) {
+  const problems = [];
+  const cache = new Map();
+  let doc;
+  steps.forEach((step, index) => {
+    if (typeof step.doc === "string" && step.doc) doc = step.doc;
+    const named = [...(typeof step.focus === "string" && step.focus ? [step.focus] : []), ...(Array.isArray(step.spotlight) ? step.spotlight : [])];
+    if (!doc) return;
+    if (!cache.has(doc)) {
+      try {
+        cache.set(doc, drawingNames(JSON.parse(readFileSync(doc, "utf8")), doc));
+      } catch (error) {
+        cache.set(doc, error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+    const names = cache.get(doc);
+    if (names instanceof Error) {
+      if (typeof step.doc === "string") problems.push(`step ${index + 1}: ${existsSync(doc) ? `${basename(doc)} does not read as JSON` : `no drawing at ${doc}`}`);
+      return;
+    }
+    for (const name of named) {
+      const at = typeof name === "string" ? name.indexOf(":") : -1;
+      if (at < 1) continue;
+      const kind = name.slice(0, at);
+      const known = names.get(kind);
+      if (!known || known.has(name.slice(at + 1))) continue;
+      const some = [...known].slice(0, 10).join(", ");
+      problems.push(`step ${index + 1}: ${basename(doc)} holds no ${name} (its ${kind}s: ${some}${known.size > 10 ? ", …" : ""})`);
+    }
+  });
+  return problems;
+}
+
 async function postReply(episode, takeId, text, related = [], steps = []) {
   const port = process.env.MIADI_PHONE_CAPTURE_PORT || "8771";
   const origin = currentOrigin();
@@ -769,6 +850,8 @@ async function main() {
     if (args.steps) {
       try {
         steps = readSteps(args.steps, episode.root);
+        const problems = stepProblems(steps);
+        if (problems.length) throw new Error(`the steps light what their drawings do not hold, so his canvas would show nothing there. Fix them and send again:\n  ${problems.join("\n  ")}`);
       } catch (error) {
         console.error(`mia-listen: ${message(error)}`);
         return EXIT_NO_EPISODE;
