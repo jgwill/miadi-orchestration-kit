@@ -94,6 +94,10 @@ The stateloom designer records takes and plays replies too, through its own prox
   each step opens its drawing and lights what it names while its voice plays.
 - **The same thread.** A take recorded on the canvas appears here with the drawing it was
   spoken at, and the other way round.
+- **Steps on this page.** A reply with steps reads as its steps, numbered, each with its title.
+  While her voice plays, the step being heard is marked and kept in view. The reply still plays as
+  one recording, so nothing about how iOS lets it play changes: each step's length is read from
+  its own recording's metadata.
 
 ## What it holds to
 

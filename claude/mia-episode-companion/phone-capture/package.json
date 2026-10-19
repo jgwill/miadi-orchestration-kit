@@ -1,6 +1,6 @@
 {
   "name": "miadi-phone-capture",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Record on the iPhone, land the take in a Chronicle episode on gaia, through @miadi/capture-service and @miadi/episode-capture.",
   "type": "module",

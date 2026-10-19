@@ -61,7 +61,14 @@
   .entry .text { white-space:pre-wrap; margin-top:6px; color:var(--ink); font-size:.92rem; }
   .entry button { min-height:36px; padding:0 14px; border:0; border-radius:10px; font-weight:800; background:#263c34; color:var(--ink); }
   .entry .thumbs { display:flex; gap:6px; }
-  .entry .thumb { padding:0 10px; opacity:.55; }
+  .entry .thumb { display:inline-flex; align-items:center; padding:0 10px; opacity:.55; }
+  .entry .thumb svg { display:block; }
+  .entry .steps { margin:8px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:4px; }
+  .entry .steps li { display:flex; gap:9px; padding:6px 8px; border-radius:10px; font-size:.92rem; color:var(--ink); }
+  .entry .steps li .n { flex:none; width:20px; height:20px; border-radius:50%; border:1px solid var(--line); color:var(--muted); font-size:.72rem; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .entry .steps li .title { display:block; font-weight:800; font-size:.82rem; color:var(--muted); }
+  .entry .steps li.here { background:#2c2a1c; box-shadow:inset 3px 0 0 var(--gold); }
+  .entry .steps li.here .n { background:var(--gold); border-color:var(--gold); color:#111; }
   .entry .thumb.on { opacity:1; background:#477b65; }
   .entry .related { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .entry .related a { font-size:.8rem; padding:6px 10px; border:1px solid var(--line); border-radius:10px; color:var(--ink); text-decoration:none; background:#1d2a25; }
@@ -160,6 +167,8 @@
       && (replyAudio.getAttribute("src") || "").indexOf("api/replies/") === 0;
   }
 
+  var THUMB = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 10.5v9H4.5v-9zM7.5 10.5l3.5-6.5a2 2 0 0 1 2.5 2.2l-.6 3.3h5.4a2 2 0 0 1 2 2.4l-1.3 6.2a2 2 0 0 1-2 1.4H7.5"/></svg>';
+
   function when(iso) {
     var d = new Date(iso);
     return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -216,6 +225,7 @@
   // before: priming it on the Record tap is what earns that.
   function playReply() {
     if (!current || busy()) return;
+    measureSteps(current);
     delete unheard[current.id];
     replyNotice.textContent = "";
     replyAudio.loop = false;
@@ -342,11 +352,12 @@
       if (mia) {
         var thumbs = document.createElement("span");
         thumbs.className = "thumbs";
-        [["up", "👍", "This reply worked"], ["down", "👎", "This reply missed"]].forEach(function (choice) {
+        // Drawn, not typed: 👍 and 👎 render as colour emoji on iOS.
+        [["up", THUMB, "This reply worked"], ["down", THUMB.replace("<svg ", "<svg style=\"transform:scaleY(-1)\" "), "This reply missed"]].forEach(function (choice) {
           var thumb = document.createElement("button");
           thumb.type = "button";
           thumb.className = "thumb" + (item.feedback === choice[0] ? " on" : "");
-          thumb.textContent = choice[1];
+          thumb.innerHTML = choice[1];
           thumb.setAttribute("aria-label", choice[2]);
           thumb.addEventListener("click", function () { giveFeedback(item, item.feedback === choice[0] ? "" : choice[0]); });
           thumbs.appendChild(thumb);
@@ -354,10 +365,36 @@
         who.appendChild(thumbs);
       }
       entry.appendChild(who);
-      var text = document.createElement("div");
-      text.className = "text";
-      text.textContent = item.text || (mia ? "" : "(no transcript yet)");
-      entry.appendChild(text);
+      // A reply that walks the diagram (smcraft Spec 84) reads as its steps: the one being
+      // heard is marked while her voice plays, and stays in view.
+      if (mia && item.steps && item.steps.length) {
+        var list = document.createElement("ol");
+        list.className = "steps";
+        list.setAttribute("data-reply", item.id);
+        item.steps.forEach(function (step, index) {
+          var li = document.createElement("li");
+          var n = document.createElement("span");
+          n.className = "n";
+          n.textContent = String(index + 1);
+          li.appendChild(n);
+          var body = document.createElement("span");
+          if (step.title) {
+            var title = document.createElement("span");
+            title.className = "title";
+            title.textContent = step.title;
+            body.appendChild(title);
+          }
+          body.appendChild(document.createTextNode(step.say || ""));
+          li.appendChild(body);
+          list.appendChild(li);
+        });
+        entry.appendChild(list);
+      } else {
+        var text = document.createElement("div");
+        text.className = "text";
+        text.textContent = item.text || (mia ? "" : "(no transcript yet)");
+        entry.appendChild(text);
+      }
       // What the reply names, as cards he can open: a diagram, a review, an issue, a file.
       if (mia && item.related && item.related.length) {
         var cards = document.createElement("div");
@@ -519,6 +556,49 @@
     hearButton.textContent = "Hear Mia";
     hearButton.disabled = false;
   });
+
+  // Her voice for a reply with steps is each step's voice in order. Each step's length is read
+  // from its own recording (metadata only, nothing plays), so the step being heard can be
+  // marked in the conversation while the one reply plays as it always has.
+  var stepEnds = { id: "", ends: [] };
+  function measureSteps(reply) {
+    if (!reply || !reply.steps || !reply.steps.length || stepEnds.id === reply.id) return;
+    stepEnds = { id: reply.id, ends: [] };
+    var lengths = [];
+    reply.steps.forEach(function (_, index) {
+      var probe = new Audio();
+      probe.preload = "metadata";
+      probe.addEventListener("loadedmetadata", function () {
+        lengths[index] = isFinite(probe.duration) ? probe.duration : 0;
+        if (stepEnds.id !== reply.id || lengths.filter(function (v) { return v !== undefined; }).length !== reply.steps.length) return;
+        var total = 0;
+        stepEnds.ends = lengths.map(function (v) { total += v; return total; });
+      });
+      probe.src = "api/replies/" + reply.id + "/steps/" + index + "/audio";
+    });
+  }
+  function markStep() {
+    var src = replyAudio.getAttribute("src") || "";
+    var list = current ? thread.querySelector('ol.steps[data-reply="' + current.id + '"]') : null;
+    if (!list) return;
+    var here = -1;
+    if (src.indexOf("api/replies/" + current.id) === 0 && !replyAudio.paused && stepEnds.id === current.id && stepEnds.ends.length) {
+      var t = replyAudio.currentTime;
+      here = stepEnds.ends.findIndex(function (end) { return t < end; });
+      if (here < 0) here = stepEnds.ends.length - 1;
+    }
+    Array.prototype.forEach.call(list.children, function (li, index) {
+      var on = index === here;
+      if (on && !li.classList.contains("here")) {
+        li.classList.add("here");
+        var box = li.getBoundingClientRect();
+        if (box.top < 0 || box.bottom > window.innerHeight) li.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else if (!on) li.classList.remove("here");
+    });
+  }
+  replyAudio.addEventListener("timeupdate", markStep);
+  replyAudio.addEventListener("pause", markStep);
+  replyAudio.addEventListener("play", function () { measureSteps(current); });
 
   // The next queued reply starts when the one playing ends. The element was started by a
   // tap or a primed play, so iOS lets it go on to the next source.
