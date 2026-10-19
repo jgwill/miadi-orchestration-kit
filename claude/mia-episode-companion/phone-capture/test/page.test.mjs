@@ -399,15 +399,29 @@ test("a thumb under her reply posts his judgment of it", async () => {
   const h = harness({ thread: () => [{ kind: "reply", id: "r1", take: null, text: "Heard.", at, audio: null }] });
   await settle(80);
   const buttons = [];
-  const walk = (node) => { (node.appended || []).forEach((child) => { if (child.className && /thumb/.test(child.className) && child.textContent) buttons.push(child); walk(child); }); };
+  const walk = (node) => { (node.appended || []).forEach((child) => { if (child.className && /thumb/.test(child.className)) buttons.push(child); walk(child); }); };
   walk(h.elements.thread);
-  const up = buttons.find((b) => b.textContent === "👍");
+  // Drawn, not typed: the thumbs are found by what they say to a screen reader.
+  const up = buttons.find((b) => b.attributes?.["aria-label"] === "This reply worked");
   assert.ok(up, "a thumb up is shown under her reply");
   await up.fire("click");
   await settle(20);
   const sent = h.calls.find((c) => c.url === "api/replies/r1/feedback");
   assert.ok(sent, "the thumb is posted");
   assert.deepEqual(JSON.parse(sent.options.body), { value: "up" });
+});
+
+test("a reply that walks the diagram reads as its steps, numbered, with their titles", async () => {
+  const at = new Date().toISOString();
+  const h = harness({ thread: () => [{ kind: "reply", id: "r1", take: null, text: "Here.\n\nThere.", at, audio: null,
+    steps: [{ say: "Here.", title: "Start", audio: "api/replies/r1/steps/0/audio" }, { say: "There.", audio: "api/replies/r1/steps/1/audio" }] }] });
+  await settle(80);
+  const lists = [];
+  const walk = (node) => { (node.appended || []).forEach((child) => { if (child.className === "steps") lists.push(child); walk(child); }); };
+  walk(h.elements.thread);
+  assert.equal(lists.length, 1, "one list of steps under her reply");
+  assert.equal(lists[0].appended.length, 2);
+  assert.equal(lists[0].attributes["data-reply"], "r1");
 });
 
 test("a reply's cards open what it names", async () => {
