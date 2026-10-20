@@ -190,7 +190,8 @@ PY
     echo "plannotator-tui $(plannotator-tui --version | cut -d" " -f2) is the build SOURCE names"
     venv=/usr/lib/miadi-tide/tide-runtime
     grep -qx "include-system-site-packages = false" $venv/pyvenv.cfg
-    test "$($venv/bin/pip list --format=freeze 2>/dev/null | grep -v -E "^(pip|ironsilk)==" | sort)" = \
+    # pip, and setuptools under Python 3.11 (Debian 12), are what venv seeds, not dependencies.
+    test "$($venv/bin/pip list --format=freeze 2>/dev/null | grep -v -E "^(pip|setuptools|ironsilk)==" | sort)" = \
       "$(grep -v "^#" /usr/share/miadi-tide/wheels/constraints.txt | sort)"
     tide --help | grep -q "daemon" && echo "tide $($venv/bin/pip show ironsilk | sed -n "s/^Version: //p") runs from its own venv ($($venv/bin/python -V)), pinned dependencies only"
     test "$(node_pkg() { sed -n "s/^  \"$1\": \"\(.*\)\",/\1/p" /usr/share/miadi-tide/node/@miadi/tide/package.json; }; node_pkg name)" = "@miadi/tide"
