@@ -411,3 +411,144 @@ test("a reply's steps that name what their drawings do not hold are refused, wit
   assert.match(problems[1], /step 2: walk\.sqdf\.json holds no message:2/);
   assert.match(problems[2], /step 3: no drawing at .*absent\.erdf\.json/);
 });
+
+// ---------- marks (smcraft Spec 83) ----------
+// Episode 550, 2026-10-19: William marked a drawing and asked in the mark's thread "Are you
+// replying to me here". No seat listened for marks. A mark waiting on an agent now wakes the
+// episode's seat as a take does.
+
+const PERSON = { id: "node:human:g", name: "Guillaume", role: "person" };
+const MIA = { id: "mia", name: "Mia", role: "agent" };
+
+function writeMarks(episodeRoot, drawing, marks) {
+  const file = join(episodeRoot, "diagrams", drawing.replace(/\.json$/, ".marks.json"));
+  mkdirSync(join(file, ".."), { recursive: true });
+  writeFileSync(file, JSON.stringify({ doc: drawing, marks }, null, 2));
+}
+
+function drawing(episodeRoot) {
+  mkdirSync(join(episodeRoot, "diagrams"), { recursive: true });
+  writeFileSync(join(episodeRoot, "diagrams", "walk.smdf.json"), JSON.stringify({ settings: { name: "W" }, events: [], state: { name: "Root", states: [{ name: "Witnessing" }] } }));
+  writeFileSync(join(episodeRoot, "diagrams", "walk.sysdf.json"), JSON.stringify({ settings: { name: "S" }, members: [{ path: "walk.smdf.json" }] }));
+}
+
+const personMark = (extra = {}) => ({
+  id: "m-1", kind: "comment", elements: ["state:Witnessing"], level: "Root",
+  text: "Wouldn't that be one more state machine in between?", author: PERSON, at: "2026-10-20T03:28:41.292Z", status: "open", ...extra,
+});
+
+const awaitOnce = (fx, seconds = 30) => run(fx, ["await", "--no-fetch", "--timeout", String(seconds), "--interval", "5"]);
+
+test("a person's new mark on a drawing wakes await, with its thread and how to answer it", () => {
+  const fx = fixture();
+  run(fx, ["status", "--no-fetch"]);
+  drawing(fx.episodeRoot);
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ replies: [{ author: PERSON, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" }] })]);
+  const woke = awaitOnce(fx);
+  assert.equal(woke.code, 0, woke.stderr);
+  assert.match(woke.stdout, /^NEW MARK FROM WILLIAM · episode 900 \(2026-01-01-episode-900-fixture\)/);
+  assert.match(woke.stdout, /mark m-1 · diagrams\/walk\.smdf\.json · comment by Guillaume, 2026-10-20T03:28:41\.292Z · Guillaume added to it/);
+  assert.match(woke.stdout, /on state:Witnessing \(inside Root\)/);
+  assert.match(woke.stdout, /"Wouldn't that be one more state machine in between\?"/);
+  assert.match(woke.stdout, /thread:\n {4}Guillaume, 2026-10-20T03:29:46\.215Z: Are you replying to me here/);
+  assert.match(woke.stdout, /smcx --bridge "\$STATELOOM_BRIDGE_URL" --name Mia --doc ".*diagrams\/walk\.smdf\.json" marks reply m-1 "<words>"/);
+  assert.match(woke.stdout, /stage show --drawing ".*diagrams\/walk\.smdf\.json" --system ".*diagrams\/walk\.sysdf\.json" --spotlight "state:Witnessing" --say/);
+  assert.match(woke.stdout, /mia-listen\.mjs" reply --episode ".*" --steps <that file> <\/dev\/null/);
+  assert.match(woke.stdout, /Turn budget/);
+  assert.match(woke.stdout, /re-arm in the background: node ".*mia-listen\.mjs" await --episode/);
+  assert.doesNotMatch(woke.stdout, /NEW TAKE/);
+
+  const beat = JSON.parse(readFileSync(join(fx.state, `${FOLDER}.listening.json`), "utf8"));
+  assert.equal(beat.state, "answering");
+  assert.deepEqual(beat.marks, ["m-1"]);
+  assert.equal(awaitOnce(fx, 1).code, 4, "a heard mark never wakes twice");
+});
+
+test("an agent's own open mark does not wake the seat", () => {
+  const fx = fixture();
+  run(fx, ["status", "--no-fetch"]);
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [{ id: "m-2", kind: "question", elements: ["state:Witnessing"], text: "Is this the step you meant?", author: MIA, status: "open" }]);
+  assert.equal(awaitOnce(fx, 1).code, 4);
+});
+
+test("a person's reply to an answered mark wakes again, and so does a reopened one", () => {
+  const fx = fixture();
+  run(fx, ["status", "--no-fetch"]);
+  const answer = { author: MIA, text: "Yes, the witness reads each session.", at: "2026-10-20T03:33:32Z" };
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark()]);
+  assert.equal(awaitOnce(fx).code, 0);
+
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ status: "answered", replies: [answer] })]);
+  assert.equal(awaitOnce(fx, 1).code, 4, "Mia's answer is not a wake");
+
+  const followUp = { author: PERSON, text: "Then where does it live?", at: "2026-10-20T03:40:00Z" };
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ status: "open", replies: [answer, followUp] })]);
+  const again = awaitOnce(fx);
+  assert.equal(again.code, 0, again.stderr);
+  assert.match(again.stdout, /Guillaume added to it/);
+  assert.match(again.stdout, /Mia \(agent\), 2026-10-20T03:33:32Z: Yes, the witness reads each session\.\n {4}Guillaume, 2026-10-20T03:40:00Z: Then where does it live\?/);
+
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ status: "resolved", replies: [answer, followUp] })]);
+  assert.equal(awaitOnce(fx, 1).code, 4, "a resolved mark waits on nobody");
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ status: "open", replies: [answer, followUp] })]);
+  assert.equal(awaitOnce(fx).code, 0, "reopened, it wakes again");
+
+  // An agent's question that the person answered waits on the agent.
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [{ id: "m-3", text: "Is this the step?", author: MIA, status: "answered", replies: [{ author: PERSON, text: "Yes." }] }]);
+  const asked = awaitOnce(fx);
+  assert.equal(asked.code, 0, asked.stderr);
+  assert.match(asked.stdout, /mark m-3 · .* · Guillaume answered a question Mia asked/);
+});
+
+test("a broken sidecar or a mark of unknown shape is skipped, never a reason to stop listening", () => {
+  const fx = fixture();
+  run(fx, ["status", "--no-fetch"]);
+  mkdirSync(join(fx.episodeRoot, "diagrams", "nested"), { recursive: true });
+  writeFileSync(join(fx.episodeRoot, "diagrams", "half.smdf.marks.json"), '{"marks": [{"id": "m-9", "te');
+  writeFileSync(join(fx.episodeRoot, "diagrams", "odd.erdf.marks.json"), JSON.stringify({ marks: "not a list" }));
+  writeMarks(fx.episodeRoot, "nested/data.erdf.json", [null, 7, { id: "m-x" }, { text: "no id" }, { id: "m-4", text: "this one", author: "a string", status: "weird", elements: [3, "entity:Session"] }]);
+  const quiet = run(fx, ["status", "--no-fetch"]);
+  assert.equal(quiet.code, 0, quiet.stderr);
+  assert.match(quiet.stdout, /warning: diagrams\/half\.smdf\.marks\.json does not read/);
+  const woke = awaitOnce(fx);
+  assert.equal(woke.code, 0, woke.stderr);
+  assert.match(woke.stdout, /mark m-4 · diagrams\/nested\/data\.erdf\.json · comment by someone · new/);
+  assert.match(woke.stdout, /on entity:Session/);
+  assert.doesNotMatch(woke.stdout, /m-9|m-x/);
+  assert.equal(awaitOnce(fx, 1).code, 4, "only the broken sidecar is left, and it never wakes or crashes the listener");
+});
+
+test("status lists the marks waiting on an agent, heard or not", () => {
+  const fx = fixture();
+  assert.match(run(fx, ["status", "--no-fetch"]).stdout, /marks waiting on an agent: none/);
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [
+    personMark(),
+    { id: "m-5", text: "done", author: PERSON, status: "resolved" },
+    { id: "m-6", text: "my question", author: MIA, status: "open" },
+    { id: "m-7", text: "over here", author: PERSON, status: "open", region: { x: 10.4, y: 20.6, width: 30, height: 40 }, level: "Root" },
+  ]);
+  const status = run(fx, ["status", "--no-fetch"]);
+  assert.match(status.stdout, /marks waiting on an agent: 2, 2 unheard/);
+  assert.match(status.stdout, /m-1 · diagrams\/walk\.smdf\.json · Guillaume on state:Witnessing: "Wouldn't that be one more state machine in between\?" \(unheard\)/);
+  assert.match(status.stdout, /m-7 · diagrams\/walk\.smdf\.json · Guillaume on the area 10,21 30×40 inside Root: "over here" \(unheard\)/);
+  assert.doesNotMatch(status.stdout, /m-5|m-6/);
+  assert.equal(awaitOnce(fx).code, 0);
+  assert.match(run(fx, ["status", "--no-fetch"]).stdout, /marks waiting on an agent: 2, 0 unheard[\s\S]*\(heard\)/);
+});
+
+test("a take and a mark arriving together make one wake that carries both", () => {
+  const fx = fixture();
+  run(fx, ["status", "--no-fetch"]);
+  writeTake(fx.episodeRoot, "260101000007", "Look at what I marked.\n");
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark()]);
+  const woke = awaitOnce(fx);
+  assert.equal(woke.code, 0, woke.stderr);
+  assert.match(woke.stdout, /^NEW TAKE FROM WILLIAM[\s\S]*Look at what I marked\.[\s\S]*NEW MARK FROM WILLIAM[\s\S]*mark m-1/);
+  assert.match(woke.stdout, /--take 260101000007 --draft -/);
+  assert.match(woke.stdout, /delivers the return \(below\), answers each mark in its thread/);
+  assert.match(woke.stdout, /marks reply m-1 "<words>"/);
+  const beat = JSON.parse(readFileSync(join(fx.state, `${FOLDER}.listening.json`), "utf8"));
+  assert.deepEqual(beat.takes, ["260101000007"]);
+  assert.deepEqual(beat.marks, ["m-1"]);
+  assert.match(run(fx, ["status", "--no-fetch"]).stdout, /listening now: answering 260101000007, mark m-1/);
+});

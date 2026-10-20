@@ -15,7 +15,7 @@
       "name": "mia-episode-companion",
       "source": "./claude/mia-episode-companion",
       "description": "Mia, William's development companion, in a Claude Code seat: wakes the session when a phone voice take lands in the episode, and answers through draft, a developmental-editor agent, revision, and a Jev check.",
-      "version": "0.5.2"
+      "version": "0.5.3"
     },
     {
       "name": "ava-companion",

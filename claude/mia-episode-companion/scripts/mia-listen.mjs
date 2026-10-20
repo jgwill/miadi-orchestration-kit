@@ -320,6 +320,7 @@ function ensureState(episode, takes) {
     createdAt: new Date().toISOString(),
     baseline: takes.filter((take) => !(Date.parse(take.capturedAt) > fresh)).map((take) => take.key),
     delivered: [],
+    marksHeard: [],
   };
   saveState(episode, state);
   return { state, created: true };
@@ -342,6 +343,242 @@ export function listenerOf(episode) {
 function unheard(state, takes) {
   const heard = new Set([...state.baseline, ...state.delivered]);
   return takes.filter((take) => !heard.has(take.key));
+}
+
+// ---------- marks (smcraft Spec 83) ----------
+//
+// William marks a drawing on his stateloom canvas: elements or an area, a few words, a
+// thread of replies. The hub keeps them beside the drawing, `<name>.<smdf|erdf|sqdf>.marks.json`.
+// A mark waiting on an agent wakes this seat as a take does. The rules mirror smcraft's
+// bridge-protocol/src/stage/marks.ts (readMark, marksWaitingOn, markAnchorText) in plain JS:
+// this script has no dependency on stateloom packages. A mark is context, never a reason to
+// stop listening: every read here is defensive, and a sidecar that does not read is skipped.
+//
+// Seen-state sits with the takes' in the episode's state file, as `marksHeard`: one key per
+// mark and thread length, `<drawing>#<id>@<replies>`. A reply makes a new key, so a mark
+// wakes again when the person adds to it or answers an agent's question. A key is dropped
+// once its mark stops waiting (answered, resolved, removed), so a reopened mark wakes again.
+// No baseline: a take in the baseline was heard by a seat before, while a mark that waits
+// on an agent has, by its own status, been answered by nobody.
+
+const MARK_KINDS = ["comment", "question", "looks_good", "delete"];
+const MARK_STATUSES = ["open", "answered", "resolved"];
+const MARKS_SIDECAR = /\.(smdf|erdf|sqdf)\.marks\.json$/i;
+const SYSTEM_FILE = /\.sysdf\.json$/i;
+const DRAWINGS_DEPTH = 3;
+const MARK_TEXT_CHARS = 1200;
+const THREAD_REPLIES = 10;
+
+const str = (value) => (typeof value === "string" ? value : "");
+
+function markAuthor(value) {
+  const o = value && typeof value === "object" ? value : {};
+  const role = o.role === "agent" ? "agent" : "person";
+  const name = str(o.name) || str(o.id) || (role === "agent" ? "agent" : "someone");
+  return { id: str(o.id) || name, name, role };
+}
+
+function markRegion(value) {
+  if (!value || typeof value !== "object") return null;
+  const box = {};
+  for (const key of ["x", "y", "width", "height"]) {
+    if (typeof value[key] !== "number" || !Number.isFinite(value[key])) return null;
+    box[key] = value[key];
+  }
+  return box.width > 0 && box.height > 0 ? box : null;
+}
+
+/** One mark as a reader can trust it, or null when it says nothing (smcraft readMark). */
+export function readMark(value) {
+  if (!value || typeof value !== "object") return null;
+  const id = str(value.id);
+  const text = str(value.text).trim();
+  if (!id || !text) return null;
+  const replies = (Array.isArray(value.replies) ? value.replies : []).flatMap((reply) => {
+    const o = reply && typeof reply === "object" ? reply : {};
+    const said = str(o.text).trim();
+    return said ? [{ author: markAuthor(o.author), text: said, at: str(o.at) }] : [];
+  });
+  return {
+    id,
+    kind: MARK_KINDS.includes(value.kind) ? value.kind : "comment",
+    elements: (Array.isArray(value.elements) ? value.elements : []).filter((e) => typeof e === "string" && e.length > 0),
+    region: markRegion(value.region),
+    level: str(value.level),
+    text,
+    author: markAuthor(value.author),
+    at: str(value.at),
+    status: MARK_STATUSES.includes(value.status) ? value.status : "open",
+    replies,
+  };
+}
+
+/** smcraft marksWaitingOn(marks, "agent"): a person's open marks, and an agent's marks a person answered. */
+export function waitingOnAgent(mark) {
+  return (mark.status === "open" && mark.author.role !== "agent") || (mark.status === "answered" && mark.author.role === "agent");
+}
+
+/** What a mark points at, in a few words (smcraft markAnchorText). */
+export function markAnchor(mark) {
+  const parts = [];
+  if (mark.elements.length) parts.push(mark.elements.join(", "));
+  if (mark.region) {
+    const r = mark.region;
+    parts.push(`the area ${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)}${mark.level ? ` inside ${mark.level}` : ""}`);
+  }
+  return parts.length ? parts.join(" in ") : "the drawing";
+}
+
+// Files under the episode's diagrams/ (and a few folders down) whose name matches, relative to
+// the episode. `complete` is false when a folder that exists could not be listed.
+function drawingFiles(episodeRoot, pattern) {
+  const files = [];
+  let complete = true;
+  const walk = (dir, rel, depth) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch (error) {
+      if (error?.code !== "ENOENT") complete = false;
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      const path = join(dir, entry.name);
+      const childRel = `${rel}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (depth > 0) walk(path, childRel, depth - 1);
+      } else if (pattern.test(entry.name)) {
+        try {
+          if (statSync(path).isFile()) files.push(childRel);
+        } catch { /* a dangling link is not a drawing */ }
+      }
+    }
+  };
+  walk(join(episodeRoot, "diagrams"), "diagrams", DRAWINGS_DEPTH);
+  return { files: files.sort(), complete };
+}
+
+/** Every readable mark on the episode's drawings. Never throws. */
+export function scanMarks(episodeRoot) {
+  const scan = { marks: [], unreadable: [], problems: [], complete: true };
+  try {
+    const { files, complete } = drawingFiles(episodeRoot, MARKS_SIDECAR);
+    scan.complete = complete;
+    for (const rel of files) {
+      const drawing = rel.replace(/\.marks\.json$/i, ".json");
+      try {
+        const parsed = JSON.parse(readFileSync(join(episodeRoot, rel), "utf8"));
+        for (const raw of Array.isArray(parsed?.marks) ? parsed.marks : []) {
+          const mark = readMark(raw);
+          if (!mark) continue;
+          const ref = `${drawing}#${mark.id}`;
+          scan.marks.push({ ...mark, drawing, doc: join(episodeRoot, drawing), ref, key: `${ref}@${mark.replies.length}` });
+        }
+      } catch (error) {
+        scan.unreadable.push(drawing);
+        scan.problems.push(`${rel} does not read: ${message(error)}`);
+      }
+    }
+  } catch (error) {
+    scan.complete = false;
+    scan.problems.push(`marks not scanned: ${message(error)}`);
+  }
+  return scan;
+}
+
+function heardMarks(state) {
+  return Array.isArray(state.marksHeard) ? state.marksHeard.filter((key) => typeof key === "string") : [];
+}
+
+export function unheardMarks(state, scan) {
+  const heard = new Set(heardMarks(state));
+  return scan.marks.filter((mark) => waitingOnAgent(mark) && !heard.has(mark.key));
+}
+
+// The heard keys still worth keeping: marks still waiting at that thread length, and every key
+// on a drawing whose sidecar did not read this time (it may be mid-write). Nothing is dropped
+// when a folder could not be listed.
+export function keptMarks(state, scan) {
+  const heard = heardMarks(state);
+  if (!scan.complete) return heard;
+  const waiting = new Set(scan.marks.filter(waitingOnAgent).map((mark) => mark.key));
+  return heard.filter((key) => waiting.has(key) || scan.unreadable.some((drawing) => key.startsWith(`${drawing}#`)));
+}
+
+// The system file in the episode that lists this drawing as a member, so the canvas opens it
+// inside its system. Empty when none does.
+function systemOf(episodeRoot, drawing) {
+  try {
+    for (const rel of drawingFiles(episodeRoot, SYSTEM_FILE).files) {
+      const file = join(episodeRoot, rel);
+      try {
+        const members = JSON.parse(readFileSync(file, "utf8"))?.members;
+        if (Array.isArray(members) && members.some((m) => typeof m?.path === "string" && resolve(file, "..", m.path) === drawing)) return file;
+      } catch { /* a system that does not read lists nothing */ }
+    }
+  } catch { /* no systems */ }
+  return "";
+}
+
+function clip(text, max) {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max)} … (${flat.length - max} more chars)` : flat;
+}
+
+function shellWord(value) {
+  return /^[\w.:@%+=,/-]+$/.test(value) ? value : `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function whyWaiting(mark) {
+  const last = mark.replies.at(-1);
+  if (mark.author.role === "agent") return `${last?.author.name ?? "someone"} answered a question ${mark.author.name} asked`;
+  if (!last) return "new";
+  if (last.author.role === mark.author.role) return `${last.author.name} added to it`;
+  return "reopened";
+}
+
+export function markLines(mark) {
+  const lines = [
+    `mark ${mark.id} · ${mark.drawing} · ${mark.kind.replace(/_/g, " ")} by ${mark.author.name}${mark.at ? `, ${mark.at}` : ""} · ${whyWaiting(mark)}`,
+    `  on ${markAnchor(mark)}${mark.elements.length && mark.level ? ` (inside ${mark.level})` : ""}`,
+    `  "${clip(mark.text, MARK_TEXT_CHARS)}"`,
+  ];
+  if (mark.replies.length) {
+    lines.push("  thread:");
+    const shown = mark.replies.slice(-THREAD_REPLIES);
+    if (shown.length < mark.replies.length) lines.push(`    (${mark.replies.length - shown.length} earlier replies)`);
+    for (const reply of shown) {
+      lines.push(`    ${reply.author.name}${reply.author.role === "agent" ? " (agent)" : ""}${reply.at ? `, ${reply.at}` : ""}: ${clip(reply.text, MARK_TEXT_CHARS)}`);
+    }
+  }
+  return lines;
+}
+
+// How Mia answers marks: in each thread, lighting what she means, and as a voiced walk when the
+// answer is about the drawing and worth hearing. `walk` is false when a take's reply carries it.
+function markAnswerLines(episode, marks, { walk = true } = {}) {
+  const smcx = `smcx --bridge "$STATELOOM_BRIDGE_URL" --name Mia`;
+  const lines = ["Answer each mark in its thread, as Mia (smcx is the stateloom CLI, @miadi/stateloom-cli):"];
+  for (const mark of marks) lines.push(`  ${smcx} --doc "${mark.doc}" marks reply ${shellWord(mark.id)} "<words>"`);
+  lines.push("Light what you mean on his canvas while he reads it, in that same Bash call:");
+  const docs = new Map();
+  for (const mark of marks) docs.set(mark.doc, [...(docs.get(mark.doc) ?? []), ...mark.elements]);
+  for (const [doc, elements] of docs) {
+    const system = systemOf(episode.root, doc);
+    const spotlight = [...new Set(elements)].join(",");
+    lines.push(`  ${smcx} stage show --drawing "${doc}"${system ? ` --system "${system}"` : ""} --spotlight "${spotlight || "<kind:name,…>"}" --say "<one sentence>"`);
+  }
+  if (walk) {
+    const first = marks[0];
+    lines.push(
+      "When the answer is about the drawing and worth hearing, also voice it as a walk. Write steps, one sentence or two each, with what to light:",
+      `  [{"say": "…", "doc": "${first.drawing}", "spotlight": ["${first.elements[0] ?? "state:…"}"]}]`,
+      `  node "${SCRIPT}" reply --episode "${episode.root}" --steps <that file> </dev/null`,
+      "  Each step's words are voiced on their own and play on his canvas while that step is lit; his phone plays them as one reply.",
+    );
+  }
+  return lines;
 }
 
 // ---------- output ----------
@@ -448,7 +685,8 @@ function purposeLines(episode, take) {
 // agent. Read from the hub's `GET /stage/<name>` and the drawing's `.marks.json` beside it.
 // Only when STATELOOM_BRIDGE_URL is set; a hub that does not answer in two seconds is a
 // wake without the canvas, never a wake held back.
-export async function canvasContext(env = process.env) {
+// `skip` names marks the wake already carries in full, so they are not listed twice.
+export async function canvasContext(env = process.env, { skip = [] } = {}) {
   const bridge = env.STATELOOM_BRIDGE_URL || env.SMCRAFT_BRIDGE_URL;
   if (!bridge) return [];
   const stage = env.STATELOOM_STAGE || "default";
@@ -472,10 +710,10 @@ export async function canvasContext(env = process.env) {
   const lines = [`On William's canvas (stage '${stage}', reported ${ctx.at ?? "?"}): ${where.join(", ")}.`];
   try {
     const sidecar = ctx.doc.replace(/\.json$/i, ".marks.json");
-    const marks = existsSync(sidecar) ? (JSON.parse(readFileSync(sidecar, "utf8")).marks ?? []) : [];
-    const waiting = marks.filter((m) => m?.status === "open" && m?.author?.role !== "agent");
+    const raw = existsSync(sidecar) ? JSON.parse(readFileSync(sidecar, "utf8"))?.marks : [];
+    const waiting = (Array.isArray(raw) ? raw : []).map(readMark).filter((m) => m && waitingOnAgent(m) && !skip.includes(m.id));
     for (const m of waiting.slice(0, 6)) {
-      lines.push(`  mark ${m.id} · ${m.author?.name ?? "someone"} on ${(m.elements ?? []).join(", ") || "an area"}: "${String(m.text ?? "").replace(/\s+/g, " ").trim()}"`);
+      lines.push(`  mark ${m.id} · ${m.author.name} on ${m.elements.join(", ") || "an area"}: "${clip(m.text, 300)}"`);
     }
     if (waiting.length) lines.push(`  He may be speaking about these. Answer one in its thread: smcx --doc "${ctx.doc}" marks reply <id> "<words>" (or answer_mark).`);
   } catch { /* an unreadable sidecar is context lost, not a failure to wake */ }
@@ -506,11 +744,10 @@ function spokenAtLines(episode, take) {
   }
 }
 
-export function formatWake(episode, takes, { rearm = true, canvas = [] } = {}) {
-  const lines = [
-    `NEW TAKE${takes.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`,
-    "",
-  ];
+// A wake carries the takes, the marks, or both: one turn answers everything that arrived.
+export function formatWake(episode, takes, { rearm = true, canvas = [], marks = [] } = {}) {
+  const lines = [];
+  if (takes.length) lines.push(`NEW TAKE${takes.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`, "");
   for (const take of takes) {
     const elsewhere = take.source !== "worktree" ? ` · read from ${take.source}, not yet in this checkout` : "";
     lines.push(
@@ -527,27 +764,46 @@ export function formatWake(episode, takes, { rearm = true, canvas = [] } = {}) {
       "",
     );
   }
+  if (marks.length) lines.push(`NEW MARK${marks.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`, "");
+  for (const mark of marks) lines.push(...markLines(mark), "");
+
+  const what = takes.length && marks.length ? "take or a mark" : takes.length ? "take" : "mark";
+  const heard = takes.length && marks.length
+    ? "the take text, each mark's text and thread,"
+    : takes.length ? "the take text" : `the mark's text and thread${marks.length > 1 ? " for each mark" : ""}`;
+  const then = rearm ? ", then re-arm." : ".";
   lines.push(
     ...wakeContext(episode.root),
     ...canvas,
-    "This is William speaking in the episode. Answer what he says; do not read it as a task list.",
-    "Turn budget (mia-episode-companion skill): this wake carries what an ordinary take needs.",
-    "1. Hear from the wake. Read a file only if the take names something the wake does not carry; at most two reads.",
-    "2. Draft backstage. Send only the take text and the exact draft to the developmental-editor agent, once.",
+    ...(takes.length ? ["This is William speaking in the episode. Answer what he says; do not read it as a task list."] : []),
+    ...(marks.length ? [`This is William marking ${marks.length > 1 ? "the episode's drawings" : "a drawing of the episode"}. Answer what he marked, in its thread; do not read it as a task list.`] : []),
+    `Turn budget (mia-episode-companion skill): this wake carries what an ordinary ${takes.length ? "take" : "mark"} needs.`,
+    `1. Hear from the wake. Read a file only if the ${what} names something the wake does not carry; at most two reads.`,
+    `2. Draft backstage. Send only ${heard} and the exact draft to the developmental-editor agent, once.`,
     "3. Revise against each recommendation, short enough to say aloud.",
-    "4. Jev check: pipe the revised return to jev-check (below), with one --fact per thing this turn did. Revise or keep each flag, saying why, backstage. A flag, or a check that cannot run, never blocks delivery.",
-    `  node "${JEV_CHECK}" check --episode "${episode.root}" ${takes.map((take) => `--take ${take.takeId}`).join(" ")} --draft - --fact "<what this turn did>" <<'MIA'`,
-    "  <the revised return>",
-    "  MIA",
-    rearm
-      ? "5. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown, then re-arm."
-      : "5. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown.",
-    "Deliver the return to William's phone page, which waits for it and can voice it as Mia:",
-    `  node "${SCRIPT}" reply ${takes.at(-1).takeId} --episode "${episode.root}" <<'MIA'`,
-    "  <the final return, exactly as given>",
-    "  MIA",
   );
-  if (canvas.length || takes.some((take) => spokenAtLines(episode, take).length)) {
+  if (takes.length) {
+    lines.push(
+      "4. Jev check: pipe the revised return to jev-check (below), with one --fact per thing this turn did. Revise or keep each flag, saying why, backstage. A flag, or a check that cannot run, never blocks delivery.",
+      `  node "${JEV_CHECK}" check --episode "${episode.root}" ${takes.map((take) => `--take ${take.takeId}`).join(" ")} --draft - --fact "<what this turn did>" <<'MIA'`,
+      "  <the revised return>",
+      "  MIA",
+      marks.length
+        ? `5. In that same message: one Bash call that delivers the return (below), answers each mark in its thread, and runs the commit above if one is shown${then}`
+        : `5. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown${then}`,
+      "Deliver the return to William's phone page, which waits for it and can voice it as Mia:",
+      `  node "${SCRIPT}" reply ${takes.at(-1).takeId} --episode "${episode.root}" <<'MIA'`,
+      "  <the final return, exactly as given>",
+      "  MIA",
+    );
+  } else {
+    lines.push(
+      "4. Jev check: jev-check reads takes, and this wake carries marks only, so there is no check to run. Note that backstage.",
+      `5. In that same message: one Bash call that answers each mark in its thread and lights what you mean (below)${then}`,
+    );
+  }
+  if (marks.length) lines.push(...markAnswerLines(episode, marks, { walk: !takes.length }));
+  if (takes.length && (canvas.length || marks.length || takes.some((take) => spokenAtLines(episode, take).length))) {
     lines.push(
       "He is at a diagram: you may answer as a walk through it. Write the return as steps, one sentence or two each, with what to light:",
       `  [{"say": "…", "doc": "diagrams/<name>.smdf.json", "spotlight": ["state:…"]}, {"say": "…", "focus": "message:9"}]`,
@@ -555,19 +811,32 @@ export function formatWake(episode, takes, { rearm = true, canvas = [] } = {}) {
     );
   }
   if (rearm) {
-    lines.push(`After your return, re-arm in the background: node "${SCRIPT}" await --episode "${episode.root}"`);
+    lines.push(`After your ${takes.length ? "return" : "answer"}, re-arm in the background: node "${SCRIPT}" await --episode "${episode.root}"`);
   }
   return lines.join("\n");
 }
 
 function presenceLine(beat) {
   if (!beat) return "no";
-  if (beat.state === "answering") return `answering ${(beat.takes ?? []).join(", ")}`;
+  if (beat.state === "answering") {
+    const marks = Array.isArray(beat.marks) ? beat.marks.map((id) => `mark ${id}`) : [];
+    return `answering ${[...(beat.takes ?? []), ...marks].join(", ")}`;
+  }
   if (beat.state === "answered") return "answered, re-arm pending";
   return "yes";
 }
 
-function printStatus(episode, state, scan, created) {
+function markStatusLines(state, marks) {
+  const waiting = marks.marks.filter(waitingOnAgent);
+  const fresh = new Set(unheardMarks(state, marks).map((mark) => mark.key));
+  return [
+    `marks waiting on an agent: ${waiting.length ? `${waiting.length}, ${fresh.size} unheard` : "none"}`,
+    ...waiting.map((mark) => `  ${mark.id} · ${mark.drawing} · ${mark.author.name} on ${markAnchor(mark)}: "${clip(mark.text, 160)}" (${fresh.has(mark.key) ? "unheard" : "heard"})`),
+    ...marks.problems.map((problem) => `warning: ${problem}`),
+  ];
+}
+
+function printStatus(episode, state, scan, created, marks) {
   const pending = unheard(state, scan.takes);
   const lastDelivered = state.delivered.at(-1);
   console.log([
@@ -580,6 +849,7 @@ function printStatus(episode, state, scan, created) {
     `unheard: ${pending.length ? pending.map((take) => `${take.takeId} (${take.source})`).join(", ") : "none"}`,
     ...scan.blockers.map((result) => `waiting: ${result.takeId}@${result.source}: ${result.blocker}`),
     ...scan.warnings.map((warning) => `warning: ${warning}`),
+    ...markStatusLines(state, marks),
   ].join("\n"));
 }
 
@@ -602,8 +872,9 @@ function parseArgs(argv) {
 }
 
 const USAGE = `usage: mia-listen.mjs <command> [--episode <dir>] [--no-fetch]
-  status              what this seat has heard and what is waiting
-  await               block until an unheard take validates, print it, exit 0
+  status              what this seat has heard and what is waiting, takes and marks
+  await               block until an unheard take validates or a mark on the episode's drawings
+                      waits on an agent (smcraft Spec 83), print them as one wake, exit 0
                       [--interval <sec>=20] [--timeout <sec>=0 (none)] → exit 4 on timeout
   show <take-id>      print a take as a wake without marking it heard
   heard <take-id>     mark a take heard without printing it
@@ -833,7 +1104,7 @@ async function main() {
   if (command === "status") {
     const scan = scanAll(episode, { fetch: args.fetch });
     const { state, created } = ensureState(episode, scan.takes);
-    printStatus(episode, state, scan, created);
+    printStatus(episode, state, scan, created, scanMarks(episode.root));
     return 0;
   }
 
@@ -872,7 +1143,7 @@ async function main() {
     try {
       const answer = await postReply(episode, takeId, text, related, steps);
       const present = listenerOf(episode);
-      if (present?.state === "answering") writeBeat(episode, { state: "answered", takes: present.takes, reply: answer.id });
+      if (present?.state === "answering") writeBeat(episode, { state: "answered", takes: present.takes, ...(present.marks ? { marks: present.marks } : {}), reply: answer.id });
       console.log(`mia-listen: reply${takeId ? ` to ${takeId}` : ""} delivered to the phone page (${answer.id})${answer.steps ? `, with ${answer.steps} step${answer.steps === 1 ? "" : "s"} for the canvas` : ""}`);
       if (answer.recording) console.log("mia-listen: William is recording right now. The reply is on his page, silent, and waits until he has sent his take.");
       if (answer.unvoiced) console.error(`mia-listen: William can read it but not hear it: ${answer.unvoiced}`);
@@ -906,6 +1177,7 @@ async function main() {
   const intervalMs = Math.max(5, Number.isFinite(args.interval) ? args.interval : 20) * 1000;
   const deadline = args.timeout > 0 ? Date.now() + args.timeout * 1000 : Infinity;
   const settling = new Map(); // key → signature seen on the previous poll (worktree only)
+  let heldForTake = false; // marks wait one short poll for a take still settling, to wake once
   let firstPoll = true;
   let lastWarning = "";
   const listeningSince = new Date().toISOString();
@@ -923,24 +1195,54 @@ async function main() {
       console.error(`mia-listen: listening on ${episodeLabel(episode)}${created ? `, baseline of ${state.baseline.length} takes taken now` : ""}`);
       firstPoll = false;
     }
-    const warning = scan.warnings.join("; ");
+    // Marks never stop the listener: whatever goes wrong reading them is a poll without marks.
+    let marks = [];
+    let markProblems = [];
+    try {
+      const markScan = scanMarks(episode.root);
+      markProblems = markScan.problems;
+      const kept = keptMarks(state, markScan);
+      if (kept.length !== heardMarks(state).length) {
+        state.marksHeard = kept;
+        saveState(episode, state);
+      }
+      marks = unheardMarks(state, markScan);
+    } catch (error) {
+      markProblems = [`marks not read: ${message(error)}`];
+    }
+
+    const warning = [...scan.warnings, ...markProblems].join("; ");
     if (warning && warning !== lastWarning) console.error(`mia-listen: ${warning}`);
     lastWarning = warning;
 
     const ready = [];
+    let unsettled = 0;
     for (const take of unheard(state, scan.takes)) {
       // A committed take is stable by construction. A take still being written by a
       // recorder on this host must show the same signature on two polls.
       if (take.source !== "worktree" || settling.get(take.key) === take.signature) ready.push(take);
-      else settling.set(take.key, take.signature);
+      else {
+        settling.set(take.key, take.signature);
+        unsettled += 1;
+      }
     }
+    // A mark that arrives while a take is settling waits for it one short poll, so a take
+    // and a mark arriving together make one wake.
+    const holdMarks = marks.length && !ready.length && unsettled && !heldForTake;
+    if (holdMarks) heldForTake = true;
 
-    if (ready.length) {
+    if (ready.length || (marks.length && !holdMarks)) {
       state.delivered = [...new Set([...state.delivered, ...ready.map((take) => take.key)])];
+      state.marksHeard = [...new Set([...heardMarks(state), ...marks.map((mark) => mark.key)])];
       saveState(episode, state);
       woke = true;
-      writeBeat(episode, { state: "answering", takes: [...new Set(ready.map((take) => take.takeId))], since: listeningSince });
-      console.log(formatWake(episode, ready, { canvas: await canvasContext() }));
+      writeBeat(episode, {
+        state: "answering",
+        takes: [...new Set(ready.map((take) => take.takeId))],
+        ...(marks.length ? { marks: [...new Set(marks.map((mark) => mark.id))] } : {}),
+        since: listeningSince,
+      });
+      console.log(formatWake(episode, ready, { marks, canvas: await canvasContext(process.env, { skip: marks.map((mark) => mark.id) }) }));
       return 0;
     }
     if (Date.now() >= deadline) {
