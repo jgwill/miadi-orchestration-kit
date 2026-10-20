@@ -129,6 +129,8 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 
 - **0.2.2, 2026-10-15.** From the first pass started by "Ready for Deep Diver" (review 4346d23a, Episode 552, notebook 3eb56742): a notebook enters its episode through the notebook door (`chronicle_episode_notebook`), which puts its node and edge on the wheel; several episodes can hold one review, and the media goes to the one the review is about; a review with no questions to borrow gets two written by the seat; the saved report never embeds the media (checked in all four runs). DeepDiver now drives a notebook tab or a blank one, never a person's tab on another site (`miadisabelle/deepdiver` 9b40f6f).
 
+- **0.2.3, 2026-10-20.** From Episode 297's notebook 5a00e2d8, made by a fork of the episode's Mia seat: the infographic viewer's button is "Close infographic", which DeepDiver did not close. Left open after a generation, it covered the Studio panel, so the next Video Overview finished unseen and timed out after 1800 s, the next one never started, `studio report` found no Reports tile and `studio list` showed no cards. DeepDiver now closes any open artifact viewer, including on arriving at a notebook already open (`miadisabelle/deepdiver` 2a0e343). When a generation times out, run `studio list` before you regenerate. Also: give each artifact its audience, and record its exact instruction in `perspectives.md` beside `asked.md`, so the instruction can become a versioned prompt (William, take 261020080805).
+
 ## Related
 
 - `screenwalk-presence` (plugin `miadi-witness`): what a seat says in a screenwalk, and what happens after the playback.
