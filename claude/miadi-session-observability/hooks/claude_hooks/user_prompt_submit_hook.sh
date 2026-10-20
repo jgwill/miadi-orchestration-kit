@@ -14,5 +14,8 @@ output_dir="$CLAUDE_SESSIONDATA_ROOT/$session_id"
 mkdir -p "$output_dir"
 claude_write_jsonl "$output_dir/_claude_user_inputs.jsonl" "$input"
 claude_write_json "$output_dir/last_claude_user_inputs.jsonl" "$input" # We might monitor just the last input we gave
+# A comment sent to Claude from an Artifact thread, or the notice of an auto-reply
+# (lib.sh, claude_artifact_comments_prompt_queue).
+claude_artifact_comments_prompt_queue "$output_dir" "$input"
 
 #echo "" >> "$output_dir/_claude_user_inputs.jsonl"

@@ -727,3 +727,138 @@ claude_publications_capture() {
     rm -f "$job"
     return 0
 }
+
+# --- Artifact comments ------------------------------------------------------
+# The threads people open on a published Artifact page, one comment at a time.
+# A comment reaches a session three ways: a prompt headed `[Artifact comment sent
+# to Claude]` (one comment, its thread and its anchor), an `artifact-auto-react`
+# task notification (the background auto-reply posted in a thread), and the
+# ArtifactComments tool (read returns every thread with its full text, even when
+# the model is shown a capped list; reply and resolve answer one thread). Each
+# one becomes lines of _claude_artifact_comments.jsonl, keyed by artifact url and
+# thread id, so a session's threads can be followed without the tool ledgers.
+# A comment nobody reads or sends to Claude never reaches the session.
+
+# PostToolUse: read, reply and resolve calls of the ArtifactComments tool.
+claude_artifact_comments_queue() {
+    local output_dir="$1" input="$2" tool_name="$3" job
+    [ "$tool_name" = "ArtifactComments" ] || return 0
+    [[ $input =~ \"action\":\"(read|reply|resolve)\" ]] || return 0
+    job=$(printf '%s' "$input" | jq -c --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{source: "tool",
+        tool_use_id, tool_name, agent_id: (.agent_id // null), prompt_id: (.prompt_id // null), at: $at,
+        action: .tool_input.action, url: (.tool_input.url // null), thread_id: (.tool_input.thread_id // null),
+        text: (.tool_input.text // null),
+        response: (.tool_response | if type == "object" then . else null end)}' 2>/dev/null) || return 0
+    _claude_artifact_comments_detach "$output_dir" "$job"
+}
+
+# UserPromptSubmit: a comment sent to Claude, or the notice of an auto-reply.
+claude_artifact_comments_prompt_queue() {
+    local output_dir="$1" input="$2" job
+    [[ $input == *'[Artifact comment sent to Claude]'* || $input == *'<task-type>artifact-auto-react</task-type>'* ]] || return 0
+    job=$(printf '%s' "$input" | jq -c --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg n "$(date +%s%N)" '{source: "prompt",
+        tool_use_id: ("prompt-" + (.prompt_id // $n)), tool_name: null, agent_id: (.agent_id // null),
+        prompt_id: (.prompt_id // null), at: $at, prompt: (.prompt // "")}' 2>/dev/null) || return 0
+    _claude_artifact_comments_detach "$output_dir" "$job"
+}
+
+_claude_artifact_comments_detach() {
+    local output_dir="$1" job="$2" id
+    [[ $job =~ \"tool_use_id\":\"([A-Za-z0-9_-]+)\" ]] || return 0
+    id="${BASH_REMATCH[1]}"
+    mkdir -p "$output_dir/.tool_marks"
+    hook_secret_sanitize_text "$job" > "$output_dir/.tool_marks/$id.ac"
+    claude_detach bash "$(dirname "${BASH_SOURCE[0]}")/artifact_comments.sh" "$output_dir" "$id"
+}
+
+# One line per thread state, comment, sent comment or auto-reply the job holds.
+#   thread: the anchor and state, when first seen and when resolved or activation changes.
+#   comment: each comment once, by thread and comment id, with its author and text.
+#   sent: a comment sent to Claude, as the prompt quoted it (the prompt has no comment id).
+#   auto-reply: the background auto-reply's comment id and the artifact's title.
+_CLAUDE_ARTIFACT_COMMENTS_JQ='
+def entities: gsub("&gt;"; ">") | gsub("&lt;"; "<") | gsub("&quot;"; "\"") | gsub("&#39;"; "'"'"'") | gsub("&amp;"; "&");
+def unquote: split("\n") | map(sub("^> ?"; "")) | join("\n");
+. as $j
+| ($j.url // null) as $url
+| if $j.source == "prompt" then
+    ($j.prompt // "") as $p
+    | (($p | split("[Artifact comment sent to Claude]") | .[1:][]
+        | (capture("^\\s*Artifact: (?<url>\\S+)\\s*\\nComment thread: (?<thread>\\S+)(\\s*\\nSent to Claude at: (?<sent>\\S+))?") // null) as $h
+        | select($h != null)
+        | {kind: "sent", artifact_url: $h.url, thread_id: $h.thread, sent_at: $h.sent,
+           text: ((capture("=== BEGIN ARTIFACT COMMENT \\S+ ===\\n(?<b>[\\s\\S]*?)\\n=== END ARTIFACT COMMENT ").b // null) | if . then unquote else . end),
+           anchor: ((capture("<comment-anchor-context[^>]*>\\n(?<c>[\\s\\S]*?)\\n</comment-anchor-context>").c // null) | if . then entities else . end)}),
+       ($p | split("<task-notification>") | .[1:][]
+        | select(test("<task-type>artifact-auto-react</task-type>"))
+        | (capture("Auto-replied to thread (?<thread>[0-9A-Za-z-]+) on artifact (?<url>https://[^\\s]+)[\\s\\S]*?\\(comment (?<comment>[0-9A-Za-z-]+)\\)") // null) as $a
+        | select($a != null)
+        | {kind: "auto-reply", artifact_url: $a.url, thread_id: $a.thread, comment_id: $a.comment,
+           artifact_title: (capture("<summary>Auto-replied to comment thread on Artifact: \"(?<t>.*)\"</summary>").t // null)}))
+    | {source: "prompt"} + .
+  elif $j.action == "read" then
+    ($j.response.names // {}) as $names
+    | $j.response.threads[]? as $t
+    | ({kind: "thread", artifact_url: $url, thread_id: $t.id, created_at: ($t.created_at // null),
+        resolved: ($t.resolved // false), resolved_by_claude: ($t.resolved_by_claude // false),
+        claude_activated: ($t.claude_activated // false), anchor_label: ($t.anchor_label // null),
+        anchor_path: ($t.anchor_path // null), anchor_snippet: ($t.anchor_snippet // null),
+        span_quote: ($t.span_quote // null), comments: ($t.comments // [] | length)},
+       ($t.comments[]? | {kind: "comment", artifact_url: $url, thread_id: $t.id, comment_id: .id,
+        role: (if .role == "assistant" then "assistant" else "viewer" end),
+        author: (if .role == "assistant" then "Claude" else ($names[.account // ""] // .account // null) end),
+        access: (.access // null), sent_to_claude: (.sent_to_claude // false),
+        created_at: (.created_at // null), text: (.text // null)}))
+    | {source: "read"} + .
+  elif $j.action == "reply" and $j.response.replied == true then
+    {source: "reply", kind: "comment", artifact_url: $url, thread_id: ($j.response.thread_id // $j.thread_id),
+     comment_id: $j.response.comment_id, role: "assistant", author: "Claude", access: null,
+     sent_to_claude: false, created_at: $j.at, text: $j.text}
+  elif $j.action == "resolve" and $j.response.thread_resolved == true then
+    {source: "resolve", kind: "thread", artifact_url: $url, thread_id: ($j.response.thread_id // $j.thread_id),
+     resolved: true, resolved_by_claude: true, claude_activated: true}
+  else empty end
+| {kind, source, artifact_url, artifact_id: ((.artifact_url // "") | capture("/artifact/(?<i>[A-Za-z0-9-]+)").i // null)}
+  + del(.kind, .source, .artifact_url)
+'
+
+# Drop what the index already holds: a comment already written, a thread whose
+# state has not changed, a sent comment or an auto-reply already recorded.
+_CLAUDE_ARTIFACT_COMMENTS_NEW_JQ='
+def key: if .kind == "comment" then "c|\(.thread_id)|\(.comment_id)"
+    elif .kind == "sent" then "s|\(.thread_id)|\(.sent_at)|\(.text)"
+    elif .kind == "auto-reply" then "a|\(.comment_id)" else null end;
+def state: "\(.resolved)|\(.claude_activated)";
+reduce ($old[] | select(type == "object")) as $o ({seen: {}, state: {}};
+    if $o.kind == "thread" then .state[$o.thread_id // ""] = ($o | state)
+    else .seen[($o | key) // ""] = true end)
+| reduce $new[] as $n (. + {out: []};
+    if $n.kind == "thread" then
+        if .state[$n.thread_id // ""] == ($n | state) then . else .out += [$n] | .state[$n.thread_id // ""] = ($n | state) end
+    elif .seen[($n | key)] then .
+    else .out += [$n] | .seen[($n | key)] = true end)
+| .out[]
+'
+
+# artifact_comments.sh: write one job's new lines to _claude_artifact_comments.jsonl.
+claude_artifact_comments_capture() {
+    local output_dir="$1" id="$2"
+    local job="$output_dir/.tool_marks/$id.ac" index="$output_dir/_claude_artifact_comments.jsonl"
+    [ -f "$job" ] || return 0
+    local new old lines meta n
+    new="$job.lines"
+    jq -c "$_CLAUDE_ARTIFACT_COMMENTS_JQ" "$job" > "$new" 2>/dev/null || : > "$new"
+    meta=$(jq -c --arg session_id "$(basename "$output_dir")" \
+        '{session_id: $session_id, tool_use_id: (if .source == "tool" then .tool_use_id else null end), prompt_id, agent_id}' "$job" 2>/dev/null) || meta='{}'
+    old="$index"
+    [ -s "$old" ] || old=/dev/null
+    lines=$(jq -nc --slurpfile old "$old" --slurpfile new "$new" --argjson meta "$meta" \
+        "$_CLAUDE_ARTIFACT_COMMENTS_NEW_JQ"' | {timestamp: (now | todate)} + $meta + .' 2>/dev/null)
+    if [ -n "$lines" ]; then
+        printf '%s\n' "$lines" | hook_secret_sanitize_stream >> "$index"
+        n=$(printf '%s\n' "$lines" | wc -l | tr -d ' ')
+        echo "Saved $n artifact comment line(s) from $(jq -r '.tool_name // "a prompt"' "$job") ($id) in _claude_artifact_comments.jsonl" >> "$output_dir/trace.log"
+    fi
+    rm -f "$job" "$new"
+    return 0
+}

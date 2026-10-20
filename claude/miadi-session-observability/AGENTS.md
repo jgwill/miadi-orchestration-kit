@@ -21,6 +21,8 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   (0.1.11), 41 checks.
 - `hooks/claude_hooks/publications.sh` and `tests/publications.sh`: the publication index
   (0.1.12), 43 checks.
+- `hooks/claude_hooks/artifact_comments.sh` and `tests/artifact-comments.sh`: the Artifact
+  comment threads (0.1.16), 43 checks.
 - `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a
@@ -76,6 +78,14 @@ those rules here goes there too.
   releases, one line each in `_claude_publications.jsonl` with the `tool_use_id` and
   `prompt_id`. `@miadi/hooks-interpreter` 0.5.0 reads it with the files-written index and the
   session's `_terminal_binding.jsonl` (jgwill/Miadi). `tests/publications.sh`, 43 checks.
+- **The Artifact comment threads** (`lib.sh`, `artifact_comments.sh`, since 0.1.16). Guillaume
+  opens a thread per comment on a page and follows each one up. The threads reached the session
+  only as raw `ArtifactComments` calls in `_claude_PostToolUse.jsonl` and as prompts in
+  `_claude_user_inputs.jsonl`. Now a comment sent to Claude, an auto-reply notice, and the
+  tool's read, reply and resolve add lines to `_claude_artifact_comments.jsonl` by artifact url
+  and thread id: each comment once, a thread's state when it changes. A read hands the hook
+  every thread with full text even when the model sees a capped list. A comment nobody reads
+  or sends to Claude never reaches the session. `tests/artifact-comments.sh`, 43 checks.
 - **Credential files are listed, never copied** (0.1.12). `written/` copies every text file a
   call wrote, and the sanitizer redacts token shapes, not a password on a line of its own. A
   file whose name says it holds credentials (`.env*` but not `.env.example`, keys,

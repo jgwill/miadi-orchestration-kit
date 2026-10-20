@@ -123,6 +123,30 @@ PostToolUseFailure. PostToolUse matches the raw input first, so a
 call that cannot have published costs nothing, and a call that may have costs one `jq` call
 before the parse runs detached.
 
+## Artifact comments
+
+The threads people open on a published Artifact page are lines of
+`<root>/<session_id>/_claude_artifact_comments.jsonl`, keyed by `artifact_url` and
+`thread_id`, with the tool call or prompt that brought them in. Since 0.1.16,
+jgwill/miadi-orchestration-kit#56.
+
+| kind | from | the line holds |
+|---|---|---|
+| `sent` | a prompt headed `[Artifact comment sent to Claude]` | `sent_at`, the comment `text` without its `>` quote marks, the `anchor` context |
+| `auto-reply` | an `artifact-auto-react` task notification | the posted `comment_id`, `artifact_title` |
+| `thread` | `ArtifactComments` read, or resolve | `anchor_label`, `anchor_path`, `span_quote`, `resolved`, `claude_activated`, `comments` (count) |
+| `comment` | `ArtifactComments` read, or reply | `comment_id`, `author` (the viewer's name, or `Claude`), `role`, `sent_to_claude`, `created_at`, `text` |
+
+A read hands the hook every thread with its full text, even when the model is shown a capped
+list. Each comment is written once. A thread line is written when the thread is first seen and
+again when it is resolved or activated for Claude. A comment that nobody reads in the session
+and nobody sends to Claude never reaches it: read the artifact's comments
+(`ArtifactComments`, action `read`) to bring every thread in. One thread in order:
+
+```bash
+jq -c 'select(.thread_id == "<thread id>")' _claude_artifact_comments.jsonl
+```
+
 ## Teams
 
 The binding line's `team` is `{"id": "T1", "source": "session"}`. It is resolved in this
@@ -165,6 +189,7 @@ bash tests/episode-resolution.sh
 bash tests/transcript-archive.sh
 bash tests/files-written.sh
 bash tests/publications.sh
+bash tests/artifact-comments.sh
 bash tests/binding-agent.sh
 bash tests/binding-mission.sh
 bash tests/workspace-clone-guard.sh

@@ -79,3 +79,7 @@ claude_files_written_queue "$output_dir" "$input" "$tool_name"
 # Record what this call published: an Artifact page, a GitHub issue, pull request or
 # comment, a commit or push, an npm release (lib.sh, claude_publications_queue).
 claude_publications_queue "$output_dir" "$input" "$tool_name"
+
+# Record the Artifact comment threads this call read, replied to or resolved
+# (lib.sh, claude_artifact_comments_queue).
+claude_artifact_comments_queue "$output_dir" "$input" "$tool_name"
