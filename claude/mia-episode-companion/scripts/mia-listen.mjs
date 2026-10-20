@@ -15,10 +15,10 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import {
-  existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync,
+  accessSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync,
 } from "node:fs";
 import { homedir, hostname, userInfo } from "node:os";
-import { basename, join, posix, resolve, sep } from "node:path";
+import { basename, delimiter, join, posix, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(import.meta.url);
@@ -555,30 +555,186 @@ export function markLines(mark) {
   return lines;
 }
 
-// How Mia answers marks: in each thread, lighting what she means, and as a voiced walk when the
-// answer is about the drawing and worth hearing. `walk` is false when a take's reply carries it.
+// How Mia answers marks: one act per mark, `reply --mark`, which lands the same words in the
+// mark's thread, on his phone page and in the companion thread in her voice, and walks his
+// canvas to what he marked (review R3, 2026-10-20). The stop comes first: a step left on the
+// stage is cleared before her walk starts. Sent after the replies, it would reach the pages
+// while they walk her reply, and a stage stop ends that walk (smcraft bridge-react stage.ts,
+// `control` → `stop`). `walk` is false when a take's reply already offers steps.
+export const STAGE_STOP = `smcx --bridge "$STATELOOM_BRIDGE_URL" stage control stop`;
+
 function markAnswerLines(episode, marks, { walk = true } = {}) {
-  const smcx = `smcx --bridge "$STATELOOM_BRIDGE_URL" --name Mia`;
-  const lines = ["Answer each mark in its thread, as Mia (smcx is the stateloom CLI, @miadi/stateloom-cli):"];
-  for (const mark of marks) lines.push(`  ${smcx} --doc "${mark.doc}" marks reply ${shellWord(mark.id)} "<words>"`);
-  lines.push("Light what you mean on his canvas while he reads it, in that same Bash call:");
-  const docs = new Map();
-  for (const mark of marks) docs.set(mark.doc, [...(docs.get(mark.doc) ?? []), ...mark.elements]);
-  for (const [doc, elements] of docs) {
-    const system = systemOf(episode.root, doc);
-    const spotlight = [...new Set(elements)].join(",");
-    lines.push(`  ${smcx} stage show --drawing "${doc}"${system ? ` --system "${system}"` : ""} --spotlight "${spotlight || "<kind:name,…>"}" --say "<one sentence>"`);
+  const lines = [
+    "Answer each mark with one act, as Mia. Your words go into its thread on the drawing, to his phone page and the companion thread in your voice, and play on his canvas while it lights what he marked.",
+    "First in that Bash call, clear any step left on the stage, so it neither covers your walk nor stays on every canvas that opens later:",
+    `  ${STAGE_STOP}`,
+  ];
+  for (const mark of marks) {
+    lines.push(
+      `  node "${SCRIPT}" reply --mark ${shellWord(mark.id)} --doc "${mark.doc}" --episode "${episode.root}" <<'MIA'`,
+      `  <your words for mark ${mark.id}>`,
+      "  MIA",
+    );
   }
   if (walk) {
     const first = marks[0];
     lines.push(
-      "When the answer is about the drawing and worth hearing, also voice it as a walk. Write steps, one sentence or two each, with what to light:",
+      "Without --steps, one step lights what he marked while your words play. To walk further, write steps, one sentence or two each, with what to light, and add --steps <that file> to that mark's act (the words on stdin stay the thread's):",
       `  [{"say": "…", "doc": "${first.drawing}", "spotlight": ["${first.elements[0] ?? "state:…"}"]}]`,
-      `  node "${SCRIPT}" reply --episode "${episode.root}" --steps <that file> </dev/null`,
-      "  Each step's words are voiced on their own and play on his canvas while that step is lit; his phone plays them as one reply.",
     );
   }
   return lines;
+}
+
+// ---------- answering a mark (reply --mark) ----------
+
+export const MARK_ID = /^m-[0-9a-z]+$/;
+const MIA_AUTHOR = Object.freeze({ id: "mia", name: "Mia", role: "agent" });
+// phone-capture keeps 2000 characters of a step's words; a longer answer becomes more steps.
+const STEP_SAY_CHARS = 1800;
+
+const sidecarOf = (drawing) => drawing.replace(/\.json$/i, ".marks.json");
+
+function readSidecar(drawing) {
+  const sidecar = sidecarOf(drawing);
+  let raw;
+  try {
+    raw = readFileSync(sidecar, "utf8");
+  } catch (error) {
+    throw new Error(`no marks beside ${drawing}: ${message(error)}`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`${sidecar} does not parse, so it is left as it is: ${message(error)}`);
+  }
+  if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.marks)) throw new Error(`${sidecar} holds no list of marks, so it is left as it is`);
+  return { sidecar, parsed };
+}
+
+/** The mark `id` on the episode's drawings, or on `doc` when given (relative to the episode). Throws with what to do. */
+export function findMark(episodeRoot, id, doc) {
+  if (doc) {
+    const drawing = resolve(episodeRoot, doc.replace(/\.marks\.json$/i, ".json"));
+    const { parsed } = readSidecar(drawing);
+    const mark = parsed.marks.map(readMark).find((m) => m?.id === id);
+    if (!mark) throw new Error(`no mark ${id} on ${basename(drawing)}`);
+    const rel = drawing.startsWith(episodeRoot + sep) ? drawing.slice(episodeRoot.length + 1) : drawing;
+    return { ...mark, drawing: rel, doc: drawing, ref: `${rel}#${id}` };
+  }
+  const scan = scanMarks(episodeRoot);
+  const found = scan.marks.filter((m) => m.id === id);
+  if (found.length === 1) return found[0];
+  if (found.length > 1) throw new Error(`mark ${id} is on ${found.map((m) => m.drawing).join(" and ")}: pass --doc <drawing>`);
+  const unread = scan.unreadable.length ? ` (${scan.unreadable.join(", ")} did not read)` : "";
+  throw new Error(`no mark ${id} on the episode's drawings${unread}: pass --doc <drawing>`);
+}
+
+function sayChunks(text, limit = STEP_SAY_CHARS) {
+  const pieces = [];
+  for (const para of text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)) {
+    let rest = para;
+    while (rest.length > limit) {
+      const space = rest.lastIndexOf(" ", limit);
+      const cut = space > 0 ? space : limit;
+      pieces.push(rest.slice(0, cut).trim());
+      rest = rest.slice(cut).trim();
+    }
+    if (rest) pieces.push(rest);
+  }
+  const chunks = [];
+  for (const piece of pieces) {
+    if (chunks.length && chunks.at(-1).length + 2 + piece.length <= limit) chunks[chunks.length - 1] += `\n\n${piece}`;
+    else chunks.push(piece);
+  }
+  return chunks;
+}
+
+/** The walk a mark's answer takes when the seat writes no steps: its words, lighting what was marked. */
+export function markSteps(mark, text, system = "") {
+  const anchor = {
+    doc: mark.doc,
+    ...(system ? { system } : {}),
+    ...(mark.elements.length ? { spotlight: mark.elements.slice(0, 20) } : {}),
+    ...(mark.region ? { region: mark.region } : {}),
+  };
+  return sayChunks(text).map((say) => ({ say, ...anchor }));
+}
+
+/**
+ * Mia's words in the mark's thread, written in the sidecar itself: smcraft's replyToMark
+ * (bridge-protocol/src/stage/marks.ts) in plain JS. An agent answering a person's mark
+ * answers it; a resolved mark stays resolved; the rest of the file is kept as it was.
+ * Temp file, then rename. `once` skips a reply already last in the thread with these words.
+ */
+export function replyInSidecar(drawing, id, words, { at = new Date().toISOString(), once = false } = {}) {
+  const said = String(words ?? "").trim();
+  if (!said) throw new Error("a reply says something: the words are empty");
+  const { sidecar, parsed } = readSidecar(drawing);
+  const index = parsed.marks.findIndex((m) => m && typeof m === "object" && m.id === id);
+  const mark = index < 0 ? null : readMark(parsed.marks[index]);
+  if (!mark) throw new Error(`no mark ${id} on ${basename(drawing)}`);
+  const last = mark.replies.at(-1);
+  if (once && last && last.author.role === "agent" && last.author.id === MIA_AUTHOR.id && last.text === said) return mark.status;
+  const status = mark.status === "resolved" ? "resolved" : MIA_AUTHOR.role !== mark.author.role ? "answered" : "open";
+  parsed.marks[index] = { ...parsed.marks[index], status, replies: [...mark.replies, { author: { ...MIA_AUTHOR }, text: said, at }] };
+  const tmp = `${sidecar}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(parsed, null, 2)}\n`);
+  renameSync(tmp, sidecar);
+  return status;
+}
+
+export function commandOnPath(name, env = process.env) {
+  for (const dir of String(env.PATH ?? "").split(delimiter)) {
+    if (!dir) continue;
+    const file = join(dir, name);
+    try {
+      accessSync(file, fsConstants.X_OK);
+      if (statSync(file).isFile()) return file;
+    } catch { /* not here */ }
+  }
+  return "";
+}
+
+/**
+ * The words into the mark's thread. With smcx on PATH, smcx writes the sidecar and tells the
+ * hub in one step, so open canvases update. Without it, or when it fails, the sidecar is
+ * written here and the hub is not told: an open canvas shows the answer when it reloads.
+ */
+export function answerInThread(mark, words, env = process.env) {
+  const smcx = commandOnPath("smcx", env);
+  let failed = "";
+  if (smcx) {
+    const bridge = env.STATELOOM_BRIDGE_URL || "";
+    try {
+      const said = execFileSync(smcx, [...(bridge ? ["--bridge", bridge] : []), "--doc", mark.doc, "--name", "Mia", "marks", "reply", mark.id, "--", words], {
+        encoding: "utf8", env, timeout: 30_000, stdio: ["ignore", "pipe", "pipe"],
+      });
+      const line = said.trim().split("\n").at(-1) ?? "";
+      return { ok: true, how: "smcx", told: line.includes(" — ") ? line.split(" — ").slice(1).join(" — ") : line || "smcx said nothing" };
+    } catch (error) {
+      failed = String(error?.stderr ?? "").trim().split("\n")[0] || message(error);
+    }
+  }
+  try {
+    replyInSidecar(mark.doc, mark.id, words, { once: Boolean(failed) });
+    return {
+      ok: true, how: "sidecar",
+      told: failed
+        ? `smcx failed (${failed}), so the sidecar was written directly and the hub was not told`
+        : "smcx is not on PATH, so the sidecar was written directly and the hub was not told: an open canvas shows it when it reloads",
+    };
+  } catch (error) {
+    return { ok: false, error: `${failed ? `smcx failed (${failed}), and ` : ""}${message(error)}` };
+  }
+}
+
+function voiceWords(answer) {
+  if (answer.voiced === true) return "voiced";
+  if (answer.unvoiced) return `not voiced: ${answer.unvoiced}`;
+  if (answer.voiced === false) return "voice still rendering, his page plays it when ready";
+  return "voice not reported by phone-capture";
 }
 
 // ---------- output ----------
@@ -686,7 +842,7 @@ function purposeLines(episode, take) {
 // Only when STATELOOM_BRIDGE_URL is set; a hub that does not answer in two seconds is a
 // wake without the canvas, never a wake held back.
 // `skip` names marks the wake already carries in full, so they are not listed twice.
-export async function canvasContext(env = process.env, { skip = [] } = {}) {
+export async function canvasContext(env = process.env, { skip = [], episode = null, marksOnly = false } = {}) {
   const bridge = env.STATELOOM_BRIDGE_URL || env.SMCRAFT_BRIDGE_URL;
   if (!bridge) return [];
   const stage = env.STATELOOM_STAGE || "default";
@@ -715,9 +871,16 @@ export async function canvasContext(env = process.env, { skip = [] } = {}) {
     for (const m of waiting.slice(0, 6)) {
       lines.push(`  mark ${m.id} · ${m.author.name} on ${m.elements.join(", ") || "an area"}: "${clip(m.text, 300)}"`);
     }
-    if (waiting.length) lines.push(`  He may be speaking about these. Answer one in its thread: smcx --doc "${ctx.doc}" marks reply <id> "<words>" (or answer_mark).`);
+    if (waiting.length) {
+      lines.push(
+        "  He may be speaking about these. Answer one with one act (its thread, his phone in your voice, his canvas lit):",
+        `  node "${SCRIPT}" reply --mark <id> --doc "${ctx.doc}"${episode ? ` --episode "${episode}"` : ""} <<'MIA' … MIA`,
+      );
+    }
   } catch { /* an unreadable sidecar is context lost, not a failure to wake */ }
-  lines.push("  To point at what you mean in your return: show_step (stateloom MCP) or smcx stage show --say \"…\" --spotlight kind:name.", "");
+  // A mark's one act lights what was marked; a step put on the stage beside it would stay there.
+  if (!marksOnly) lines.push("  To point at what you mean in your return: show_step (stateloom MCP) or smcx stage show --say \"…\" --spotlight kind:name.");
+  lines.push("");
   return lines;
 }
 
@@ -789,7 +952,7 @@ export function formatWake(episode, takes, { rearm = true, canvas = [], marks = 
       "  <the revised return>",
       "  MIA",
       marks.length
-        ? `5. In that same message: one Bash call that delivers the return (below), answers each mark in its thread, and runs the commit above if one is shown${then}`
+        ? `5. In that same message: one Bash call that clears the stage, delivers the return (below), answers each mark with its one act (below), and runs the commit above if one is shown${then}`
         : `5. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown${then}`,
       "Deliver the return to William's phone page, which waits for it and can voice it as Mia:",
       `  node "${SCRIPT}" reply ${takes.at(-1).takeId} --episode "${episode.root}" <<'MIA'`,
@@ -799,7 +962,7 @@ export function formatWake(episode, takes, { rearm = true, canvas = [], marks = 
   } else {
     lines.push(
       "4. Jev check: jev-check reads takes, and this wake carries marks only, so there is no check to run. Note that backstage.",
-      `5. In that same message: one Bash call that answers each mark in its thread and lights what you mean (below)${then}`,
+      `5. In that same message: one Bash call that clears the stage and answers each mark with its one act (below)${then}`,
     );
   }
   if (marks.length) lines.push(...markAnswerLines(episode, marks, { walk: !takes.length }));
@@ -865,6 +1028,8 @@ function parseArgs(argv) {
     else if (arg === "--no-fetch") args.fetch = false;
     else if (arg === "--related") (args.related ??= []).push(argv[++i] ?? "");
     else if (arg === "--steps") args.steps = argv[++i];
+    else if (arg === "--mark") args.mark = argv[++i] ?? "";
+    else if (arg === "--doc") args.doc = argv[++i] ?? "";
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }
@@ -886,6 +1051,10 @@ const USAGE = `usage: mia-listen.mjs <command> [--episode <dir>] [--no-fetch]
                       [{say, doc?, focus?, spotlight?, region?, title?}], each step's words voiced on
                       their own and played while the canvas lights that step; a doc relative to the
                       episode resolves there. With steps, stdin may be empty: the words are theirs
+                      [--mark <id> [--doc <drawing>]] answer a mark on the episode's drawings in one
+                      act: the reply carries the mark, the same words go into its thread (through
+                      smcx, which tells the hub, else written in the sidecar), and without --steps
+                      one step lights what was marked
 The episode defaults to the nearest directory above the cwd carrying episode.yaml.
 State: $MIADI_MIA_COMPANION_STATE_DIR, else $XDG_STATE_HOME/miadi-mia-companion.`;
 
@@ -1069,7 +1238,7 @@ export function stepProblems(steps) {
   return problems;
 }
 
-async function postReply(episode, takeId, text, related = [], steps = []) {
+async function postReply(episode, takeId, text, related = [], steps = [], mark = null) {
   const port = process.env.MIADI_PHONE_CAPTURE_PORT || "8771";
   const origin = currentOrigin();
   const response = await fetch(`http://127.0.0.1:${port}/api/replies`, {
@@ -1079,12 +1248,47 @@ async function postReply(episode, takeId, text, related = [], steps = []) {
       episode: episode.folder, take: takeId, text, seat: `claude-code@${origin.host}`, origin,
       ...(related.length ? { related } : {}),
       ...(steps.length ? { steps } : {}),
+      ...(mark ? { mark } : {}),
       ...(loopOf(takeId, text) ? { loop: loopOf(takeId, text) } : {}),
     }),
   });
   const answer = await response.json().catch(() => ({}));
   if (!response.ok || !answer.success) throw new Error(answer.error || `HTTP ${response.status}`);
   return answer;
+}
+
+// reply --mark: the voiced reply carrying the mark, then the same words in its thread. The
+// thread is written even when phone-capture refuses, since that is where he looks; the
+// line printed says which half landed, and the exit is 3 unless both did.
+async function answerMark(episode, takeId, mark, text, related, given) {
+  const steps = given.length ? given : markSteps(mark, text, systemOf(episode.root, mark.doc));
+  const words = text || given.map((step) => step.say).join("\n\n");
+  let answer = null;
+  let undelivered = "";
+  try {
+    answer = await postReply(episode, takeId, text, related, steps, { id: mark.id, doc: mark.doc });
+  } catch (error) {
+    undelivered = message(error);
+  }
+  const thread = answerInThread(mark, words);
+  // While the seat answers several marks, the page keeps saying which ones are left.
+  const present = listenerOf(episode);
+  if (present?.state === "answering" && (answer || thread.ok)) {
+    const left = (Array.isArray(present.marks) ? present.marks : []).filter((id) => id !== mark.id);
+    if (left.length) writeBeat(episode, { state: "answering", takes: present.takes ?? [], marks: left, since: present.since });
+    else writeBeat(episode, { state: "answered", takes: present.takes ?? [], ...(present.marks ? { marks: present.marks } : {}), ...(answer ? { reply: answer.id } : {}) });
+  }
+  const count = answer?.steps ?? steps.length;
+  console.log([
+    answer ? `mia-listen: reply ${answer.id}` : `mia-listen: reply not delivered to phone-capture (${undelivered})`,
+    answer ? voiceWords(answer) : "not voiced",
+    thread.ok
+      ? `answers mark ${mark.id} on ${basename(mark.doc)}, in its thread (${thread.how === "smcx" ? `smcx: ${thread.told}` : thread.told})`
+      : `mark ${mark.id} on ${basename(mark.doc)} NOT answered in its thread: ${thread.error}`,
+    `${count} step${count === 1 ? "" : "s"} for the canvas`,
+    ...(answer?.recording ? ["William is recording: it waits silent on his page until he sends his take"] : []),
+  ].join(" · "));
+  return answer && thread.ok ? 0 : EXIT_UNDELIVERED;
 }
 
 async function main() {
@@ -1117,10 +1321,31 @@ async function main() {
       console.error("mia-listen: reply takes an optional 12-digit take id, and the return on stdin");
       return EXIT_NO_EPISODE;
     }
+    // --mark: the one act that answers a mark (review R3). The mark is found before anything
+    // is posted, so a wrong id or a sidecar that does not parse changes nothing.
+    if (args.mark !== undefined && !MARK_ID.test(args.mark)) {
+      console.error(`mia-listen: --mark takes a mark id like m-0mvg4iw5pd4sg (got '${args.mark}')`);
+      return EXIT_NO_EPISODE;
+    }
+    if (args.doc !== undefined && args.mark === undefined) {
+      console.error("mia-listen: --doc names the drawing of --mark; pass --mark <id> with it");
+      return EXIT_NO_EPISODE;
+    }
+    let mark = null;
+    if (args.mark !== undefined) {
+      try {
+        mark = findMark(episode.root, args.mark, args.doc);
+      } catch (error) {
+        console.error(`mia-listen: ${message(error)}`);
+        return EXIT_NO_EPISODE;
+      }
+    }
     let steps = [];
     if (args.steps) {
       try {
         steps = readSteps(args.steps, episode.root);
+        // A walk that answers a mark starts on the mark's drawing unless it names another.
+        if (mark && !steps[0].doc) steps[0] = { ...steps[0], doc: mark.doc };
         const problems = stepProblems(steps);
         if (problems.length) throw new Error(`the steps light what their drawings do not hold, so his canvas would show nothing there. Fix them and send again:\n  ${problems.join("\n  ")}`);
       } catch (error) {
@@ -1140,6 +1365,7 @@ async function main() {
       console.error(`mia-listen: ${message(error)}`);
       return EXIT_NO_EPISODE;
     }
+    if (mark) return answerMark(episode, takeId, mark, text, related, steps);
     try {
       const answer = await postReply(episode, takeId, text, related, steps);
       const present = listenerOf(episode);
@@ -1163,7 +1389,7 @@ async function main() {
       return EXIT_NO_EPISODE;
     }
     if (command === "show") {
-      console.log(formatWake(episode, matches, { rearm: false, canvas: await canvasContext() }));
+      console.log(formatWake(episode, matches, { rearm: false, canvas: await canvasContext(process.env, { episode: episode.root }) }));
       return 0;
     }
     const { state } = ensureState(episode, scan.takes);
@@ -1242,7 +1468,7 @@ async function main() {
         ...(marks.length ? { marks: [...new Set(marks.map((mark) => mark.id))] } : {}),
         since: listeningSince,
       });
-      console.log(formatWake(episode, ready, { marks, canvas: await canvasContext(process.env, { skip: marks.map((mark) => mark.id) }) }));
+      console.log(formatWake(episode, ready, { marks, canvas: await canvasContext(process.env, { skip: marks.map((mark) => mark.id), episode: episode.root, marksOnly: !ready.length }) }));
       return 0;
     }
     if (Date.now() >= deadline) {

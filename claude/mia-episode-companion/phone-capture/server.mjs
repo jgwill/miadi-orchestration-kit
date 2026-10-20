@@ -165,14 +165,19 @@ const LISTENER_STALE_MS = 120_000;
 const ANSWERING_STALE_MS = 15 * 60 * 1000;
 const AWAY = Object.freeze({ state: "away" });
 
+// A seat woken by a mark on the episode's drawings (smcraft Spec 83) names the marks it is
+// answering, so a page can say "Mia is answering your mark".
+const MARK_ID = /^m-[0-9a-z]{1,40}$/;
+
 export function listenerState(dir, episode) {
   try {
     const beat = JSON.parse(readFileSync(join(dir, `${episode}.listening.json`), "utf8"));
     const age = Date.now() - Date.parse(beat.at);
     const takes = Array.isArray(beat.takes) ? beat.takes.filter((take) => /^\d{12}$/.test(take)) : [];
-    if (beat.state === "answering") return age > ANSWERING_STALE_MS ? AWAY : { state: "answering", takes };
+    const marks = Array.isArray(beat.marks) ? beat.marks.filter((id) => typeof id === "string" && MARK_ID.test(id)).slice(0, 40) : [];
+    if (beat.state === "answering") return age > ANSWERING_STALE_MS ? AWAY : { state: "answering", takes, marks };
     if (age > LISTENER_STALE_MS) return AWAY;
-    if (beat.state === "answered") return { state: "answered", takes };
+    if (beat.state === "answered") return { state: "answered", takes, marks };
     try { process.kill(beat.pid, 0); } catch { return AWAY; }
     return { state: "listening" };
   } catch {
@@ -422,6 +427,16 @@ export function cleanContext(raw) {
   return Object.keys(out).length ? out : null;
 }
 
+// The mark on a drawing that a reply answers (mia-listen reply --mark): its id and the
+// drawing's absolute path, so a page can say "answering mark …" and open it.
+export function cleanMark(value) {
+  if (!value || typeof value !== "object") return null;
+  const id = typeof value.id === "string" ? value.id : "";
+  const doc = typeof value.doc === "string" ? value.doc : "";
+  if (!MARK_ID.test(id) || !JSON_PATH.test(doc)) return null;
+  return { id, doc };
+}
+
 const stepAudio = (repliesDir, id, index) => join(repliesDir, "audio", id, `step-${index}.mp3`);
 
 function readFeedback(repliesDir, episode) {
@@ -443,6 +458,7 @@ function publicReply(reply, repliesDir, feedback = null) {
     ...(problem ? { unvoiced: `This reply cannot be voiced: ${problem}.` } : {}),
     ...(feedback?.get(reply.id) ? { feedback: feedback.get(reply.id) } : {}),
     ...(reply.related?.length ? { related: reply.related } : {}),
+    ...(reply.mark ? { mark: reply.mark } : {}),
     ...(reply.steps?.length
       ? { steps: reply.steps.map((step, index) => ({ ...step, audio: existsSync(stepAudio(repliesDir, reply.id, index)) ? `api/replies/${reply.id}/steps/${index}/audio` : null })) }
       : {}),
@@ -604,6 +620,8 @@ export function createApp({
     const related = cleanRelated(body.related);
     if (related.length) reply.related = related;
     if (steps.length) reply.steps = steps;
+    const mark = cleanMark(body.mark);
+    if (mark) reply.mark = mark;
     const loop = cleanLoop(body.loop);
     if (loop) reply.loop = loop;
     mkdirSync(repliesDir, { recursive: true });
@@ -613,9 +631,11 @@ export function createApp({
     const recording = recorderState(reply.episode).recording ? { recording: true } : {};
     // The text is kept either way: William can still read and copy it.
     const problem = originProblem(reply.origin);
-    const counted = steps.length ? { steps: steps.length } : {};
-    if (problem) return { success: true, id: reply.id, ...recording, ...counted, unvoiced: `${problem}. ${POST_WITH_MIA_LISTEN}` };
-    if (!voice) return { success: true, id: reply.id, ...recording, ...counted };
+    const counted = { ...(steps.length ? { steps: steps.length } : {}), ...(mark ? { mark } : {}) };
+    // `voiced` says whether her voice for it exists when this answers; false with no
+    // `unvoiced` reason means it is still rendering and the page plays it once it is ready.
+    if (problem) return { success: true, id: reply.id, ...recording, ...counted, voiced: false, unvoiced: `${problem}. ${POST_WITH_MIA_LISTEN}` };
+    if (!voice) return { success: true, id: reply.id, ...recording, ...counted, voiced: false, unvoiced: "the voice layer is not configured on this host" };
     // Voiced now, while the pane that wrote it is the pane its origin names. The mp3 is a
     // file on this host, so a later reboot that renumbers the panes cannot take it away.
     let timer;
@@ -628,7 +648,8 @@ export function createApp({
       new Promise((done) => { timer = setTimeout(done, VOICE_AT_POST_MS, ""); }),
     ]).finally(() => clearTimeout(timer));
     return {
-      success: true, id: reply.id, ...recording, ...(steps.length ? { steps: steps.length } : {}),
+      success: true, id: reply.id, ...recording, ...counted,
+      voiced: !refused && existsSync(join(repliesDir, "audio", `${reply.id}.mp3`)),
       ...(refused ? { unvoiced: `the voice layer refused: ${refused}` } : {}),
     };
   }

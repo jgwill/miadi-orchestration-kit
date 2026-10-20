@@ -109,9 +109,9 @@ wake adds a line `On William's canvas (stage '…'): …` — the stateloom draw
 canvas, the element in hand, where a tour stands — and the marks on that drawing he has not
 had answered (smcraft Spec 83). He may be speaking about what he marked: hear the take with
 those elements in mind. To point at what you mean, put it on his canvas (`show_step`, or
-`smcx stage show --say "…" --spotlight kind:name`) in the same turn, and answer a mark in
-its thread (`answer_mark`, or the `smcx … marks reply` the wake prints). The phone return
-stays the return; the canvas only shows what it names. No line when no hub answers.
+`smcx stage show --say "…" --spotlight kind:name`) in the same turn. Answer a mark listed
+there with its one act, `mia-listen reply --mark <id> --doc <drawing>` (below). The phone
+return stays the return; the canvas only shows what it names. No line when no hub answers.
 
 **When he spoke at the canvas** (the take carries `canvas.json`, and the wake says
 `spoken at his stateloom canvas, looking at …`), the return can be a walk through the
@@ -132,15 +132,24 @@ question a person answered), once, and again when he adds to its thread or reope
 wake gives the drawing, what the mark is on, its words and its thread. A take and a mark that
 arrive together come as one wake. The same turn applies: the editor reads the mark's words
 and thread as the take, and Jev, which reads takes only, has nothing to check on a wake of
-marks alone. Answer in this order:
+marks alone. He asked for one conversation: he marks or records, she replies, her voice plays
+while the canvas lights what she means. So each mark gets **one act**, in one Bash call:
 
-1. **In the thread first.** He wrote there, so he reads there: `smcx … marks reply <id>
-   "<words>"` as the wake prints it, one short answer per mark.
-2. **Light it.** In the same Bash call, `smcx … stage show --drawing … --spotlight … --say "…"`
-   puts what you mean on his canvas while he reads.
-3. **Voice it when it helps.** When the answer is about the drawing and worth hearing, also
-   post it as a walk with `mia-listen reply --steps <file>`. It plays on his canvas and his
-   phone. A short answer to a short mark stays in the thread.
+1. **Clear the stage first.** `smcx --bridge "$STATELOOM_BRIDGE_URL" stage control stop`
+   takes off any step left there, so it does not cover your walk or stay on every canvas
+   that opens later. It goes before the replies, never after: the pages walk your reply from
+   the companion thread, and a stage stop that reaches them mid-walk ends it.
+2. **One act per mark.** `mia-listen reply --mark <id> --doc <drawing>` with your words on
+   stdin (a heredoc), as the wake prints it. That one command posts the reply to his phone
+   page and the companion thread in your voice, records which mark it answers, writes the same
+   words into the mark's thread (through `smcx`, which also tells the hub so open canvases
+   update; when `smcx` is not on PATH it writes the sidecar itself and says so), and, without
+   `--steps`, walks one step that lights what he marked while your words play. Add
+   `--steps <file>` to walk further; the first step opens the mark's drawing unless it names
+   another. The line it prints says the reply id, whether it was voiced (and the voice
+   layer's reason when not), the mark answered and the steps. Exit 3 means one half did not
+   land: the line says which. Do not run the act twice, since the thread would hold the
+   words twice.
 
 Then re-arm, as after a take.
 

@@ -9,6 +9,11 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(new URL("./mia-listen.mjs", import.meta.url));
+// Hermetic: no child of these tests reads the live stateloom hub or posts to the live
+// phone-capture. A test that needs either passes its own stub.
+process.env.STATELOOM_BRIDGE_URL = "http://127.0.0.1:9";
+delete process.env.SMCRAFT_BRIDGE_URL;
+process.env.MIADI_PHONE_CAPTURE_PORT = "1";
 const FOLDER = "2026-01-01-episode-900-fixture";
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
@@ -315,7 +320,10 @@ test("the wake says what William's stateloom canvas shows and the marks waiting 
     assert.match(text, /On William's canvas \(stage 'trading', reported now\): wave\.smdf\.json \(machine\), state:Reading in hand, tour 'Walk' at step 2 of 3\./);
     assert.match(text, /mark m-1 · Guillaume on state:Reading: "why does it stop here\?"/);
     assert.doesNotMatch(text, /m-2|m-3/, "an agent's own question and a resolved mark are not waiting on Mia");
-    assert.match(text, /marks reply <id>/);
+    assert.match(text, /mia-listen\.mjs" reply --mark <id> --doc ".*wave\.smdf\.json" <<'MIA'/);
+    const forMarks = (await canvasContext(env, { marksOnly: true, episode: "/ep" })).join("\n");
+    assert.doesNotMatch(forMarks, /show_step|stage show/, "a wake of marks alone points at the one act, not at a step left on the stage");
+    assert.match(forMarks, /reply --mark <id> --doc ".*wave\.smdf\.json" --episode "\/ep" <<'MIA'/);
     assert.deepEqual(await canvasContext({}), [], "no hub configured: no canvas lines");
     assert.deepEqual(await canvasContext({ STATELOOM_BRIDGE_URL: "http://127.0.0.1:9" }), [], "an unreachable hub is a wake without the canvas");
 
@@ -451,9 +459,10 @@ test("a person's new mark on a drawing wakes await, with its thread and how to a
   assert.match(woke.stdout, /on state:Witnessing \(inside Root\)/);
   assert.match(woke.stdout, /"Wouldn't that be one more state machine in between\?"/);
   assert.match(woke.stdout, /thread:\n {4}Guillaume, 2026-10-20T03:29:46\.215Z: Are you replying to me here/);
-  assert.match(woke.stdout, /smcx --bridge "\$STATELOOM_BRIDGE_URL" --name Mia --doc ".*diagrams\/walk\.smdf\.json" marks reply m-1 "<words>"/);
-  assert.match(woke.stdout, /stage show --drawing ".*diagrams\/walk\.smdf\.json" --system ".*diagrams\/walk\.sysdf\.json" --spotlight "state:Witnessing" --say/);
-  assert.match(woke.stdout, /mia-listen\.mjs" reply --episode ".*" --steps <that file> <\/dev\/null/);
+  // One act per mark (review R3): the stop first, then reply --mark, nothing else to run.
+  assert.match(woke.stdout, /clear any step left on the stage[^\n]*\n {2}smcx --bridge "\$STATELOOM_BRIDGE_URL" stage control stop\n {2}node ".*mia-listen\.mjs" reply --mark m-1 --doc ".*diagrams\/walk\.smdf\.json" --episode ".*" <<'MIA'\n {2}<your words for mark m-1>\n {2}MIA\n/);
+  assert.match(woke.stdout, /add --steps <that file> to that mark's act/);
+  assert.doesNotMatch(woke.stdout, /marks reply|stage show|show_step/, "the thread write and the canvas walk are inside reply --mark");
   assert.match(woke.stdout, /Turn budget/);
   assert.match(woke.stdout, /re-arm in the background: node ".*mia-listen\.mjs" await --episode/);
   assert.doesNotMatch(woke.stdout, /NEW TAKE/);
@@ -545,10 +554,135 @@ test("a take and a mark arriving together make one wake that carries both", () =
   assert.equal(woke.code, 0, woke.stderr);
   assert.match(woke.stdout, /^NEW TAKE FROM WILLIAM[\s\S]*Look at what I marked\.[\s\S]*NEW MARK FROM WILLIAM[\s\S]*mark m-1/);
   assert.match(woke.stdout, /--take 260101000007 --draft -/);
-  assert.match(woke.stdout, /delivers the return \(below\), answers each mark in its thread/);
-  assert.match(woke.stdout, /marks reply m-1 "<words>"/);
+  assert.match(woke.stdout, /clears the stage, delivers the return \(below\), answers each mark with its one act/);
+  assert.match(woke.stdout, /reply --mark m-1 --doc ".*walk\.smdf\.json"/);
+  assert.match(woke.stdout, /stage control stop/);
   const beat = JSON.parse(readFileSync(join(fx.state, `${FOLDER}.listening.json`), "utf8"));
   assert.deepEqual(beat.takes, ["260101000007"]);
   assert.deepEqual(beat.marks, ["m-1"]);
   assert.match(run(fx, ["status", "--no-fetch"]).stdout, /listening now: answering 260101000007, mark m-1/);
+});
+
+// ---------- reply --mark (review R3) ----------
+// 2026-10-20: a mark answered in its thread was silent and absent from the companion thread,
+// and a voiced reply left the mark open. One act now does both.
+
+function stubCapture() {
+  return import("node:http").then(({ createServer }) => {
+    const received = [];
+    const server = createServer(async (req, res) => {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      const parsed = JSON.parse(body);
+      received.push(parsed);
+      res.writeHead(200, { "content-type": "application/json" })
+        .end(JSON.stringify({ success: true, id: `stub-${received.length}`, steps: parsed.steps?.length ?? 0, voiced: true, ...(parsed.mark ? { mark: parsed.mark } : {}) }));
+    });
+    return new Promise((done) => server.listen(0, "127.0.0.1", () => done({ server, received, port: server.address().port })));
+  });
+}
+
+// Spawned by absolute path, so PATH says only where smcx is (or that it is nowhere).
+function replyMark(fx, args, input, env) {
+  return new Promise((done) => {
+    const child = spawn(process.execPath, [SCRIPT, "reply", ...args, "--episode", fx.episodeRoot], {
+      env: { HOME: process.env.HOME, MIADI_MIA_COMPANION_STATE_DIR: fx.state, ...env },
+    });
+    let stdout = "", stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("exit", (status) => done({ status, stdout, stderr }));
+    child.stdin.end(input);
+  });
+}
+
+const sidecarOf = (fx) => JSON.parse(readFileSync(join(fx.episodeRoot, "diagrams", "walk.smdf.marks.json"), "utf8"));
+
+test("reply --mark posts a voiced reply carrying the mark and a step lighting it, and smcx answers the thread", async () => {
+  const fx = fixture();
+  drawing(fx.episodeRoot);
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark(), personMark({ id: "m-2", elements: [], region: { x: 1, y: 2, width: 30, height: 40 }, text: "and here?" })]);
+  // A stand-in for the global smcx that keeps the arguments it was given.
+  const bin = join(fx.base, "bin");
+  mkdirSync(bin, { recursive: true });
+  const log = join(fx.base, "smcx.log");
+  writeFileSync(join(bin, "smcx"), `#!/usr/bin/env node\nrequire("node:fs").appendFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)) + "\\n");\nconsole.log("answered " + process.argv[process.argv.length - 3] + " on walk.smdf.json — not live: xhr poll error");\n`, { mode: 0o755 });
+  mkdirSync(fx.state, { recursive: true });
+  writeFileSync(join(fx.state, `${FOLDER}.listening.json`), JSON.stringify({ state: "answering", takes: [], marks: ["m-1", "m-2"], since: "s", at: new Date().toISOString() }));
+  const { server, received, port } = await stubCapture();
+  const env = { PATH: `${bin}:${join(process.execPath, "..")}`, MIADI_PHONE_CAPTURE_PORT: String(port), STATELOOM_BRIDGE_URL: "http://127.0.0.1:9", TMUX_PANE: "%999" };
+  const first = await replyMark(fx, ["--mark", "m-1", "--doc", "diagrams/walk.smdf.json"], "-Yes: the witness reads each session.\n", env);
+  const beat = JSON.parse(readFileSync(join(fx.state, `${FOLDER}.listening.json`), "utf8"));
+  const second = await replyMark(fx, ["--mark", "m-2"], "That area is the hand-off.\n", env);
+  server.close();
+
+  assert.equal(first.status, 0, first.stderr);
+  assert.equal(first.stdout, "mia-listen: reply stub-1 · voiced · answers mark m-1 on walk.smdf.json, in its thread (smcx: not live: xhr poll error) · 1 step for the canvas\n");
+  const doc = join(fx.episodeRoot, "diagrams", "walk.smdf.json");
+  assert.deepEqual(received[0].mark, { id: "m-1", doc });
+  assert.equal(received[0].text, "-Yes: the witness reads each session.");
+  assert.deepEqual(received[0].steps, [{ say: "-Yes: the witness reads each session.", doc, system: join(fx.episodeRoot, "diagrams", "walk.sysdf.json"), spotlight: ["state:Witnessing"] }]);
+  assert.equal(received[0].origin.pane, "%999");
+  const calls = readFileSync(log, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+  assert.deepEqual(calls[0], ["--bridge", "http://127.0.0.1:9", "--doc", doc, "--name", "Mia", "marks", "reply", "m-1", "--", "-Yes: the witness reads each session."]);
+  assert.equal(sidecarOf(fx).marks[0].status, "open", "smcx writes the thread; mia-listen does not write it twice");
+
+  assert.deepEqual(beat.marks, ["m-2"], "the page still sees the mark not yet answered");
+  assert.equal(beat.state, "answering");
+  assert.equal(second.status, 0, second.stderr);
+  assert.deepEqual(received[1].steps[0].region, { x: 1, y: 2, width: 30, height: 40 }, "an area mark walks to its area");
+  assert.equal(received[1].steps[0].spotlight, undefined);
+  assert.equal(JSON.parse(readFileSync(join(fx.state, `${FOLDER}.listening.json`), "utf8")).state, "answered");
+});
+
+test("reply --mark writes the thread itself when smcx is not on PATH, and refuses what it cannot answer", async () => {
+  const fx = fixture();
+  drawing(fx.episodeRoot);
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [{ ...personMark(), extra: "kept" }, personMark({ id: "m-5", status: "resolved" })]);
+  const empty = join(fx.base, "no-smcx");
+  mkdirSync(empty, { recursive: true });
+  const { server, received, port } = await stubCapture();
+  const env = { PATH: empty, MIADI_PHONE_CAPTURE_PORT: String(port) };
+  const steps = join(fx.base, "steps.json");
+  writeFileSync(steps, JSON.stringify([{ say: "Here it starts.", spotlight: ["state:Witnessing"] }, { say: "And it ends here." }]));
+  const answered = await replyMark(fx, ["--mark", "m-1", "--steps", steps], "", env);
+  const kept = await replyMark(fx, ["--mark", "m-5"], "Still resolved.\n", env);
+  const badId = await replyMark(fx, ["--mark", "M 1"], "x", env);
+  const missing = await replyMark(fx, ["--mark", "m-404"], "x", env);
+  writeFileSync(join(fx.episodeRoot, "diagrams", "torn.smdf.marks.json"), '{"marks": [{"id": "m-1"');
+  const torn = await replyMark(fx, ["--mark", "m-1", "--doc", "diagrams/torn.smdf.json"], "x", env);
+  server.close();
+
+  assert.equal(answered.status, 0, answered.stderr);
+  assert.match(answered.stdout, /^mia-listen: reply stub-1 · voiced · answers mark m-1 on walk\.smdf\.json, in its thread \(smcx is not on PATH, so the sidecar was written directly and the hub was not told: an open canvas shows it when it reloads\) · 2 steps for the canvas\n$/);
+  assert.equal(received[0].steps[0].doc, join(fx.episodeRoot, "diagrams", "walk.smdf.json"), "a walk answering a mark starts on its drawing");
+  const marks = sidecarOf(fx).marks;
+  assert.equal(marks[0].status, "answered", "an agent's reply answers a person's mark");
+  assert.equal(marks[0].extra, "kept", "the rest of the mark is left as it was");
+  assert.deepEqual(marks[0].replies.map((r) => [r.author, r.text]), [[MIA, "Here it starts.\n\nAnd it ends here."]], "with stdin empty the thread gets the steps' words");
+  assert.ok(Date.parse(marks[0].replies[0].at));
+  assert.equal(kept.status, 0, kept.stderr);
+  assert.equal(marks[1].status, "resolved", "a resolved mark stays resolved");
+  assert.equal(marks[1].replies.at(-1).text, "Still resolved.");
+
+  assert.equal(badId.status, 2);
+  assert.match(badId.stderr, /--mark takes a mark id/);
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /no mark m-404 on the episode's drawings/);
+  assert.equal(torn.status, 2);
+  assert.match(torn.stderr, /torn\.smdf\.marks\.json does not parse, so it is left as it is/);
+  assert.equal(received.length, 2, "nothing is posted for a mark that cannot be answered");
+  assert.equal(readFileSync(join(fx.episodeRoot, "diagrams", "torn.smdf.marks.json"), "utf8"), '{"marks": [{"id": "m-1"');
+});
+
+test("reply --mark still answers in the thread when phone-capture is down, and says only that half landed", async () => {
+  const fx = fixture();
+  drawing(fx.episodeRoot);
+  writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark()]);
+  const empty = join(fx.base, "no-smcx");
+  mkdirSync(empty, { recursive: true });
+  const out = await replyMark(fx, ["--mark", "m-1"], "Yes.\n", { PATH: empty, MIADI_PHONE_CAPTURE_PORT: "1" });
+  assert.equal(out.status, 3);
+  assert.match(out.stdout, /^mia-listen: reply not delivered to phone-capture \(.+\) · not voiced · answers mark m-1 on walk\.smdf\.json, in its thread/);
+  assert.equal(sidecarOf(fx).marks[0].status, "answered");
 });

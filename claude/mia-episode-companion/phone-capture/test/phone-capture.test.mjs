@@ -8,9 +8,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CaptureService, ConcatSegmentJoiner, FileImportDriver, resolveConfig } from "@miadi/capture-service";
-import { cleanContext, cleanSteps, createApp, followSeat, listenerState, speakable, SpokenLanguageTranscriber, voiceParts } from "../server.mjs";
+import { cleanContext, cleanMark, cleanSteps, createApp, followSeat, listenerState, speakable, SpokenLanguageTranscriber, voiceParts } from "../server.mjs";
 
 const LISTENER = fileURLToPath(new URL("../../scripts/mia-listen.mjs", import.meta.url));
+// Hermetic: the listener these tests run never reads the live stateloom hub.
+process.env.STATELOOM_BRIDGE_URL = "http://127.0.0.1:9";
+delete process.env.SMCRAFT_BRIDGE_URL;
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
 
 async function bridge({ transcriber, voice = null, language = "fr", locate } = {}) {
@@ -332,13 +335,21 @@ test("the page is told whether a seat is listening on the episode", async () => 
     state({ state: "answering", takes: ["260929100901"], at: new Date(Date.now() - 6 * 60 * 1000).toISOString(), pid: 2147480000 });
     const answering = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}`)).json();
     assert.equal(answering.listening, true, "a seat answering a take is in the room");
-    assert.deepEqual(answering.presence, { state: "answering", takes: ["260929100901"] });
+    assert.deepEqual(answering.presence, { state: "answering", takes: ["260929100901"], marks: [] });
     state({ state: "answering", takes: ["260929100901"], at: new Date(Date.now() - 16 * 60 * 1000).toISOString() });
     assert.equal(listenerState(listeners, EPISODE).state, "away", "an answer that never came ends after fifteen minutes");
     state({ state: "answered", takes: ["260929100901"], at: new Date().toISOString() });
     assert.equal(listenerState(listeners, EPISODE).state, "answered");
     state({ state: "answered", takes: ["260929100901"], at: new Date(Date.now() - 3 * 60 * 1000).toISOString() });
     assert.equal(listenerState(listeners, EPISODE).state, "away", "a seat that answered and never re-armed has left");
+
+    // A seat woken by marks on the drawings says which, so a page can say "Mia is answering your mark".
+    state({ state: "answering", takes: [], marks: ["m-0mvg4iw5pd4sg", "not a mark", 7, "m-2"], at: new Date().toISOString() });
+    const marking = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    assert.deepEqual(marking.presence, { state: "answering", takes: [], marks: ["m-0mvg4iw5pd4sg", "m-2"] });
+    state({ state: "answered", takes: [], marks: ["m-2"], at: new Date().toISOString() });
+    assert.deepEqual(listenerState(listeners, EPISODE), { state: "answered", takes: [], marks: ["m-2"] });
+    state({ state: "answered", takes: [], marks: ["m-2"], at: new Date(Date.now() - 3 * 60 * 1000).toISOString() });
 
     const stored = await (await fetch(`${b.url}/api/takes`, { method: "POST", headers: { "content-type": "audio/mp4" }, body: Buffer.from("bytes") })).json();
     assert.equal(stored.listening, false, "the answer to a take says whether it will be heard");
@@ -660,6 +671,49 @@ test("an allowed origin may read the conversation; a reply is still posted from 
     assert.match(pre.headers.get("access-control-allow-methods") || "", /GET/);
     const forwarded = await fetch(`${b.url}/api/replies`, { method: "POST", headers: { origin: chart, "content-type": "application/json", "x-forwarded-for": "100.1.2.3" }, body: JSON.stringify({ episode: EPISODE, text: "x" }) });
     assert.equal(forwarded.status, 403);
+  } finally {
+    b.close();
+  }
+});
+
+// Review R3, 2026-10-20: a reply that answers a mark on a drawing says which, so the
+// companion thread and the mark's thread are one conversation.
+test("a reply answering a mark keeps the mark, cleaned, and says whether it was voiced", async () => {
+  const requests = [];
+  const voice = { async render(request) { requests.push(request.text); return Buffer.from("ID3"); } };
+  const b = await bridge({ transcriber: stubTranscriber, voice });
+  try {
+    const doc = "/srv/ep/diagrams/screenwalk.smdf.json";
+    const post = (body) => fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, origin: { ...WRITTEN, pane: "%1" }, ...body }) }).then((r) => r.json());
+    const answered = await post({ text: "Yes, I answer here now.", mark: { id: "m-0mvg4iw5pd4sg", doc, extra: "dropped" },
+      steps: [{ say: "Yes, I answer here now.", doc, spotlight: ["state:Witnessing"] }] });
+    assert.equal(answered.success, true, JSON.stringify(answered));
+    assert.equal(answered.voiced, true, "voiced at post");
+    assert.deepEqual(answered.mark, { id: "m-0mvg4iw5pd4sg", doc });
+    const thread = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    const shown = thread.items.find((item) => item.id === answered.id);
+    assert.deepEqual(shown.mark, { id: "m-0mvg4iw5pd4sg", doc }, "the thread says which mark it answers");
+    assert.equal(shown.steps[0].audio, `api/replies/${answered.id}/steps/0/audio`);
+
+    for (const mark of [{ id: "M-1", doc }, { id: "m-1", doc: "relative.json" }, { id: "m-1", doc: "/srv/x.md" }, { id: `m-${"a".repeat(80)}`, doc }, "m-1"]) {
+      const kept = await post({ text: "Plain.", mark });
+      assert.equal(kept.mark, undefined, JSON.stringify(mark));
+    }
+    assert.equal(cleanMark({ id: "m-1", doc: `/${"d".repeat(600)}.json` }), null, "a path past the cap is dropped");
+    assert.equal(thread.items.filter((item) => item.mark).length, 1);
+  } finally {
+    b.close();
+  }
+});
+
+test("without a voice layer the post says the reply is not voiced, and why", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const posted = await (await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, text: "Ready.", origin: { ...WRITTEN, pane: "%1" } }) })).json();
+    assert.equal(posted.voiced, false);
+    assert.match(posted.unvoiced, /voice layer is not configured/);
   } finally {
     b.close();
   }
