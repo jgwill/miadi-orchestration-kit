@@ -16,7 +16,7 @@ process.env.STATELOOM_BRIDGE_URL = "http://127.0.0.1:9";
 delete process.env.SMCRAFT_BRIDGE_URL;
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
 
-async function bridge({ transcriber, voice = null, language = "fr", locate } = {}) {
+async function bridge({ transcriber, voice = null, language = "fr", locate, links } = {}) {
   const base = mkdtempSync(join(tmpdir(), "phone-capture-"));
   const chronicleRoot = join(base, "chronicle");
   mkdirSync(join(chronicleRoot, EPISODE), { recursive: true });
@@ -34,7 +34,7 @@ async function bridge({ transcriber, voice = null, language = "fr", locate } = {
     registryClient: { register: async (record) => { registrations.push(record); return { success: true, id: record.id ?? "capture:stub" }; } },
   });
   const logged = [];
-  const app = createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate, recoverEveryMs: 0, log: (line) => logged.push(line), decisionsLedger: join(base, "decisions", "mia-return.jsonl") });
+  const app = createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate, recoverEveryMs: 0, log: (line) => logged.push(line), decisionsLedger: join(base, "decisions", "mia-return.jsonl"), links });
   const server = createServer(app);
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const url = `http://127.0.0.1:${server.address().port}`;
@@ -716,5 +716,102 @@ test("without a voice layer the post says the reply is not voiced, and why", asy
     assert.match(posted.unvoiced, /voice layer is not configured/);
   } finally {
     b.close();
+  }
+});
+
+
+// Lane U, 2026-10-20 (U1): a seven-mark conversation on Episode 550's drawings, and the
+// thread said nothing had been said. With `include=marks` it is one conversation.
+test("asked for marks, the thread carries the episode's marks, skips a sidecar that does not read, and keeps a reply's link to its mark", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const diagrams = join(b.chronicleRoot, EPISODE, "diagrams");
+    mkdirSync(join(diagrams, "a", "b", "c", "d"), { recursive: true });
+    const doc = join(diagrams, "screenwalk.smdf.json");
+    writeFileSync(doc, JSON.stringify({ stateMachine: { settings: { name: "Screenwalk" }, state: {} } }));
+    writeFileSync(join(diagrams, "screenwalk.smdf.marks.json"), JSON.stringify({ doc: "screenwalk.smdf.json", marks: [
+      { id: "m-0mvg4iw5pd4sg", kind: "comment", elements: ["state:Witnessing"], level: "Root", text: `Wouldn't that be one more machine? ${"x".repeat(5000)}`,
+        author: { id: "node:human:1", name: "Guillaume", role: "person" }, at: "2026-10-20T03:28:41.292Z", status: "answered",
+        replies: [
+          { author: { name: "Guillaume", role: "person" }, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" },
+          { author: { id: "mia", name: "Mia", role: "agent" }, text: "Yes, I answer here now.", at: "2026-10-20T03:33:32.210Z" },
+          { author: { name: "Mia", role: "agent" }, text: "   ", at: "2026-10-20T03:34:00.000Z" },
+        ] },
+      { id: "m-0mvg4lhv40b6v", region: { x: 37.5, y: -61.5, width: 62.9, height: 62.9 }, text: "An area.", author: { name: "Guillaume" }, at: "2026-10-20T03:30:42.736Z", status: "nonsense" },
+      { id: "m-silent", text: "   ", at: "2026-10-20T03:31:00.000Z" },
+    ] }));
+    writeFileSync(join(diagrams, "broken.erdf.marks.json"), "{ not json");
+    writeFileSync(join(diagrams, "a", "b", "c", "deep.sqdf.marks.json"), JSON.stringify({ marks: [{ id: "m-deep", text: "Three folders down.", at: "2026-10-20T03:20:00.000Z" }] }));
+    writeFileSync(join(diagrams, "a", "b", "c", "d", "deeper.sqdf.marks.json"), JSON.stringify({ marks: [{ id: "m-deeper", text: "Four folders down.", at: "2026-10-20T03:21:00.000Z" }] }));
+    const posted = await (await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, text: "Yes, I answer here now.", mark: { id: "m-0mvg4iw5pd4sg", doc }, origin: { ...WRITTEN, pane: "%1" } }) })).json();
+
+    const plain = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}`)).json();
+    assert.equal(plain.items.filter((item) => item.kind === "mark").length, 0, "readers built before marks get the thread they know");
+
+    const thread = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}&include=marks`)).json();
+    const marks = thread.items.filter((item) => item.kind === "mark");
+    assert.deepEqual(marks.map((mark) => mark.id), ["m-deep", "m-0mvg4iw5pd4sg", "m-0mvg4lhv40b6v"], "in time order with the rest; the broken sidecar, the empty mark and the fifth folder are skipped");
+    const [, mark, area] = marks;
+    assert.equal(mark.doc, doc, "the drawing's absolute path");
+    assert.equal(mark.drawing, "screenwalk.smdf.json");
+    assert.equal(mark.title, "Screenwalk", "the drawing's own name, from settings.name");
+    assert.deepEqual(mark.elements, ["state:Witnessing"]);
+    assert.equal(mark.text.length, 4000, "words are capped");
+    assert.deepEqual(mark.author, { name: "Guillaume", role: "person" });
+    assert.equal(mark.at, "2026-10-20T03:28:41.292Z");
+    assert.equal(mark.lastAt, "2026-10-20T03:33:32.210Z", "the time of its latest reply");
+    assert.equal(mark.status, "answered");
+    assert.deepEqual(mark.replies, [
+      { author: { name: "Guillaume", role: "person" }, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" },
+      { author: { name: "Mia", role: "agent" }, text: "Yes, I answer here now.", at: "2026-10-20T03:33:32.210Z" },
+    ]);
+    assert.equal(mark.region, undefined);
+    assert.deepEqual(area.region, { x: 37.5, y: -61.5, width: 62.9, height: 62.9 });
+    assert.equal(area.status, "open", "an unknown status reads as open");
+    assert.equal(area.title, "Screenwalk");
+    assert.equal(marks[0].title, undefined, "a drawing that cannot be read has no title");
+    const reply = thread.items.find((item) => item.id === posted.id);
+    assert.equal(reply.kind, "reply");
+    assert.deepEqual(reply.mark, { id: "m-0mvg4iw5pd4sg", doc }, "her reply keeps the mark it answers, so a page can group them");
+    assert.ok(thread.items.indexOf(reply) > thread.items.indexOf(mark), "the reply, posted now, comes after the mark");
+  } finally {
+    b.close();
+  }
+});
+
+test("marks are capped at the 40 most recently active, and never push a take or a reply out", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const diagrams = join(b.chronicleRoot, EPISODE, "diagrams");
+    mkdirSync(diagrams, { recursive: true });
+    const marks = Array.from({ length: 45 }, (_, i) => ({ id: `m-${i}`, text: `Mark ${i}.`, at: new Date(Date.UTC(2026, 9, 20, 1, i)).toISOString(),
+      ...(i === 0 ? { replies: [{ author: { name: "Mia", role: "agent" }, text: "Late answer.", at: "2026-10-20T05:00:00.000Z" }] } : {}) }));
+    writeFileSync(join(diagrams, "many.smdf.marks.json"), JSON.stringify({ marks }));
+    await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ episode: EPISODE, text: "Earlier reply.", origin: { ...WRITTEN, pane: "%1" } }) });
+    const thread = await (await fetch(`${b.url}/api/thread?episode=${EPISODE}&include=marks`)).json();
+    const kept = thread.items.filter((item) => item.kind === "mark").map((item) => item.id);
+    assert.equal(kept.length, 40);
+    assert.ok(kept.includes("m-0"), "the oldest mark, answered last, is among the most recently active");
+    assert.ok(!kept.includes("m-1") && !kept.includes("m-5") && kept.includes("m-6") && kept.includes("m-44"));
+    assert.equal(thread.items.filter((item) => item.kind === "reply").length, 1, "the reply is still there");
+  } finally {
+    b.close();
+  }
+});
+
+test("the page learns where its links lead: the loom and the room, empty when not configured", async () => {
+  const set = await bridge({ transcriber: stubTranscriber, links: { loom: "https://loomino.example/", room: " https://miadi.example// " } });
+  const unset = await bridge({ transcriber: stubTranscriber });
+  const odd = await bridge({ transcriber: stubTranscriber, links: { loom: "javascript:alert(1)", room: "https://miadi.example/a b" } });
+  try {
+    assert.deepEqual(await (await fetch(`${set.url}/api/links`)).json(), { success: true, loom: "https://loomino.example", room: "https://miadi.example" });
+    assert.deepEqual(await (await fetch(`${unset.url}/api/links`)).json(), { success: true, loom: "", room: "" });
+    assert.deepEqual(await (await fetch(`${odd.url}/api/links`)).json(), { success: true, loom: "", room: "" });
+  } finally {
+    set.close();
+    unset.close();
+    odd.close();
   }
 });

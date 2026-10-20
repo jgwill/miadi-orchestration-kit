@@ -20,7 +20,7 @@ import { copyFile, rm } from "node:fs/promises";
 import { promisify } from "node:util";
 import { createServer } from "node:http";
 import { homedir, hostname, userInfo } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CaptureService,
@@ -223,6 +223,115 @@ function listTakes(dir) {
       } catch {}
       return { kind: "take", take, at: at || statSync(folder).mtime.toISOString(), text, ...(canvas ? { canvas } : {}) };
     });
+}
+
+// ---------- marks (smcraft Spec 83) ----------
+// William marks the episode's drawings on his stateloom canvas or in the room: elements or
+// an area, a few words, a thread of replies. The hub keeps them beside each drawing as
+// `<name>.<smdf|erdf|sqdf>.marks.json`. On 2026-10-20 he held a seven-mark conversation on
+// Episode 550's drawings, and this page said nothing had been said (lane U, U1 and U14).
+// The rules mirror readMark and the scan depth of ../scripts/mia-listen.mjs; every read is
+// defensive, and a sidecar that does not parse is skipped.
+//
+// The thread carries marks only when asked (`include=marks`): a reader built before kind
+// "mark" existed may draw it wrong. The stateloom Talk dock renders every item that is not
+// a take as one of Mia's replies, with a play button and thumbs.
+const MARKS_SIDECAR = /\.(smdf|erdf|sqdf)\.marks\.json$/i;
+const DRAWINGS_DEPTH = 3;
+const MARK_LIMIT = 40;
+const MARK_TEXT_CHARS = 4000;
+const MARK_REPLIES = 50;
+const MARK_STATUSES = ["open", "answered", "resolved"];
+const DRAWING_READ_BYTES = 4 * 1024 * 1024;
+
+const clipText = (value, max = MARK_TEXT_CHARS) => (typeof value === "string" ? value.trim().slice(0, max) : "");
+const isoOrEmpty = (value) => (typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value.slice(0, 40) : "");
+
+function markAuthorOf(value) {
+  const o = value && typeof value === "object" ? value : {};
+  const role = o.role === "agent" ? "agent" : "person";
+  return { name: clipText(o.name, 120) || clipText(o.id, 120) || (role === "agent" ? "agent" : "someone"), role };
+}
+
+function markRegionOf(value) {
+  if (!value || typeof value !== "object") return null;
+  const box = {};
+  for (const key of ["x", "y", "width", "height"]) {
+    if (typeof value[key] !== "number" || !Number.isFinite(value[key])) return null;
+    box[key] = value[key];
+  }
+  return box.width > 0 && box.height > 0 ? box : null;
+}
+
+// Sidecars under the episode's diagrams/, at most three folders down.
+function markSidecars(episodeRoot) {
+  const found = [];
+  const walk = (dir, depth) => {
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) { if (depth > 0) walk(path, depth - 1); } else if (MARKS_SIDECAR.test(entry.name)) found.push(path);
+    }
+  };
+  walk(join(episodeRoot, "diagrams"), DRAWINGS_DEPTH);
+  return found.sort();
+}
+
+// The drawing's own name (settings.name; a state machine keeps it under stateMachine).
+function drawingTitle(doc) {
+  try {
+    if (statSync(doc).size > DRAWING_READ_BYTES) return "";
+    const parsed = JSON.parse(readFileSync(doc, "utf8"));
+    return clipText((parsed?.settings ?? parsed?.stateMachine?.settings)?.name, 200);
+  } catch {
+    return "";
+  }
+}
+
+/** The episode's marks as thread items, the most recently active first, at most `limit`. Never throws. */
+export function readEpisodeMarks(episodeRoot, limit = MARK_LIMIT) {
+  const marks = [];
+  for (const sidecar of markSidecars(episodeRoot)) {
+    let parsed;
+    try { parsed = JSON.parse(readFileSync(sidecar, "utf8")); } catch { continue; }
+    const list = Array.isArray(parsed?.marks) ? parsed.marks : [];
+    if (!list.length) continue;
+    const doc = sidecar.replace(/\.marks\.json$/i, ".json");
+    const title = drawingTitle(doc);
+    let written = "";
+    try { written = statSync(sidecar).mtime.toISOString(); } catch {}
+    for (const raw of list) {
+      if (!raw || typeof raw !== "object") continue;
+      const id = typeof raw.id === "string" && raw.id.length <= 100 ? raw.id : "";
+      const text = clipText(raw.text);
+      if (!id || !text) continue;
+      const replies = (Array.isArray(raw.replies) ? raw.replies : []).flatMap((reply) => {
+        const said = clipText(reply?.text);
+        return said ? [{ author: markAuthorOf(reply.author), text: said, at: isoOrEmpty(reply.at) }] : [];
+      }).slice(-MARK_REPLIES);
+      const at = isoOrEmpty(raw.at) || written;
+      const lastAt = replies.reduce((latest, reply) => ((Date.parse(reply.at) || 0) > (Date.parse(latest) || 0) ? reply.at : latest), at);
+      const region = markRegionOf(raw.region);
+      marks.push({
+        kind: "mark", id, doc, drawing: basename(doc), ...(title ? { title } : {}),
+        elements: (Array.isArray(raw.elements) ? raw.elements : []).filter((e) => typeof e === "string" && e).slice(0, 40).map((e) => e.slice(0, 200)),
+        ...(region ? { region } : {}),
+        text, author: markAuthorOf(raw.author), at, lastAt,
+        status: MARK_STATUSES.includes(raw.status) ? raw.status : "open",
+        replies,
+      });
+    }
+  }
+  return marks.sort((a, b) => (Date.parse(b.lastAt) || 0) - (Date.parse(a.lastAt) || 0)).slice(0, limit);
+}
+
+// Where the page's links lead: the stateloom loom that opens one drawing (`?doc=`), and the
+// Miadi room of an episode (`/chronicle/<episode>#diagrams`). Empty means no link.
+export function linkBase(value) {
+  const base = String(value ?? "").trim().replace(/\/+$/, "");
+  return /^https?:\/\/[^\s"'<>]+$/.test(base) ? base : "";
 }
 
 // The trading chart records spoken notes for labelled examples through /api/takes
@@ -527,7 +636,9 @@ const VOICE_AT_POST_MS = 20_000;
 export function createApp({
   service, chronicleRoot, uploadsDir, repliesDir, listenerDir, voice = null, defaultEpisode = "",
   locate = () => null, log = () => {}, partStaleMs = PART_STALE_MS, recoverEveryMs = RECOVER_EVERY_MS, decisionsLedger = "",
+  links = {},
 }) {
+  const linkBases = { loom: linkBase(links.loom), room: linkBase(links.room) };
   const serial = serializer();
   const voicing = new Map(); // reply id → in-flight synthesis, so two taps make one voice
   const recorders = new Map(); // episode → { recording, since, seen }
@@ -557,9 +668,11 @@ export function createApp({
     const dir = episodeDir(chronicleRoot, episode);
     const feedback = readFeedback(repliesDir, episode);
     const replies = readReplies(repliesDir, episode).map((reply) => ({ kind: "reply", ...publicReply(reply, repliesDir, feedback) }));
-    const items = [...listTakes(dir), ...replies]
-      .sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0))
-      .slice(-THREAD_LIMIT);
+    const byTime = (a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0);
+    const said = [...listTakes(dir), ...replies].sort(byTime).slice(-THREAD_LIMIT);
+    // `include=marks` adds the episode's marks, capped on their own so they never push a take out.
+    const include = new Set(url.searchParams.getAll("include").flatMap((value) => value.split(",")).map((value) => value.trim()));
+    const items = include.has("marks") ? [...said, ...readEpisodeMarks(dir)].sort(byTime) : said;
     return { success: true, episode, presence: listenerState(listenerDir, episode), recorder: recorderState(episode), items };
   }
 
@@ -940,6 +1053,10 @@ export function createApp({
         sendJson(res, 200, { success: true, pid: process.pid, build: BUILD, defaultEpisode, capture: service.status() });
         return;
       }
+      if (req.method === "GET" && url.pathname === "/api/links") {
+        sendJson(res, 200, { success: true, ...linkBases });
+        return;
+      }
       if (req.method === "GET" && url.pathname === "/api/episodes") {
         sendJson(res, 200, { success: true, defaultEpisode, episodes: listEpisodes(chronicleRoot) });
         return;
@@ -1087,6 +1204,7 @@ async function main() {
     }),
     log: (line) => console.log(`[phone-capture] ${line}`),
     decisionsLedger: join(process.env.MIADI_DECISIONS_DIR || join(homedir(), ".miadi", "decisions"), "mia-return.jsonl"),
+    links: { loom: process.env.MIADI_PHONE_CAPTURE_LOOM_URL, room: process.env.MIADI_PHONE_CAPTURE_ROOM_URL },
   });
   createServer(handle).listen(port, host, () => {
     console.log(`[phone-capture] http://${host}:${port} → ${publicUrl}`);

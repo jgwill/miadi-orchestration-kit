@@ -13,5 +13,10 @@ for name in GROQ_API_KEY MIADI_API_TOKEN_WRITER; do
   fi
 done
 
+# Where the page's links lead: the stateloom loom that opens a drawing, and the Miadi room of
+# an episode. An empty value (set, but empty) means that link is not shown.
+export MIADI_PHONE_CAPTURE_LOOM_URL="${MIADI_PHONE_CAPTURE_LOOM_URL-https://loomino.tail3b11eb.ts.net}"
+export MIADI_PHONE_CAPTURE_ROOM_URL="${MIADI_PHONE_CAPTURE_ROOM_URL-https://miadi.tail3b11eb.ts.net}"
+
 : "${MIADI_CHRONICLE_ROOT:?MIADI_CHRONICLE_ROOT must name the chronicle root}"
 exec node "$here/server.mjs"

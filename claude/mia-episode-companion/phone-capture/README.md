@@ -47,6 +47,8 @@ session start will bring it back unless the plugin is disabled.
 | `MIADI_API_URL` | `http://127.0.0.1:3335` | the Miadi voice layer that renders Mia's voice |
 | `MIADI_CAPTURE_LANGUAGE` | `en` | the spoken language. `en` files one English transcript. Any other language files the original plus an English translation |
 | `MIADI_CHRONICLE_MW_URL` | `http://127.0.0.1:8040` | registration. A failure queues the take and never loses it |
+| `MIADI_PHONE_CAPTURE_LOOM_URL` | `https://loomino.tail3b11eb.ts.net` (set in `start.sh`) | the stateloom loom a mark opens on (`/?doc=<drawing>`). Empty: no link |
+| `MIADI_PHONE_CAPTURE_ROOM_URL` | `https://miadi.tail3b11eb.ts.net` (set in `start.sh`) | the Miadi room (`/chronicle/<episode>`, `#diagrams`). Empty: no link |
 | `MIADI_PHONE_CAPTURE_CORS_ORIGINS` | `https://trading.tail3b11eb.ts.net` | other pages that may send takes and read the conversation (comma-separated). A reply is still posted from this host only |
 
 ## Mia's reply on the page
@@ -98,6 +100,27 @@ The stateloom designer records takes and plays replies too, through its own prox
   While her voice plays, the step being heard is marked and kept in view. The reply still plays as
   one recording, so nothing about how iOS lets it play changes: each step's length is read from
   its own recording's metadata.
+
+## Marks in the conversation (smcraft Spec 83)
+
+William also speaks by marking the episode's drawings: elements or an area, a few words, a
+thread of replies, kept beside each drawing as `<name>.<smdf|erdf|sqdf>.marks.json`.
+`GET /api/thread?episode=<folder>&include=marks` adds them to the takes and replies, in time
+order, as items `{kind: "mark", id, doc, drawing, title?, elements, region?, text, author,
+at, lastAt, status, replies}`. They come from every sidecar under `<episode>/diagrams/`, at
+most three folders down: the 40 most recently active marks, words capped at 4000
+characters, and a sidecar that does not parse is skipped. Without `include=marks` the
+thread is unchanged, because a reader built before kind `mark` may draw it wrong (the
+stateloom Talk dock shows every item that is not a take as one of Mia's replies). A reply
+posted with `mia-listen reply --mark` keeps `mark: {id, doc}`, so a page can put it beside
+its mark.
+
+The page shows each mark as "You marked <elements> on <drawing>", with its words, the
+thread under it, "answered" or "waits for Mia", and links that open the drawing on the loom
+and the episode's room. `GET /api/links` gives the two bases. Under the presence line, a
+row names the episode with "open the room" and "open the drawings". When nobody listens,
+"Ask Mia to listen in the room" leads to the room's diagrams, where a writer opens her seat
+(jgwill/Miadi#825).
 
 ## What it holds to
 

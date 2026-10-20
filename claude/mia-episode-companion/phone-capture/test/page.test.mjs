@@ -36,11 +36,11 @@ function element(id) {
   };
 }
 
-function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake = false, replyDelay = 0, replyAnytime = 0, extraReplies = () => [], pollEvery = 0, thread = () => [], takeAnswer = { success: true, take: "260922090000", english: "Heard.", listening: true }, takeStatus = 200, neverStop = false, presence = () => ({ state: "listening" }) } = {}) {
+function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake = false, replyDelay = 0, replyAnytime = 0, extraReplies = () => [], pollEvery = 0, thread = () => [], takeAnswer = { success: true, take: "260922090000", english: "Heard.", listening: true }, takeStatus = 200, neverStop = false, presence = () => ({ state: "listening" }), links = { success: true, loom: "", room: "" } } = {}) {
   const started = Date.now();
   const recorderPosts = [];
   const ids = ["episode", "filter", "matches", "listening", "record", "timer", "status", "result", "resultHead", "transcript",
-    "replyControls", "replyNotice", "thread", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay"];
+    "replyControls", "replyNotice", "thread", "replyAudio", "hearReply", "copyReply", "replyStatus", "autoplay", "ask", "links"];
   const elements = Object.fromEntries(ids.map((id) => [id, element(id)]));
   const made = [];
   const stoppedTracks = { count: 0 };
@@ -76,6 +76,9 @@ function harness({ search = "?episode=" + EPISODE, micDelay = 0, replyAfterTake 
       if (!found.length && replyAnytime && Date.now() - started >= replyAnytime) found.push({ id: "r0", take: null, text: "Unasked news.", at: new Date().toISOString(), audio: null });
       if (!found.length) found.push(...extraReplies(Date.now() - started));
       return { json: async () => ({ success: true, listening: true, presence: presence(), replies: found }) };
+    }
+    if (url.startsWith("api/links")) {
+      return { json: async () => links };
     }
     if (url.startsWith("api/thread")) {
       return { json: async () => ({ success: true, items: thread() }) };
@@ -463,4 +466,94 @@ test("a reply he taps himself plays alone, and a reply already seen never plays 
   await h.elements.replyAudio.fire("ended");
   await settle(120);
   assert.equal(h.elements.replyAudio.played || 0, before, "nothing plays after it by itself");
+});
+
+
+// Lane U, 2026-10-20 (U1, U14): after a seven-mark conversation on Episode 550's drawings, this
+// page showed an empty thread. Marks are part of the conversation, and the page leads out to
+// the drawing on the loom and to the episode's room.
+const LINKS = { success: true, loom: "https://loom.example", room: "https://miadi.example" };
+const DOC = "/srv/chronicle/" + EPISODE + "/diagrams/screenwalk.smdf.json";
+const MARK = {
+  kind: "mark", id: "m-0mvg4iw5pd4sg", doc: DOC, drawing: "screenwalk.smdf.json", title: "Screenwalk",
+  elements: ["state:Witnessing"], text: "Wouldn't that be one more state machine in between?",
+  author: { name: "Guillaume", role: "person" }, at: "2026-10-20T03:28:41.292Z", lastAt: "2026-10-20T03:33:32.210Z", status: "answered",
+  replies: [{ author: { name: "Mia", role: "agent" }, text: "Yes: WitnessedSession has no machine yet.", at: "2026-10-20T03:33:32.210Z" }],
+};
+
+function nodes(root) {
+  const out = [];
+  const walk = (node) => { (node.appended || []).forEach((child) => { out.push(child); walk(child); }); };
+  walk(root);
+  return out;
+}
+const words = (node) => [node.textContent, ...nodes(node).map((n) => n.text ?? n.textContent ?? "")].join("");
+
+test("a mark on the drawings reads as his words, with Mia's thread under it and the ways to open the drawing", async () => {
+  const waiting = { ...MARK, id: "m-0mvg4lxitg39r", elements: ["event:NameSessions"], status: "open", replies: [], at: "2026-10-20T03:31:03.029Z" };
+  const h = harness({ links: LINKS, thread: () => [MARK, waiting] });
+  await settle(80);
+  const [newest, older] = h.elements.thread.appended;
+  assert.equal(newest.attributes["data-mark"], "m-0mvg4lxitg39r", "newest first, like the rest of the conversation");
+  assert.match(words(older), /You marked Witnessing on Screenwalk/);
+  assert.match(words(older), /Wouldn't that be one more state machine in between\?/);
+  const reply = nodes(older).find((n) => n.className === "agent");
+  assert.ok(reply, "Mia's reply in the mark's thread is under it");
+  assert.match(words(reply), /^Mia · .*Yes: WitnessedSession has no machine yet\./);
+  assert.ok(nodes(older).some((n) => n.className === "mark-state" && n.textContent === "answered"));
+  assert.ok(nodes(newest).some((n) => n.className === "mark-state waits" && n.textContent === "waits for Mia"));
+  const hrefs = nodes(older).map((n) => n.attributes?.href).filter(Boolean);
+  assert.deepEqual(hrefs, [
+    "https://loom.example/?doc=" + encodeURIComponent(DOC),
+    "https://miadi.example/chronicle/" + EPISODE + "#diagrams",
+  ]);
+  const thread = h.calls.find((c) => c.url.startsWith("api/thread"));
+  assert.match(thread.url, /&include=marks$/, "the page asks for the marks");
+});
+
+test("without link bases a mark is still shown, with no link", async () => {
+  const h = harness({ thread: () => [MARK] });
+  await settle(80);
+  const [entry] = h.elements.thread.appended;
+  assert.match(words(entry), /You marked Witnessing on Screenwalk/);
+  assert.equal(nodes(entry).filter((n) => n.attributes?.href).length, 0);
+  assert.equal(h.elements.links.hidden, true, "no row of links");
+});
+
+test("her reply to a mark says which mark it answers", async () => {
+  const answer = { kind: "reply", id: "r1", take: null, text: "Yes.", at: "2026-10-20T03:34:00.000Z", audio: null, mark: { id: MARK.id, doc: DOC } };
+  const loose = { ...answer, id: "r2", mark: { id: "m-elsewhere", doc: "/srv/x/diagrams/plot.erdf.json" } };
+  const h = harness({ thread: () => [MARK, answer, loose] });
+  await settle(80);
+  const [second, first] = h.elements.thread.appended;
+  const said = (entry) => nodes(entry).find((n) => n.className === "answers");
+  assert.match(words(said(first)), /answers your mark on Witnessing on Screenwalk/);
+  assert.match(words(said(second)), /answers your mark on plot$/, "a mark not in the thread is named by its drawing");
+});
+
+test("under the presence line: the episode, its room and its drawings; when nobody listens, the way to ask Mia", async () => {
+  let state = "listening";
+  const h = harness({ links: LINKS, pollEvery: 20, presence: () => ({ state }) });
+  await settle(80);
+  assert.equal(h.elements.links.hidden, false);
+  const row = h.elements.links.appended;
+  assert.equal(row[0].textContent, "Episode 900");
+  assert.deepEqual(row.slice(1).map((a) => [a.attributes.href, words(a)]), [
+    ["https://miadi.example/chronicle/" + EPISODE, "open the room"],
+    ["https://miadi.example/chronicle/" + EPISODE + "#diagrams", "open the drawings"],
+  ]);
+  assert.equal(h.elements.ask.hidden, true, "a seat is listening: nothing to ask");
+  state = "away";
+  await settle(80);
+  assert.match(h.elements.listening.textContent, /No session is listening/);
+  assert.equal(h.elements.ask.hidden, false);
+  assert.equal(h.elements.ask.attributes.href, "https://miadi.example/chronicle/" + EPISODE + "#diagrams");
+});
+
+test("a mark on an entity and its attributes is named by the entity", async () => {
+  const erd = { ...MARK, id: "m-erd", doc: "/srv/x/diagrams/screenwalk.erdf.json", drawing: "screenwalk.erdf.json", title: "ScreenwalkRecords",
+    elements: ["entity:Screenwalk", "attribute:Screenwalk.state", "entity:Review", "attribute:Review.review_id", "attribute:Other.x"] };
+  const h = harness({ thread: () => [erd] });
+  await settle(80);
+  assert.match(words(h.elements.thread.appended[0]), /You marked Screenwalk, Review and Other\.x on ScreenwalkRecords/);
 });

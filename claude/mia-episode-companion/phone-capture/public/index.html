@@ -72,6 +72,26 @@
   .entry .thumb.on { opacity:1; background:#477b65; }
   .entry .related { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .entry .related a { font-size:.8rem; padding:6px 10px; border:1px solid var(--line); border-radius:10px; color:var(--ink); text-decoration:none; background:#1d2a25; }
+  /* The ways out of this page, and the marks on the episode's drawings (lane U, U1 and U14). */
+  .ask { display:inline-flex; align-items:center; min-height:44px; color:var(--gold); font-size:.9rem; font-weight:700; text-underline-offset:3px; }
+  .ask[hidden], .links-row[hidden] { display:none; }
+  .links-row { display:flex; flex-wrap:wrap; align-items:center; gap:0 12px; font-size:.82rem; color:var(--muted); }
+  .links-row a, .entry .mark-links a { display:inline-flex; align-items:center; gap:5px; min-height:44px; color:var(--mint); text-decoration:none; font-weight:700; }
+  .entry .mark-links svg, .entry .answers svg, .entry .pin svg { display:block; flex:none; }
+  .entry.mark.waits { border-color:#6b5a2a; }
+  .entry.mark .mark-head { flex:1; min-width:0; }
+  .entry.mark .mark-head strong { color:var(--mint); }
+  .entry .pin { display:inline-block; vertical-align:-2px; margin-right:5px; color:var(--muted); }
+  .entry.mark .mark-replies { list-style:none; margin:8px 0 0; padding:0 0 0 10px; border-left:2px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  .entry.mark .mark-replies li { display:flex; flex-direction:column; gap:2px; font-size:.9rem; }
+  .entry.mark .mark-replies .by { font-size:.76rem; font-weight:700; color:var(--muted); }
+  .entry.mark .mark-replies li.agent .by { color:var(--gold); }
+  .entry.mark .mark-replies .said { white-space:pre-wrap; color:var(--ink); }
+  .entry.mark .mark-state { margin-top:8px; font-size:.8rem; color:var(--muted); }
+  .entry.mark .mark-state.waits { color:var(--gold); }
+  .entry.mark .mark-links { display:flex; flex-wrap:wrap; gap:0 18px; font-size:.82rem; }
+  .entry .answers { display:flex; align-items:flex-start; gap:5px; margin-top:6px; font-size:.8rem; color:var(--muted); }
+  .entry .answers svg { margin-top:2px; }
 </style>
 </head>
 <body>
@@ -83,6 +103,8 @@
     <select id="episode"><option value="">Loading episodes…</option></select>
     <div id="matches" class="matches" hidden></div>
     <div id="listening" class="listening"></div>
+    <a id="ask" class="ask" target="_blank" rel="noopener" hidden>Ask Mia to listen in the room →</a>
+    <div id="links" class="links-row" hidden></div>
   </div>
   <div class="dock">
     <button id="record" class="record" type="button" disabled>Record</button>
@@ -104,7 +126,7 @@
   </section>
   <section id="thread" class="thread" hidden aria-live="polite"></section>
   <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
-  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Your takes and Mia's replies stay here as one conversation, newest first. A reply that arrives while you record waits, silent, until you have sent your take. Keep the screen on while you speak.</small>
+  <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Your takes, your marks on the episode's drawings and Mia's replies stay here as one conversation, newest first. A reply that arrives while you record waits, silent, until you have sent your take. Keep the screen on while you speak.</small>
 </main>
 <script>
 (function () {
@@ -127,7 +149,12 @@
   var filter = document.getElementById("filter");
   var matches = document.getElementById("matches");
   var listening = document.getElementById("listening");
+  var ask = document.getElementById("ask");
+  var linksRow = document.getElementById("links");
   var episodes = [];
+  // Where the links lead (api/links): the loom opens one drawing, the Miadi room holds the
+  // episode. An empty base means that link is not shown.
+  var bases = { loom: "", room: "" };
   // A fraction of a second of silence: playing it inside a tap unlocks the element on iOS.
   var SILENT = "data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
   var recorder = null, stream = null, chunks = [], startedAt = 0, tick = null, wakeLock = null;
@@ -168,6 +195,184 @@
   }
 
   var THUMB = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 10.5v9H4.5v-9zM7.5 10.5l3.5-6.5a2 2 0 0 1 2.5 2.2l-.6 3.3h5.4a2 2 0 0 1 2 2.4l-1.3 6.2a2 2 0 0 1-2 1.4H7.5"/></svg>';
+
+  // Drawn, not typed, in the current colour: a pin for a mark, an arrow for a link out.
+  var PIN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.8-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 15.2 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.3"/></svg>';
+  var OUT = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+
+  function roomUrl(episode, hash) {
+    return bases.room && episode ? bases.room + "/chronicle/" + encodeURIComponent(episode) + (hash || "") : "";
+  }
+
+  function loomUrl(doc) {
+    return bases.loom && doc ? bases.loom + "/?doc=" + encodeURIComponent(doc) : "";
+  }
+
+  // In a new tab, so this page keeps its audio and its wait.
+  function linkOut(href, words, plain) {
+    var link = document.createElement("a");
+    link.setAttribute("href", href);
+    link.setAttribute("target", "_blank");
+    link.setAttribute("rel", "noopener");
+    if (!plain) {
+      var icon = document.createElement("span");
+      icon.innerHTML = OUT;
+      link.appendChild(icon);
+    }
+    link.appendChild(document.createTextNode(words));
+    return link;
+  }
+
+  function episodeNumber(path) {
+    var found = /^\d{4}-\d{2}-\d{2}-episode-(\d+)-/.exec(path || "");
+    return found ? Number(found[1]) : null;
+  }
+
+  // Under the presence line: the episode, its room and its drawings (lane U, U14: the page
+  // was an island).
+  function showLinks() {
+    var episode = select.value;
+    var room = roomUrl(episode, "");
+    linksRow.textContent = "";
+    if (!room) { linksRow.hidden = true; return; }
+    var name = document.createElement("span");
+    var n = episodeNumber(episode);
+    name.textContent = n === null ? episode : "Episode " + n;
+    linksRow.appendChild(name);
+    linksRow.appendChild(linkOut(room, "open the room", true));
+    linksRow.appendChild(linkOut(roomUrl(episode, "#diagrams"), "open the drawings", true));
+    linksRow.hidden = false;
+  }
+
+  // Nobody listening: the room's diagrams section is where a writer opens Mia's seat
+  // (jgwill/Miadi#825).
+  function showAsk() {
+    var href = presence && presence.state === "away" ? roomUrl(select.value, "#diagrams") : "";
+    if (href) ask.setAttribute("href", href);
+    ask.hidden = !href;
+  }
+
+  async function loadLinks() {
+    try {
+      var answer = await (await fetch("api/links")).json();
+      if (!answer || !answer.success) return;
+      bases = { loom: answer.loom || "", room: answer.room || "" };
+      showLinks();
+      showAsk();
+      threadKey = "";
+      loadThread();
+    } catch (_) {}
+  }
+
+  // A mark names elements of a drawing (`state:Witnessing`), an area of it, or the drawing.
+  function elementName(ref) {
+    var at = ref.indexOf(":");
+    var kind = at > 0 ? ref.slice(0, at) : "";
+    var name = at > 0 ? ref.slice(at + 1) : ref;
+    return /^\d+$/.test(name) && kind ? kind + " " + name : name;
+  }
+
+  function drawingName(mark, doc) {
+    if (mark && mark.title) return mark.title;
+    var file = (mark && mark.drawing) || String(doc || "").split("/").pop() || "the drawing";
+    return file.replace(/\.(smdf|erdf|sqdf|sysdf)\.json$/i, "").replace(/\.json$/i, "");
+  }
+
+  // An entity's attributes are named by the entity when it is marked too.
+  function markedWhat(mark) {
+    var refs = mark.elements || [];
+    var names = refs.filter(function (ref) {
+      var owner = /^attribute:([^.]+)\./.exec(ref);
+      return !owner || refs.indexOf("entity:" + owner[1]) === -1;
+    }).map(elementName);
+    if (names.length === 1) return names[0];
+    if (names.length === 2 || names.length === 3) return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    if (names.length > 3) return names.slice(0, 2).join(", ") + " and " + (names.length - 2) + " more";
+    return mark.region ? "an area" : "";
+  }
+
+  // "Witnessing on Screenwalk", "an area on Screenwalk", or the drawing alone.
+  function markPlace(mark, doc) {
+    var what = mark ? markedWhat(mark) : "";
+    return what ? what + " on " + drawingName(mark, doc) : drawingName(mark, doc);
+  }
+
+  function markWaits(mark) {
+    var agent = mark.author && mark.author.role === "agent";
+    return (mark.status === "open" && !agent) || (mark.status === "answered" && agent);
+  }
+
+  function markState(mark) {
+    if (mark.status === "resolved") return "resolved";
+    if (markWaits(mark)) return "waits for Mia";
+    return mark.status === "answered" ? "answered" : "waits for you";
+  }
+
+  function speaker(author) {
+    return author && author.role === "agent" ? (author.name || "Mia") : "You";
+  }
+
+  // One mark: who marked what on which drawing, the words, the thread under it, whether it
+  // waits for Mia, and the ways to open the drawing.
+  function markEntry(item) {
+    var waits = markWaits(item);
+    var entry = document.createElement("div");
+    entry.className = "entry mark" + (waits ? " waits" : "");
+    entry.setAttribute("data-mark", item.id);
+    var who = document.createElement("div");
+    who.className = "who";
+    var head = document.createElement("span");
+    head.className = "mark-head";
+    var pin = document.createElement("span");
+    pin.className = "pin";
+    pin.innerHTML = PIN;
+    head.appendChild(pin);
+    var name = document.createElement("strong");
+    name.textContent = speaker(item.author);
+    head.appendChild(name);
+    head.appendChild(document.createTextNode(" marked " + markPlace(item, item.doc)));
+    who.appendChild(head);
+    var meta = document.createElement("span");
+    meta.textContent = when(item.at);
+    who.appendChild(meta);
+    entry.appendChild(who);
+    var text = document.createElement("div");
+    text.className = "text";
+    text.textContent = item.text || "";
+    entry.appendChild(text);
+    if (item.replies && item.replies.length) {
+      var list = document.createElement("ol");
+      list.className = "mark-replies";
+      item.replies.forEach(function (reply) {
+        var li = document.createElement("li");
+        li.className = reply.author && reply.author.role === "agent" ? "agent" : "person";
+        var by = document.createElement("span");
+        by.className = "by";
+        by.textContent = speaker(reply.author) + (reply.at ? " · " + when(reply.at) : "");
+        li.appendChild(by);
+        var said = document.createElement("span");
+        said.className = "said";
+        said.textContent = reply.text || "";
+        li.appendChild(said);
+        list.appendChild(li);
+      });
+      entry.appendChild(list);
+    }
+    var standing = document.createElement("div");
+    standing.className = "mark-state" + (waits ? " waits" : "");
+    standing.textContent = markState(item);
+    entry.appendChild(standing);
+    var loom = loomUrl(item.doc);
+    var room = roomUrl(select.value, "#diagrams");
+    if (loom || room) {
+      var ways = document.createElement("div");
+      ways.className = "mark-links";
+      if (loom) ways.appendChild(linkOut(loom, "open on the loom"));
+      if (room) ways.appendChild(linkOut(room, "open in the room"));
+      entry.appendChild(ways);
+    }
+    return entry;
+  }
 
   function when(iso) {
     var d = new Date(iso);
@@ -270,6 +475,7 @@
   // nobody was listening while Mia was writing her reply.
   function showListening(seen) {
     presence = seen || null;
+    showAsk();
     if (!seen || !select.value) { listening.textContent = ""; listening.className = "listening"; return; }
     var takes = (seen.takes || []).join(", ");
     listening.textContent = {
@@ -295,10 +501,13 @@
     var episode = select.value;
     if (!episode) { thread.hidden = true; return; }
     try {
-      var answer = await (await fetch("api/thread?episode=" + encodeURIComponent(episode))).json();
+      var answer = await (await fetch("api/thread?episode=" + encodeURIComponent(episode) + "&include=marks")).json();
       if (!answer.success || episode !== select.value) return;
       var items = answer.items || [];
-      var key = episode + "|" + items.map(function (item) { return (item.id || item.take) + ":" + (item.text || "").length + (unheard[item.id] ? "u" : "") + (item.feedback || ""); }).join(",");
+      var key = episode + "|" + items.map(function (item) {
+        return (item.id || item.take) + ":" + (item.text || "").length + (unheard[item.id] ? "u" : "") + (item.feedback || "")
+          + (item.kind === "mark" ? ":" + item.status + ":" + (item.replies || []).length : "");
+      }).join(",");
       if (key === threadKey) return;
       threadKey = key;
       renderThread(items);
@@ -319,7 +528,11 @@
 
   function renderThread(items) {
     thread.textContent = "";
+    var marks = {};
+    items.forEach(function (item) { if (item.kind === "mark") marks[item.id] = item; });
     items.slice().reverse().forEach(function (item) {
+      if (item.kind === "mark") { thread.appendChild(markEntry(item)); return; }
+      if (item.kind !== "reply" && item.kind !== "take") return; // a kind this page does not know yet
       var mia = item.kind === "reply";
       var entry = document.createElement("div");
       entry.className = "entry " + (mia ? "mia" : "take") + (mia && unheard[item.id] ? " unheard" : "");
@@ -365,6 +578,16 @@
         who.appendChild(thumbs);
       }
       entry.appendChild(who);
+      // Her answer to one of his marks says which, so it reads beside the mark's own thread.
+      if (mia && item.mark && item.mark.id) {
+        var answers = document.createElement("div");
+        answers.className = "answers";
+        var icon = document.createElement("span");
+        icon.innerHTML = PIN;
+        answers.appendChild(icon);
+        answers.appendChild(document.createTextNode("answers your mark on " + markPlace(marks[item.mark.id] || null, item.mark.doc)));
+        entry.appendChild(answers);
+      }
       // A reply that walks the diagram (smcraft Spec 84) reads as its steps: the one being
       // heard is marked while her voice plays, and stays in view.
       if (mia && item.steps && item.steps.length) {
@@ -671,6 +894,7 @@
     setState(state);
     say("");
     showListening(null);
+    showLinks();
     loadLatestReply();
     loadThread();
   });
@@ -739,6 +963,7 @@
     setState(state);
     say("");
     showListening(null);
+    showLinks();
     loadLatestReply();
     loadThread();
   }
@@ -782,6 +1007,7 @@
       urlKeepsState();
       if (!resumeWait()) loadLatestReply();
       loadThread();
+      loadLinks();
     } catch (error) {
       select.innerHTML = "<option value=''>Episodes unavailable</option>";
       say("Could not reach gaia: " + error.message, true);
