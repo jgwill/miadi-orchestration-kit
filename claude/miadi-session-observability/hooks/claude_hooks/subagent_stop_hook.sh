@@ -34,6 +34,11 @@ if [ -n "$agent_id" ] && [ -n "$last_msg" ]; then
     if [ -f "$launch_file" ]; then
         description=$(jq -r '.description // "unknown"' "$launch_file")
         prompt=$(jq -r '.prompt // ""' "$launch_file")
+    elif [ -n "$agent_transcript" ] && [ -f "${agent_transcript%.jsonl}.meta.json" ]; then
+        # No Agent call launched it (a /btw question the person forked):
+        # Claude Code's meta.json beside its transcript holds its description.
+        description=$(jq -r '.description // "unknown"' "${agent_transcript%.jsonl}.meta.json")
+        prompt=""
     else
         description="unknown"
         prompt=""
@@ -45,7 +50,7 @@ if [ -n "$agent_id" ] && [ -n "$last_msg" ]; then
         echo "---"
         echo "agent_id: $agent_id"
         echo "agent_type: $agent_type"
-        echo "description: \"$description\""
+        echo "description: \"${description//\"/\\\"}\""
         echo "completed_at: $(date -Iseconds)"
         echo "session_id: $session_id"
         [ -n "$agent_transcript" ] && echo "transcript: $agent_transcript"

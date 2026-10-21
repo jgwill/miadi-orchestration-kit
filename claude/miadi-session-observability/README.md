@@ -92,10 +92,34 @@ node scripts/agent-talk.mjs person <session>            # only what the person s
 ```
 
 `<session>` is an id, a prefix, a tmux name or a session name. A fork with no launch manifest is
-listed as `btw-fork`: the person made it. Two things are not in the capture. A `/btw` question
-that was never forked runs in a panel, fires no hook and is written nowhere. An image pasted into
-a subagent arrives as the text `[Image #N]` only, and `show` says so. Since 0.1.15, after three
-messages from Guillaume to the witness-editor sat unread on 2026-10-15.
+listed as `btw-fork`: the person made it. An image pasted into a subagent arrives as the text
+`[Image #N]` only, and `show` says so. Since 0.1.15, after three messages from Guillaume to the
+witness-editor sat unread on 2026-10-15.
+
+## /btw side questions and their forks
+
+No hook fires for `/btw`. Claude Code keeps the question in `~/.claude/history.jsonl` only (its
+pasted text in `paste-cache/`), and the answer in its panel only. Pressing `f` forks it, and the
+fork's transcript keeps the question, the answer and everything after. Each archive pass (Stop,
+SubagentStop, SessionEnd, the SessionStart sweep) writes the events of the session's `/btw`
+questions to `<root>/<session_id>/_claude_btw.jsonl`, each once, in time order. Since 0.1.17,
+jgwill/miadi-orchestration-kit#95.
+
+| kind | the line holds |
+|---|---|
+| `asked` | every `/btw` question, forked or not: `btw_id` (`btw-<history ms>`), `at`, `question`, `pasted`, `cwd` |
+| `forked` | `agent_id`, `name`, `question`, `directive`, and `parent_last_uuid`, the main transcript message it branched after |
+| `answered` | the panel's answer, as the fork keeps it |
+| `person` | each message the person sent the fork, with its `prompt_id` |
+| `reply` | each reply, with `tools_before`, the tools called since the previous reply |
+| `notified` | each time the main session was told the fork `completed` or was `resumed` |
+| `delivered` | the result reaching the main session: `via: "prompt"` with its `prompt_id`, or `via: "attachment"` inside a running turn |
+
+Every line of a fork carries the `btw_id` of its question, so `asked` without `forked` is a side
+question that was closed. Its answer is not kept anywhere: only a fork keeps the answer. A fork
+the Agent tool launched has no question and writes no line. SubagentStop names a `/btw` fork by
+its question in `agents/<id>.output.md` and `trace.log`, from Claude Code's `meta.json`.
+`tests/btw.sh` holds the rules.
 
 ## Publications
 

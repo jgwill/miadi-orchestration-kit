@@ -14,7 +14,8 @@
 // question with `f`. Either way the words reach the subagent and not the main session. The
 // capture hook archives each one's transcript at every stop as <root>/<session>/agents/<id>.transcript.jsonl
 // (subagent_stop_hook.sh), and this reads that copy. A /btw question that is never forked runs
-// in a panel, fires no hook and is written nowhere, so nothing can read it afterwards.
+// in a panel and fires no hook. Its question is listed in _claude_btw.jsonl, and its answer is
+// kept nowhere (jgwill/miadi-orchestration-kit#95).
 // Earned 2026-10-15: three messages from Guillaume to the witness-editor sat in its transcript
 // while the main session told him they had not reached it.
 

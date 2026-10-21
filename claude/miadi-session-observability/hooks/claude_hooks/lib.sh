@@ -181,7 +181,8 @@ claude_archive_file() {
 # _transcript_final.jsonl, each subagent transcript to
 # agents/<agent_id>.transcript.jsonl with agents/<agent_id>.meta.json beside
 # it, and every other file Claude Code keeps beside the transcript
-# (tool-results/, session-memory/) at the same relative path.
+# (tool-results/, session-memory/) at the same relative path. Then the /btw
+# index is brought up to date from those copies (claude_btw_capture).
 claude_archive_session() {
     local transcript="$1" output_dir="$2"
     [ -n "$transcript" ] && [ -n "$output_dir" ] || return 0
@@ -189,7 +190,7 @@ claude_archive_session() {
     claude_archive_jsonl "$transcript" "$output_dir/_transcript_final.jsonl"
 
     local base="${transcript%.jsonl}" f rel name
-    [ -d "$base" ] || return 0
+    [ -d "$base" ] || { claude_btw_capture "$output_dir"; return 0; }
     while IFS= read -r -d '' f; do
         rel="${f#"$base"/}"
         case "$rel" in
@@ -209,6 +210,7 @@ claude_archive_session() {
     # -type l too: Claude Code links a forked session's subagents to the
     # files of the session it forked from.
     done < <(find "$base" \( -type f -o -type l \) -print0 2>/dev/null)
+    claude_btw_capture "$output_dir"
 }
 
 # Archive every session in <projects_dir> (~/.claude/projects) that the hooks
@@ -219,6 +221,10 @@ claude_archive_session() {
 claude_archive_sweep() {
     local projects_dir="$1" t sid out
     [ -d "$projects_dir" ] || return 0
+    # history.jsonl is read once for every session the sweep visits.
+    mkdir -p "$CLAUDE_SESSIONDATA_ROOT/data"
+    export _CLAUDE_BTW_HISTORY="$CLAUDE_SESSIONDATA_ROOT/data/.btw_history.$(id -u).$$"
+    claude_btw_history_lines > "$_CLAUDE_BTW_HISTORY"
     for t in "$projects_dir"/*/*.jsonl; do
         [ -f "$t" ] || continue
         sid="$(basename "$t" .jsonl)"
@@ -226,6 +232,215 @@ claude_archive_sweep() {
         [ -d "$out" ] || continue
         claude_with_lock "$out/.archive.lock" claude_archive_session "$t" "$out"
     done
+    rm -f "$_CLAUDE_BTW_HISTORY"
+    unset _CLAUDE_BTW_HISTORY
+}
+
+# --- /btw side questions and their forks ------------------------------------
+# /btw is a local command, and no hook fires for it. Claude Code keeps the
+# question in history.jsonl only (with its pasted text in paste-cache/), and
+# the answer in its panel only. Pressing f there forks it: the fork's
+# transcript starts with the question and the panel's answer before its
+# <fork-boilerplate>, then holds what the person sends it and its replies,
+# and the main transcript gets a task-notification each time it stops or is
+# resumed. A fork the Agent tool launched has its parent's tool call where a
+# /btw fork has the question. claude_btw_capture reads those after each
+# archive pass and appends to _claude_btw.jsonl the lines it does not hold
+# yet, one per event, by key:
+#   asked      every /btw question, forked or not (btw_id: btw-<history ms>)
+#   forked     the fork: agent_id, name, question, directive, and the main
+#              transcript message it branched after (parent_last_uuid)
+#   answered   the panel's answer, as the fork keeps it
+#   person     each message the person sent the fork
+#   reply      each reply, with the tools called before it
+#   notified   each completion or resume the main session was told about
+#   delivered  the main-session prompt (prompt_id) that carried the result
+# Every fork line carries the btw_id of its question. jgwill/miadi-orchestration-kit#95.
+
+_claude_btw_config_dir() {
+    printf '%s\n' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+}
+
+# Every /btw line of history.jsonl, all sessions.
+claude_btw_history_lines() {
+    grep -hF '"display":"/btw ' "$(_claude_btw_config_dir)/history.jsonl" 2>/dev/null
+    return 0
+}
+
+# history.jsonl lines -> asked lines. $pastes maps a paste's contentHash to its text.
+_CLAUDE_BTW_ASKED_JQ='
+.timestamp as $ms
+| {kind: "asked", key: "asked|\($ms)", btw_id: "btw-\($ms)",
+   at: (($ms / 1000 | floor | todate) | sub("Z$"; ".\("00\($ms % 1000)" | .[-3:])Z")),
+   question: (.display | sub("^/btw "; "")),
+   pasted: ([(.pastedContents // {})[] | (.content // $pastes[.contentHash // ""] // null)] | map(select(. != null))),
+   cwd: (.project // null)}
+| if (.pasted | length) == 0 then del(.pasted) else . end
+'
+
+# A fork transcript (slurped) -> forked, answered, person and reply lines.
+# Nothing for a fork the Agent tool launched.
+_CLAUDE_BTW_FORK_JQ='
+def textof: (.message.content // "") as $c
+    | if ($c | type) == "string" then $c
+      elif ($c | type) == "array" then [$c[] | select(.type == "text") | .text] | join("\n")
+      else "" end;
+def results_only: (.message.content | type) == "array" and (.message.content | length) > 0
+    and all(.message.content[]; .type == "tool_result");
+def strip: sub("^\\s+"; "") | sub("\\s+$"; "");
+. as $l
+| ([$l | to_entries[] | select(.value.type == "user" and (.value | textof | startswith("<fork-boilerplate>"))) | .key] | .[0]) as $bp
+| select($bp != null and ($l[0].type // "") == "fork-context-ref" and ($l[1].type // "") == "user")
+| ([$l[2:$bp][] | select(.type == "assistant") | select((textof | test("\\S")))] ) as $answers
+| {kind: "forked", key: "forked|\($id)", agent_id: $id, name: $name, at: $l[1].timestamp,
+   question: ($l[1] | textof),
+   directive: (($l[$bp] | textof | capture("\\nYour directive: (?<d>[\\s\\S]*)$").d) // null),
+   parent_last_uuid: ($l[0].parentLastUuid // null), context_length: ($l[0].contextLength // null)},
+  (if ($answers | length) > 0 then
+     {kind: "answered", key: "answered|\($id)", agent_id: $id, at: $answers[0].timestamp,
+      text: ([$answers[] | textof] | join("\n"))}
+   else empty end),
+  (foreach $l[($bp + 1):][] as $e ({tools: [], out: []};
+      .out = []
+      | if $e.type == "user" then
+          if ($e | results_only) then .
+          else ($e | textof) as $t
+            | if ($t | test("\\S") | not) or ($t | startswith("<task-notification>")) or ($t | startswith("<fork-boilerplate>")) then .
+              elif ($e.origin.kind // "") == "human" or ($t | test("^The user sent a new message while you were working:\n")) then
+                .out = [{kind: "person", key: "person|\($id)|\($e.uuid)", agent_id: $id, at: $e.timestamp,
+                         prompt_id: ($e.promptId // null),
+                         text: ($t | sub("^The user sent a new message while you were working:\n"; "")
+                                   | sub("\n+This is how Claude Code surfaces messages the user sends mid-turn[\\s\\S]*$"; "")
+                                   | strip)}]
+              else . end
+          end
+        elif $e.type == "assistant" and (($e.message.content // null) | type) == "array" then
+          reduce ($e.message.content | to_entries[]) as $b (.;
+            if $b.value.type == "tool_use" then .tools += [$b.value.name]
+            elif $b.value.type == "text" and ($b.value.text | test("\\S")) then
+              .out += [{kind: "reply", key: "reply|\($id)|\($e.uuid)|\($b.key)", agent_id: $id, at: $e.timestamp,
+                        tools_before: .tools, text: ($b.value.text | strip)}]
+              | .tools = []
+            else . end)
+        else . end;
+      .out[]))
+'
+
+# Main transcript lines naming a fork in a task-notification -> notified and
+# delivered: as a prompt between turns (via "prompt", with its prompt_id), or
+# as a queued_command attachment inside a running turn (via "attachment").
+_CLAUDE_BTW_NOTES_JQ='
+def textof: (.message.content // "") as $c
+    | if ($c | type) == "string" then $c
+      elif ($c | type) == "array" then [$c[] | select(.type == "text") | .text] | join("\n")
+      else "" end;
+def queued: (.attachment.prompt // "") as $c
+    | if ($c | type) == "string" then $c
+      elif ($c | type) == "array" then [$c[] | select(.type == "text") | .text] | join("\n")
+      else "" end;
+(if .type == "queue-operation" then (.content // "")
+ elif .type == "user" then textof
+ elif .type == "attachment" and (.attachment.type // "") == "queued_command" then queued
+ else "" end) as $t
+| (($t | capture("<task-id>(?<id>[^<]+)</task-id>").id) // null) as $id
+| select($id != null and ($ids | index($id)) != null)
+| (($t | capture("<status>(?<s>[^<]+)</status>").s)
+   // (if ($t | test("was resumed by the user")) then "resumed" else null end)) as $status
+| if .type == "queue-operation" and .operation == "enqueue" then
+    {kind: "notified", key: "notified|\($id)|\(.timestamp)", agent_id: $id, at: .timestamp, status: $status,
+     summary: (($t | capture("<summary>(?<s>[\\s\\S]*?)</summary>").s) // null)}
+  elif .type == "user" then
+    {kind: "delivered", key: "delivered|\($id)|\(.uuid)", agent_id: $id, at: .timestamp, status: $status,
+     via: "prompt", prompt_id: (.promptId // null)}
+  elif .type == "attachment" then
+    {kind: "delivered", key: "delivered|\($id)|\(.uuid)", agent_id: $id, at: .timestamp, status: $status,
+     via: "attachment", prompt_id: null}
+  else empty end
+'
+
+# Link each fork line to its question, drop what the index holds, order by time.
+_CLAUDE_BTW_NEW_JQ='
+([$new[] | select(.kind == "asked")]) as $asked
+| (reduce ($new[] | select(.kind == "forked")) as $f ({};
+    .[$f.agent_id] = ((([$asked[] | select(.question == $f.question and .at <= $f.at)] | last)
+                       // ([$asked[] | select(.at <= $f.at)] | last)) | .btw_id // null))) as $link
+| (reduce ($old[] | select(type == "object") | .key // empty) as $k ({}; .[$k] = true)) as $seen
+| [$new[] | select($seen[.key] | not)
+   | if .agent_id then .btw_id = $link[.agent_id] else . end]
+| sort_by(.at // "")
+| .[]
+| {timestamp: (now | todate), session_id: $sid, kind, btw_id} + del(.kind, .btw_id)
+'
+
+# The /btw forks in <output_dir>/agents: a fork whose transcript has the
+# question as its second line.
+_claude_btw_forks() {
+    local output_dir="$1" m id t
+    # One grep for every meta.json: the sweep visits each session at each start.
+    for m in $(grep -lE '"isFork": ?true' "$output_dir"/agents/*.meta.json 2>/dev/null); do
+        id=$(basename "$m" .meta.json)
+        t="$output_dir/agents/$id.transcript.jsonl"
+        [ -f "$t" ] || continue
+        head -n 1 "$t" | grep -qF '"type":"fork-context-ref"' || continue
+        sed -n 2p "$t" | grep -qF '"type":"user"' || continue
+        printf '%s\n' "$id"
+    done
+}
+
+claude_btw_capture() {
+    local output_dir="$1" sid asked forks stamp id index work old lines n h pastes hashes
+    [ -d "$output_dir" ] || return 0
+    sid=$(basename "$output_dir")
+    index="$output_dir/_claude_btw.jsonl"
+    if [ -n "${_CLAUDE_BTW_HISTORY:-}" ]; then
+        asked=$(grep -F "\"sessionId\":\"$sid\"" "$_CLAUDE_BTW_HISTORY" 2>/dev/null)
+    else
+        asked=$(claude_btw_history_lines | grep -F "\"sessionId\":\"$sid\"")
+    fi
+    forks=$(_claude_btw_forks "$output_dir")
+    [ -n "$asked" ] || [ -n "$forks" ] || return 0
+
+    # Nothing to read again when no source changed since the last pass.
+    stamp="${#asked} $(_claude_byte_count "$output_dir/_transcript_final.jsonl")"
+    for id in $forks; do
+        stamp="$stamp $id:$(_claude_byte_count "$output_dir/agents/$id.transcript.jsonl")"
+    done
+    [ "$(cat "$output_dir/.btw.stamp" 2>/dev/null)" = "$stamp" ] && return 0
+
+    work="$output_dir/.btw.$$"
+    : > "$work"
+    if [ -n "$asked" ]; then
+        pastes='{}'
+        hashes=$(printf '%s\n' "$asked" | jq -r '(.pastedContents // {})[] | .contentHash // empty' 2>/dev/null)
+        for h in $hashes; do
+            [ -f "$(_claude_btw_config_dir)/paste-cache/$h.txt" ] || continue
+            pastes=$(jq -c --arg h "$h" --rawfile c "$(_claude_btw_config_dir)/paste-cache/$h.txt" \
+                '. + {($h): $c}' <<< "$pastes" 2>/dev/null) || pastes='{}'
+        done
+        printf '%s\n' "$asked" | jq -c --argjson pastes "$pastes" "$_CLAUDE_BTW_ASKED_JQ" >> "$work" 2>/dev/null
+    fi
+    for id in $forks; do
+        jq -sc --arg id "$id" \
+            --arg name "$(jq -r '.name // empty' "$output_dir/agents/$id.meta.json" 2>/dev/null)" \
+            "$_CLAUDE_BTW_FORK_JQ" "$output_dir/agents/$id.transcript.jsonl" >> "$work" 2>/dev/null
+    done
+    if [ -n "$forks" ] && [ -f "$output_dir/_transcript_final.jsonl" ]; then
+        grep -F '<task-id>' "$output_dir/_transcript_final.jsonl" \
+            | jq -c --argjson ids "$(printf '%s\n' $forks | jq -Rsc 'split("\n") | map(select(length > 0))')" \
+                "$_CLAUDE_BTW_NOTES_JQ" >> "$work" 2>/dev/null
+    fi
+
+    old="$index"
+    [ -s "$old" ] || old=/dev/null
+    lines=$(jq -nc --slurpfile old "$old" --slurpfile new "$work" --arg sid "$sid" "$_CLAUDE_BTW_NEW_JQ" 2>/dev/null)
+    rm -f "$work"
+    if [ -n "$lines" ]; then
+        printf '%s\n' "$lines" | hook_secret_sanitize_stream >> "$index"
+        n=$(printf '%s\n' "$lines" | wc -l | tr -d ' ')
+        echo "Saved $n /btw line(s) in _claude_btw.jsonl" >> "$output_dir/trace.log"
+    fi
+    printf '%s\n' "$stamp" > "$output_dir/.btw.stamp"
+    return 0
 }
 
 # --- Files written ----------------------------------------------------------

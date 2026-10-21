@@ -23,6 +23,7 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   (0.1.12), 43 checks.
 - `hooks/claude_hooks/artifact_comments.sh` and `tests/artifact-comments.sh`: the Artifact
   comment threads (0.1.16), 43 checks.
+- `tests/btw.sh`: the `/btw` index (0.1.17), 38 checks.
 - `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a
@@ -86,6 +87,15 @@ those rules here goes there too.
   and thread id: each comment once, a thread's state when it changes. A read hands the hook
   every thread with full text even when the model sees a capped list. A comment nobody reads
   or sends to Claude never reaches the session. `tests/artifact-comments.sh`, 43 checks.
+- **The `/btw` index** (`lib.sh`, `claude_btw_capture`, since 0.1.17). No hook fires for `/btw`.
+  On 2026-10-21 Guillaume forked a `/btw` in `episode-120-mia-companion` and talked to the fork
+  twice: the question was in `~/.claude/history.jsonl` only, the rest only as raw lines of the
+  transcript copies, and the fork was labelled `unknown`. Each archive pass now reads the
+  session's `/btw` lines from `history.jsonl` (the sweep reads it once), each `/btw` fork's
+  transcript (a fork whose second line is the person's question) and the main transcript's
+  task-notifications for those forks, and appends to `_claude_btw.jsonl` the events it does not
+  hold yet. `.btw.stamp` skips a pass when no source changed. The answer to a `/btw` never forked
+  is kept nowhere by Claude Code. `tests/btw.sh`, 38 checks. jgwill/miadi-orchestration-kit#95.
 - **Credential files are listed, never copied** (0.1.12). `written/` copies every text file a
   call wrote, and the sanitizer redacts token shapes, not a password on a line of its own. A
   file whose name says it holds credentials (`.env*` but not `.env.example`, keys,
