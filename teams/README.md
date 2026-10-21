@@ -74,6 +74,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 
 ## T4 · Chart path
 
+- **What the name means (2026-10-21):** a chart here is a structural tension chart: a desired outcome, the current reality, and the action steps between them, written by an agent through coaia-narrative into a `.jsonl` file (a chart memory). The path is the route from that file to Asterion, the web app where the people a chart concerns read it and steer the agent that keeps it. A trading chart and a stateloom drawing are not this kind of chart.
 - **Level:** the application.
 - **Desired outcome:** every chart an agent writes reaches one place where the people it concerns can read and steer it, and whether that place is public is decided per source.
 - **Named:** 2026-10-03, after the second part of that day's screenwalk with Mino. William: "it feels like right now I'm with this new team that we'll work on chart path", and "there really needs to be a whole traceability".
@@ -123,6 +124,18 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Makes:** the `miadi-operator-desk` plugin (`claude/miadi-operator-desk`): the skill `operator-desk`, the command `/desk-record`, and the desk ledger `desk/ledger.jsonl`, one line per question with its answer, sources, owning team and any handoff (jgwill/miadi-orchestration-kit#71).
 - **Uses:** every team's section here and its skill, to find the answer. T1's binding line, to know which team a session is on.
 - **Sessions:** `miadi-how-to-set-with-tide-a-team`. A tmux session named `desk-…` is on T7 by its name.
+
+## T8 · Software development (stub, 2026-10-21)
+
+- **Status:** a stub, asked for by William on 2026-10-21: "I am confused at where Software Development fits and that would be time to address that."
+- **Level:** the code base.
+- **Why it is a team:** T1 to T7 are each named for an outcome (a session that survives a reboot, an event that arrives, a chart that reaches its reader), and each writes the code that its outcome needs. Code that several teams use, or that no team claims, had no team. On 2026-10-21, 99 of the 182 records in the session inventory (`MIADI_SESSION_INVENTORY_DIR`, today `~/workspace/.mino/session-inventory`) had no team, and 56 of those 99 worked in the jgwill/Miadi checkout (`/a/src/Miadi`, a link to `/a/src/Miadi-18`).
+- **Boundary:** a team keeps the code that exists only for its own outcome, such as T1's hooks and T4's Asterion. Code that two or more teams use, or that no team claims, is T8's: the jgwill/Miadi app and the `@miadi/*` packages no team lists, their builds, tests and releases, and their delivery to the hosts that run them.
+- **Desired outcome (draft, not yet in William's words):** every package and app another team relies on builds, passes its tests, is released with a version, and reaches the hosts that run it. Each team states what it needs from T8 and what it hands back, as a service states its contract.
+- **Leads:** William (human). The agent lead is not named.
+- **Uses:** each team's statement of what it needs.
+- **Would hold, from seat proposals in the inventory:** Delivery (`f8a0a2f8`), Host install (apt) (`a6ff6199`), Episode app on eury (`1b66f29e`), Chronicle terminal (`945c6819`), Resource addressing (`8dda48f5`). Each stays a proposal until William places it.
+- **Rules:** a tmux session named `t8-…` is on T8 by its name. There is no folder rule for the Miadi checkout: folders are decided before name patterns, so that rule would move every `t2-`, `t4-`, `t6-` and `desk-` session working there onto T8. Held for William.
 
 ## Not named yet
 

@@ -148,6 +148,19 @@
       "name_patterns": [
         "^desk-"
       ]
+    },
+    {
+      "id": "T8",
+      "name": "Software development",
+      "stub": "2026-10-21; asked for by William; the agent lead is not named and a folder rule for the jgwill/Miadi checkout is held (folders are decided before name patterns)",
+      "level": "the code base",
+      "human_lead": "William",
+      "agent_lead": null,
+      "sessions": [],
+      "folders": [],
+      "name_patterns": [
+        "^t8-"
+      ]
     }
   ]
 }
