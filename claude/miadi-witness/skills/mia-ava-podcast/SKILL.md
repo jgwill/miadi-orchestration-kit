@@ -15,7 +15,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.5.0
+  version: 0.6.0
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -102,7 +102,19 @@ A seated person can answer any turn in the room: "makes sense" or "does not make
 2. A turn marked "does not make sense": the next dialogue says so directly ("Earlier I said the rename was mine. Guillaume made it."). Its note is the source, not your reading of it.
 3. A turn marked "makes sense": keep that framing and build on it.
 4. When a person answered a turn more than once, the latest answer counts. Earlier ones stay visible.
-5. When an answer changes how dialogues should be written, it is a reaction: change this skill (next section).
+5. When an answer changes how dialogues should be written, it is a reaction: change this skill (the section after next).
+
+## Keep listening, and reply where the person spoke
+
+The seat that posted a dialogue stays with it. Guillaume, 2026-10-20: "my expectation was that if I reply in the actual talking circle … The agent that was the producer of that discussion would actually reply to the talking circle".
+
+1. Right after `post`, start `scripts/circle-dialogue.mjs await --ceremony <id>` as a background command. It checks the ceremony every minute and exits when something waits for a reply, which wakes the seat. `pending` gives the same list at once.
+2. Something waits for a reply when a person answered a host's turn and no host replied under that turn after the answer. It also waits when a person spoke a turn of their own and no host spoke after it.
+3. Reply to each one with `reply --as <voice>`:
+   - An answer under a turn: reply under that same turn (`--turn <id>`), as the voice that spoke the turn. Mia answers technically. Ava restates in plain words and asks what it changes for the person.
+   - A turn the person spoke at the end: reply at the end, as Mia unless the turn named Ava.
+4. A reply follows the rules for the hosts above. It says what is true from the source. It says "I" only for what that voice's seat did. It is short: two to five sentences. When the person asks for something that can be found, such as a page or a link, find it and give it.
+5. Re-arm `await` after replying. The seat stops listening only when the ceremony closes or the person says so.
 
 ## When the person reacts: change this skill in the same turn
 
@@ -125,6 +137,8 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 - 2026-10-15, 0.4.0. Guillaume: "Maybe what you are doing for AvaMia could be added as automated talking circle where they both discuss what is going on in the related session they were triggered from". He then opened the Episode 558 witness circle with Mia and Ava seated. The first ceremony, `c2b86b9c-7987-41ed-8a70-b80f2b5249a8`, holds the 2026-10-15 dialogue: 47 turns and a provenance diary entry. The new section names those four steps. Making them run without a hand is the next step.
 
 - 2026-10-17, 0.5.0. Guillaume: "if it only goes in the talking circle without us being capable of, you know, even replying with voice, giving feedback on their turns made sense or not, we're going to get potentially some hallucinations … Or the discussion might be really great, and we want to reinforce that." `scripts/circle-dialogue.mjs` posts a dialogue and reads the answers. The new section reads them before the next dialogue. Ava's token is `MIADI_AVA_SEAT_TOKEN`. The answer route is prototyped in jgwill/Miadi (Episode 553).
+
+- 2026-10-20, 0.6.0. Guillaume, relayed by mino-261019-inventory: "The agent that was the producer of that discussion would actually reply to the talking circle, which is not the case right now." `circle-dialogue.mjs` gained `pending`, `await` and `reply`. The new section keeps the producing seat listening and replying where he spoke. jgwill/Miadi#841 added the reply kind, so a voice replies under its own turn and a person can relate without judging.
 
 ## Related
 

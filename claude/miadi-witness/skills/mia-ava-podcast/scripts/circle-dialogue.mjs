@@ -6,6 +6,9 @@
 //   node circle-dialogue.mjs post --circle <circle-id> --intention "<the person's words>" \
 //        [--episode-path <episode folder name>] --file <dialogue.md> [--source <text>] [--dry-run]
 //   node circle-dialogue.mjs answers --ceremony <id> [--json]
+//   node circle-dialogue.mjs pending --ceremony <id> [--json]
+//   node circle-dialogue.mjs await --ceremony <id> [--interval <seconds>] [--timeout <seconds>]
+//   node circle-dialogue.mjs reply --ceremony <id> --as Mia|Ava [--turn <turn id>] --say "<text>"
 //
 // post: opens the ceremony when --circle is given (bound to an episode only with --episode-path,
 // since a staged folder has none), writes the provenance diary entry under
@@ -14,6 +17,11 @@
 // a file with text after the first turn that is not a turn (a turn is one paragraph).
 // answers: lists each turn's answers (makes sense, or does not, with the note), recorded by
 // jgwill/Miadi's turn answer route. When a person answers a turn twice, the latest counts.
+// pending: what a person said that Mia or Ava has not replied to yet. That is an answer under a
+// host's turn with no host reply after it, or a turn a person spoke with no host turn after it.
+// await: exits 0 with the pending list once there is one (run it in the background, so the seat
+// that posted the dialogue wakes on it), exits 4 at --timeout (0, the default, waits on).
+// reply: posts as Mia or Ava, under a turn (--turn, Miadi's reply kind) or at the end.
 //
 // Tokens are read by name from the environment, else from the env files below, and never
 // printed: Mia MIADI_MIA_TOKEN, Ava MIADI_AVA_SEAT_TOKEN (then MIADI_AVA_TOKEN), and the seat
@@ -149,6 +157,98 @@ export async function answers(opts, env = process.env, out = console.log) {
   return rows;
 }
 
+export const HOSTS = Object.keys(HOST_TOKENS);
+
+async function readCeremony(opts, env) {
+  const base = env.MIADI_API_URL;
+  if (!base) throw new Error("MIADI_API_URL is not set");
+  const token = resolveToken([opts.composerVar || env.CIRCLE_DIALOGUE_COMPOSER_VAR || "MIADI_MINO_TOKEN", ...HOST_TOKENS.Mia], env);
+  if (!token) throw new Error("no token to read the ceremony");
+  const r = await call(base, token, "GET", `/api/ceremony/${encodeURIComponent(opts.ceremony)}`);
+  if (!r.ok) throw new Error(`reading the ceremony: HTTP ${r.status} ${r.data.error ?? ""}`);
+  return r.data;
+}
+
+/** What people said that the hosts have not replied to, in the order of the circle. */
+export function pendingOf(view, hosts = HOSTS) {
+  const isHost = (name) => hosts.includes(name);
+  const turns = view.turns ?? [];
+  const items = [];
+  turns.forEach((t, i) => {
+    const said = t.prose ?? t.description ?? "";
+    const thread = [...(t.responses ?? [])].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+    const lastHostReply = thread.filter((a) => a.stance === "reply" && isHost(a.speaker_name)).at(-1);
+    const after = (x) => !lastHostReply || Date.parse(x.timestamp) > Date.parse(lastHostReply.timestamp);
+    if (isHost(t.speaker_name)) {
+      const open = thread.filter((a) => !isHost(a.speaker_name) && after(a));
+      if (open.length) items.push({ kind: "answer", turn_id: t.id, turn: i + 1, voice: t.speaker_name, said, answers: open.map((a) => ({ by: a.speaker_name, stance: a.stance, note: a.note ?? "", at: a.timestamp })) });
+    } else {
+      const hostTurnAfter = turns.slice(i + 1).some((u) => isHost(u.speaker_name));
+      if (!hostTurnAfter && !lastHostReply) items.push({ kind: "turn", turn_id: t.id, turn: i + 1, voice: "Mia", by: t.speaker_name, said, at: t.timestamp });
+    }
+  });
+  return items;
+}
+
+function printPending(items, out, json) {
+  if (json) return out(JSON.stringify(items, null, 2));
+  if (!items.length) return out("nothing waits for a reply");
+  for (const p of items) {
+    if (p.kind === "answer") {
+      out(`turn ${p.turn} (${p.voice}, ${p.turn_id}): ${p.said.slice(0, 100)}${p.said.length > 100 ? "…" : ""}`);
+      for (const a of p.answers) out(`  ${a.by}: ${a.stance}${a.note ? `. ${a.note}` : ""}`);
+    } else out(`turn ${p.turn}, spoken by ${p.by} (${p.turn_id}): ${p.said}`);
+  }
+}
+
+export async function pending(opts, env = process.env, out = console.log) {
+  const items = pendingOf(await readCeremony(opts, env));
+  printPending(items, out, opts.json);
+  return items;
+}
+
+export async function awaitPending(opts, env = process.env, out = console.log, sleep = (ms) => new Promise((r) => setTimeout(r, ms))) {
+  const interval = Number(opts.interval ?? 60) * 1000;
+  const timeout = Number(opts.timeout ?? 0) * 1000;
+  const start = Date.now();
+  for (;;) {
+    let items = [];
+    try {
+      items = pendingOf(await readCeremony(opts, env));
+    } catch (err) {
+      if (/not set|no token/.test(err.message)) throw err;
+    }
+    if (items.length) {
+      out(`miadi-ceremony://${opts.ceremony}: ${items.length} waiting for a reply`);
+      printPending(items, out, opts.json);
+      return items;
+    }
+    if (timeout && Date.now() - start >= timeout) {
+      const err = new Error(`nothing new in miadi-ceremony://${opts.ceremony} after ${opts.timeout} s`);
+      err.exitCode = 4;
+      throw err;
+    }
+    await sleep(interval);
+  }
+}
+
+export async function reply(opts, env = process.env, out = console.log) {
+  const base = env.MIADI_API_URL;
+  if (!base) throw new Error("MIADI_API_URL is not set");
+  if (!HOSTS.includes(opts.as)) throw new Error(`--as is one of ${HOSTS.join(", ")}`);
+  const say = (opts.say ?? "").trim();
+  if (!say) throw new Error("--say is empty");
+  const token = resolveToken(HOST_TOKENS[opts.as], env);
+  if (!token) throw new Error(`no token for ${opts.as}: set ${HOST_TOKENS[opts.as].join(" or ")}`);
+  const c = encodeURIComponent(opts.ceremony);
+  const r = opts.turn
+    ? await call(base, token, "POST", `/api/ceremony/${c}/turns/${encodeURIComponent(opts.turn)}/respond`, { stance: "reply", note: say })
+    : await call(base, token, "POST", `/api/ceremony/${c}/turns`, { said: say });
+  if (!r.ok) throw new Error(`${opts.as}'s reply refused: HTTP ${r.status} ${r.data.error ?? ""}`);
+  out(`${opts.as} replied ${opts.turn ? `under turn ${opts.turn}` : "at the end"} in miadi-ceremony://${opts.ceremony}`);
+  return r.data;
+}
+
 function args(argv) {
   const o = { _: [] };
   for (let i = 0; i < argv.length; i++) {
@@ -164,16 +264,19 @@ function args(argv) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const o = args(process.argv.slice(2));
   const verb = o._[0];
-  const usage = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 9).map((l) => l.replace(/^\/\/ ?/, "")).join("\n");
+  const usage = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 12).map((l) => l.replace(/^\/\/ ?/, "")).join("\n");
   try {
     if (verb === "post" && o.file && existsSync(o.file) && (o.ceremony || (o.circle && o.intention))) await post(o);
     else if (verb === "answers" && o.ceremony) await answers(o);
+    else if (verb === "pending" && o.ceremony) await pending(o);
+    else if (verb === "await" && o.ceremony) await awaitPending(o);
+    else if (verb === "reply" && o.ceremony && o.as && o.say) await reply(o);
     else {
       console.error(usage);
       process.exit(2);
     }
   } catch (err) {
     console.error(err.message);
-    process.exit(1);
+    process.exit(err.exitCode ?? 1);
   }
 }
