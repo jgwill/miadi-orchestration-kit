@@ -86,7 +86,8 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
   - A private project is shown only to signed-in writers, and a read route that never asks who is reading fails the build (miadisabelle/asterion@2c3fa5d, @f52d90d). Checked on all six Asterion addresses, signed out and as a writer.
   - Mino's chart is on Asterion as the private project `mino-triage`: 165 charts and 12 threads for signed-in writers, nothing for anyone else (William's word, D1).
   - 2026-10-06: a project names its seat, the tmux session that keeps its charts, shown on the project page and named there by a writer (miadisabelle/asterion@015a767). Tested live on `ep060`. Mino read back William's part-two feedback ("RECEIVED 093064b6").
-- **Next:** a steer made on Asterion reaches the project's seat through Miadi's steering, and a project names its checkouts (the design is in the skill). The vocabulary in the skill waits for William's corrections.
+  - 2026-10-20: each chart shows the agent that keeps it, and a signed-in writer on gaia steers that agent from the chart. A steer starts a fresh session through the agent's door in Miadi's agent-handoff file and comes back as a chart change (miadisabelle/asterion@f2f577e). D5 to D7 were decided by the witness seat on William's delegation. First steer: ep060 → Mia.
+- **Next:** the steer's answer shown under it on the chart, and a project names its checkouts. The vocabulary in the skill waits for William's corrections.
 - **Skill:** `skills/chart-path/SKILL.md` in this kit: the path, private sources, the words (repository, checkout, chart memory, project, seat, workspace), what `/stc-config` holds that Asterion must keep, and steering through a seat. Any agent that learns something about the chart path writes it there.
 
 ## T5 · Production context exploration (stub, 2026-10-06)

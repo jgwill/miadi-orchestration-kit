@@ -80,31 +80,45 @@ Asterion knows where a chart memory is. It does not know where the work happens.
 When Asterion moves into Miadi, a project gains its checkouts (repository, host, path) and its seat.
 Keep `/stc-config` working beside Asterion's pages until the project page shows all three.
 
-## Steering a chart (the seat is built, the steer is not)
+## Steering a chart (built 2026-10-20, miadisabelle/asterion f2f577e)
 
-Asterion does not write a chart memory. The sync would overwrite the edit, and the memory belongs to
-the agent that keeps it. Steering goes to the seat instead:
+Asterion does not write a chart memory: the sync would overwrite the edit, and the memory belongs to
+the agent that keeps it. A steer goes to that agent instead. Decided 2026-10-20 (D5 to D7, delegated
+by William to the witness seat, which took T4's recommendations):
 
-1. A person steers a chart on Asterion. Asterion records the steer as an event on that chart.
-2. The steer goes to the project's **seat** through Miadi's steering (`config/stc-steering.json`,
-   `lib/stc/steering.ts`), the same path a GitHub action takes to reach a seat today.
-3. If the seat's session is closed, it is brought back first (T1: `tide agents restore`, the binding line).
-4. The seat changes the chart through its MCP, and the save returns through the door or the sync.
+- **D5. The seat names the keeper agent**, not a tmux session: `projects.metadata.seat` is
+  `{ agent, name, folder, mcp_server, set_by, set_at }`. `agent` is the Miadi person id, the key of
+  its door. `folder` is where it works on these charts, and `mcp_server` the server of
+  `<folder>/.mcp.json` that writes them. A writer names it on the project page ("Kept by") or with
+  `PATCH /api/projects/<id>`. A seat from before 2026-10-20 named a tmux session and shows as such.
+- **D6. Steers leave only from gaia.** `ASTERION_STEERING=on` is in gaia's `app/.env.local` and
+  nowhere else. The public addresses answer 503 with the tailnet address.
+- **D7. A steer starts a fresh session through the agent's door** and never types into a running
+  pane. Typing into tmux sent six steers into `stcbot-OFFLINE` on 2026-10-07 (jgwill/Miadi 20d232b3).
+  The doors are Miadi's agent-handoff file `/srv/miadi/agent-handoff.json`, the list a talking
+  circle's revision uses (jgwill/Miadi 0a04de65), read on every steer.
 
-**Built 2026-10-06 (miadisabelle/asterion 015a767): a project names its seat.** The project page
-shows it to everyone. A signed-in writer names, changes or clears it there, or with
-`PATCH /api/projects/<id>` and `{ "seat": { "session": "<tmux session>", "host": "<host>" } }` (or
-`{ "seat": null }`). It is kept in `projects.metadata.seat` as `{ kind: 'tmux', session, host,
-set_by, set_at }`, the shape of a seat in Miadi's `config/stc-steering.json`, and the registry sync
-never touches it. Every change is a `project.seat_named` or `project.seat_cleared` event. First seat:
-`ep060` → `episode-060-coaia-agent-asterion-system` on gaia.
+How it runs: the chart page shows "Kept by" for everyone, and for a signed-in writer on gaia a
+steer box that previews the brief before it sends. `POST /api/tensions/<id>/steer` (`dry_run` for
+the preview) opens a door of kind `claude-print`: `claude -p` in the seat's folder with only the
+chart server (`--strict-mcp-config`), `--permission-mode dontAsk` and Read, Grep, Glob, a fresh
+`--session-id`, and a minimal environment. Its log and its one-server MCP config are in
+`/srv/miadi/agent-handoff/asterion/` (mode 700). Every steer is a `tension.steered` event on the
+chart with its status and session id, and the keeper's change returns like any other.
 
-Name a seat only for a session that should receive steers. A session renamed `*-OFFLINE` is one its
-person took offline on purpose: naming it routes steers back in. `mino-triage` stays without a seat
-until William brings Mino's seat back online (Mino recommends `stcbot` on gaia).
+Agent ids: Mia `node:human:1789710466321:95nnhl` (door: claude-print), Mino
+`node:agent:1790889011183:l2wej3` (no door), Kherix `node:human:1790760357285:j7o5qx`
+(hermes-api, which Asterion does not open). Find another agent's id with its token at
+`https://miadi.sanctuaireagentique.com/api/identity/me`.
 
-What is missing: a steer made on Asterion is not yet an event that reaches the seat (steps 1 and 2
-above).
+First steer, 2026-10-20: ep060 (keeper Mia, folder `/a/src/coaia-narrative`, server `coaia-ep060`).
+Mia's session `82a81bf7` added the requested observation, and it was back on Asterion 38 s later.
+
+Give an agent a door only if it should be started by a steer. Mino has none: William took its seat
+offline (`stcbot-OFFLINE`, 2026-10-04), so `mino-triage` names no keeper yet.
+
+Not built: the steer's answer shown under it on the chart (today it is the chart change plus the
+session's log on gaia), and a door for an agent that is not a Claude seat started with `claude -p`.
 
 ## Where Asterion goes (absorption into jgwill/Miadi)
 
