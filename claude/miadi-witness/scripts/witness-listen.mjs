@@ -213,9 +213,12 @@ export function view({ seat, watch = [], self = null, onlyWatched = false }) {
   // An input block is addressed by tmux_session_original_name. A scoped listener wakes only for
   // blocks addressed to a watched session or its forks; every block is still recorded as seen.
   const watchedNames = new Set(watched.flatMap((thread) => [...(thread.names ?? []), thread.tmux?.session].filter(Boolean)));
+  // A block marked status="drafting" is William's unfinished work: it is recorded as seen but does not wake the seat.
+  // Changing its status to anything else changes its opening tag, so the block is new again and wakes once.
+  const ready = inputs.blocks.filter((block) => !/draft/i.test(block.attrs?.status ?? ""));
   const wakeInputs = onlyWatched
-    ? inputs.blocks.filter((block) => watchedNames.has(block.attrs?.tmux_session_original_name))
-    : inputs.blocks;
+    ? ready.filter((block) => watchedNames.has(block.attrs?.tmux_session_original_name))
+    : ready;
   return { model, seatThreads, wakeThreads, watched, inputs, wakeInputs };
 }
 
