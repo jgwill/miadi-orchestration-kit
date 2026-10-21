@@ -58,6 +58,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Makes:** the broker choice and its first proof, episode 548 and its community invitation.
 - **Uses:** T1's session events (a session starting in a terminal is one event it may carry), the Facebook page skills.
 - **Sessions before the reboot, examples:** `kafka`, `miadi-eda-broker-episode-community-prepare`, `miadi-kafka-pto-potentially-as-factory-eda`, `miadi-provider-repo-file-replacement-by-r2-cloudflare`, `miadi-org-webhook-schema-ep074`.
+- **Sessions:** `t2-trace-prompt-provider-ceremony-to-creative-261019` (S28, placed here 2026-10-20). A trace is the record of what a run did, and its address is how anyone sees that it happened: this session made the trace, prompt and metric addresses, the open door that follows them from a terminal or a page, and `@miadi/llmops` 0.1.0 (jgwill/Miadi#829). A tmux session named `t2-…` is on T2 by its name.
 - **Skill:** not written yet.
 
 ## T3 · Witness

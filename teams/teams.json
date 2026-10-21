@@ -40,7 +40,8 @@
         "miadi-eda-broker-episode-community-prepare",
         "miadi-kafka-pto-potentially-as-factory-eda",
         "miadi-provider-repo-file-replacement-by-r2-cloudflare",
-        "miadi-org-webhook-schema-ep074"
+        "miadi-org-webhook-schema-ep074",
+        "t2-trace-prompt-provider-ceremony-to-creative-261019"
       ],
       "folders": [
         "/b/trading/pto/kafka",
@@ -49,7 +50,8 @@
       "name_patterns": [
         "kafka",
         "eda-broker",
-        "episode-548"
+        "episode-548",
+        "^t2-"
       ]
     },
     {
