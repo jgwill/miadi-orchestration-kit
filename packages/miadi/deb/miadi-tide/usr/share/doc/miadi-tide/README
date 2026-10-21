@@ -28,8 +28,12 @@ The runtime venv
   there. It uses the first Python 3.11+ with venv it finds (python3.13, 3.12,
   3.11, python3). If it goes missing: sudo dpkg-reconfigure miadi-tide
 
-Reviews are kept in ~/.local/state/plannotator-tmux-review/ (PLANNOTATOR_TMUX_REVIEW_DIR),
-annotations in ~/.plannotator/ (per user).
+Replies and delivered reviews are kept in $MIADI_TIDE_DIR/reviews/<user>/
+(PLANNOTATOR_TMUX_REVIEW_DIR), marks in $MIADI_TIDE_DIR/annotations/<user>/
+(PLANNOTATOR_DATA_DIR). MIADI_TIDE_DIR is $MIADI_DATA_DIR/tide (/srv/miadi/tide)
+unless miadi.env says otherwise; miadi-config's env.sh sets both in login
+shells, and a service sets them in its own unit. Without miadi-config they fall
+back to ~/.local/state/plannotator-tmux-review/ and ~/.plannotator/.
 
 /usr/share/miadi-tide/SOURCE names the commit each part was built from.
 https://github.com/jgwill/miadi-orchestration-kit/issues/55

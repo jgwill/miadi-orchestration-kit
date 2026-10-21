@@ -23,6 +23,16 @@ configure)
 	PIP_DISABLE_PIP_VERSION_CHECK=1 "$venv/bin/pip" install -q --no-cache-dir --no-index \
 		--find-links "$wheels" -c "$wheels/constraints.txt" ironsilk
 	echo "miadi-tide: tide runtime $("$venv/bin/pip" show ironsilk | sed -n 's/^Version: //p') in $venv ($("$py" -V 2>&1))" >&2
+	# The review loop keeps each user's replies and marks in reviews/<user>/ and
+	# annotations/<user>/ under MIADI_TIDE_DIR (miadi-config's env.sh). The loop
+	# creates the user's folder, so both parents take every user, sticky as /tmp
+	# (jgwill/miadi-orchestration-kit#96).
+	env_value() { sed -n "s/^$1=//p" /etc/miadi/miadi.env 2>/dev/null | tail -n 1; }
+	data=$(env_value MIADI_DATA_DIR)
+	tide=$(env_value MIADI_TIDE_DIR)
+	tide=${tide:-${data:-/srv/miadi}/tide}
+	install -d -m 1777 "$tide/reviews" "$tide/annotations"
+	echo "miadi-tide: replies and marks in $tide/reviews/<user> and $tide/annotations/<user>" >&2
 	;;
 esac
 exit 0

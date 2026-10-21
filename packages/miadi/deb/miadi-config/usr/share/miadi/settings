@@ -20,6 +20,9 @@ MIADI_CHRONICLE_OPEN_URL         the Miadi front a clicked miadi-chronicle: refe
 MIADI_MUSIC_SOUNDFONT            the General MIDI soundfont fluidsynth renders with; unset, JAMAI_SOUNDFONT, else /usr/share/sounds/sf2/FluidR3_GM.sf2 (fluid-soundfont-gm)
 MIADI_MUSIC_PYTHON               the Python that measures music; unset, /usr/lib/miadi-music/venv/bin/python3 (miadi-music-measure)
 
+# Read by miadi-tide, the review loop
+MIADI_TIDE_DIR                   replies and marks, reviews/<user>/ and annotations/<user>/ inside (default $MIADI_DATA_DIR/tide); env.sh sets PLANNOTATOR_TMUX_REVIEW_DIR and PLANNOTATOR_DATA_DIR from it
+
 # Read by the Miadi app (jgwill/Miadi)
 MIADI_API_URL                    the Miadi API the app and clients call (default http://127.0.0.1:3335)
 MIADI_CHRONICLE_ROOT             the chronicle episodes (default $MIADI_EPISODES_DIR/miadi-chronicle)

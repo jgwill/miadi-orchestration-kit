@@ -150,6 +150,14 @@ neither an npm nor a PyPI release (jgwill/miadi-orchestration-kit#55).
 | `/usr/lib/systemd/user/tide-store-prune.{service,timer}` | keeps the daemon's snapshot store to 7 days | server |
 | `/usr/share/miadi-tide/SOURCE` | the repository and commit each part was built from | |
 
+Each user's replies and marks live in `$MIADI_TIDE_DIR/reviews/<user>/` and
+`$MIADI_TIDE_DIR/annotations/<user>/` (`MIADI_TIDE_DIR` defaults to
+`$MIADI_DATA_DIR/tide`), so the host's data backup carries them. `miadi-config`'s
+`env.sh` sets `PLANNOTATOR_TMUX_REVIEW_DIR` and `PLANNOTATOR_DATA_DIR` from it in
+login shells; a service such as the Miadi app sets the same two in its unit.
+`postinst` creates both parents, sticky and writable by every user, since a tmux
+pane id names a pane in one user's server only (jgwill/miadi-orchestration-kit#96).
+
 The tide runtime (`ironsilk`) runs in its own venv, `/usr/lib/miadi-tide/tide-runtime`,
 which `postinst` builds from the wheels in the package with `--no-index`. Its
 dependencies are pinned in `prep/miadi-tide.constraints.txt`, and it reads nothing

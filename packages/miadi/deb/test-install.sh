@@ -55,6 +55,8 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     bash -uc ". /usr/share/miadi/env.sh
       test \"\$MIADI_DATA_DIR\" = /srv/miadi
       test \"\$MIADI_CHRONICLE_ROOT\" = /srv/miadi/episodes/miadi-chronicle
+      test \"\$PLANNOTATOR_TMUX_REVIEW_DIR\" = /srv/miadi/tide/reviews/\$(id -un)
+      test \"\$PLANNOTATOR_DATA_DIR\" = /srv/miadi/tide/annotations/\$(id -un)
       test \"\$MIADI_WEBHOOK_URL\" = https://example.test/api/workflow/webhook
       test \"\$(MIADI_DATA_DIR=/data bash -c \". /usr/share/miadi/env.sh; echo \\\$MIADI_EPISODES_DIR\")\" = /data/episodes
       echo \"env ok: \$(env | grep -c ^MIADI_) MIADI_* variables, silent under set -u\""
@@ -216,6 +218,11 @@ PY
       tmux kill-server
     "
     echo "tan-style delivery: marked, guarded by the packaged guard, typed into the pane"
+    test "$(stat -c %a /srv/miadi/tide/reviews) $(stat -c %a /srv/miadi/tide/annotations)" = "1777 1777" && echo "postinst made the review loop folders, sticky and open to every user"
+    if dpkg -s miadi-config >/dev/null 2>&1; then
+      su - annotator -s /bin/bash -c "printf \"# Reply\\n\\nKept.\\n\" > \$HOME/kept.md && plannotator-tui --annotate-block \$HOME/kept.md 1 \"kept in the data root\" >/dev/null"
+      ls /srv/miadi/tide/annotations/annotator/clients/plannotator-tui/annotations/*/*/annotations.json >/dev/null && echo "a login shell marks into /srv/miadi/tide/annotations/<user>"
+    fi
 
     apt-get remove -y -qq miadi-tide >/dev/null 2>&1
     test ! -e $venv && echo "remove takes the venv with it"

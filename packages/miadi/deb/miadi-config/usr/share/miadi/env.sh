@@ -1,4 +1,5 @@
-# /usr/share/miadi/env.sh — the MIADI_* environment of a Miadi host.
+# /usr/share/miadi/env.sh — the MIADI_* environment of a Miadi host, and the
+# two PLANNOTATOR_* folders built from MIADI_TIDE_DIR.
 #
 # Source it from bash, don't execute it. Installed by the `miadi-config` apt
 # package (source: jgwill/miadi-orchestration-kit, packages/miadi/deb), which
@@ -27,7 +28,7 @@ if [ -n "${_miadi_filled:-}" ]; then
 fi
 _miadi_before=" "
 for _miadi_key in $(compgen -e); do
-	case $_miadi_key in MIADI_*) _miadi_before+="$_miadi_key " ;; esac
+	case $_miadi_key in MIADI_* | PLANNOTATOR_TMUX_REVIEW_DIR | PLANNOTATOR_DATA_DIR) _miadi_before+="$_miadi_key " ;; esac
 done
 
 : "${MIADI_ETC:=/etc/miadi}"
@@ -89,6 +90,12 @@ export MIADI_STORIES_ROOT
 # Read by the Miadi app, which falls back to these same paths.
 export MIADI_IDENTITY_DIR="${MIADI_IDENTITY_DIR:-$MIADI_DATA_DIR/identity}"
 export MIADI_STUDIO_DIR="${MIADI_STUDIO_DIR:-$MIADI_EPISODES_DIR/miadi-studio}"
+# The review loop (miadi-tide): replies and marks, one folder per user, because a
+# tmux pane id names a pane in one user's server only. tan, the Miadi app and
+# plannotator-tui read the two PLANNOTATOR_* names (jgwill/miadi-orchestration-kit#96).
+export MIADI_TIDE_DIR="${MIADI_TIDE_DIR:-$MIADI_DATA_DIR/tide}"
+export PLANNOTATOR_TMUX_REVIEW_DIR="${PLANNOTATOR_TMUX_REVIEW_DIR:-$MIADI_TIDE_DIR/reviews/${USER:-$(id -un)}}"
+export PLANNOTATOR_DATA_DIR="${PLANNOTATOR_DATA_DIR:-$MIADI_TIDE_DIR/annotations/${USER:-$(id -un)}}"
 
 # Agent session capture: /src/_sessiondata on hosts that have /src, else
 # $HOME/_sessiondata so hooks always have a writable dir.
@@ -148,7 +155,7 @@ export MIADI_EH_API_URL MIADI_REVIEW_URL
 # What this run filled in, for the next run in this shell. Not exported.
 _miadi_filled=
 for _miadi_key in $(compgen -e); do
-	case $_miadi_key in MIADI_*) ;; *) continue ;; esac
+	case $_miadi_key in MIADI_* | PLANNOTATOR_TMUX_REVIEW_DIR | PLANNOTATOR_DATA_DIR) ;; *) continue ;; esac
 	case $_miadi_before in *" $_miadi_key "*) continue ;; esac
 	_miadi_filled+="$_miadi_key=${!_miadi_key}"$'\n'
 done
