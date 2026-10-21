@@ -176,6 +176,16 @@ test("a thread that goes from busy to idle wakes the seat with its last message;
   assert.equal(run(fx, quiet).code, 4);
 });
 
+test("a thread whose turn ends with a background command running (status shell) wakes the seat too", () => {
+  const fx = fixture();
+  run(fx, ["status"]);
+  registry(fx, ORIGINAL, "shell", "mino-260926");
+  const wake = run(fx, quiet);
+  assert.equal(wake.code, 0);
+  assert.match(wake.stdout, /THREAD WENT IDLE · mino-260926 \(aaaaaaaa.*busy → shell/);
+  assert.equal(run(fx, quiet).code, 4, "shell to shell does not wake again");
+});
+
 test("the wake carries the open asks and a turn budget, and re-arms with the same arguments", () => {
   const fx = fixture();
   run(fx, ["status"]);

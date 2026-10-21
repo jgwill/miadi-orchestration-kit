@@ -31,6 +31,8 @@ const MESSAGE_CHARS = 700;
 
 // A scratchpad that was saved in the last few minutes is still being written: its blocks wait until it has been
 // quiet this long, so each save does not wake the seat (2026-10-21, William). WITNESS_SETTLE_MS overrides it.
+const TURN_OVER = new Set(["idle", "shell"]);
+
 const settleMs = () => Number(process.env.WITNESS_SETTLE_MS ?? 180_000);
 
 // ---------- sources ----------
@@ -225,7 +227,9 @@ export function eventsOf(state, current) {
   for (const thread of current.wakeThreads ?? current.seatThreads) if (!seenThreads.has(thread.session_id)) events.push({ kind: "thread", thread });
   for (const thread of current.watched) {
     const before = state.statuses[thread.session_id];
-    if (before === "busy" && thread.live && thread.status === "idle") events.push({ kind: "idle", thread, before });
+    // "shell" is a turn that ended with a background command still running (a listener, a build):
+    // the session is at its prompt, so for the witness its turn is over exactly as for "idle".
+    if (before === "busy" && thread.live && TURN_OVER.has(thread.status)) events.push({ kind: "idle", thread, before });
   }
   return events;
 }
@@ -281,7 +285,7 @@ export function formatWake({ seat, events, threads, asks, sessiondata, rearm = t
       const t = event.thread;
       const said = sessiondata ? lastMessage(sessiondata, t.session_id) : null;
       lines.push(
-        `${n} THREAD WENT IDLE · ${t.name ?? "(no name)"} (${t.session_id}) · busy → idle${t.status_since ? ` at ${t.status_since}` : ""}`,
+        `${n} THREAD WENT IDLE · ${t.name ?? "(no name)"} (${t.session_id}) · busy → ${t.status}${t.status_since ? ` at ${t.status_since}` : ""}`,
         `   ${tmuxOf(t)}`,
         `   its last message: ${said ? JSON.stringify(said) : "not captured"}`,
         "",
