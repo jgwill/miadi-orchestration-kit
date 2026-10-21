@@ -29,7 +29,9 @@ const HEARTBEAT_STALE_MS = 120_000;
 const BLOCK_CHARS = 4000;
 const MESSAGE_CHARS = 700;
 
-const settleMs = () => Number(process.env.WITNESS_SETTLE_MS ?? 3000);
+// A scratchpad that was saved in the last few minutes is still being written: its blocks wait until it has been
+// quiet this long, so each save does not wake the seat (2026-10-21, William). WITNESS_SETTLE_MS overrides it.
+const settleMs = () => Number(process.env.WITNESS_SETTLE_MS ?? 180_000);
 
 // ---------- sources ----------
 
