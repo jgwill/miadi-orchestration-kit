@@ -134,7 +134,9 @@ const heartbeatPath = (seat) => join(stateDir(), `${seat}.listening.json`);
 function loadState(seat) {
   try {
     const state = JSON.parse(readFileSync(statePath(seat), "utf8"));
-    if (state?.version === STATE_VERSION && Array.isArray(state.inputs) && Array.isArray(state.threads)) return state;
+    // The seat comes from the file name, not from the copy: a state copied from a renamed seat kept the old name
+    // inside, and every save then went to the old file (2026-10-21).
+    if (state?.version === STATE_VERSION && Array.isArray(state.inputs) && Array.isArray(state.threads)) return { ...state, seat };
   } catch { /* absent or unreadable: a new baseline is taken */ }
   return null;
 }
