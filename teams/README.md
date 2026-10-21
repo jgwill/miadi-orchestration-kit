@@ -91,7 +91,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 
 ## T5 · Production context exploration (stub, 2026-10-06)
 
-- **Status:** a stub, asked for by William on review 6c3f477f v10: "stub and first version could be created automatically then talk about what next". "Production context exploration" is his term. The team's name of record is his to give; the staging circle proposes "the germination circle" (`_staging_for_new_episodes/naming-what-comes-before-an-episode-261005/naming.md`, O7).
+- **Status:** a stub, asked for by William on review 6c3f477f v10: "stub and first version could be created automatically then talk about what next". "Production context exploration" is his term.
 - **Level:** before an episode.
 - **Desired outcome, in William's words (2026-10-05, to the staging session):** "these potential sparks of an episode … are rich enough when we create them, which imply we have put something in the staging area right away before, and we fed them a little bit, and we explore a little bit, to become an interactive TV series".
 - **Leads:** William (human). The staging session `miadi-staging-episodes-circle:1791110394383:jj1ql8` (agent).
@@ -100,7 +100,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **First-version practice (2026-10-14):** `skills/production-context-exploration/SKILL.md` and its Mia–Ava academic-interpretation reference: inspect current sources, preserve interpretation/correction under the Chronicle staging folder's `.mia/`, prepare one potential script, and leave birth to a human choice (jgwill/miadi-orchestration-kit#91). This adds a reusable practice, not new members, leads, names, automation, or implemented staging UI.
 - **Mantra (William, 2026-10-15):** "The episode is created only when that foundation holds." He took it from a seat's proposal for the next inquiry and gave it to this team.
 - **What it means, in his words (2026-10-15):** compaction happens at the end of a cycle, and the foundation happens before an episode: "we are ensuring before it becomes an episode that we have a foundation, which implies being grounded in the academic fields as well as knowing what we are going to make it work." A staged folder holds a foundations packet (the `deep-research-foundations` contract) beside its cases and script. The packet moves into the episode when it is minted, and the episode's Foundations card holds it with `source: "episode"`. First folder built this way: `_staging_for_new_episodes/why-a-seat-did-not-find-what-was-there-261015/` (miadisabelle/chronicle-sessions#63), which ends with four checks of what "the foundation holds" means.
-- **Next:** William names the team and the place.
+- **Named, 2026-10-19:** the team keeps "Production context exploration", his term; one folder is "a production context exploration"; the place stays `_staging_for_new_episodes`. Decided by the inventory seat on his delegation (comment e8d56815 on the session inventory page) and recorded in `naming.md` (jgwill/episodes 48dc8d9b).
 
 ## T6 · Production (stub, 2026-10-06; name held as D11)
 
