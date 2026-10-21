@@ -38,7 +38,7 @@ A `git -C` pointed anywhere but `$GIT_ROOT` reports a clean tree for a chronicle
 | `MIADI_CHRONICLE_ROOT` | the episode ledger | git root is `rev-parse --show-toplevel` from it |
 | `MIADI_CHRONICLE_MW_URL` | the chronicle wheel, the variable of record (William, 2026-09-04) | hand it to tools at the flag or inline; never export `MW_API_URL` to reach it |
 | `MW_API_URL` | the tool-contract name `mkepisode`, `inquiry-weave`, `passages attention` read when no flag is given | a fallback the binaries own, never a name to reason from |
-| `MIADI_INQUIRY_DIR` | the artefact shelf (`inquiry-weave` reads it before `MIADI_INQUIRY_ROOT`, env.ts:38-44) | `.` does not mean cwd here, see S7 |
+| `MIADI_INQUIRY_DIR` | the artefact shelf (`inquiry-weave` reads it before `MIADI_INQUIRY_ROOT`, env.ts:38-44) | `.` is the working directory from 0.18.0; before it, the shelf root in `relate`/`sync` (S7) |
 | `MIADI_API_URL` | the Miadi app: the episode door (`/api/chronicle/episodes`) and the Attention door | not the wheel |
 | `MIADI_API_TOKEN_WRITER` | writer authority for POSTs from outside loopback or the tailnet | never inline it; `GET …/episodes` reports `capabilities.mint` for the caller you are |
 | `MIADI_PERSON_TOKEN` | the Miadi sign-in token of the person the agent acts for, named here on 2026-09-23 | needed to open a circle or speak in one (S15); an admin's token also opens every episode door; never inline it |
@@ -108,6 +108,12 @@ On an integration or push refusal: preserve the tree and report the exact stage.
 
 ## S7. Inquiry: relate and sync
 
+A folder of documents with no issue yet (an exported conversation, a research result) is opened with `inquiry-weave open` (0.18.0): the inquiry issue (the folder's documents as its body, label `inquiry`), the actions issue (written by the agent who read the folder, labelled by its type, e.g. `enhancement`), both recorded in `.weave.yaml` (`issue`, `related_issues`), the weave through door 1 below with its landing, and the folder committed and pushed in the shelf's repository. The episode is `--episode`, else the one the folder is woven into, else its `ep<N>-` prefix; `--new-episode "<title>"` mints through S2's door. The `inquiry-weave` skill (`inquiry-weave skill show`) carries the steps.
+
+```bash
+inquiry-weave open --artefact <folder> --title "<the inquiry>" --actions-file <file> --actions-label <label> --dry-run
+```
+
 1. API. `POST $MIADI_API_URL/api/chronicle/episodes/<ref>/inquiry` with `{artefact: <bare directory name on the shelf>, issue?, land?, dryRun?}`: relate, sync, weave registration, then land the episode side. The artefact side (`.weave.yaml`, `AGENTS.md`) is written in the inquiry repository and not committed there; the response says so. A path or `..` in `artefact` is refused at the door.
 2. MCP. `chronicle_episode_inquiry` on `inquiry-weave-mcp` (published 0.9.0; 0.8.3 carried thread reads, `inquiry_weave_kin`, and the attention tools only).
 3. CLI.
@@ -120,7 +126,7 @@ inquiry-weave sync    --artefact <NAME> --episode ep<N>
 inquiry-weave status  --episode ep<N> --json
 ```
 
-`relate --artefact .` and `sync --artefact .` resolve `.` to the shelf root: `resolveArtefact` tries `join(inquiryRoot, ref)` first (artefact.ts:47-61) and `join(root, ".")` is the root. Only `inquire` maps `.` to cwd (cli.ts:347-348). Pass the artefact by name to `relate` and `sync`. An artefact is a directory on the shelf (artefact.ts:54), never a file. `sync` copies the whole tree into `<vessel>/inquiry/<NAME>` and records a tree hash (sync.ts:63-101); read `status` freshness before syncing anything large. `inquiry-weave register --episode` posts weave records to `/api/inquiry-weaves` (register.ts:79); it is not stage 4.
+Before 0.18.0, `relate --artefact .` and `sync --artefact .` resolved `.` to the shelf root (`join(inquiryRoot, ".")`), and a sync of `.` once copied the whole shelf. From 0.18.0 `.`, `./x` and `../x` name the working directory in every command (artefact.ts `resolveArtefact`). On a host whose global is older, pass the artefact by name. An artefact is a directory on the shelf (artefact.ts:54), never a file. `sync` copies the whole tree into `<vessel>/inquiry/<NAME>` and records a tree hash (sync.ts:63-101); read `status` freshness before syncing anything large. `inquiry-weave register --episode` posts weave records to `/api/inquiry-weaves` (register.ts:79); it is not stage 4.
 
 ## S8. Lineage
 

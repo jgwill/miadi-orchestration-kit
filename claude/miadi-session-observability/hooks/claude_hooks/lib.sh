@@ -743,7 +743,8 @@ claude_publications_queue() {
             # The raw input is JSON: a command's newline is the two characters \n.
             head="${input:0:65536}"
             [[ $input == *'"gitOperation"'* || $head =~ (^|[^A-Za-z]|\\[nt])gh\ (issue|pr|release|gist|api)\  \
-                || $head =~ (npm|pnpm|yarn)\ publish || $head =~ git\ ([^\"]*\ )?(commit|push) ]] || return 0
+                || $head =~ (npm|pnpm|yarn)\ publish || $head =~ git\ ([^\"]*\ )?(commit|push) \
+                || $head =~ inquiry-weave\ (open|issue|inquire) ]] || return 0
             ;;
         *) return 0 ;;
     esac
@@ -834,6 +835,17 @@ def real($segs): ($segs | length) > 0 and ($segs | any(test("--dry-run|\\s-n(\\s
         and ($cmd | test("(-X|--method)[\\s=]*(POST|PATCH|PUT)\\b|\\s-[fF]\\s|--(raw-)?field\\b|--input\\b")) then
         ($out | capture("\"html_url\"\\s*:\\s*\"(?<u>https://[^\"]+)\"").u // empty)
         | {kind: urlkind, url: ., repo: ghrepo, number: number, action: "api", source: "stdout"}
+     else empty end),
+    # inquiry-weave opens issues through its own gh call: `open` prints
+    # `  inquiry:  owner/repo#N [created] …` and `  actions:  … [created]`, `inquire`
+    # prints `  issue:    owner/repo#N [created]`, `issue create` prints `created: owner/repo#N`.
+    (if ($cmd | test("\\binquiry-weave\\s+(open|issue|inquire)\\b")) and ($cmd | test("--dry-run") | not) then
+        $lines[]
+        | (capture("^\\s+(?<role>inquiry|actions|issue):\\s+(?<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(?<n>[0-9]+) \\[created\\]")
+           // capture("^(?<role>created): (?<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(?<n>[0-9]+)$")
+           // empty)
+        | {kind: "issue", url: "https://github.com/\(.repo)/issues/\(.n)", repo, number: (.n | tonumber),
+           action: ("inquiry-weave " + (if .role == "created" then "issue" else .role end)), source: "stdout"}
      else empty end),
     (if real($cmd | segments("\\b(npm|pnpm|yarn)\\s+publish\\b")) then
         ($lines[] | capture("^\\+ (?<package>@?[^@\\s]+)@(?<version>[0-9][^\\s]*)$") // empty

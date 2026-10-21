@@ -72,6 +72,21 @@ expect "with its repo" "acme/widgets" "$(field "$l" repo)"
 expect "with its number" "82" "$(field "$l" number)"
 expect "with the gh action" "issue create" "$(field "$l" action)"
 
+post toolu_open Bash '{"command":"inquiry-weave open --artefact . --actions-file /tmp/a.md --actions-label enhancement"}' \
+    "$(jq -nc '{stdout:"opened: ep295-a-folder\n  episode:  2026-07-23-episode-295-x (miadi-chronicle:295) [prefix]\n  inquiry:  acme/widgets#276 [created] labels: inquiry · 25801 chars — The inquiry\n  actions:  acme/widgets#277 [created] labels: enhancement · 900 chars — The actions\n", stderr:""}')"
+expect "inquiry-weave open records both issues it created" 2 "$(count_of toolu_open)"
+l=$(jq -c 'select(.tool_use_id == "toolu_open" and .number == 277)' "$index" | head -n 1)
+expect "the actions issue, with its url" "https://github.com/acme/widgets/issues/277" "$(field "$l" url)"
+expect "and the inquiry-weave role that made it" "inquiry-weave actions" "$(field "$l" action)"
+
+post toolu_reopen Bash '{"command":"inquiry-weave open --artefact ."}' \
+    '{"stdout":"opened: ep295-a-folder\n  inquiry:  acme/widgets#276 [existing]\n","stderr":""}'
+expect "an issue open reused is not a publication" 0 "$(count_of toolu_reopen)"
+
+post toolu_wissue Bash '{"command":"inquiry-weave issue --title T"}' \
+    '{"stdout":"created: acme/widgets#278\n  artefact: /x\n  url:      https://github.com/acme/widgets/issues/278\n","stderr":""}'
+expect "inquiry-weave issue records the issue it created" "278" "$(field "$(line_of toolu_wissue)" number)"
+
 post toolu_comment Bash '{"command":"gh issue comment 82 --repo acme/widgets --body-file c.md"}' \
     "$(jq -nc --arg s "$secret" '{stdout:"https://github.com/acme/widgets/issues/82#issuecomment-123456\n", stderr:("token " + $s)}')"
 expect "gh issue comment is recorded as an issue comment" "issue-comment" "$(field "$(line_of toolu_comment)" kind)"

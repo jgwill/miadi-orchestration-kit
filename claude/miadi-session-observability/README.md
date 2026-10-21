@@ -131,6 +131,7 @@ What a session put where other people can see it is one line in
 |---|---|---|
 | `artifact`, `artifact-asset` | an Artifact publish | `url`, `path` (the source file), `title`, `artifact_id`, `updated` |
 | `issue`, `issue-comment`, `pr`, `pr-comment`, `release`, `gist` | `gh issue`, `gh pr`, `gh release`, `gh gist` that write, and `gh api` that writes | `url`, `repo`, `number`, `action` (`issue create`, `pr comment`, `api`) |
+| `issue` | `inquiry-weave open`, `issue` and `inquire`, which call gh themselves (0.1.18): each `owner/repo#N [created]` line | `url`, `repo`, `number`, `action` (`inquiry-weave inquiry`, `inquiry-weave actions`, `inquiry-weave issue`) |
 | `pr` | Claude Code's `gitOperation.pr` | `url`, `number`, `action` |
 | `commit` | `gitOperation.commit`, or git's output (`[branch sha] subject`, a `git log --oneline -1` after a quiet commit) | the full `sha`, `repo`, `dir`, `subject`, `url`, `verified` |
 | `push` | `gitOperation.push`, or git's `To <remote>` and `a..b src -> dst` lines | `repo`, `branch`, `from`, `to`, and a compare `url` |

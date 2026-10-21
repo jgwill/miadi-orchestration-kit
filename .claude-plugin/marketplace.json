@@ -9,7 +9,7 @@
       "name": "miadi-chronicle-episode-kit",
       "source": "./claude/miadi-chronicle-episode-kit",
       "description": "Creates, adopts, registers, works in, and closes Miadi Chronicle episodes from one host-neutral skill, and refuses mkdir under the chronicle root with a PreToolUse hook that returns the mkepisode invocation instead.",
-      "version": "0.3.25"
+      "version": "0.3.26"
     },
     {
       "name": "mia-episode-companion",
@@ -27,7 +27,7 @@
       "name": "miadi-session-observability",
       "source": "./claude/miadi-session-observability",
       "description": "Session capture installed once per host: every Claude Code event under <root>/<session_id>/, every file a tool call writes copied to written/, every publication (Artifact, GitHub, commit, push, npm) listed with its prompt, and a binding line per session start, end and rename with its tmux pane, command line, name history, team and chronicle episode, and every /btw side question with the story of its fork. Carries the session-continuity skill (T1).",
-      "version": "0.1.17"
+      "version": "0.1.18"
     },
     {
       "name": "miadi-session-issue",
