@@ -10,6 +10,7 @@
       "agent_lead": "gaia-tmux-rebooted-restore-finetuning-260928",
       "sessions": [
         "gaia-tmux-rebooted-restore-finetuning-260928",
+        "t1-pi-coding-miadi-orchestration-kit-observability-2610221637",
         "gaia-screen-reboot",
         "gaia-var-disk-space",
         "miadi-tide-reusable-components-260923",
@@ -23,7 +24,8 @@
         "/opt/binscripts/hooks",
         "/a/src/Miadi/runtime/tide-runtime",
         "/a/src/Miadi-18/runtime/tide-runtime",
-        "/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-session-observability"
+        "/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-session-observability",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/pi/miadi-session-observability"
       ],
       "name_patterns": [
         "^gaia-"

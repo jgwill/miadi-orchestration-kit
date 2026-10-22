@@ -1,0 +1,14 @@
+{
+  "name": "@miadi/pi-session-observability",
+  "version": "0.1.0",
+  "description": "T1 durable, sanitized Pi session telemetry and T8 dashboard handoff",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "keywords": ["pi-package", "miadi", "observability"],
+  "files": ["extensions", "lib", "hooks", "scripts", "README.md", "HANDOFF-T8.md"],
+  "pi": { "extensions": ["./extensions/event-capture.ts"] },
+  "peerDependencies": { "@earendil-works/pi-coding-agent": "*" },
+  "engines": { "node": ">=22.19" },
+  "scripts": { "test": "node --test tests/*.test.mjs", "forward": "node scripts/forward.mjs" }
+}
