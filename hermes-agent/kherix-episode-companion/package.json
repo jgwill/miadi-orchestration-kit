@@ -1,0 +1,13 @@
+{
+  "name": "@miadi/kherix-episode-companion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Private phone continuity for one pinned Kherix SwarmClaw session",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "check": "node --check server.mjs && node --check public/app.js && node --test"
+  }
+}

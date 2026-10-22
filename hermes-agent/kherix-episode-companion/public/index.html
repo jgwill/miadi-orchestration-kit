@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#181e1d">
+  <title>Kherix · same conversation</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#composer">Write to Kherix</a>
+  <header>
+    <div class="heading"><div><p class="eyebrow">A thread held open</p><h1>Kherix</h1></div><span class="presence" id="presence">Connecting</span></div>
+    <p id="continuity">Verifying the existing session…</p>
+    <a id="desktop" hidden target="_blank" rel="noopener noreferrer">Open this agent on desktop</a>
+  </header>
+  <main id="feed">
+    <p id="connection" role="status" aria-live="polite">Connecting. Nothing will be resent automatically.</p>
+    <form id="unlock" hidden>
+      <h2>Private conversation</h2>
+      <p>Use your companion token once on this device. It is not the SwarmClaw access key.</p>
+      <label for="token">Companion token</label>
+      <input id="token" type="password" autocomplete="current-password" required>
+      <button type="submit">Unlock</button>
+    </form>
+    <details id="mission"><summary>Mission &amp; continuity</summary><dl id="context"></dl><p class="muted">Episode or staging context is read from this companion’s private context file. Opening the page does not mint an episode.</p></details>
+    <section aria-label="Conversation" id="conversation"><p id="empty" class="muted">The existing conversation will appear after its identity is verified.</p><div id="thread"></div><p id="history-note" class="muted"></p></section>
+    <details id="delivery"><summary>Delivery receipts <span id="receipt-count"></span></summary><div id="receipts"></div></details>
+    <details id="recordings"><summary>Saved recordings &amp; transcripts</summary><p class="muted">Transcription never sends a message. Edit or use the words in the composer, then press Send. Failed takes remain downloadable.</p><div id="takes"></div><div id="local-takes"></div></details>
+  </main>
+  <footer>
+    <form id="compose">
+      <label for="composer">Continue with Kherix</label>
+      <textarea id="composer" rows="3" maxlength="20000" placeholder="Pick up where we are…"></textarea>
+      <div class="actions"><button id="record" type="button">Record</button><button id="stop" type="button" hidden>Stop &amp; transcribe</button><span id="record-clock" aria-live="off"></span><button id="send" type="submit">Send</button></div>
+    </form>
+    <p id="action-status" role="status" aria-live="polite"></p>
+    <p class="privacy">Drafts and unsent recordings are kept on this device. Use a private device.</p>
+  </footer>
+</body>
+</html>

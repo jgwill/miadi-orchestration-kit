@@ -1,0 +1,22 @@
+# Gaia example. Set the absolute Node binary, PATH and repository path for a new host.
+[Unit]
+Description=Kherix phone companion (pinned SwarmClaw conversation)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/workspace/repos/jgwill/miadi-orchestration-kit/hermes-agent/kherix-episode-companion
+EnvironmentFile=%h/.config/kherix-episode-companion/service.env
+Environment=PATH=/home/mia/.nvm/versions/node/v24.18.0/bin:/home/mia/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/mia/.nvm/versions/node/v24.18.0/bin/node server.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+Environment=TMPDIR=/home/mia/.hermes/cache/scratch
+
+[Install]
+WantedBy=default.target

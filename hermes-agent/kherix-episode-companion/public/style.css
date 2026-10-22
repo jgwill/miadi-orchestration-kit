@@ -1,0 +1,56 @@
+:root { color-scheme: dark; --bg:#181e1d; --surface:#222a28; --ink:#f1eee5; --muted:#b5bfb8; --line:#43514b; --accent:#e2c38b; --button-ink:#24271f; --danger:#ffb7a5; font:17px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+* { box-sizing:border-box; }
+body { margin:0 auto; max-width:780px; height:100dvh; display:flex; flex-direction:column; background:var(--bg); color:var(--ink); padding:0 max(18px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(18px,env(safe-area-inset-left)); }
+header { padding:28px 0 16px; border-bottom:1px solid var(--line); }
+.heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+h1 { font:2.45rem/1.15 Georgia,"Times New Roman",serif; letter-spacing:-.02em; margin:0; }
+h2 { font-size:1.15rem; }
+.eyebrow { color:var(--accent); font-size:.75rem; text-transform:uppercase; letter-spacing:.12em; margin:0 0 7px; }
+header p:not(.eyebrow) { margin:12px 0 4px; font-size:.86rem; color:var(--muted); overflow-wrap:anywhere; }
+.presence { color:var(--muted); font-size:.78rem; border:1px solid var(--line); border-radius:20px; padding:5px 10px; white-space:nowrap; }
+a { color:var(--accent); text-underline-offset:3px; }
+header a { font-size:.84rem; display:inline-block; padding:9px 0; }
+[hidden] { display:none !important; }
+button,input,textarea { font:inherit; }
+button { min-height:46px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); padding:8px 15px; cursor:pointer; }
+button:hover { border-color:var(--accent); }
+button:disabled { opacity:.5; cursor:not-allowed; }
+button[type=submit] { background:var(--accent); color:var(--button-ink); border-color:var(--accent); font-weight:600; }
+:focus-visible { outline:3px solid var(--accent); outline-offset:4px; }
+textarea,input { width:100%; background:#131917; border:1px solid var(--line); border-radius:9px; color:var(--ink); padding:11px; font-size:1rem; }
+textarea { resize:vertical; min-height:90px; }
+label { display:block; margin:10px 0 6px; font-size:.88rem; font-weight:600; }
+main { padding-top:2px; flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+#connection { color:var(--muted); font-size:.83rem; min-height:1.6em; }
+.error { color:var(--danger) !important; }
+details { border-bottom:1px solid var(--line); padding:6px 0; }
+summary { cursor:pointer; padding:12px 0; font-size:.9rem; color:var(--accent); min-height:46px; }
+.muted,.privacy { color:var(--muted); font-size:.82rem; }
+dl { margin:4px 0 16px; }
+dt { color:var(--muted); font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; margin-top:14px; }
+dd { margin:4px 0; white-space:pre-wrap; overflow-wrap:anywhere; font-size:.92rem; }
+#conversation { min-height:160px; padding:18px 0 8px; }
+.message { margin:0 0 20px; padding:14px 16px; background:var(--surface); border-radius:12px; overflow-wrap:anywhere; }
+.message.user { margin-left:32px; background:#34382e; }
+.message.assistant { margin-right:18px; }
+.message .byline { margin:0 0 8px; color:var(--accent); font-size:.76rem; font-weight:600; }
+.message .words { white-space:pre-wrap; margin:0; }
+.message button { margin:12px 0 0; font-size:.85rem; }
+audio { display:block; max-width:100%; width:100%; margin-top:12px; }
+.receipt,.take { border-top:1px solid var(--line); padding:13px 0 16px; font-size:.86rem; overflow-wrap:anywhere; }
+.receipt p,.take p { margin:6px 0; white-space:pre-wrap; }
+.receipt .id { font-size:.72rem; font-family:ui-monospace,monospace; color:var(--muted); }
+.take button,.receipt button { margin:8px 9px 0 0; }
+.take a { display:inline-block; padding:10px 0; margin-right:12px; }
+footer { flex-shrink:0; border-top:1px solid var(--line); padding:12px 0 max(12px,env(safe-area-inset-bottom)); }
+.actions { display:flex; gap:10px; align-items:center; margin-top:9px; }
+#send { margin-left:auto; }
+#record-clock { color:var(--danger); font-size:.8rem; }
+#action-status { min-height:1.5em; font-size:.85rem; }
+.privacy { margin:8px 0; font-size:.7rem; }
+#unlock { padding:0 0 18px; }
+#unlock button { margin-top:12px; }
+.skip { position:absolute; top:-100px; padding:8px; background:var(--surface); }
+.skip:focus { top:8px; z-index:2; }
+@media (max-width:380px) { :root { font-size:16px; } .message.user { margin-left:14px; } .message.assistant { margin-right:5px; } .actions { gap:6px; } button { padding:8px 11px; } }
+@media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; } }
