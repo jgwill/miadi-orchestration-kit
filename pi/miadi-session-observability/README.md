@@ -10,12 +10,14 @@ No runtime npm dependencies, network calls, background processes, or timers insi
 KIT=/workspace/repos/jgwill/miadi-orchestration-kit
 node "$KIT/pi/miadi-session-observability/scripts/migrate-settings.mjs"          # dry run
 node "$KIT/pi/miadi-session-observability/scripts/migrate-settings.mjs" --apply  # account owner's consent
-# Start Pi, or /reload ONLY when the running session is idle.
+# Restart Pi if legacy capture came from CLI -e; otherwise /reload ONLY when idle.
 ```
 
 The migration adds this local package to `packages`, removes legacy `pi_hooks/event_capture.ts` entries from `extensions`, and preserves unrelated settings/packages. It makes a private timestamped settings backup and refuses a concurrent edit. `--agent-dir <dir>` or `PI_CODING_AGENT_DIR` selects an alternate account configuration. No other accounts are changed.
 
 Alternatively `pi install "$KIT/pi/miadi-session-observability"`, **then remove the old extension path in the same cutover**. Both loaded means duplicate legacy capture. For an isolated one-invocation check: `pi --no-extensions -e "$KIT/pi/miadi-session-observability"`; this also disables other configured/built-in extensions for that invocation, not for ordinary operation.
+
+The migration changes settings only. Check aliases/functions/wrappers for legacy `-e /opt/binscripts/hooks/pi_hooks/event_capture.ts` arguments too (for example, binscripts' `mpi`). Remove that capture argument while preserving unrelated extensions; prefer an account-local launcher override during a one-account cutover. A CLI extension remains configured across `/reload`, so restart those Pi processes from the cleaned launcher instead. [Eury cutover](cutover-eury-2026-10-22.md) records a verified example.
 
 A reload replaces the extension runtime, not the Pi process environment. New environment variables need a new process. The old binaries are not deleted; rollback restores the settings backup and starts/reloads Pi. Use the same session-data root.
 

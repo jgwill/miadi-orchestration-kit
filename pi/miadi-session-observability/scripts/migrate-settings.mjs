@@ -34,7 +34,7 @@ async function main() {
   // Do not overwrite a concurrently changed user configuration.
   if (await readFile(file, 'utf8') !== original) throw Error('Settings changed concurrently; not overwritten');
   await atomicJson(file, next); await chmod(file, info.mode & 0o777 & 0o600);
-  console.log(`Backup: ${backup}\nNew Pi processes use the package. Existing processes need /reload at an idle boundary.`);
+  console.log(`Backup: ${backup}\nNew Pi processes use the package. Existing processes need idle /reload, or restart from a cleaned launcher if legacy capture came from CLI -e.`);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
