@@ -1,0 +1,16 @@
+{
+  "name": "miadi-session-observability",
+  "version": "0.1.2",
+  "description": "Codex session capture, durable transcripts, terminal binding and file/publication indexes.",
+  "author": {
+    "name": "jgwill"
+  },
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Miadi Session Observability",
+    "shortDescription": "Trace Codex sessions and work",
+    "category": "Productivity"
+  }
+}
