@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CaptureService, ConcatSegmentJoiner, FileImportDriver, resolveConfig } from "@miadi/capture-service";
-import { cleanContext, cleanMark, cleanSteps, createApp, followSeat, listenerState, speakable, SpokenLanguageTranscriber, voiceParts } from "../server.mjs";
+import { cleanContext, cleanMark, cleanSteps, createApp, followSeat, listenerState, speakable, SpokenLanguageTranscriber, TrailingSilenceTranscriber, voiceParts } from "../server.mjs";
 
 const LISTENER = fileURLToPath(new URL("../../scripts/mia-listen.mjs", import.meta.url));
 // Hermetic: the listener these tests run never reads the live stateloom hub.
@@ -306,6 +306,30 @@ test("spoken English gives one English transcript, not two files fighting over _
   } finally {
     b.close();
   }
+});
+
+test("the transcriber hears the take with silence after it, so the last words are not dropped", async (t) => {
+  try { execFileSync("ffmpeg", ["-version"], { stdio: "ignore" }); } catch (_) { t.skip("ffmpeg is not installed"); return; }
+  const base = mkdtempSync(join(tmpdir(), "phone-capture-silence-"));
+  const take = join(base, "take.m4a");
+  execFileSync("ffmpeg", ["-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1", "-c:a", "aac", take]);
+  const notAudio = join(base, "not-audio.m4a");
+  writeFileSync(notAudio, "bytes");
+  const heard = [];
+  const inner = { name: "stub", async transcribe(path, name) {
+    const seconds = path === notAudio ? 0
+      : Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path], { encoding: "utf8" }));
+    heard.push({ path, name, seconds });
+    return { transcription: "heard", translation: "heard", model: "stub", language: "en" };
+  } };
+  const transcriber = new TrailingSilenceTranscriber(inner, 3);
+  await transcriber.transcribe(take, "take.m4a", { language: "en" });
+  assert.equal(heard[0].name, "take.m4a");
+  assert.ok(heard[0].seconds > 3.5, `heard ${heard[0].seconds}s, expected the take plus 3s of silence`);
+  assert.equal(existsSync(heard[0].path), false, "the padded copy is removed");
+
+  await transcriber.transcribe(notAudio, "not-audio.m4a", { language: "en" });
+  assert.equal(heard[1].path, notAudio, "a file ffmpeg refuses reaches the inner transcriber as it is");
 });
 
 test("the page is told whether a seat is listening on the episode", async () => {

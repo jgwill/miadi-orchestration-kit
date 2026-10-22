@@ -19,7 +19,7 @@ import {
 import { copyFile, rm } from "node:fs/promises";
 import { promisify } from "node:util";
 import { createServer } from "node:http";
-import { homedir, hostname, userInfo } from "node:os";
+import { homedir, hostname, tmpdir, userInfo } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -149,6 +149,36 @@ export class SpokenLanguageTranscriber {
     const result = await this.inner.transcribe(filepath, filename, { language });
     if (language !== "en") return result;
     return { ...result, language: "en", transcription: "", translation: result.transcription || result.translation };
+  }
+}
+
+// Whisper drops the last words when speech runs to the very end of the file. William, Episode
+// 295, 2026-10-21: "if I press stop right after finish talking we lose 10 seconds". The audio
+// held every second; the transcript stopped at "when the". The transcriber hears a copy with
+// silence after it, and the take keeps its own bytes. When ffmpeg is missing or refuses, it
+// hears the take as it is.
+const TRAILING_SILENCE_S = 3;
+export class TrailingSilenceTranscriber {
+  constructor(inner, seconds = TRAILING_SILENCE_S) {
+    this.inner = inner;
+    this.seconds = seconds;
+    this.name = `${inner.name}+silence-${seconds}s`;
+  }
+
+  async transcribe(filepath, filename, options = {}) {
+    const padded = join(tmpdir(), `phone-capture-${randomUUID()}.m4a`);
+    try {
+      await execFileAsync("ffmpeg", ["-loglevel", "error", "-y", "-i", filepath, "-af", `apad=pad_dur=${this.seconds}`,
+        "-ac", "1", "-ar", "16000", "-c:a", "aac", "-b:a", "64k", padded], { timeout: 120_000 });
+    } catch (_) {
+      await rm(padded, { force: true });
+      return this.inner.transcribe(filepath, filename, options);
+    }
+    try {
+      return await this.inner.transcribe(padded, filename.replace(/\.[^.]+$/, "") + ".m4a", options);
+    } finally {
+      await rm(padded, { force: true });
+    }
   }
 }
 
@@ -1186,7 +1216,7 @@ async function main() {
     config,
     driver: new FileImportDriver(),
     joiner: new ConcatSegmentJoiner(),
-    transcriber: new SpokenLanguageTranscriber(new GroqTranscriber({ defaultLanguage: config.language }), config.language),
+    transcriber: new SpokenLanguageTranscriber(new TrailingSilenceTranscriber(new GroqTranscriber({ defaultLanguage: config.language })), config.language),
   });
   const flushed = await service.flushPending().catch(() => ({ delivered: 0, remaining: -1 }));
 
