@@ -49,7 +49,7 @@ function recordingsDB(takes = [], failures = new Set()) {
   } };
   return { indexedDB, saved, failures };
 }
-function mount({ indexedDB, messages = [{ id: 'a'.repeat(64), role: 'assistant', text: '<img src=x onerror=alert(1)>', streaming: false }] } = {}) {
+function mount({ indexedDB, locked = false, messages = [{ id: 'a'.repeat(64), role: 'assistant', text: '<img src=x onerror=alert(1)>', streaming: false }] } = {}) {
   const elements = new Map();
   const get = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const body = new Element('body');
@@ -63,6 +63,7 @@ function mount({ indexedDB, messages = [{ id: 'a'.repeat(64), role: 'assistant',
   let uploadsAvailable = false;
   const fetchImpl = async (path, init) => {
     calls.push({ path, init });
+    if (locked) return new Response(JSON.stringify({ error: 'Unlock this private companion' }), { status: 401 });
     if (path === '/api/context') return new Response(JSON.stringify({ session: { id: 'fe331909', agentId: '3d3a349a' }, context: { intention: 'Stay here' } }));
     if (path === '/api/thread') return new Response(JSON.stringify({ messages, total: messages.length, hasMore: false }));
     if (path === '/api/takes' && init.method === 'POST') {
@@ -91,8 +92,35 @@ function mount({ indexedDB, messages = [{ id: 'a'.repeat(64), role: 'assistant',
   const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8').replace(/^import .*?;\n/, '');
   get('feed').scrollHeight = 1000; get('feed').scrollTop = 0; get('feed').clientHeight = 300;
   runInNewContext(source, sandbox);
-  return { get, all, calls, storage, downloads, recorders, events, allowUploads: () => { uploadsAvailable = true; } };
+  return { get, all, calls, storage, downloads, recorders, events, allowUploads: () => { uploadsAvailable = true; }, pairDevice: () => { locked = false; } };
 }
+
+test('an unpaired browser gets pairing guidance, cannot send, and can recheck without losing its draft', async () => {
+  const ui = mount({ locked: true }); await settle();
+  assert.equal(ui.get('unlock').hidden, false);
+  assert.match(ui.get('connection').textContent, /pair this device/i);
+  assert.equal(ui.get('send').disabled, true);
+  assert.equal(ui.get('record').disabled, true);
+  ui.get('composer').value = 'Keep this draft';
+  await ui.get('compose').dispatchEvent({ type: 'submit', preventDefault() {} }); await settle();
+  assert.equal(ui.calls.filter(call => call.path === '/api/messages').length, 0, 'locked forms must not dispatch a chat');
+  ui.pairDevice();
+  await ui.get('check-connection').click(); await settle();
+  assert.equal(ui.get('unlock').hidden, true);
+  assert.equal(ui.get('send').disabled, false);
+  assert.equal(ui.get('record').disabled, false);
+  assert.equal(ui.get('composer').value, 'Keep this draft');
+  assert.equal(ui.calls.filter(call => call.path === '/api/messages').length, 0, 'checking access must not send or replay drafts');
+});
+
+test('the locked shell explains device pairing before offering operator-only credentials', () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /Pair this device/);
+  assert.match(html, /Each browser/);
+  assert.match(html, /Miadi tokens.*Kherix API tokens/s);
+  assert.ok(html.indexOf('Pair this device') < html.indexOf('Operator recovery'));
+  assert.match(html, /<details[^>]*>[\s\S]*Operator recovery[\s\S]*<form id="token-unlock"/);
+});
 
 test('a phone opens at the latest turn, and refresh does not pull it away from earlier reading', async () => {
   const ui = mount(); await settle();

@@ -17,13 +17,20 @@
   </header>
   <main id="feed">
     <p id="connection" role="status" aria-live="polite">Connecting. Nothing will be resent automatically.</p>
-    <form id="unlock" hidden>
-      <h2>Private conversation</h2>
-      <p>Use your companion token once on this device. It is not the SwarmClaw access key.</p>
-      <label for="token">Companion token</label>
-      <input id="token" type="password" autocomplete="current-password" required>
-      <button type="submit">Unlock</button>
-    </form>
+    <section id="unlock" hidden aria-labelledby="pair-heading">
+      <h2 id="pair-heading">Pair this device</h2>
+      <p id="pair-status" role="status">Ask Kherix for a fresh private QR on your trusted desktop, then scan it with this phone. Each browser needs its own pairing. A link works once and expires after ten minutes.</p>
+      <p class="muted">Miadi tokens, SwarmClaw keys and Kherix API tokens do not unlock this page. No token needs to be copied into chat.</p>
+      <button id="check-connection" type="button">Check connection again</button>
+      <details><summary>Operator recovery only</summary>
+        <form id="token-unlock">
+          <p class="muted">Only the separately configured companion credential works here. Prefer device pairing.</p>
+          <label for="token">Companion recovery credential</label>
+          <input id="token" type="password" autocomplete="current-password" required>
+          <button type="submit">Unlock</button>
+        </form>
+      </details>
+    </section>
     <details id="mission"><summary>Mission &amp; continuity</summary><dl id="context"></dl><p class="muted">Episode or staging context is read from this companion’s private context file. Opening the page does not mint an episode.</p></details>
     <section aria-label="Conversation" id="conversation"><p id="empty" class="muted">The existing conversation will appear after its identity is verified.</p><div id="thread"></div><p id="history-note" class="muted"></p></section>
     <details id="delivery"><summary>Delivery receipts <span id="receipt-count"></span></summary><div id="receipts"></div></details>
@@ -33,7 +40,7 @@
     <form id="compose">
       <label for="composer">Continue with Kherix</label>
       <textarea id="composer" rows="3" maxlength="20000" placeholder="Pick up where we are…"></textarea>
-      <div class="actions"><button id="record" type="button">Record</button><button id="stop" type="button" hidden>Stop &amp; transcribe</button><span id="record-clock" aria-live="off"></span><button id="send" type="submit">Send</button></div>
+      <div class="actions"><button id="record" type="button" disabled>Record</button><button id="stop" type="button" hidden>Stop &amp; transcribe</button><span id="record-clock" aria-live="off"></span><button id="send" type="submit" disabled>Send</button></div>
     </form>
     <p id="action-status" role="status" aria-live="polite"></p>
     <p class="privacy">Drafts and unsent recordings are kept on this device. Use a private device.</p>

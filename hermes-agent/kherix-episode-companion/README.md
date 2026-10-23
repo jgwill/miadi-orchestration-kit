@@ -52,7 +52,7 @@ For durable operation, use `deploy/kherix-episode-companion.service.example`, re
 
 ## Pair a phone without sharing credentials
 
-Both devices need access to the tailnet. Generate a single-use pairing grant locally:
+Both devices need access to the tailnet. The locked phone page is pairing-first: scan a fresh QR from the trusted desktop in the browser that will hold the conversation. Each browser/device needs its own grant; a QR consumed on the desktop cannot subsequently unlock the phone. Miadi tokens, SwarmClaw keys and Kherix API tokens are intentionally not accepted. The manual companion credential is hidden under operator recovery, not the normal sign-in path. Drafts remain editable while locked; Send and Record wait for verified access. Generate a single-use pairing grant locally:
 
 ```sh
 node --env-file="$HOME/.config/kherix-episode-companion/service.env" pair.mjs

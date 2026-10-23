@@ -12,7 +12,12 @@ async function request(path, payload, init = {}) {
 }
 const outbox = new Outbox(localStorage, request);
 let recording = false, recorder, mic, chunks = [], recordingId, startedAt, clock;
-let refreshBusy = false, timer, sendBusy = false;
+let refreshBusy = false, timer, sendBusy = false, authenticated = false;
+function setAuthenticated(value) {
+  authenticated = value;
+  $('send').disabled = !value || sendBusy;
+  $('record').disabled = !value || recording;
+}
 const messageViews = new Map(), takeViews = new Map();
 try { $('composer').value = localStorage.getItem('kherix.draft') || ''; } catch { say('Device draft storage is unavailable. Sending is disabled if the outbox cannot be saved.', true); }
 $('composer').addEventListener('input', () => { try { localStorage.setItem('kherix.draft', $('composer').value); } catch { say('The draft could not be saved on this device.', true); } });
@@ -109,6 +114,7 @@ function renderTakes(data) {
   }
 }
 async function sendText(text) {
+  if (!authenticated) return say('Pair this device before sending. Your draft stays here.', true);
   if (!text.trim() || sendBusy) return;
   sendBusy = true; $('send').disabled = true;
   try {
@@ -119,26 +125,28 @@ async function sendText(text) {
     } else { say('Delivery needs checking. Your draft and request ID are saved; no automatic resend.', true); $('delivery').open = true; }
     renderReceipts(); await refresh();
   } catch (error) { say(error.message || 'The outbox could not be saved. Nothing was sent.', true); }
-  finally { sendBusy = false; $('send').disabled = false; }
+  finally { sendBusy = false; $('send').disabled = !authenticated; }
 }
 $('compose').addEventListener('submit', event => { event.preventDefault(); sendText($('composer').value); });
-$('unlock').addEventListener('submit', async event => {
+$('token-unlock').addEventListener('submit', async event => {
   event.preventDefault(); const token = $('token').value; $('token').value = '';
   try { await request('/api/auth', { token }); $('unlock').hidden = true; await refresh(); } catch (error) { say(error.message, true); }
 });
+$('check-connection').addEventListener('click', refresh);
 async function refresh() {
   if (refreshBusy) return;
   clearTimeout(timer); refreshBusy = true;
   try {
     const [context, thread, takes] = await Promise.all([request('/api/context'), request('/api/thread'), request('/api/takes'), outbox.refresh()]);
     renderContext(context); renderThread(thread); renderTakes(takes); renderReceipts();
+    setAuthenticated(true);
     $('unlock').hidden = true; $('connection').classList.remove('error');
     $('connection').textContent = 'Connected · the same conversation. No automatic resends.';
     await renderLocalTakes();
   } catch (error) {
-    if (error.status === 401) $('unlock').hidden = false;
+    if (error.status === 401) { $('unlock').hidden = false; setAuthenticated(false); }
     $('connection').classList.add('error');
-    $('connection').textContent = error.status === 401 ? 'Locked · unlock to read or send.' : `Reconnecting · drafts are saved. ${error.message}`;
+    $('connection').textContent = error.status === 401 ? 'Locked · pair this device to continue. Your draft is kept.' : `Reconnecting · drafts are saved. ${error.message}`;
     $('presence').textContent = 'Not verified';
   } finally { refreshBusy = false; timer = setTimeout(refresh, 4000); }
 }
@@ -209,6 +217,7 @@ function recordingUI(active) {
   else { clearInterval(clock); $('record-clock').textContent = ''; }
 }
 $('record').addEventListener('click', async () => {
+  if (!authenticated) return say('Pair this device before recording. Existing saved takes stay available.', true);
   if (recording) return;
   if (!isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return say('Recording needs HTTPS and a browser with microphone recording support.', true);
   $('record').disabled = true;
@@ -235,7 +244,7 @@ $('record').addEventListener('click', async () => {
     recorder.start(1000); recordingUI(true); say('Recording. Reply playback is paused. Stop to transcribe; sending is separate.');
     clock = setInterval(() => { $('record-clock').textContent = `${Math.floor((Date.now() - startedAt) / 1000)}s`; }, 1000);
   } catch (error) { mic?.getTracks().forEach(track => track.stop()); recordingUI(false); say(`Microphone could not start: ${error.message}`, true); }
-  finally { $('record').disabled = false; }
+  finally { $('record').disabled = !authenticated; }
 });
 $('stop').addEventListener('click', () => { if (recorder && recorder.state !== 'inactive') recorder.stop(); });
 async function start() {
@@ -244,7 +253,10 @@ async function start() {
   if (code) {
     history.replaceState(null, '', location.pathname + location.search);
     try { await request('/api/pair', { code }); }
-    catch (error) { say(error.message, true); }
+    catch (error) {
+      $('pair-status').textContent = 'This pairing link could not unlock this browser. It may already be used or expired. Ask Kherix for a fresh private QR on the desktop, then scan it again.';
+      say(error.message, true);
+    }
   }
   renderReceipts(); renderLocalTakes(); refresh();
 }
