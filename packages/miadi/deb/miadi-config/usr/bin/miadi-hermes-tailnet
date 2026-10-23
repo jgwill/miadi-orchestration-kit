@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Opt-in host provisioning; package installation itself publishes nothing.
+set -euo pipefail
+exec bash /usr/share/miadi/hermes-tailnet/26-hermes-tailscale-autostart.sh "$@"

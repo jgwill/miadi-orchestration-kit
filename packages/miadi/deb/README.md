@@ -46,6 +46,8 @@ installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
 | `/usr/share/miadi/settings` | every known setting and what it does | replaced |
 | `/etc/profile.d/miadi.sh` | loads `env.sh` into bash login shells | conffile |
 | `/usr/bin/miadi-config` | the command below | replaced |
+| `/usr/bin/miadi-hermes-tailnet` | opt-in Kherix/Laskmi API provisioning | replaced |
+| `/usr/share/miadi/hermes-tailnet/` | repeatable installer, publisher and runbook | replaced |
 
 A value in the environment wins over `miadi.env`, which wins over the defaults.
 `env.sh` prints nothing and loads under `set -u`. Sourced a second time in the
@@ -70,6 +72,21 @@ edits through the upgrade without a prompt.
 
 Termux cannot install Ubuntu packages. There, set `MIADI_ETC` and source
 `miadi-config/usr/share/miadi/env.sh` from this checkout.
+
+### Optional Hermes tailnet APIs (0.2.5)
+
+After restoring Hermes's default and `laskmi` profiles and connecting/tagging
+Tailscale, run `miadi-hermes-tailnet` as the Hermes account. It uses the existing
+`TAILSCALE_API_TOKEN` from `~/.env` to publish and approve Kherix (`:8643`) and
+Laskmi (`:8646`), preserving the supported shared gateway and distinct profile
+keys. It installs only `apache2-bin` if the loopback proxy needs it; no default
+Apache server. Package installation alone publishes nothing.
+
+`miadi-hermes-tailnet --verify --chat-smoke` checks both HTTPS completion
+endpoints, bearer-key isolation and streaming. Keys stay in the private Hermes
+`.env` files, never this package. The adjacent runbook covers reinstallation,
+boot ownership and overrides. Copies track Gaia's `linux_migration/` installer;
+run `bash tests/hermes-tailnet-sync.sh` after changing either copy.
 
 ## miadi-terminal
 
@@ -294,6 +311,7 @@ bash test-install.sh dist/*_<version>_*.deb     # clean ubuntu:22.04 container
 IMAGE=ubuntu:24.04 bash test-install.sh dist/miadi-tide_<version>_amd64.deb
 python3 tests/tmux-click.py miadi-terminal/usr/share/miadi-terminal/tmux/miadi-chronicle.conf miadi-terminal/usr/bin/miadi-chronicle-open
 bash tests/session-continuity-sync.sh   # restore's copies against jgwill/gaia's installer
+bash tests/hermes-tailnet-sync.sh        # tailnet installer/publisher/proxy tests against Gaia
 sudo apt install ./dist/*_<version>_all.deb
 ```
 

@@ -69,6 +69,13 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     test "$(miadi-config get MIADI_WEBHOOK_URL)" = https://example.test/api/workflow/webhook && echo "miadi-config get resolves"
     miadi-config settings | grep -q "^MIADI_CHRONICLE_OPEN_URL " && echo "miadi-config knows MIADI_CHRONICLE_OPEN_URL"
     miadi-config settings | grep -q "^MIADI_MUSIC_SOUNDFONT " && echo "miadi-config knows the miadi-music settings"
+    miadi-hermes-tailnet --help >/dev/null
+    test ! -e /root/.hermes
+    echo "Hermes tailnet provisioning is available but opt-in (no profiles or services created)"
+    apt-get install -y -qq --no-install-recommends python3 apache2-bin >/dev/null 2>&1
+    useradd -m hermes-api-test
+    install -m 0644 /tmp/tests/hermes-tailnet-proxy.py /tmp/hermes-tailnet-proxy.py
+    su hermes-api-test -s /bin/bash -c "HERMES_TAILNET_INSTALLER=/usr/share/miadi/hermes-tailnet/26-hermes-tailscale-autostart.sh python3 /tmp/hermes-tailnet-proxy.py"
   fi
 
   if dpkg -s miadi-tmux >/dev/null 2>&1; then

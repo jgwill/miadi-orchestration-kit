@@ -1,5 +1,5 @@
 Package: miadi-config
-Version: 0.2.4
+Version: 0.2.5
 Section: misc
 Priority: optional
 Architecture: all
@@ -14,4 +14,5 @@ Description: Miadi host settings
  /usr/share/miadi/env.sh resolves every other value, and login shells load
  it through /etc/profile.d/miadi.sh. The miadi-config command shows where
  each value comes from, sets and unsets this host's values, and checks the
- host.
+ host. miadi-hermes-tailnet optionally provisions authenticated Kherix and
+ Laskmi API services on a connected Tailscale host after restoring Hermes.
