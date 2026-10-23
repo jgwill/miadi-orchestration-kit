@@ -1,6 +1,6 @@
 # Pi session observability — T1 → T8
 
-Local Pi package, version **0.1.0**, tracked by [#99](https://github.com/jgwill/miadi-orchestration-kit/issues/99).
+Local Pi package, version **0.1.1**, tracked by [#99](https://github.com/jgwill/miadi-orchestration-kit/issues/99).
 Canonical successor to `/opt/binscripts/hooks/pi_hooks/event_capture.ts`. Tested with Pi **1.4.0**, Node **24** on gaia; Linux/Termux need `bash`, `perl`, `jq` (and `tmux` for terminal identity).
 No runtime npm dependencies, network calls, background processes, or timers inside the extension. No publishing or issue-creation hooks.
 
@@ -26,6 +26,26 @@ distinct. Missing, ended, or stale bindings are refused rather than replaced
 with another session. Capture and annotation must use the same session-data root.
 
 A reload replaces the extension runtime, not the Pi process environment. New environment variables need a new process. The old binaries are not deleted; rollback restores the settings backup and starts/reloads Pi. Use the same session-data root.
+
+### Context capture diagnostic (0.1.1)
+
+`[miadi-pi-observability] context_with_system: capture failed` means an observation
+was skipped; it does not stop Pi. A real conversation reproduced the failure at
+the sanitizer's five-second deadline after earlier context snapshots had worked.
+Startup/shutdown smoke checks alone did not exercise this path.
+
+The sanitizer now partitions JSON containers into 64 KiB groups and runs at most
+four sanitizing helpers concurrently per operation. Strings, including multiline
+private keys, stay whole; an indivisible large string can exceed the group size.
+Every helper keeps its original five-second deadline and output limit. Redaction
+still precedes storage bounds, numeric metadata is preserved, and no partial or
+raw fallback is persisted if any group fails. Diagnostics report a safe reason
+such as `helper_timeout` instead of guessing that permissions caused it.
+
+For a local-path installation, an idle `/reload` or a fresh Pi process loads the
+fix. If the process was launched with the legacy capture `-e`, clean that launcher
+and restart when ready; `/reload` retains explicit CLI extensions. A running
+agent is not restarted automatically.
 
 ## Files and contract
 
@@ -93,6 +113,7 @@ Open `http://127.0.0.1:43190/?token=<private-token>#view=single&sid=<pi-session-
 npm test --prefix pi/miadi-session-observability
 bash pi/miadi-session-observability/hooks/secret_capture_sanitizer.sh --self-test
 python3 pi/miadi-session-observability/tests/rpc-smoke.py  # installed Pi, no model/API calls
+python3 pi/miadi-session-observability/tests/context-smoke.py  # real context hook, local deterministic provider only
 # Optional, against a running loopback reference dashboard; adds a labelled synthetic fixture row:
 OBS_TOKEN_FILE=<private-token-file> node pi/miadi-session-observability/tests/dashboard-smoke.mjs
 ```

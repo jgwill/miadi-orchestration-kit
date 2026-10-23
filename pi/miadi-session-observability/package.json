@@ -1,6 +1,6 @@
 {
   "name": "@miadi/pi-session-observability",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "T1 durable, sanitized Pi session telemetry and T8 dashboard handoff",
   "type": "module",
   "license": "MIT",

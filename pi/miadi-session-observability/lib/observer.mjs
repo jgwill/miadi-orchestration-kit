@@ -158,9 +158,11 @@ export function registerObserver(pi, options = {}) {
     pi.on(name, (event, ctx) => {
       const receivedAt = now();
       const task = chain.then(() => handle(name, event, ctx, receivedAt));
-      chain = task.catch(async () => {
+      chain = task.catch(async error => {
         // Never put payloads, paths, helper stderr, credentials, or exceptions on stdout/stderr.
-        warn(`${name}: capture failed; agent continues (check permissions/helpers)`);
+        const reason = ['helper_timeout', 'helper_output_limit', 'helper_unavailable', 'helper_exit',
+          'sanitizer_invalid_json', 'sanitizer_unavailable'].includes(error?.captureCode) ? error.captureCode : 'capture_unavailable';
+        warn(`${name}: capture failed (${reason}); agent continues`);
         if (name === 'session_start') { disabled = true; await store?.close(); }
         if (name === 'session_shutdown') { await store?.close(); store = undefined; }
       });

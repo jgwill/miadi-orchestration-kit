@@ -14,14 +14,98 @@ export function sessionPath(root, id) {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id) || id.endsWith('.')) throw Error('Invalid Pi session id');
   return join(root, id);
 }
+function captureError(code) {
+  return Object.assign(Error('Capture helper failed'), { captureCode: code });
+}
 export function runHook(script, args, input) {
   return new Promise((resolve, reject) => {
     const child = execFile('bash', ['-c', 'umask 077; exec bash "$@"', 'miadi-capture', script, ...args],
       { encoding: 'utf8', timeout: 5000, maxBuffer: 16 * 1024 * 1024 },
-      (error, stdout) => error ? reject(Error('Capture helper failed')) : resolve(stdout.trimEnd()));
+      (error, stdout) => error ? reject(captureError(
+        error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' ? 'helper_output_limit' :
+        error.killed ? 'helper_timeout' : error.code === 'ENOENT' ? 'helper_unavailable' : 'helper_exit')) : resolve(stdout.trimEnd()));
     child.stdin.on('error', () => {});
     child.stdin.end(input);
   });
+}
+
+// The shared sanitizer's text regexes slow down on a whole accumulated context.
+// Partition JSON containers, never strings, so credentials and multiline keys
+// cannot straddle helper inputs. Each helper retains its five-second deadline.
+const SANITIZE_BATCH_BYTES = 64 * 1024;
+function sanitizerPool() {
+  let active = 0, failure;
+  const waiting = [];
+  return async value => {
+    await new Promise(resolve => {
+      if (active < 4) { active++; resolve(); }
+      else waiting.push(resolve);
+    });
+    try {
+      if (failure) throw failure;
+      return await sanitizeChunk(value);
+    } catch (error) { failure ||= error; throw error; }
+    finally {
+      if (waiting.length) waiting.shift()();
+      else active--;
+    }
+  };
+}
+async function sanitizeDocument(value, chunk) {
+  const text = JSON.stringify(value);
+  if (Buffer.byteLength(text) <= SANITIZE_BATCH_BYTES || !value || typeof value !== 'object') {
+    return chunk(value);
+  }
+  const array = Array.isArray(value), output = array ? [] : {};
+  let batch = array ? [] : {}, bytes = 2, count = 0;
+  const jobs = [];
+  const merge = clean => {
+    if (array) output.push(...clean);
+    else for (const [key, item] of Object.entries(clean)) {
+      Object.defineProperty(output, key, { value: item, enumerable: true, configurable: true, writable: true });
+    }
+  };
+  const flush = () => {
+    if (!count) return;
+    const part = batch;
+    jobs.push(() => sanitizeDocument(part, chunk));
+    batch = array ? [] : {}; bytes = 2; count = 0;
+  };
+  for (const [key, item] of Object.entries(value)) {
+    const entry = array ? item : { [key]: item };
+    const size = Buffer.byteLength(JSON.stringify(entry));
+    if (size + 2 > SANITIZE_BATCH_BYTES) {
+      flush();
+      if (array) jobs.push(async () => [await sanitizeDocument(item, chunk)]);
+      else if (item && typeof item === 'object') jobs.push(async () => ({ [key]: await sanitizeDocument(item, chunk) }));
+      // A single long string must retain its field name for generic password
+      // redaction. It cannot be divided safely; sanitize it as one document.
+      else jobs.push(() => chunk(entry));
+    } else {
+      if (count && bytes + size + 1 > SANITIZE_BATCH_BYTES) flush();
+      if (array) batch.push(item);
+      else Object.defineProperty(batch, key, { value: item, enumerable: true, configurable: true, writable: true });
+      bytes += size + 1; count++;
+    }
+  }
+  flush();
+  // Join running helpers even on failure; queued chunks then fail without
+  // spawning more processes. No partial result is returned to a writer.
+  const results = await Promise.allSettled(jobs.map(job => job()));
+  const failed = results.find(result => result.status === 'rejected');
+  if (failed) throw failed.reason;
+  for (const result of results) merge(result.value);
+  return output;
+}
+
+async function sanitizeChunk(value) {
+  const text = JSON.stringify(value);
+  let clean;
+  const result = await runHook(join(HOOKS, 'secret_capture_sanitizer.sh'), ['--stream'], text);
+  try { clean = JSON.parse(result); }
+  catch { throw captureError('sanitizer_invalid_json'); }
+  if (clean?.redacted === true && clean?.reason === 'secret sanitizer unavailable') throw captureError('sanitizer_unavailable');
+  return clean;
 }
 export async function sanitize(value) {
   // Parse again: a missing/broken helper must never cause unsanitized fallback persistence.
@@ -36,9 +120,9 @@ export async function sanitize(value) {
     }
     return typeof v === 'bigint' ? String(v) : v instanceof Error ? { name: v.name, message: v.message } : v;
   });
-  const clean = JSON.parse(await runHook(join(HOOKS, 'secret_capture_sanitizer.sh'), ['--stream'], text),
+  const sanitized = await sanitizeDocument(JSON.parse(text), sanitizerPool());
+  const clean = JSON.parse(JSON.stringify(sanitized),
     (_key, v) => v && typeof v === 'object' && Object.keys(v).length === 1 && Object.hasOwn(v, numeric) ? Number(v[numeric]) : v);
-  if (clean?.redacted === true && clean?.reason === 'secret sanitizer unavailable') throw Error('Sanitizer unavailable');
   return clean;
 }
 

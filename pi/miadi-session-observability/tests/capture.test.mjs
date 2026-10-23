@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, appendFile, stat, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CaptureStore, archiveTranscript, sanitize, sha256, sessionPath, bounded, capRecord } from '../lib/storage.mjs';
+import { CaptureStore, archiveTranscript, sanitize, sha256, sessionPath, bounded, capRecord, runHook } from '../lib/storage.mjs';
 import { registerObserver, usage, text } from '../lib/observer.mjs';
 import { forwardOnce } from '../scripts/forward.mjs';
 import { migratedSettings } from '../scripts/migrate-settings.mjs';
@@ -40,6 +40,56 @@ async function harness(t) {
 test('sanitization protects nested payloads and database URLs', async () => {
   const clean = await sanitize({ input: { text: secret, content: 'postgres://user:password123@host/db' } });
   assert(!JSON.stringify(clean).includes(secret)); assert(!JSON.stringify(clean).includes('password123'));
+});
+
+test('large accumulated contexts sanitize completely without splitting secrets or changing message order', async () => {
+  const messages = Array.from({ length: 160 }, (_, index) => ({ role: 'user', index,
+    content: [{ type: 'text', text: `${'ordinary context '.repeat(500)} ${secret}` }],
+    usage: { total_tokens: 12345678 + index } }));
+  const value = { type: 'context_with_system', messages,
+    credentials: { password: 'long-password-'.repeat(5000) },
+    private_key: `-----BEGIN OPENSSH PRIVATE KEY-----\n${'private-material-'.repeat(5000)}\n-----END OPENSSH PRIVATE KEY-----` };
+  const original = structuredClone(value);
+  assert(Buffer.byteLength(JSON.stringify(value)) > 1024 * 1024);
+  const clean = await sanitize(value);
+  assert.deepEqual(value, original);
+  assert.equal(clean.messages.length, messages.length);
+  assert.deepEqual(clean.messages.map(m => m.index), messages.map(m => m.index));
+  assert.equal(clean.messages.at(-1).usage.total_tokens, 12345837);
+  assert(!JSON.stringify(clean).includes(secret));
+  assert(!JSON.stringify(clean).includes('private-material'));
+  assert.equal(clean.credentials.password, 'long-p***');
+  assert.equal(clean.private_key, '-----BEGIN PRIVATE KEY-----***-----END PRIVATE KEY-----');
+});
+
+test('context capture records consecutive snapshots and keeps later tool capture active', async t => {
+  const h = await harness(t);
+  const messages = Array.from({ length: 90 }, (_, index) => ({ role: 'user', content: `${index}: ${'context '.repeat(500)}${secret}` }));
+  for (let turnIndex = 0; turnIndex < 2; turnIndex++) {
+    await h.send('turn_start', { turnIndex });
+    await h.send('context_with_system', { messages });
+  }
+  await h.send('tool_call', { toolName: 'read', toolCallId: 'after-context', input: { path: '/test' } });
+  const events = await rows(join(h.dir, '_pi_observability.jsonl'));
+  const contexts = events.filter(e => e.payload.custom_type === 'context_snapshot');
+  assert.deepEqual(contexts.map(e => e.payload.data.request_index), [0, 1]);
+  assert.deepEqual(contexts.map(e => e.payload.data.turn_index), [0, 1]);
+  const snapshot = JSON.parse(await readFile(join(h.dir, contexts[0].payload.data.snapshot.path), 'utf8'));
+  assert.equal(snapshot.messages.length, messages.length);
+  assert(!JSON.stringify(snapshot).includes(secret));
+  assert.equal(events.at(-1).type, 'tool_call');
+  assert.equal(h.warnings.length, 0);
+});
+
+test('helper failures carry a safe reason rather than leaking paths or stderr', async t => {
+  const root = await temporary(t), script = join(root, 'failing.sh');
+  await writeFile(script, `#!/bin/bash\nprintf '%s' '${secret}' >&2\nexit 1\n`);
+  await assert.rejects(runHook(script, [], ''), error => {
+    assert.equal(error.captureCode, 'helper_exit');
+    assert(!JSON.stringify(error).includes(secret));
+    assert(!error.message.includes(root));
+    return true;
+  });
 });
 
 test('legacy files, canonical telemetry, timing, errors and snapshot contracts', async t => {
