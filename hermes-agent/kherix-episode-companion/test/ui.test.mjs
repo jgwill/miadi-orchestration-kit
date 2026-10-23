@@ -184,6 +184,12 @@ test('sending text while listening does not let a new reply interrupt the one pl
   assert.equal(ui.calls.filter(c => c.path === '/api/messages').length, 1);
 });
 
+test('an unfinished empty assistant turn shows a waiting label rather than a blank reply card', async () => {
+  const ui = mount({ messages: [{ id: 'in-progress', role: 'assistant', text: '', streaming: true }] }); await settle();
+  assert.ok(flatten(ui.get('thread')).some(el => /reply pending/i.test(el.textContent)));
+  assert.equal(ui.get('hear-latest').disabled, true);
+});
+
 test('the latest take exposes transcription failure in the composer status and permits explicit rechecking', async () => {
   const ui = mount(); await settle(); ui.allowUploads();
   await ui.get('record').click(); await ui.get('stop').click(); await settle();

@@ -124,7 +124,7 @@ function renderThread(data) {
       $('thread').prepend(element); messageViews.set(message.id, view); added = true;
     }
     view.message = message;
-    view.words.textContent = message.text;
+    view.words.textContent = message.text || (message.streaming ? 'Reply pending · follow the work status above.' : '');
     if (message.role === 'assistant' && !message.streaming && message.text.trim()) {
       latestReply = message;
       if (!seenReplies.has(message.id)) {
@@ -146,7 +146,7 @@ function renderThread(data) {
 function renderReceipts() {
   const latest = outbox.items.at(-1);
   const labels = { sending: 'Saving and sending…', queued: 'Received · queued for Kherix', running: 'Received · Kherix is working on your message', completed: 'Reply received in this conversation', reply_unverified: 'Turn finished · reply association unverified; read the conversation', error: 'Your message needs attention · check delivery receipts', checking_delivery: 'Delivery unconfirmed · no automatic resend', unknown_execution: 'Execution unconfirmed · check delivery receipts', not_found: 'No server receipt · retry explicitly in delivery receipts' };
-  $('delivery-status').textContent = latest ? (labels[latest.state] || 'Check delivery receipts') : 'Record or write above. Only Send delivers a message.';
+  $('delivery-status').textContent = latest ? `Last send: ${labels[latest.state] || 'check delivery receipts'}` : 'Record or write above. Only Send delivers a message.';
   $('receipts').replaceChildren(); $('receipt-count').textContent = outbox.items.length ? `(${outbox.items.length})` : '';
   for (const item of outbox.items.slice(-30).reverse()) {
     const row = node('div', undefined, 'receipt');
