@@ -62,7 +62,7 @@ class Capture(unittest.TestCase):
         for event in hooks:
             self.event(event, prompt="a fresh request", tool_name="read_file", tool_use_id="event-call",
                        tool_input={})
-            self.wait_for(lambda: (self.out / ("_codex_" + event + ".jsonl")).exists())
+            self.wait_for(lambda: (self.out / ("_codex_" + event + ".jsonl")).exists() and bool(self.lines("_codex_" + event + ".jsonl")))
             self.assertEqual(len(self.lines("_codex_" + event + ".jsonl")), 1)
         self.wait_for(lambda: '"event":"session.end"' in (self.out / "_terminal_binding.jsonl").read_text())
         bindings = self.lines("_terminal_binding.jsonl")
@@ -76,7 +76,7 @@ class Capture(unittest.TestCase):
         path = self.project / "partial.txt"
         path.write_text("partial work survives a failure\n")
         self.event("PostToolUse", **fields, tool_response="Process exited with code 7\nOutput: failed")
-        self.wait_for(lambda: (self.out / "_codex_files_written.jsonl").exists())
+        self.wait_for(lambda: (self.out / "_codex_files_written.jsonl").exists() and bool(self.lines("_codex_files_written.jsonl")))
         failure = self.lines("_codex_PostToolUseFailure.jsonl")[0]
         self.assertEqual(failure["codex_tool_exit_code"], 7)
         self.assertEqual(self.lines("_codex_PostToolUse.jsonl")[0]["tool_response"], "Process exited with code 7\nOutput: failed")

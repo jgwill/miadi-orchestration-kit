@@ -6,6 +6,7 @@ Client
                               submit. TANS=0 tan <target> opens it without
                               delivering. Other options: plannotator-tmux-review --help
   plannotator-tmux-review     the loop; /usr/lib/miadi-tide/plannotator-tmux-review.sh
+                              from Miadi packages/tide/scripts (no Gaia checkout)
                               with its pane-write guard beside it (it will not type
                               into a pane whose human is mid-sentence, or whose
                               agent is mid-turn). The Miadi app's /tide cockpit runs

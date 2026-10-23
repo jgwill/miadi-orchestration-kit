@@ -25,6 +25,11 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     add-apt-repository -y ppa:deadsnakes/ppa >/dev/null 2>&1
     apt-get update -qq >/dev/null
   fi
+  # Upgrade the recognizable legacy PATH link without needing the old checkout.
+  if ls /tmp/debs/miadi-tide_*.deb >/dev/null 2>&1; then
+    mkdir -p /usr/local/bin
+    ln -s /opt/gaia/linux_migration/11-plannotator-tmux-review.sh /usr/local/bin/plannotator-tmux-review
+  fi
   # miadi-tmux replaces the distribution tmux: install that first, as a host that has it.
   if ls /tmp/debs/miadi-tmux_*.deb >/dev/null 2>&1; then
     apt-get install -y -qq tmux >/dev/null 2>&1
@@ -202,6 +207,12 @@ PY
     grep -q "^ExecStart=/usr/bin/tide daemon" /usr/lib/systemd/user/tide-runtime.service && echo "the server half ships as user units"
     code() { set +e; "$@" >/dev/null 2>&1; echo $?; set -e; }
     test "$(code tan)" = 64 && echo "tan without a target: 64"
+    test -x /usr/lib/miadi-tide/plannotator-agent-session.py
+    test "$(readlink /usr/local/bin/plannotator-tmux-review)" = /usr/bin/plannotator-tmux-review
+    test -f /usr/share/miadi-tide/node/@miadi/tide/scripts/plannotator-agent-session.py
+    ! grep -q "/opt/gaia\|linux_migration" /usr/lib/miadi-tide/plannotator-tmux-review.sh
+    ! grep -q "/opt/gaia" /usr/share/miadi-tide/node/@miadi/tide/src/annotate.ts
+    echo "annotation backend is owned by Miadi and installed without a Gaia checkout"
 
     # The loop end to end: a review delivered into a pane, through the packaged guard.
     useradd -m annotator

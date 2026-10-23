@@ -27,6 +27,24 @@ Review the plugin's hooks through `/hooks`, then start a fresh session. Installi
 alone does not trust hooks. Confirm that each enabled hook has source `plugin`,
 this plugin's id and trust status `trusted`. Leave unrelated hooks enabled.
 
+For tmux annotation with Codex's shared app-server (0.164+), expose the native
+thread ID in its terminal title:
+
+```sh
+python3 codex/miadi-session-observability/scripts/configure-terminal.py
+```
+
+This preserves other title items and backs up `config.toml`. New TUI sessions
+load it automatically. In an already-running TUI, use `/title`, select
+`thread-id`, and save. The native title changes with the selected thread.
+Codex 0.164 abbreviates this UUID; capture expands it only when its native
+read-only state database identifies one full thread ID uniquely. Then
+capture binds it to that TUI's PID and pane. The shared daemon is never recorded
+as the terminal owner. Missing or ambiguous titles remain unbound until an
+exact identity appears; a later prompt or Stop records it. Tide's packaged
+review loop uses that exact native thread ID, and Pi's capture binding, instead
+of choosing the newest session in their shared working directory.
+
 The package uses `.codex-plugin/plugin.json` and default `hooks/hooks.json`
 discovery, matching the kit's Miette plugin. Codex 0.163.0 read the skills but
 returned zero hooks with the newer portable manifest's OpenAI hook extension;

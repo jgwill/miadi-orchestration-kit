@@ -13,6 +13,12 @@ episode and mission. Inspect `_codex_user_inputs.jsonl` and the latest
 `_codex_files_written.jsonl` and `_codex_publications.jsonl` to connect each
 `prompt_id` (Codex `turn_id`) and `tool_use_id` to its result.
 
+Codex 0.164's managed app-server is shared: its PID is not a terminal identity.
+Include the native `thread-id` item through `/title` (or the package's
+`scripts/configure-terminal.py`). Capture joins that title's unique native ID
+to the TUI and tmux pane. An unbound terminal stays unknown; do not infer it
+from the daemon's ancestry or select the newest thread in a shared cwd.
+
 `written/` holds sanitized text copies, with `.~N~` previous versions.
 Credential files are listed without a copy or hash. A scan records files changed
 during a call; shared workspaces can have other writers. Binary, oversized and

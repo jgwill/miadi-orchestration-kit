@@ -9,6 +9,15 @@ venv=/usr/lib/miadi-tide/tide-runtime
 wheels=/usr/share/miadi-tide/wheels
 case "$1" in
 configure)
+	# The former Gaia installer placed this link ahead of /usr/bin on PATH.
+	# Retarget only its recognizable legacy link; preserve unrelated local tools.
+	legacy=/usr/local/bin/plannotator-tmux-review
+	if [ -L "$legacy" ]; then
+		case "$(readlink "$legacy")" in
+		*/linux_migration/11-plannotator-tmux-review.sh)
+			ln -sfn /usr/bin/plannotator-tmux-review "$legacy" ;;
+		esac
+	fi
 	py=
 	for c in python3.13 python3.12 python3.11 python3; do
 		p=$(command -v "$c" 2>/dev/null) || continue

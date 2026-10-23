@@ -19,11 +19,19 @@
 # Detached end jobs preserve its pid and argv before leaving that ancestry.
 _tb_agent_pid() {
     [ -n "${_TB_AGENT_PID:-}" ] && { printf '%s' "$_TB_AGENT_PID"; return; }
+    local resolved
+    resolved=$(jq -r '.pid // empty' <<< "${_TB_IDENTITY_JSON:-null}" 2>/dev/null)
+    [ -z "$resolved" ] || { printf '%s' "$resolved"; return; }
     local pid="$PPID" comm i
     for i in {1..16}; do
         case "$pid" in ''|0|1) break ;; esac
         comm=$(cat "/proc/$pid/comm" 2>/dev/null)
-        case "$comm" in codex|codex-*) printf '%s' "$pid"; return ;; esac
+        case "$comm" in codex|codex-*)
+            # The managed daemon serves many TUI sessions; it is not their terminal.
+            if ! tr '\0' '\n' < "/proc/$pid/cmdline" 2>/dev/null | grep -qx app-server; then
+                printf '%s' "$pid"; return
+            fi ;;
+        esac
         pid=$(awk '/^PPid:/ {print $2}' "/proc/$pid/status" 2>/dev/null)
     done
 }
@@ -31,6 +39,9 @@ _tb_agent_pid() {
 # {session, window, pane, pane_id, socket} for $TMUX_PANE, or null outside tmux and when
 # the environment names a tmux server that is no longer the one listening on the socket.
 _tb_tmux_json() {
+    local resolved
+    resolved=$(jq -c '.tmux // empty' <<< "${_TB_IDENTITY_JSON:-null}" 2>/dev/null)
+    [ -z "$resolved" ] || { printf '%s' "$resolved"; return; }
     if [ -z "${TMUX_PANE:-}" ] || [ -z "${TMUX:-}" ] || ! command -v tmux >/dev/null 2>&1; then
         printf 'null'
         return 0
@@ -222,6 +233,14 @@ codex_write_terminal_binding() {
     session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
     [ -n "$session_id" ] || return 0
 
+    _TB_IDENTITY_JSON=$(python3 "$_CODEX_HOOKS_ROOT/codex_hooks/terminal_identity.py" "$session_id" 2>/dev/null)
+    if [ "$event" = session.end ] && [ "$(jq -r '.pid // empty' <<< "${_TB_IDENTITY_JSON:-null}")" = "" ]; then
+        # The TUI may already have disconnected before its detached end hook.
+        # Preserve the last witnessed terminal for closure, never for a live lookup.
+        _TB_IDENTITY_JSON=$(tail -n 1 "$CODEX_SESSIONDATA_ROOT/$session_id/_terminal_binding.jsonl" 2>/dev/null \
+            | jq -c '{pid, argv, tmux}' 2>/dev/null)
+    fi
+
     local agent_pid tmux_json name_json argv_json="[]" line
     agent_pid=$(_tb_agent_pid "$session_id")
     tmux_json=$(_tb_tmux_json)
@@ -285,6 +304,14 @@ codex_check_terminal_binding_rename() {
     state="$CODEX_SESSIONDATA_ROOT/$session_id/_terminal_binding.state"
     if [ ! -r "$state" ]; then
         codex_write_terminal_binding "session.observed" "$input"
+        return 0
+    fi
+    # SessionStart can precede the TUI's first title. Observe again when the
+    # native title supplies the exact terminal, including for already-running sessions.
+    _TB_IDENTITY_JSON=$(python3 "$_CODEX_HOOKS_ROOT/codex_hooks/terminal_identity.py" "$session_id" 2>/dev/null)
+    pid=$(_tb_agent_pid "$session_id")
+    if [ -n "$pid" ] && [ "$(jq -r '.pid // empty' "$state")" != "$pid" ]; then
+        codex_write_terminal_binding session.observed "$input"
         return 0
     fi
     local name_json

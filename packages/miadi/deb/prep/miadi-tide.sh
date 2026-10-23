@@ -10,16 +10,15 @@
 #   - /usr/share/miadi-tide/node/@miadi/{tide,tide-contract}: what `pnpm pack`
 #     would publish, unpacked (the package is not an npm release)
 #   - /usr/share/miadi-tide/SOURCE: where each part came from
-# Sources: MIADI_SRC (/a/src/Miadi), GAIA_SRC (/a/src/gaia),
-# PANE_WRITE_GUARD_SRC (the dispatch-discipline skill's guard).
+# Sources: MIADI_SRC (/a/src/Miadi). The review loop and guard live in
+# packages/tide/scripts; no Gaia checkout or host-specific skill installation.
 # Build cache: MIADI_DEB_CACHE (~/.cache/miadi-deb). Needs git, rustup's cargo,
 # python3 with pip, pnpm, tar. Ref: jgwill/miadi-orchestration-kit#55
 set -euo pipefail
 stage=${1:?usage: prep/miadi-tide.sh <stage>}
 here=$(cd "$(dirname "$0")" && pwd)
 MIADI_SRC=${MIADI_SRC:-/a/src/Miadi}
-GAIA_SRC=${GAIA_SRC:-/a/src/gaia}
-PANE_WRITE_GUARD_SRC=${PANE_WRITE_GUARD_SRC:-/etc/claude-code/skills/dispatch-discipline/pane-write-guard.sh}
+PANE_WRITE_GUARD_SRC=${PANE_WRITE_GUARD_SRC:-$MIADI_SRC/packages/tide/scripts/pane-write-guard.sh}
 cache=${MIADI_DEB_CACHE:-$HOME/.cache/miadi-deb}/miadi-tide
 lib=$stage/usr/lib/miadi-tide
 share=$stage/usr/share/miadi-tide
@@ -45,7 +44,8 @@ PATH=$cargo_path cargo install --quiet --locked --ignore-rust-version \
 install -m 0755 "$cache/cargo-$pin/bin/plannotator-tui" "$stage/usr/bin/plannotator-tui"
 
 # 2. the review loop and its guard, side by side, and the daemon store's pruner
-install -m 0755 "$GAIA_SRC/linux_migration/11-plannotator-tmux-review.sh" "$lib/plannotator-tmux-review.sh"
+install -m 0755 "$MIADI_SRC/packages/tide/scripts/plannotator-tmux-review.sh" "$lib/plannotator-tmux-review.sh"
+install -m 0755 "$MIADI_SRC/packages/tide/scripts/plannotator-agent-session.py" "$lib/plannotator-agent-session.py"
 install -m 0755 "$PANE_WRITE_GUARD_SRC" "$lib/pane-write-guard.sh"
 install -m 0755 "$MIADI_SRC/scripts/ops/tide-store-prune.sh" "$lib/tide-store-prune.sh"
 
@@ -75,7 +75,7 @@ find "$share/node" -type f -exec chmod 0644 {} +
 ironsilk=$(ls "$share/wheels"/ironsilk-*.whl | sed 's#.*/ironsilk-\([^-]*\)-.*#\1#')
 {
 	echo "plannotator-tui: $url @ $pin ($("$stage/usr/bin/plannotator-tui" --version 2>/dev/null))"
-	echo "plannotator-tmux-review.sh: jgwill/gaia linux_migration/11-plannotator-tmux-review.sh @ $(where "$GAIA_SRC" linux_migration/11-plannotator-tmux-review.sh)"
+	echo "review loop: jgwill/Miadi packages/tide/scripts @ $(where "$MIADI_SRC" packages/tide/scripts)"
 	echo "pane-write-guard.sh: $PANE_WRITE_GUARD_SRC"
 	echo "tide-store-prune.sh: jgwill/Miadi scripts/ops/tide-store-prune.sh @ $(where "$MIADI_SRC" scripts/ops/tide-store-prune.sh)"
 	echo "ironsilk $ironsilk: jgwill/Miadi runtime/tide-runtime @ $(where "$MIADI_SRC" runtime/tide-runtime)"

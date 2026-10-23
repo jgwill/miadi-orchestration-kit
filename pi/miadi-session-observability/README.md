@@ -19,6 +19,12 @@ Alternatively `pi install "$KIT/pi/miadi-session-observability"`, **then remove 
 
 The migration changes settings only. Check aliases/functions/wrappers for legacy `-e /opt/binscripts/hooks/pi_hooks/event_capture.ts` arguments too (for example, binscripts' `mpi`). Remove that capture argument while preserving unrelated extensions; prefer an account-local launcher override during a one-account cutover. A CLI extension remains configured across `/reload`, so restart those Pi processes from the cleaned launcher instead. [Eury cutover](cutover-eury-2026-10-22.md) records a verified example.
 
+Tide and `miadi-chronicle` annotate the same reply through `/api/tide/annotate/*`.
+With `miadi-tide` 0.1.11+, resolution uses this extension's current PID/pane
+binding and native `transcript_path`. Multiple Pi sessions in one folder stay
+distinct. Missing, ended, or stale bindings are refused rather than replaced
+with another session. Capture and annotation must use the same session-data root.
+
 A reload replaces the extension runtime, not the Pi process environment. New environment variables need a new process. The old binaries are not deleted; rollback restores the settings backup and starts/reloads Pi. Use the same session-data root.
 
 ## Files and contract
