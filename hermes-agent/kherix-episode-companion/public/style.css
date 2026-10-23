@@ -46,6 +46,7 @@ footer { flex-shrink:0; border-top:1px solid var(--line); padding:12px 0 max(12p
 .actions { display:flex; gap:10px; align-items:center; margin-top:9px; }
 #send { margin-left:auto; }
 #record-clock { color:var(--danger); font-size:.8rem; }
+#capture-status { margin:8px 0 0; font-size:.75rem; }
 #action-status { min-height:1.5em; font-size:.85rem; }
 .privacy { margin:8px 0; font-size:.7rem; }
 #unlock { padding:0 0 18px; }

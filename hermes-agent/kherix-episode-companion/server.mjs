@@ -120,7 +120,21 @@ export async function createCompanionServer(options = {}) {
     takes.set(take.id, take);
     if (['stored', 'transcribing'].includes(take.state)) saveTake(take, { state: 'interrupted', error: 'Transcription was interrupted. Audio is preserved; retry explicitly.' });
   }
-  const publicTake = take => ({ id: take.id, state: take.state, bytes: take.bytes, mime: take.mime, transcript: take.transcript ?? '', error: take.error ?? null, createdAt: take.createdAt, audio: `/api/takes/${take.id}/audio` });
+  const publicTake = take => ({ id: take.id, state: take.state, bytes: take.bytes, mime: take.mime, capture: take.capture ?? null, transcript: take.transcript ?? '', error: take.error ?? null, createdAt: take.createdAt, audio: `/api/takes/${take.id}/audio` });
+  function captureInfo(header) {
+    if (header === undefined) return null; // Older clients and explicit audio uploads remain supported.
+    if (typeof header !== 'string' || header.length > 2048) throw new Refusal(400, 'Invalid capture diagnostics');
+    let value;
+    try { value = JSON.parse(header); } catch { throw new Refusal(400, 'Invalid capture diagnostics'); }
+    const limits = { elapsedMs: 86400000, lastChunkAtMs: 86400000, chunkCount: 100000, muteCount: 100000, endedCount: 100000 };
+    const keys = new Set(['version', 'stopReason', 'errorName', ...Object.keys(limits)]);
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !keys.has(key)) || value.version !== 'direct-v1'
+      || !['requested', 'recorder-error', 'track-ended', 'unexpected', 'limit', 'stop-timeout'].includes(value.stopReason)
+      || typeof value.errorName !== 'string' || !/^[A-Za-z]{0,64}$/.test(value.errorName)
+      || Object.entries(limits).some(([key, max]) => !Number.isSafeInteger(value[key]) || value[key] < 0 || value[key] > max)
+      || value.lastChunkAtMs > value.elapsedMs) throw new Refusal(400, 'Invalid capture diagnostics');
+    return value;
+  }
   function saveTake(take, fields = {}) {
     if (closed) return take;
     Object.assign(take, fields, { updatedAt: new Date().toISOString() });
@@ -134,13 +148,18 @@ export async function createCompanionServer(options = {}) {
   }
   function transcribeTake(take) {
     track(async () => {
-      saveTake(take, { state: 'transcribing' });
+      saveTake(take, { state: 'transcribing', error: null });
       try {
         if (!options.transcribe) throw new Error('STT unavailable');
         const transcript = await options.transcribe({ path: join(takesDir, `${hash(take.id)}.audio`), mime: take.mime, language: 'en' });
         if (typeof transcript !== 'string' || !transcript.trim()) throw new Error('Empty transcript');
         saveTake(take, { state: 'ready', transcript: cleanText(transcript), error: null });
-      } catch { saveTake(take, { state: 'failed', error: 'Transcription failed. Recording is preserved; you can retry or download it.' }); }
+      } catch (error) {
+        const explanation = error.code === 'NO_USABLE_AUDIO'
+          ? 'The recording contains silence or an extremely quiet microphone signal. Audio is preserved; check the microphone signal and record again.'
+          : 'Transcription failed. Recording is preserved; you can retry or download it.';
+        saveTake(take, { state: 'failed', transcript: error.code === 'NO_USABLE_AUDIO' ? '' : take.transcript, error: explanation });
+      }
     });
   }
   function saveReceipt(receipt, fields = {}) {
@@ -321,6 +340,7 @@ export async function createCompanionServer(options = {}) {
         if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(id)) throw new Refusal(400, 'A stable x-client-id recording ID is required');
         const mime = req.headers['content-type']?.split(';')[0].trim().toLowerCase();
         if (!['audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/wav', 'audio/x-wav', 'audio/webm'].includes(mime)) throw new Refusal(415, 'Record mp4, m4a, wav or webm audio');
+        const capture = captureInfo(req.headers['x-capture-info']);
         const bytes = await readBody(req, 25 * 1024 * 1024);
         if (!bytes.length) throw new Refusal(400, 'Recording is empty');
         const digest = hash(bytes);
@@ -330,7 +350,7 @@ export async function createCompanionServer(options = {}) {
           return send(res, 202, { take: publicTake(earlier), duplicate: true });
         }
         durableBytes(join(takesDir, `${hash(id)}.audio`), bytes);
-        const take = saveTake({ id, mime, digest, bytes: bytes.length, state: 'stored', createdAt: new Date().toISOString() });
+        const take = saveTake({ id, mime, capture, digest, bytes: bytes.length, state: 'stored', createdAt: new Date().toISOString() });
         send(res, 202, { take: publicTake(take) }); transcribeTake(take); return;
       }
       if (req.method === 'GET' && url.pathname === '/api/takes') return send(res, 200, { takes: [...takes.values()].map(publicTake).sort((a, b) => a.createdAt.localeCompare(b.createdAt)) });
@@ -344,7 +364,7 @@ export async function createCompanionServer(options = {}) {
         }
         if (req.method === 'POST' && takeAction[2] === 'transcribe') {
           await readJson(req);
-          if (!['transcribing', 'stored', 'ready'].includes(take.state)) {
+          if (!['transcribing', 'stored'].includes(take.state)) {
             saveTake(take, { state: 'stored', error: null }); transcribeTake(take);
           }
           return send(res, 202, { take: publicTake(take) });

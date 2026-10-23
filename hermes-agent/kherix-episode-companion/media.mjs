@@ -9,6 +9,12 @@ export function createSpeechTools({ groqKey = '', fetchImpl = fetch, run = promi
   return {
     async transcribe({ path }) {
       if (!groqKey) throw new Error('English STT is not configured');
+      // Inspect the original signal, before padding: Whisper can hallucinate words on silence.
+      const analysis = await run(ffmpeg, ['-nostdin', '-hide_banner', '-loglevel', 'info', '-i', path, '-vn', '-af', 'volumedetect', '-f', 'null', '-'], processOptions);
+      const level = String(analysis?.stderr ?? '').match(/max_volume:\s*(-?inf|[-+\d.]+)\s*dB/);
+      if (!level) throw new Error('Recording signal could not be checked');
+      const peak = level[1] === '-inf' ? -Infinity : Number(level[1]);
+      if (peak < -50) throw Object.assign(new Error('The recording contains silence or an extremely quiet microphone signal. The original audio is preserved. Check the microphone signal and record again.'), { code: 'NO_USABLE_AUDIO' });
       const padded = `${path}.${randomUUID()}.padded.wav`;
       try {
         await run(ffmpeg, ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', path, '-vn', '-af', 'apad=pad_dur=3', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', padded], processOptions);

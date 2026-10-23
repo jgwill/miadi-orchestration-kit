@@ -49,7 +49,7 @@ function recordingsDB(takes = [], failures = new Set()) {
   } };
   return { indexedDB, saved, failures };
 }
-function mount({ indexedDB, locked = false, messages = [{ id: 'a'.repeat(64), role: 'assistant', text: '<img src=x onerror=alert(1)>', streaming: false }] } = {}) {
+function mount({ indexedDB, getUserMedia, AudioContext, locked = false, messages = [{ id: 'a'.repeat(64), role: 'assistant', text: '<img src=x onerror=alert(1)>', streaming: false }] } = {}) {
   const elements = new Map();
   const get = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const body = new Element('body');
@@ -86,14 +86,125 @@ function mount({ indexedDB, locked = false, messages = [{ id: 'a'.repeat(64), ro
     stop() { this.state = 'inactive'; this.ondataavailable({ data: new Blob(['preserved bytes'], { type: this.mimeType }) }); return this.onstop(); }
   }
   const events = {};
-  const window = { addEventListener(name, fn) { events[name] = fn; }, MediaRecorder: Recorder };
+  const window = { addEventListener(name, fn) { events[name] = fn; }, MediaRecorder: Recorder, AudioContext };
   const urls = { createObjectURL: blob => { downloads.push(blob); return 'blob:recording'; }, revokeObjectURL() {} };
-  const sandbox = { document, window, localStorage: storage, fetch: fetchImpl, Outbox, Blob, AbortSignal, URL: urls, ...(indexedDB === undefined ? {} : { indexedDB }), crypto: webcrypto, Event: class { constructor(type) { this.type = type; } }, isSecureContext: true, MediaRecorder: Recorder, navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) } }, confirm: () => true, setTimeout: () => 1, clearTimeout() {}, setInterval: () => 1, clearInterval() {}, console };
+  const intervals = new Map(), timeouts = new Map(); let intervalId = 0, timeoutId = 0;
+  const sandbox = { document, window, localStorage: storage, fetch: fetchImpl, Outbox, Blob, AbortSignal, URL: urls, ...(indexedDB === undefined ? {} : { indexedDB }), crypto: webcrypto, Event: class { constructor(type) { this.type = type; } }, isSecureContext: true, MediaRecorder: Recorder, navigator: { mediaDevices: { getUserMedia: getUserMedia ?? (async () => ({ getTracks: () => [{ stop() {} }] })) } }, confirm: () => true, setTimeout: (fn, ms) => { timeouts.set(++timeoutId, { fn, ms }); return timeoutId; }, clearTimeout: id => timeouts.delete(id), setInterval: fn => { intervals.set(++intervalId, fn); return intervalId; }, clearInterval: id => intervals.delete(id), console };
   const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8').replace(/^import .*?;\n/, '');
   get('feed').scrollHeight = 1000; get('feed').scrollTop = 0; get('feed').clientHeight = 300;
   runInNewContext(source, sandbox);
-  return { get, all, calls, storage, downloads, recorders, events, allowUploads: () => { uploadsAvailable = true; }, pairDevice: () => { locked = false; } };
+  return { get, all, calls, storage, downloads, recorders, events, intervals, uploaded, fireTimeout: async ms => { for (const [id, job] of [...timeouts]) if (job.ms === ms) { timeouts.delete(id); await job.fn(); } }, allowUploads: () => { uploadsAvailable = true; }, pairDevice: () => { locked = false; } };
 }
+
+test('the latest take exposes transcription failure in the composer status and permits explicit rechecking', async () => {
+  const ui = mount(); await settle(); ui.allowUploads();
+  await ui.get('record').click(); await ui.get('stop').click(); await settle();
+  const take = [...ui.uploaded.values()][0];
+  const retry = ui.all().find(el => el.textContent === 'Retry transcription');
+  assert.equal(retry.hidden, false, 'a misleading ready take must remain recheckable');
+  assert.equal(ui.get('recordings').open, true);
+  take.state = 'failed'; take.transcript = ''; take.error = 'The recording contains silence. Audio is preserved.';
+  await ui.events.online(); await settle();
+  assert.match(ui.get('action-status').textContent, /silence.*preserved/i);
+  assert.equal(ui.get('composer').value, '');
+  assert.equal(ui.calls.filter(call => call.path === '/api/messages').length, 0);
+});
+
+test('direct microphone capture does not create a competing Web Audio consumer', async () => {
+  let contexts = 0, stopped = 0;
+  class AudioContext { constructor() { contexts++; throw new Error('Do not open a second audio consumer'); } }
+  const ui = mount({ AudioContext, getUserMedia: async () => ({ getTracks: () => [{ stop() { stopped++; } }] }) }); await settle();
+  await ui.get('record').click();
+  assert.equal(contexts, 0, 'use the same direct getUserMedia → MediaRecorder path as Mia');
+  assert.equal(ui.recorders[0].state, 'recording');
+  await ui.get('stop').click(); await settle();
+  assert.equal(stopped, 1);
+  assert.equal(ui.intervals.size, 0);
+  assert.equal(ui.calls.filter(call => call.path === '/api/messages').length, 0);
+});
+
+test('a recorder error without onstop releases the microphone and preserves all delivered chunks exactly once', async () => {
+  let stopped = 0;
+  const ui = mount({ getUserMedia: async () => ({ getTracks: () => [{ stop() { stopped++; } }] }) }); await settle();
+  await ui.get('record').click();
+  const recorder = ui.recorders[0];
+  recorder.ondataavailable({ data: new Blob(['before '], { type: recorder.mimeType }) });
+  recorder.stop = function () { this.state = 'inactive'; }; // Mobile recorder never delivers onstop.
+  recorder.onerror({ error: { name: 'NotReadableError' } });
+  recorder.ondataavailable({ data: new Blob(['final tail'], { type: recorder.mimeType }) });
+  await ui.fireTimeout(3000); await settle();
+  assert.equal(stopped, 1, 'error cleanup cannot leave a live microphone');
+  assert.equal(ui.get('record').disabled, false);
+  assert.equal(ui.get('stop').hidden, true);
+  assert.equal(ui.intervals.size, 0);
+  const uploadCalls = () => ui.calls.filter(call => call.path === '/api/takes' && call.init.method === 'POST');
+  assert.equal(uploadCalls().length, 1);
+  assert.equal(await uploadCalls()[0].init.body.text(), 'before final tail');
+  await ui.get('record').click();
+  const newerRecorder = ui.recorders[1];
+  assert.equal(newerRecorder.state, 'recording');
+  await recorder.onstop(); await settle();
+  assert.equal(stopped, 1, 'late onstop must not release a newer microphone or upload twice');
+  assert.equal(newerRecorder.state, 'recording');
+  assert.equal(ui.get('stop').hidden, false, 'the newer capture keeps its controls');
+  assert.equal(ui.intervals.size, 1, 'the newer capture keeps its clock');
+  assert.equal(uploadCalls().length, 1);
+  assert.equal(ui.calls.filter(call => call.path === '/api/messages').length, 0);
+  await ui.get('stop').click(); await settle();
+});
+
+test('unexpected recorder termination is labeled and its capture diagnostics survive an explicit upload retry', async () => {
+  const ui = mount(); await settle();
+  await ui.get('record').click();
+  const recorder = ui.recorders[0];
+  recorder.ondataavailable({ data: new Blob(['early speech'], { type: recorder.mimeType }) });
+  recorder.state = 'inactive';
+  await recorder.onstop(); await settle();
+  assert.match(ui.get('capture-status').textContent, /unexpected/i);
+  const upload = () => ui.calls.filter(call => call.path === '/api/takes' && call.init.method === 'POST');
+  const info = JSON.parse(upload()[0].init.headers['x-capture-info']);
+  assert.equal(info.version, 'direct-v1');
+  assert.equal(info.stopReason, 'unexpected');
+  assert.equal(info.chunkCount, 1);
+  assert.ok(info.elapsedMs >= info.lastChunkAtMs);
+  await ui.all().find(el => el.textContent === 'Upload / check saved take').click(); await settle();
+  assert.equal(upload()[1].init.headers['x-capture-info'], upload()[0].init.headers['x-capture-info']);
+  assert.equal(ui.calls.filter(call => call.path === '/api/messages').length, 0);
+});
+
+test('a slow encoder reports missing chunks without falsely claiming microphone silence', async () => {
+  const ui = mount(); await settle();
+  await ui.get('record').click(); await ui.fireTimeout(3500);
+  assert.match(ui.get('capture-status').textContent, /no audio bytes yet/i);
+  assert.doesNotMatch(ui.get('capture-status').textContent, /microphone is silent/i);
+  assert.equal(ui.recorders[0].state, 'recording', 'slow encoders must not be stopped by a chunk watchdog');
+  await ui.get('stop').click(); await settle();
+  const upload = ui.calls.find(call => call.path === '/api/takes' && call.init.method === 'POST');
+  assert.equal(JSON.parse(upload.init.headers['x-capture-info']).stopReason, 'requested');
+});
+
+test('microphone startup stays single-owner through a refresh and blocks all reply playback', async () => {
+  let resolveMic, requests = 0;
+  const mic = new Promise(resolve => { resolveMic = resolve; });
+  const ui = mount({ getUserMedia: () => { requests++; return mic; } }); await settle();
+  const hear = ui.all().find(el => el.textContent === 'Hear Kherix');
+  await hear.click();
+  const audio = ui.all().find(el => el.tag === 'audio');
+  const starting = ui.get('record').click();
+  assert.equal(audio.paused, true, 'stop playback before requesting microphone access');
+  assert.equal(audio.controls, false, 'native playback controls must not bypass microphone ownership');
+  assert.equal(hear.disabled, true);
+  await ui.events.online(); await settle();
+  assert.equal(ui.get('record').disabled, true, 'polling must not re-enable Record while permission is pending');
+  const second = ui.get('record').click();
+  await hear.click();
+  assert.equal(requests, 1, 'even programmatic double clicks create only one request');
+  resolveMic({ getTracks: () => [{ stop() {} }] });
+  await Promise.all([starting, second]);
+  assert.equal(ui.recorders.length, 1);
+  await ui.get('stop').click(); await settle();
+  assert.equal(audio.controls, true, 'playback becomes available after microphone release');
+});
 
 test('an unpaired browser gets pairing guidance, cannot send, and can recheck without losing its draft', async () => {
   const ui = mount({ locked: true }); await settle();

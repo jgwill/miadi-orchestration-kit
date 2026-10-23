@@ -11,12 +11,12 @@ async function request(path, payload, init = {}) {
   return value;
 }
 const outbox = new Outbox(localStorage, request);
-let recording = false, recorder, mic, chunks = [], recordingId, startedAt, clock;
-let refreshBusy = false, timer, sendBusy = false, authenticated = false;
+let recording = false, starting = false, capture, recordingId, clock;
+let refreshBusy = false, timer, sendBusy = false, authenticated = false, recentTakeId;
 function setAuthenticated(value) {
   authenticated = value;
   $('send').disabled = !value || sendBusy;
-  $('record').disabled = !value || recording;
+  $('record').disabled = !value || starting || recording;
 }
 const messageViews = new Map(), takeViews = new Map();
 try { $('composer').value = localStorage.getItem('kherix.draft') || ''; } catch { say('Device draft storage is unavailable. Sending is disabled if the outbox cannot be saved.', true); }
@@ -52,10 +52,11 @@ function renderThread(data) {
       const words = node('p', message.text, 'words'); element.append(byline, words);
       view = { element, words };
       if (message.role === 'assistant') {
-        const audio = node('audio'); audio.controls = true; audio.preload = 'none'; audio.hidden = true;
+        const audio = node('audio'); audio.controls = !(starting || recording); audio.preload = 'none'; audio.hidden = true;
+        audio.addEventListener('play', () => { if (starting || recording) audio.pause(); });
         audio.addEventListener('error', () => say('Kherix audio is unavailable. The reply text is preserved; try Hear Kherix again.', true));
         const hear = action('Hear Kherix', () => {
-          if (recording) return say('Stop the microphone before listening.', true);
+          if (starting || recording) return say('Stop the microphone before listening.', true);
           document.querySelectorAll('audio').forEach(other => { if (other !== audio) other.pause(); });
           audio.hidden = false;
           audio.src = `/api/replies/${message.id}/audio`;
@@ -69,7 +70,7 @@ function renderThread(data) {
     view.words.textContent = message.text;
     if (view.hear) {
       view.hear.dataset.streaming = String(message.streaming);
-      view.hear.disabled = recording || message.streaming;
+      view.hear.disabled = starting || recording || message.streaming;
     }
   }
   if (followLatest) feed.scrollTop = feed.scrollHeight;
@@ -101,16 +102,24 @@ function renderTakes(data) {
         say('Transcript is a draft. Edit it, then press Send. Nothing has been sent.');
       });
       const download = node('a', 'Download recording'); download.href = take.audio; download.download = `kherix-${take.id}.${take.mime.includes('webm') ? 'webm' : take.mime.includes('wav') ? 'wav' : 'm4a'}`;
-      const retry = action('Retry transcription', async () => { try { await request(`/api/takes/${take.id}/transcribe`, {}); await refresh(); } catch (error) { say(error.message, true); } });
-      element.append(title, status, label, transcript, use, download, retry);
-      $('takes').prepend(element); view = { element, title, status, transcript, use, retry }; takeViews.set(take.id, view);
+      const retry = action('Retry transcription', async () => { try { recentTakeId = take.id; view.state = undefined; await request(`/api/takes/${take.id}/transcribe`, {}); await refresh(); } catch (error) { say(error.message, true); } });
+      const diagnostics = node('p', '', 'muted');
+      element.append(title, status, diagnostics, label, transcript, use, download, retry);
+      $('takes').prepend(element); view = { element, title, status, diagnostics, transcript, use, retry }; takeViews.set(take.id, view);
     }
     view.title.textContent = `${take.state} · ${take.bytes} bytes`;
     view.status.textContent = take.error || `Recording ${take.id}`;
     view.status.classList.toggle('error', Boolean(take.error));
+    view.diagnostics.textContent = take.capture ? `Capture ${take.capture.version}: ${(take.capture.elapsedMs / 1000).toFixed(1)}s elapsed · ${take.capture.chunkCount} chunks · ${take.capture.stopReason}` : '';
     if (!view.transcript.dataset.edited) view.transcript.value = take.transcript;
     view.use.disabled = !view.transcript.value.trim();
-    view.retry.hidden = !['failed', 'interrupted'].includes(take.state);
+    view.retry.hidden = ['stored', 'transcribing'].includes(take.state);
+    if (take.id === recentTakeId && view.state !== take.state) {
+      if (take.error) say(take.error, true);
+      else if (take.state === 'ready') say('Transcript ready in Saved recordings & transcripts. Review it, then use it in the composer. Nothing has been sent.');
+      else say('Recording safely stored. Transcribing… Nothing has been sent.');
+    }
+    view.state = take.state;
   }
 }
 async function sendText(text) {
@@ -173,8 +182,8 @@ async function localRecordings(operation, value) {
 }
 let backup = Promise.resolve();
 const memoryTakes = new Map();
-function snapshot(id, blob, state) {
-  const value = { id, blob, mime: blob.type, bytes: blob.size, state, createdAt: new Date().toISOString(), backedUp: false };
+function snapshot(id, blob, state, capture) {
+  const value = { id, blob, mime: blob.type, bytes: blob.size, state, capture, createdAt: new Date().toISOString(), backedUp: false };
   memoryTakes.set(id, value);
   backup = backup.catch(() => {}).then(() => localRecordings('put', value)).then(() => { value.backedUp = true; });
   backup.catch(() => say('Local recording backup failed. Keep this page open until the server confirms the upload.', true));
@@ -183,11 +192,13 @@ function snapshot(id, blob, state) {
 async function uploadRecording(take) {
   try {
     say('Saving recording and preparing an editable transcript…');
-    const result = await request('/api/takes', undefined, { method: 'POST', headers: { 'content-type': take.mime, 'x-client-id': take.id }, body: take.blob, signal: AbortSignal.timeout(120000) });
+    const result = await request('/api/takes', undefined, { method: 'POST', headers: { 'content-type': take.mime, 'x-client-id': take.id, ...(take.capture ? { 'x-capture-info': JSON.stringify(take.capture) } : {}) }, body: take.blob, signal: AbortSignal.timeout(120000) });
     const confirmed = await request(`/api/takes/${result.take.id}`);
     if (confirmed.take.bytes !== take.blob.size) throw new Error('Stored byte count did not match');
     await localRecordings('delete', take.id).catch(() => {}); memoryTakes.delete(take.id);
-    say('Recording is safely stored. Review its transcript below before sending.'); $('recordings').open = true; await refresh();
+    recentTakeId = take.id;
+    say('Recording is safely stored. Transcribing… Nothing has been sent.'); $('recordings').open = true; await refresh();
+    $('feed').scrollTop = $('feed').scrollHeight;
   } catch (error) { say(`Upload not confirmed: ${error.message}. The bytes are available below. If device backup failed, keep this page open or download before leaving.`, true); $('recordings').open = true; }
   await renderLocalTakes();
 }
@@ -212,41 +223,68 @@ async function renderLocalTakes() {
 }
 function recordingUI(active) {
   recording = active; $('record').hidden = active; $('stop').hidden = !active;
-  document.querySelectorAll('button[data-hear]').forEach(button => { button.disabled = active || button.dataset.streaming === 'true'; });
-  if (active) document.querySelectorAll('audio').forEach(audio => audio.pause());
-  else { clearInterval(clock); $('record-clock').textContent = ''; }
+  $('record').disabled = !authenticated || starting || active;
+  document.querySelectorAll('button[data-hear]').forEach(button => { button.disabled = starting || active || button.dataset.streaming === 'true'; });
+  document.querySelectorAll('audio').forEach(audio => { audio.controls = !(starting || active); if (starting || active) audio.pause(); });
+  if (!active) { clearInterval(clock); $('record-clock').textContent = ''; }
 }
 $('record').addEventListener('click', async () => {
   if (!authenticated) return say('Pair this device before recording. Existing saved takes stay available.', true);
-  if (recording) return;
+  if (starting || recording) return;
   if (!isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return say('Recording needs HTTPS and a browser with microphone recording support.', true);
-  $('record').disabled = true;
+  starting = true; recordingUI(false); say('Opening the microphone…');
+  $('capture-status').textContent = 'Direct capture · keep this page visible and the screen on.';
+  let mic;
   try {
+    // One microphone consumer, as in Mia's working capture page. No Web Audio graph.
     mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mime = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(type => MediaRecorder.isTypeSupported(type));
-    recorder = new MediaRecorder(mic, mime ? { mimeType: mime } : {});
-    recordingId = crypto.randomUUID(); const id = recordingId; chunks = []; startedAt = Date.now();
-    recorder.ondataavailable = event => {
-      if (!event.data.size) return; chunks.push(event.data);
-      const blob = new Blob(chunks, { type: recorder.mimeType.split(';')[0] || event.data.type.split(';')[0] });
-      snapshot(id, blob, 'partial');
-      if (blob.size > 25 * 1024 * 1024 && recorder.state !== 'inactive') { say('Recording reached the upload limit. It will remain available for download.', true); recorder.stop(); }
-    };
-    recorder.onerror = () => say('The recorder reported a problem. Available bytes are backed up; inspect the saved takes.', true);
-    recorder.onstop = async () => {
-      mic.getTracks().forEach(track => track.stop()); recordingUI(false);
+    const mime = ['audio/mp4', 'audio/mp4;codecs=mp4a.40.2', 'audio/webm;codecs=opus', 'audio/webm'].find(type => MediaRecorder.isTypeSupported(type));
+    const recorder = new MediaRecorder(mic, mime ? { mimeType: mime } : {});
+    const id = crypto.randomUUID(), chunks = [], startedAt = Date.now(); recordingId = id;
+    let finished = false, guard, watchdog;
+    const info = { version: 'direct-v1', elapsedMs: 0, chunkCount: 0, lastChunkAtMs: 0, stopReason: 'unexpected', muteCount: 0, endedCount: 0, errorName: '' };
+    const elapsed = () => Math.min(86400000, Math.max(0, Date.now() - startedAt));
+    const finish = async () => {
+      if (finished) return;
+      finished = true; clearTimeout(guard); clearTimeout(watchdog); info.elapsedMs = elapsed();
+      $('capture-status').textContent = `${info.stopReason === 'requested' ? 'Capture stopped' : `Capture interrupted (${info.stopReason})`} after ${(info.elapsedMs / 1000).toFixed(1)}s · ${chunks.length} chunks. This is capture timing, not proof of speech.`;
+      mic.getTracks().forEach(track => track.stop());
+      if (capture === current) { capture = undefined; starting = false; recordingUI(false); $('stop').disabled = false; }
       const blob = new Blob(chunks, { type: recorder.mimeType.split(';')[0] });
-      if (!blob.size) return say('The recorder produced no audio bytes.', true);
-      try { await snapshot(id, blob, 'ready'); } catch { /* Keep the in-memory blob available for this upload. */ }
-      if (blob.size <= 25 * 1024 * 1024) await uploadRecording({ id, blob, mime: blob.type });
+      if (!blob.size) return say('The recorder produced no audio bytes. Nothing was sent.', true);
+      try { await snapshot(id, blob, 'ready', { ...info }); } catch { /* Memory still owns the original bytes. */ }
+      if (blob.size <= 25 * 1024 * 1024) await uploadRecording({ id, blob, mime: blob.type, capture: { ...info } });
       else await renderLocalTakes();
     };
-    recorder.start(1000); recordingUI(true); say('Recording. Reply playback is paused. Stop to transcribe; sending is separate.');
+    const current = { stop(reason = 'requested') {
+      if (finished) return;
+      if (info.stopReason === 'unexpected') info.stopReason = reason;
+      $('stop').disabled = true;
+      guard ??= setTimeout(() => { info.stopReason = 'stop-timeout'; return finish(); }, 3000);
+      try { if (recorder.state !== 'inactive') return recorder.stop(); } catch { /* Preserve delivered chunks at the deadline. */ }
+    } };
+    capture = current;
+    recorder.ondataavailable = event => {
+      if (finished || !event.data.size) return; chunks.push(event.data);
+      info.chunkCount = Math.min(100000, chunks.length); info.lastChunkAtMs = elapsed();
+      const blob = new Blob(chunks, { type: recorder.mimeType.split(';')[0] || event.data.type.split(';')[0] });
+      $('capture-status').textContent = `${blob.size} audio bytes received · keep this page visible. Speech is checked after Stop.`;
+      snapshot(id, blob, 'partial', { ...info, elapsedMs: elapsed() });
+      if (blob.size > 25 * 1024 * 1024) { say('Recording reached the upload limit. It will remain available for download.', true); current.stop('limit'); }
+    };
+    for (const track of mic.getTracks()) {
+      track.addEventListener?.('mute', () => { if (!finished) { info.muteCount = Math.min(100000, info.muteCount + 1); $('capture-status').textContent = 'The browser muted the microphone. Keep the page visible; stop to preserve this take.'; } });
+      track.addEventListener?.('ended', () => { if (!finished) { info.endedCount++; current.stop('track-ended'); } });
+    }
+    recorder.onerror = event => { if (finished) return; info.errorName = String(event?.error?.name || 'RecorderError').replace(/[^A-Za-z]/g, '').slice(0, 64); say('The recorder reported a problem. Finishing and preserving available audio…', true); current.stop('recorder-error'); };
+    recorder.onstop = finish;
+    recorder.start(1000); starting = false; recordingUI(true); say('Recording. Reply playback is paused. Stop to transcribe; sending is separate.');
+    watchdog = setTimeout(() => { if (!finished && !chunks.length) $('capture-status').textContent = 'No audio bytes yet. Some browsers deliver bytes only at Stop; this does not prove microphone silence. Keep speaking, then Stop.'; }, 3500);
     clock = setInterval(() => { $('record-clock').textContent = `${Math.floor((Date.now() - startedAt) / 1000)}s`; }, 1000);
-  } catch (error) { mic?.getTracks().forEach(track => track.stop()); recordingUI(false); say(`Microphone could not start: ${error.message}`, true); }
-  finally { $('record').disabled = !authenticated; }
+  } catch (error) { mic?.getTracks().forEach(track => track.stop()); capture = undefined; starting = false; recordingUI(false); say(`Microphone could not start: ${error.message}`, true); }
+  finally { $('record').disabled = !authenticated || starting || recording; }
 });
-$('stop').addEventListener('click', () => { if (recorder && recorder.state !== 'inactive') recorder.stop(); });
+$('stop').addEventListener('click', () => capture?.stop());
 async function start() {
   const fragment = typeof location !== 'undefined' ? new URLSearchParams(location.hash.slice(1)) : null;
   const code = fragment?.get('pair');

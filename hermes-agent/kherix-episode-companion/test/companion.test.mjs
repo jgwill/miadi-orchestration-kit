@@ -291,6 +291,83 @@ test('a take is durable before STT, deduplicated, and its editable transcript is
   assert.equal((await f.request('/api/takes', { method: 'POST', headers: { 'content-type': 'audio/mp4', 'x-client-id': initial.id }, body: 'different bytes' })).status, 409);
 });
 
+test('capture timing diagnostics are bounded, durable and returned with their original take after restart', async t => {
+  const f = await fixture(t, { keepState: true, transcribe: async () => 'Recorded draft' });
+  const capture = { version: 'direct-v1', elapsedMs: 15000, chunkCount: 15, lastChunkAtMs: 14980, stopReason: 'track-ended', muteCount: 1, endedCount: 1, errorName: '' };
+  const headers = { 'content-type': 'audio/mp4', 'x-client-id': 'capture-diagnostics', 'x-capture-info': JSON.stringify(capture) };
+  const response = await f.request('/api/takes', { method: 'POST', headers, body: 'original speech' });
+  assert.equal(response.status, 202);
+  assert.deepEqual((await response.json()).take.capture, capture);
+  await f.app.close();
+  const restarted = await fixture(t, { stateDir: f.stateDir });
+  const take = (await (await restarted.request('/api/takes/capture-diagnostics')).json()).take;
+  assert.deepEqual(take.capture, capture);
+  assert.equal(await (await restarted.request(take.audio)).text(), 'original speech');
+  for (const invalid of [{ ...capture, elapsedMs: -1 }, { ...capture, chunkCount: '15' }, { ...capture, secret: KEY }, { ...capture, stopReason: 'invented' }]) {
+    assert.equal((await restarted.request('/api/takes', { method: 'POST', headers: { ...headers, 'x-client-id': 'invalid-diagnostics', 'x-capture-info': JSON.stringify(invalid) }, body: 'bytes' })).status, 400);
+  }
+  assert.equal(f.calls.length + restarted.calls.length, 0, 'capture diagnostics never send chat');
+});
+
+test('a transient explicit transcription recheck preserves the valid transcript and original audio', async t => {
+  let attempts = 0;
+  let release;
+  const gate = new Promise(resolve => { release = resolve; }); t.after(() => release());
+  const transcript = 'A valid spoken draft';
+  const audio = 'original spoken audio';
+  const f = await fixture(t, { transcribe: async () => {
+    if (++attempts === 1) return transcript;
+    await gate;
+    throw Object.assign(new Error(`private provider detail ${KEY}`), { code: 'ECONNRESET' });
+  } });
+  const id = 'transient-recheck-take';
+  const waitForState = async state => {
+    for (let i = 0; i < 80; i++) {
+      const take = (await (await f.request(`/api/takes/${id}`)).json()).take;
+      if (take.state === state) return take;
+      await tick();
+    }
+    assert.fail(`take did not reach ${state}`);
+  };
+  assert.equal((await f.request('/api/takes', { method: 'POST', headers: { 'content-type': 'audio/mp4', 'x-client-id': id }, body: audio })).status, 202);
+  assert.equal((await waitForState('ready')).transcript, transcript);
+  assert.equal((await f.request(`/api/takes/${id}/transcribe`, post({}))).status, 202);
+  const pending = await waitForState('transcribing');
+  assert.equal(pending.transcript, transcript, 'keep the valid transcript while the explicit recheck is pending');
+  assert.equal(await (await f.request(pending.audio)).text(), audio);
+  assert.equal(f.calls.length, 0, 'a pending recheck never sends a chat');
+  release();
+  const failed = await waitForState('failed');
+  assert.equal(attempts, 2);
+  assert.equal(failed.transcript, transcript, 'a transient provider failure must not destroy the valid transcript');
+  assert.match(failed.error, /Transcription failed/);
+  assert.ok(!failed.error.includes(KEY));
+  assert.equal(await (await f.request(failed.audio)).text(), audio);
+  assert.equal(f.calls.length, 0, 'a failed recheck never sends a chat');
+});
+
+test('rechecking a misleading ready take exposes a safe silence error and keeps its audio', async t => {
+  let attempts = 0;
+  const f = await fixture(t, { transcribe: async () => {
+    if (++attempts === 1) return ' Thank you.';
+    throw Object.assign(new Error(`private provider detail ${KEY}`), { code: 'NO_USABLE_AUDIO' });
+  } });
+  const id = 'silent-phone-take';
+  await f.request('/api/takes', { method: 'POST', headers: { 'content-type': 'audio/mp4', 'x-client-id': id }, body: 'original silent audio' });
+  await tick(); await tick();
+  assert.equal((await (await f.request(`/api/takes/${id}`)).json()).take.state, 'ready');
+  await f.request(`/api/takes/${id}/transcribe`, post({}));
+  await tick(); await tick();
+  const take = (await (await f.request(`/api/takes/${id}`)).json()).take;
+  assert.equal(attempts, 2, 'an explicit retry may recheck an old misleading success');
+  assert.equal(take.state, 'failed');
+  assert.match(take.error, /silence|quiet/i);
+  assert.ok(!take.error.includes(KEY));
+  assert.equal(take.transcript, '', 'do not keep offering the hallucinated transcript');
+  assert.equal(await (await f.request(take.audio)).text(), 'original silent audio');
+  assert.equal(f.calls.length, 0, 'rechecking never sends a chat');
+});
+
 test('failed voice bytes survive restart, remain downloadable, and explicit STT retry does not resend chat', async t => {
   const f = await fixture(t, { keepState: true, transcribe: async () => { throw new Error(KEY); } });
   const headers = { 'content-type': 'audio/webm', 'x-client-id': 'failed-recording' };
