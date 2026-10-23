@@ -45,11 +45,29 @@ export async function createCompanionServer(options = {}) {
   const upstreamUrl = options.swarmclawUrl ?? 'http://127.0.0.1:3456';
   async function upstream(path, init = {}) {
     const response = await upstreamFetch(upstreamUrl + path, { ...init, headers: { ...init.headers, Cookie: `sc_auth=${options.accessKey}` }, redirect: 'error' });
-    if (!response.ok) throw new Refusal(502, 'Pinned SwarmClaw request failed');
+    if (!response.ok) throw Object.assign(new Refusal(502, 'Pinned SwarmClaw request failed'), { upstreamStatus: response.status });
     return response;
   }
-  async function session() {
-    const value = await (await upstream(`/api/chats/${SESSION_ID}`)).json();
+  // A read deadline includes both headers and JSON consumption. Never apply it
+  // to the long-lived chat SSE, which retains its explicit cancellation signal.
+  async function boundedRead(work) {
+    const controller = new AbortController();
+    controllers.add(controller);
+    let onAbort;
+    const aborted = new Promise((_, reject) => {
+      onAbort = () => reject(controller.signal.reason);
+      controller.signal.addEventListener('abort', onAbort, { once: true });
+    });
+    const timer = setTimeout(() => controller.abort(new Refusal(504, 'Upstream read timed out')), options.upstreamTimeoutMs ?? 4000);
+    try { return await Promise.race([aborted, work(controller.signal)]); }
+    finally {
+      clearTimeout(timer);
+      controller.signal.removeEventListener('abort', onAbort);
+      controllers.delete(controller);
+    }
+  }
+  async function session(signal) {
+    const value = await (await upstream(`/api/chats/${SESSION_ID}`, { signal })).json();
     if (value.id !== SESSION_ID || value.agentId !== AGENT_ID) throw new Refusal(409, 'Pinned session identity is missing or mismatched');
     return { id: value.id, agentId: value.agentId, name: value.name, active: value.active === true };
   }
@@ -69,6 +87,48 @@ export async function createCompanionServer(options = {}) {
       messages: value.messages.filter(m => ['user', 'assistant'].includes(m.role) && !m.internal && typeof m.text === 'string').map(publicMessage),
       total: value.total, hasMore: value.hasMore, startIndex: value.startIndex,
     };
+  }
+  const activityResult = (state, detail, evidence = 'unavailable', queuedCount = null, activeRunId = null) => ({ state, activeRunId, queuedCount, updatedAt: new Date().toISOString(), detail, evidence });
+  const validRunId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
+  const validTurn = value => value && value.sessionId === SESSION_ID && validRunId(value.runId);
+  async function activity() {
+    let queuedCount = null;
+    try {
+      return await boundedRead(async signal => {
+        await session(signal);
+        // Authoritative SwarmClaw: chats/[id]/queue -> getSessionQueueSnapshot.
+        // Counts exclude internal turns; an active pointer alone is not enough.
+        const snapshot = await (await upstream(`/api/chats/${SESSION_ID}/queue`, { signal })).json();
+        if (!snapshot || snapshot.sessionId !== SESSION_ID || (snapshot.activeRunId !== null && !validRunId(snapshot.activeRunId))
+          || !Number.isSafeInteger(snapshot.queueLength) || snapshot.queueLength < 0 || !Array.isArray(snapshot.items) || snapshot.items.length !== snapshot.queueLength
+          || snapshot.items.some(item => !validTurn(item))
+          || (snapshot.activeTurn != null && (!validTurn(snapshot.activeTurn) || snapshot.activeTurn.runId !== snapshot.activeRunId))) {
+          return activityResult('unknown', 'Queue activity is unverified; refresh to check again.');
+        }
+        queuedCount = snapshot.queueLength;
+        if (snapshot.activeRunId) {
+          // runs/[id] -> getUnifiedRunById, backed by the session run ledger.
+          const ledger = await (await upstream(`/api/runs/${encodeURIComponent(snapshot.activeRunId)}`, { signal })).json();
+          const matching = ledger?.id === snapshot.activeRunId && ledger.sessionId === SESSION_ID && (ledger.agentId === undefined || ledger.agentId === AGENT_ID);
+          if (matching && ledger.internal === true && queuedCount > 0) {
+            return activityResult('queued', 'Public turns are queued; no public running turn is confirmed.', 'queue_snapshot_and_run_ledger', queuedCount);
+          }
+          if (matching && ledger.internal === false) {
+            if (ledger.status === 'running') return activityResult('running', 'A public turn is running in the pinned session.', 'queue_snapshot_and_run_ledger', queuedCount, ledger.id);
+            if (['failed', 'error', 'cancelled', 'canceled', 'interrupted'].includes(ledger.status)) return activityResult('error', 'The observed public run failed or was cancelled; refresh to check current activity.', 'queue_snapshot_and_run_ledger', queuedCount);
+          }
+          return activityResult('unknown', 'Run activity is unverified or the run and queue snapshots disagree; refresh to check again.', 'queue_snapshot_and_run_ledger', queuedCount);
+        }
+        return activityResult(queuedCount > 0 ? 'queued' : 'idle', queuedCount > 0 ? 'Public turns are queued in the pinned session.' : 'No running or queued public turns in the pinned session.', 'queue_snapshot', queuedCount);
+      });
+    } catch (error) {
+      const unavailable = error.upstreamStatus === 404 || error instanceof SyntaxError;
+      const detail = error.status === 409 ? 'Pinned session identity could not be verified; activity is unavailable.'
+        : error.status === 504 ? 'Activity read timed out; history can be checked independently.'
+          : unavailable ? 'Upstream activity evidence is unavailable or unverified; refresh to check again.'
+            : 'Activity could not be read from SwarmClaw; history can be checked independently.';
+      return activityResult(unavailable ? 'unknown' : 'error', detail, queuedCount === null ? 'unavailable' : 'queue_snapshot', queuedCount);
+    }
   }
   function context() {
     let value = {};
@@ -182,6 +242,8 @@ export async function createCompanionServer(options = {}) {
       const thread = await history();
       if (thread.messages.some(m => m.role === 'assistant' && m.runId === receipt.runId && !m.streaming && m.text.trim())) {
         saveReceipt(receipt, { state: 'completed', evidence: 'ledger_and_history', error: null });
+      } else {
+        saveReceipt(receipt, { state: 'reply_unverified', evidence: 'run_ledger', error: 'The run finished, but final reply attribution is unavailable. Read the conversation; nothing will be resent automatically.' });
       }
     }
   }
@@ -190,7 +252,9 @@ export async function createCompanionServer(options = {}) {
     controllers.add(controller);
     try {
       await session();
-      saveReceipt(receipt, { state: 'running', dispatchedAt: new Date().toISOString() });
+      // Dispatch is not evidence that SwarmClaw has started the model. The
+      // attributable run ledger promotes this receipt to running on readback.
+      saveReceipt(receipt, { state: 'queued', dispatchedAt: new Date().toISOString() });
       const response = await upstream(`/api/chats/${SESSION_ID}/chat`, {
         method: 'POST', headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
         body: JSON.stringify({ message: receipt.text, internal: false, queueMode: 'followup' }), signal: controller.signal,
@@ -403,6 +467,7 @@ export async function createCompanionServer(options = {}) {
       }
       if (req.method === 'GET' && url.pathname === '/api/health') return send(res, 200, { status: 'ready', session: await session() });
       if (req.method === 'GET' && url.pathname === '/api/context') return send(res, 200, { session: await session(), context: context(), desktopPath: `/agents/${AGENT_ID}`, desktopUrl: options.desktopUrl || null });
+      if (req.method === 'GET' && url.pathname === '/api/activity') return send(res, 200, await activity());
       if (req.method === 'GET' && url.pathname === '/api/thread') return send(res, 200, await history());
       throw new Refusal(404, 'Route not found');
     } catch (error) { send(res, error.status ?? 500, { error: error.status ? error.message : 'Companion request failed' }); }

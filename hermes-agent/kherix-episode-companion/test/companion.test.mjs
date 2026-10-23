@@ -109,6 +109,26 @@ test('a durable receipt returns before the SSE finishes and completion requires 
   assert.equal(final.evidence, 'ledger_and_history');
 });
 
+test('completed runs with missing final reply attribution are not left looking queued or running', async t => {
+  let sends = 0;
+  const upstream = async (url, init) => {
+    const path = new URL(url).pathname;
+    if (path === `/api/chats/${SESSION}`) return json({ id: SESSION, agentId: AGENT });
+    if (path.endsWith('/chat')) { sends++; return new Response('data: {"t":"md","text":"{\\"run\\":{\\"id\\":\\"run-unattributed\\"}}"}\n\ndata: {"t":"done"}\n\n'); }
+    if (path === '/api/runs/run-unattributed') return json({ id: 'run-unattributed', sessionId: SESSION, status: 'completed' });
+    if (path.endsWith('/messages')) return json({ messages: [{ role: 'assistant', text: 'A visible reply without run attribution', time: 789 }], total: 1, hasMore: false });
+    throw new Error('Unexpected route');
+  };
+  const f = await fixture(t, { upstream });
+  const payload = { clientId: 'unattributed-reply', text: 'Keep the execution evidence honest' };
+  await f.request('/api/messages', post(payload));
+  const receipt = await waitReceipt(f.request, payload.clientId, 'reply_unverified');
+  assert.equal(receipt.evidence, 'run_ledger');
+  assert.match(receipt.error, /finished.*attribution/i);
+  await f.request('/api/messages', post(payload));
+  assert.equal(sends, 1);
+});
+
 test('clientId is an idempotency key and changed text conflicts, including concurrent requests', async t => {
   const c = conversation(); t.after(c.finish);
   const f = await fixture(t, { upstream: c.upstream });

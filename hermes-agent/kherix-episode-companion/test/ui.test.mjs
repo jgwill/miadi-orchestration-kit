@@ -15,7 +15,7 @@ class Element {
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
   focus() {}
   pause() { this.paused = true; }
-  play() { this.played = true; return Promise.resolve(); }
+  play() { this.played = true; this.paused = false; this.ended = false; this.playCalls = (this.playCalls || 0) + 1; return this.rejectPlay ? Promise.reject(new Error('Gesture required')) : Promise.resolve(); }
   click() { return this.handlers.click?.({ preventDefault() {} }); }
 }
 const flatten = root => [root, ...root.children.flatMap(flatten)];
@@ -49,7 +49,7 @@ function recordingsDB(takes = [], failures = new Set()) {
   } };
   return { indexedDB, saved, failures };
 }
-function mount({ indexedDB, getUserMedia, AudioContext, locked = false, messages = [{ id: 'a'.repeat(64), role: 'assistant', text: '<img src=x onerror=alert(1)>', streaming: false }] } = {}) {
+function mount({ indexedDB, getUserMedia, AudioContext, activity = { state: 'idle', queuedCount: 0 }, locked = false, messages = [{ id: 'a'.repeat(64), role: 'assistant', text: '<img src=x onerror=alert(1)>', streaming: false }] } = {}) {
   const elements = new Map();
   const get = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const body = new Element('body');
@@ -64,6 +64,10 @@ function mount({ indexedDB, getUserMedia, AudioContext, locked = false, messages
   const fetchImpl = async (path, init) => {
     calls.push({ path, init });
     if (locked) return new Response(JSON.stringify({ error: 'Unlock this private companion' }), { status: 401 });
+    if (path === '/api/activity') {
+      if (activity instanceof Error) throw activity;
+      return new Response(JSON.stringify(activity));
+    }
     if (path === '/api/context') return new Response(JSON.stringify({ session: { id: 'fe331909', agentId: '3d3a349a' }, context: { intention: 'Stay here' } }));
     if (path === '/api/thread') return new Response(JSON.stringify({ messages, total: messages.length, hasMore: false }));
     if (path === '/api/takes' && init.method === 'POST') {
@@ -77,6 +81,7 @@ function mount({ indexedDB, getUserMedia, AudioContext, locked = false, messages
     const take = uploaded.get(path.replace('/api/takes/', ''));
     if (take) return new Response(JSON.stringify({ take }));
     if (path === '/api/messages') return new Response(JSON.stringify({ receipt: { ...JSON.parse(init.body), state: 'queued' } }));
+    if (path.startsWith('/api/receipts/')) return new Response(JSON.stringify({ receipt: { clientId: path.split('/').at(-1), state: 'queued' } }));
     return new Response('{"error":"not found"}', { status: 404 });
   };
   class Recorder {
@@ -91,10 +96,93 @@ function mount({ indexedDB, getUserMedia, AudioContext, locked = false, messages
   const intervals = new Map(), timeouts = new Map(); let intervalId = 0, timeoutId = 0;
   const sandbox = { document, window, localStorage: storage, fetch: fetchImpl, Outbox, Blob, AbortSignal, URL: urls, ...(indexedDB === undefined ? {} : { indexedDB }), crypto: webcrypto, Event: class { constructor(type) { this.type = type; } }, isSecureContext: true, MediaRecorder: Recorder, navigator: { mediaDevices: { getUserMedia: getUserMedia ?? (async () => ({ getTracks: () => [{ stop() {} }] })) } }, confirm: () => true, setTimeout: (fn, ms) => { timeouts.set(++timeoutId, { fn, ms }); return timeoutId; }, clearTimeout: id => timeouts.delete(id), setInterval: fn => { intervals.set(++intervalId, fn); return intervalId; }, clearInterval: id => intervals.delete(id), console };
   const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8').replace(/^import .*?;\n/, '');
+  get('reply-audio').tag = 'audio'; get('reply-audio').paused = true;
   get('feed').scrollHeight = 1000; get('feed').scrollTop = 0; get('feed').clientHeight = 300;
   runInNewContext(source, sandbox);
   return { get, all, calls, storage, downloads, recorders, events, intervals, uploaded, fireTimeout: async ms => { for (const [id, job] of [...timeouts]) if (job.ms === ms) { timeouts.delete(id); await job.fn(); } }, allowUploads: () => { uploadsAvailable = true; }, pairDevice: () => { locked = false; } };
 }
+
+test('visible refresh reports ledger-confirmed work and queue, without sending or losing drafts', async () => {
+  const activity = { state: 'running', activeRunId: 'run-live', queuedCount: 2, detail: 'A public turn is running.' };
+  const ui = mount({ activity }); await settle();
+  assert.match(ui.get('work-status').textContent, /Kherix is working/i);
+  assert.match(ui.get('work-status').textContent, /2.*queued/i);
+  assert.match(ui.get('sync-status').textContent, /updated|checked/i);
+  ui.get('composer').value = 'Preserve my unsent correction';
+  activity.state = 'idle'; activity.queuedCount = 0;
+  await ui.get('refresh').click(); await settle();
+  assert.match(ui.get('work-status').textContent, /ready|no turn/i);
+  assert.equal(ui.get('composer').value, 'Preserve my unsent correction');
+  assert.equal(ui.calls.filter(c => c.path === '/api/messages').length, 0);
+});
+
+test('unavailable activity is explicit and cannot hide received history', async () => {
+  const ui = mount({ activity: new Error('offline status') }); await settle();
+  assert.match(ui.get('work-status').textContent, /unavailable|unverified|unknown/i);
+  assert.equal(ui.get('thread').children.length, 1);
+  assert.equal(ui.get('send').disabled, false);
+});
+
+test('new finished replies play sequentially once, without replaying initial history or cutting off playback', async () => {
+  const messages = [{ id: 'old', role: 'assistant', text: 'Historical reply', streaming: false }];
+  const ui = mount({ messages }); await settle();
+  const audio = ui.get('reply-audio');
+  ui.get('autoplay').checked = true;
+  await ui.get('autoplay').dispatchEvent({ type: 'change' }); await settle();
+  assert.ok(!audio.played, 'enabling listening cannot start old history');
+  messages.push({ id: 'first', role: 'assistant', text: 'First new reply', streaming: true });
+  await ui.events.online(); await settle();
+  assert.ok(!audio.played, 'unfinished replies are never voiced');
+  messages[1].streaming = false;
+  await ui.events.online(); await settle();
+  assert.equal(audio.src, '/api/replies/first/audio');
+  messages.push({ id: 'second', role: 'assistant', text: 'Second new reply', streaming: false });
+  await ui.events.online(); await settle();
+  assert.equal(audio.src, '/api/replies/first/audio', 'arrival cannot interrupt the current reply');
+  assert.match(ui.get('listen-status').textContent, /1.*waiting/i);
+  audio.ended = true; audio.paused = true;
+  await audio.dispatchEvent({ type: 'ended' }); await settle();
+  assert.equal(audio.src, '/api/replies/second/audio');
+  assert.equal(audio.playCalls, 2);
+  await ui.events.online(); await settle();
+  assert.equal(audio.playCalls, 2, 'polls do not replay seen replies');
+});
+
+test('replies arriving during capture wait for explicit listening and gesture refusal preserves the queue', async () => {
+  const messages = [];
+  const ui = mount({ messages }); await settle();
+  ui.get('autoplay').checked = true;
+  await ui.get('record').click();
+  messages.push({ id: 'during-record', role: 'assistant', text: 'I can wait', streaming: false });
+  await ui.events.online(); await settle();
+  const audio = ui.get('reply-audio');
+  assert.ok(!audio.played);
+  assert.match(ui.get('listen-status').textContent, /1.*waiting/i);
+  await ui.get('stop').click(); await settle();
+  assert.ok(!audio.played, 'do not start sound immediately after recording while the take needs review');
+  audio.rejectPlay = true;
+  await ui.get('play-waiting').click(); await settle();
+  assert.match(ui.get('listen-status').textContent, /tap|blocked/i);
+  audio.rejectPlay = false;
+  await ui.get('play-waiting').click(); await settle();
+  assert.equal(audio.src, '/api/replies/during-record/audio');
+  assert.equal(audio.playCalls, 2, 'gesture retry retains exactly the unheard reply');
+  assert.equal(ui.calls.filter(c => c.path === '/api/messages').length, 0);
+});
+
+test('sending text while listening does not let a new reply interrupt the one playing', async () => {
+  const messages = [{ id: 'playing', role: 'assistant', text: 'Keep listening', streaming: false }];
+  const ui = mount({ messages }); await settle();
+  ui.get('autoplay').checked = true;
+  await ui.get('hear-latest').click();
+  ui.get('composer').value = 'An explicit fixture send';
+  await ui.get('compose').dispatchEvent({ type: 'submit', preventDefault() {} }); await settle();
+  assert.match(ui.get('delivery-status').textContent, /received/i);
+  messages.push({ id: 'after-send', role: 'assistant', text: 'I can wait', streaming: false });
+  await ui.events.online(); await settle();
+  assert.equal(ui.get('reply-audio').src, '/api/replies/playing/audio');
+  assert.equal(ui.calls.filter(c => c.path === '/api/messages').length, 1);
+});
 
 test('the latest take exposes transcription failure in the composer status and permits explicit rechecking', async () => {
   const ui = mount(); await settle(); ui.allowUploads();
@@ -233,12 +321,17 @@ test('the locked shell explains device pairing before offering operator-only cre
   assert.match(html, /<details[^>]*>[\s\S]*Operator recovery[\s\S]*<form id="token-unlock"/);
 });
 
-test('a phone opens at the latest turn, and refresh does not pull it away from earlier reading', async () => {
-  const ui = mount(); await settle();
-  assert.equal(ui.get('feed').scrollTop, 1000, 'the existing conversation opens at its latest turn');
+test('a phone opens at the newest turn below the capture dock, and refresh respects earlier reading', async () => {
+  const messages = [{ id: 'older', role: 'user', text: 'Earlier words' }, { id: 'newer', role: 'assistant', text: 'Newest words' }];
+  const ui = mount({ messages }); await settle();
+  assert.equal(ui.get('feed').scrollTop, 0, 'latest turns are at the top, directly under the dock');
+  assert.equal(flatten(ui.get('thread').children[0]).find(el => el.tag === 'p' && el.textContent === 'Newest words')?.textContent, 'Newest words');
   ui.get('feed').scrollTop = 50;
   await ui.events.online(); await settle();
   assert.equal(ui.get('feed').scrollTop, 50, 'refresh respects reading position');
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.ok(html.indexOf('id="record"') < html.indexOf('id="feed"'), 'capture controls stay above the scrolling reading area');
+  for (const id of ['refresh', 'work-status', 'sync-status', 'play-waiting', 'autoplay']) assert.ok(html.includes(`id="${id}"`));
 });
 
 for (const capture of [false, true]) {
@@ -247,7 +340,7 @@ for (const capture of [false, true]) {
     const ui = mount({ messages: [message] }); await settle();
     const article = ui.get('thread').children[0];
     const hear = flatten(article).find(el => el.textContent === 'Hear Kherix');
-    const audio = flatten(article).find(el => el.tag === 'audio');
+    const audio = ui.get('reply-audio');
     assert.equal(hear.dataset.streaming, 'true');
     assert.equal(hear.disabled, true);
     if (capture) await ui.get('record').click();

@@ -9,14 +9,23 @@
   <script type="module" src="/app.js"></script>
 </head>
 <body>
-  <a class="skip" href="#composer">Write to Kherix</a>
-  <header>
-    <div class="heading"><div><p class="eyebrow">A thread held open</p><h1>Kherix</h1></div><span class="presence" id="presence">Connecting</span></div>
-    <p id="continuity">Verifying the existing session…</p>
-    <a id="desktop" hidden target="_blank" rel="noopener noreferrer">Open this agent on desktop</a>
+  <a class="skip" href="#writing">Write to Kherix</a>
+  <header class="dock" id="dock">
+    <div class="heading"><h1>Kherix <small>the same conversation</small></h1><span class="presence" id="presence">Connecting</span></div>
+    <div class="capture-actions"><button id="record" type="button" disabled>Record your message</button><button id="stop" type="button" hidden>Stop &amp; transcribe</button><span id="record-clock" aria-live="off"></span><button id="write" type="button">Write</button></div>
+    <p id="capture-status" class="muted" role="status">Record → review transcript → send. Keep the screen on.</p>
+    <p id="action-status" role="status" aria-live="polite"></p>
+    <div class="work-row"><p id="work-status" role="status" aria-live="polite">Verifying work status…</p><button id="refresh" type="button">Refresh</button></div>
+    <p id="sync-status" class="muted" role="status">Checking for replies…</p>
+    <p id="delivery-status" class="muted" role="status" aria-live="polite">Record or write above. Only Send delivers a message.</p>
+    <div class="listen-row"><button id="hear-latest" type="button" disabled>Hear latest</button><button id="play-waiting" type="button" disabled>Play waiting replies</button><button id="pause-listening" type="button" disabled>Pause</button></div>
+    <label class="autoplay"><input id="autoplay" type="checkbox"> Play new replies automatically</label>
+    <p id="listen-status" class="muted" role="status" aria-live="polite">Listening ready</p>
+    <p id="playback-status" class="muted" role="status"></p>
+    <audio id="reply-audio" controls preload="none" hidden></audio>
+    <button id="show-latest" type="button" hidden>New reply · show latest</button>
   </header>
   <main id="feed">
-    <p id="connection" role="status" aria-live="polite">Connecting. Nothing will be resent automatically.</p>
     <section id="unlock" hidden aria-labelledby="pair-heading">
       <h2 id="pair-heading">Pair this device</h2>
       <p id="pair-status" role="status">Ask Kherix for a fresh private QR on your trusted desktop, then scan it with this phone. Each browser needs its own pairing. A link works once and expires after ten minutes.</p>
@@ -31,20 +40,18 @@
         </form>
       </details>
     </section>
-    <details id="mission"><summary>Mission &amp; continuity</summary><dl id="context"></dl><p class="muted">Episode or staging context is read from this companion’s private context file. Opening the page does not mint an episode.</p></details>
-    <section aria-label="Conversation" id="conversation"><p id="empty" class="muted">The existing conversation will appear after its identity is verified.</p><div id="thread"></div><p id="history-note" class="muted"></p></section>
+    <details id="writing"><summary>Write or review your transcript</summary>
+      <form id="compose">
+        <label for="composer">Continue with Kherix</label>
+        <textarea id="composer" rows="3" maxlength="20000" placeholder="Pick up where we are…"></textarea>
+        <div class="actions"><span class="muted">Only Send delivers these words.</span><button id="send" type="submit" disabled>Send</button></div>
+      </form>
+    </details>
+    <details id="recordings"><summary>Your recordings &amp; transcripts <span id="take-count"></span></summary><p class="muted">Review the words, then use them in the composer and Send. Failed takes remain downloadable.</p><div id="takes"></div><div id="local-takes"></div></details>
+    <section aria-label="Conversation" id="conversation"><h2>Our conversation <small>newest first</small></h2><p id="empty" class="muted">The existing conversation will appear after its identity is verified.</p><div id="thread"></div><p id="history-note" class="muted"></p></section>
     <details id="delivery"><summary>Delivery receipts <span id="receipt-count"></span></summary><div id="receipts"></div></details>
-    <details id="recordings"><summary>Saved recordings &amp; transcripts</summary><p class="muted">Transcription never sends a message. Edit or use the words in the composer, then press Send. Failed takes remain downloadable.</p><div id="takes"></div><div id="local-takes"></div></details>
+    <details id="mission"><summary>Mission &amp; continuity</summary><dl id="context"></dl><p class="muted">Opening this page does not mint an episode or start a new mission.</p></details>
+    <details><summary>Connection &amp; privacy</summary><p id="connection" role="status">Connecting. Nothing will be resent automatically.</p><p id="work-detail" class="muted"></p><p id="continuity" class="muted">Verifying the existing session…</p><a id="desktop" hidden target="_blank" rel="noopener noreferrer">Open this agent on desktop</a><p class="privacy">Drafts and unsent recordings stay on this device. Use a private device. If your browser blocks automatic audio, tap Play waiting replies.</p></details>
   </main>
-  <footer>
-    <form id="compose">
-      <label for="composer">Continue with Kherix</label>
-      <textarea id="composer" rows="3" maxlength="20000" placeholder="Pick up where we are…"></textarea>
-      <div class="actions"><button id="record" type="button" disabled>Record</button><button id="stop" type="button" hidden>Stop &amp; transcribe</button><span id="record-clock" aria-live="off"></span><button id="send" type="submit" disabled>Send</button></div>
-      <p id="capture-status" class="muted" role="status">Keep this page visible and the screen on while speaking.</p>
-    </form>
-    <p id="action-status" role="status" aria-live="polite"></p>
-    <p class="privacy">Drafts and unsent recordings are kept on this device. Use a private device.</p>
-  </footer>
 </body>
 </html>
