@@ -48,6 +48,7 @@ installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
 | `/usr/bin/miadi-config` | the command below | replaced |
 | `/usr/bin/miadi-hermes-tailnet` | opt-in Kherix/Laskmi API provisioning | replaced |
 | `/usr/share/miadi/hermes-tailnet/` | repeatable installer, publisher and runbook | replaced |
+| `/usr/bin/miadi-mirror-monitor` | opt-in, lid-aware X11 monitor reconciliation | replaced |
 
 A value in the environment wins over `miadi.env`, which wins over the defaults.
 `env.sh` prints nothing and loads under `set -u`. Sourced a second time in the
@@ -87,6 +88,31 @@ endpoints, bearer-key isolation and streaming. Keys stay in the private Hermes
 `.env` files, never this package. The adjacent runbook covers reinstallation,
 boot ownership and overrides. Copies track Gaia's `linux_migration/` installer;
 run `bash tests/hermes-tailnet-sync.sh` after changing either copy.
+
+### Optional X11 monitor mirror (0.2.6)
+
+On an X11/KDE laptop, run `miadi-mirror-monitor --install-autostart` as the
+**desktop user** (needs `x11-xserver-utils` and a systemd user manager). It
+installs that user's `mirror-monitor.timer` and KDE autostart; package
+installation alone changes no display or home directory. Every 10 seconds,
+`--ensure` checks the layout and only applies a modeset when it is wrong:
+
+- Lid open: both outputs use the external's native resolution at the same
+  origin, falling back to the highest common mode. The external refresh is
+  capped at 144 Hz (override: `MIRROR_EXTERNAL_MAX_HZ` in a service drop-in).
+- Lid closed: the external alone stays at that resolution, as the primary.
+- External disconnected: restore the internal panel's native mode when open.
+- Late monitor detection, resume, failed modesets and KScreen overrides are
+  retried indefinitely. There is no startup deadline.
+
+KDE login refreshes the user manager's actual `DISPLAY`/`XAUTHORITY`; no `:0`
+is hardcoded. `systemctl --user status mirror-monitor.timer` checks it,
+`journalctl --user -t mirror-monitor` shows changes/errors, and
+`miadi-mirror-monitor --uninstall-autostart` removes the automation (for
+example, before choosing an extended desktop). `--apply` is a one-time repair.
+Copies track Gaia's `linux_migration/66-mirror-monitor.sh`; run
+`bash tests/mirror-monitor-sync.sh` after editing either side (jgwill/gaia#71,
+jgwill/miadi-orchestration-kit#102).
 
 ## miadi-terminal
 
@@ -312,6 +338,7 @@ IMAGE=ubuntu:24.04 bash test-install.sh dist/miadi-tide_<version>_amd64.deb
 python3 tests/tmux-click.py miadi-terminal/usr/share/miadi-terminal/tmux/miadi-chronicle.conf miadi-terminal/usr/bin/miadi-chronicle-open
 bash tests/session-continuity-sync.sh   # restore's copies against jgwill/gaia's installer
 bash tests/hermes-tailnet-sync.sh        # tailnet installer/publisher/proxy tests against Gaia
+bash tests/mirror-monitor-sync.sh        # lid/hotplug/reboot mirror tests against Gaia
 sudo apt install ./dist/*_<version>_all.deb
 ```
 

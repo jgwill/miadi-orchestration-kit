@@ -72,7 +72,11 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     miadi-hermes-tailnet --help >/dev/null
     test ! -e /root/.hermes
     echo "Hermes tailnet provisioning is available but opt-in (no profiles or services created)"
+    miadi-mirror-monitor --help >/dev/null
+    test ! -e /root/.config/autostart/mirror-monitor.desktop
+    echo "Monitor mirroring is available but opt-in (no display or user units changed)"
     apt-get install -y -qq --no-install-recommends python3 apache2-bin >/dev/null 2>&1
+    MIRROR_MONITOR_SCRIPT=/usr/bin/miadi-mirror-monitor python3 /tmp/tests/mirror-monitor.py
     useradd -m hermes-api-test
     install -m 0644 /tmp/tests/hermes-tailnet-proxy.py /tmp/hermes-tailnet-proxy.py
     su hermes-api-test -s /bin/bash -c "HERMES_TAILNET_INSTALLER=/usr/share/miadi/hermes-tailnet/26-hermes-tailscale-autostart.sh python3 /tmp/hermes-tailnet-proxy.py"

@@ -1,9 +1,10 @@
 Package: miadi-config
-Version: 0.2.5
+Version: 0.2.6
 Section: misc
 Priority: optional
 Architecture: all
 Depends: bash
+Suggests: x11-xserver-utils, systemd
 Replaces: miadi (<< 0.2.0)
 Breaks: miadi (<< 0.2.0)
 Maintainer: Miadi <mia@jgwill.com>
@@ -16,3 +17,5 @@ Description: Miadi host settings
  each value comes from, sets and unsets this host's values, and checks the
  host. miadi-hermes-tailnet optionally provisions authenticated Kherix and
  Laskmi API services on a connected Tailscale host after restoring Hermes.
+ miadi-mirror-monitor optionally maintains a native-resolution X11 mirror
+ across reboot, late monitor detection, lid changes and reconnect.

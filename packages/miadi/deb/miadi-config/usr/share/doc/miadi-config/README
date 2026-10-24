@@ -8,4 +8,15 @@ miadi-config — the MIADI_* settings of a Miadi host
 A value in the environment wins over miadi.env, which wins over the defaults.
 Run `miadi-config help` for the command.
 
+Optional X11/KDE laptop mirror (needs x11-xserver-utils and systemd):
+  miadi-mirror-monitor --install-autostart     as the desktop user
+  systemctl --user status mirror-monitor.timer
+  journalctl --user -t mirror-monitor
+  miadi-mirror-monitor --uninstall-autostart   before using an extended desktop
+
+The timer checks every 10 seconds without a startup deadline, changes nothing
+when correct, and retries after late monitor detection, reconnect and resume.
+Lid open: native-resolution full clone. Lid closed: external only. External
+unplugged: native laptop mode when open. Package installation enables nothing.
+
 Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb

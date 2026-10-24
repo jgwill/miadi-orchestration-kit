@@ -1,0 +1,356 @@
+#!/bin/bash
+# 66-mirror-monitor.sh — Mirror the external monitor as a full CLONE of the laptop's main (internal) screen.
+#
+# DESIRED STATE (this machine):
+#   The external display shows a FULL mirror of the laptop panel — same image,
+#   same resolution, same origin. NOT an extended desktop, and NOT a cropped
+#   top-left region.
+#
+# WHY THIS EXISTS:
+#   On reconnect/reboot the external (HDMI) can come up at a small mode
+#   (e.g. 1024x768) pinned at +0+0. Because it sits at the same origin as the
+#   laptop panel but at a smaller resolution, it only shows the top-left corner
+#   of the main screen — "just parts of the main screen". This script sets both
+#   outputs to the external's NATIVE (preferred) resolution and positions the
+#   external as --same-as the internal panel (a true clone / mirror).
+#
+#   Resolution choice matters for QUALITY: many panels advertise resolutions
+#   above their native one (e.g. a native-1080p monitor that also lists 4K).
+#   Driving such a panel above native forces interpolation — soft image — and at
+#   4K over HDMI can exceed cable/port bandwidth, causing flicker. So we target
+#   the external's PREFERRED mode (its true native res), falling back to the
+#   highest COMMON resolution only if the internal panel cannot match it.
+#
+#   Companion to 66-extend-monitor.sh, which does the OPPOSITE (extended desktop).
+#   That older script also hardcodes stale output names (HDMI-1 / eDP-1); this
+#   one auto-detects, because the names vary by GPU/driver (eDP-1 vs eDP-1-1,
+#   HDMI-1 vs HDMI-0).
+#
+# ENVIRONMENT: X11 + KDE Plasma. Uses xrandr.
+#
+# USAGE:
+#   ./66-mirror-monitor.sh                    # apply the mirror now
+#   ./66-mirror-monitor.sh --wait             # wait for the external to appear, then apply
+#   ./66-mirror-monitor.sh --status           # show current output/mode state
+#   ./66-mirror-monitor.sh --ensure           # repair only if the layout is wrong
+#   ./66-mirror-monitor.sh --install-autostart   # keep the layout correct across reboot/hotplug
+#   ./66-mirror-monitor.sh --uninstall-autostart
+#
+# NOTE ON KDE: KScreen (KDE's display daemon) can re-assert its own layout on
+#   hotplug. If the mirror reverts, run this script again, or install the
+#   autostart entry (it applies after a short settle delay on login).
+#
+# LATE HDMI AT LOGIN (gaia, 2026-09-28): HDMI-0 on the NVIDIA GPU showed up
+#   ~70s after boot, 37s after the KDE session started. The autostart used to
+#   run once after a fixed 3s sleep, saw no external, and set the laptop panel
+#   to its native 3840x2160. KScreen then attached HDMI-0 at 1920x1080 +0+0,
+#   which is the cropped top-left view again. The autostart now runs --wait:
+#   poll until the external is connected, let KScreen finish its own hotplug
+#   apply, then mirror. Output goes to the journal: journalctl --user -t mirror-monitor
+#
+# LATER HDMI / CLOSED LID (2026-10-24, jgwill/gaia#71): even 180s was not
+#   enough when the monitor stayed off at boot. Autostart now imports the X11
+#   environment and starts a user timer: --ensure checks every 10s indefinitely,
+#   changing nothing when correct. With the lid closed, use the external alone;
+#   opening the lid returns to a full clone. Missing X/outputs are retried, not
+#   a reason to give up. Packaged as miadi-mirror-monitor in miadi-config.
+
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "$0")"
+CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
+AUTOSTART_FILE="${CONFIG_HOME}/autostart/mirror-monitor.desktop"
+UNIT_DIR="${CONFIG_HOME}/systemd/user"
+WAIT_TIMEOUT="${MIRROR_WAIT_TIMEOUT:-180}"   # --wait: seconds to wait for the external
+SETTLE_SECONDS=5                             # --wait: let KScreen's hotplug apply land first
+EXTERNAL_MAX_HZ="${MIRROR_EXTERNAL_MAX_HZ:-144}"   # external refresh ceiling (180Hz fails on gaia)
+
+# --- output detection -------------------------------------------------------
+# Internal panel: eDP* / LVDS* / DSI*. External: first other connected output.
+detect_internal() {
+  xrandr --query | awk '/ connected/ && ($1 ~ /^(eDP|LVDS|DSI)/){print $1; exit}'
+}
+detect_external() {
+  local internal="$1"
+  xrandr --query | awk -v ipanel="$internal" '/ connected/ && $1!=ipanel {print $1; exit}'
+}
+
+# All WxH modes offered by a given output.
+modes_for() {
+  xrandr --query | awk -v o="$1" '
+    /^[^ ]/            { grab = ($1==o) ? 1 : 0; next }   # output header line
+    grab && $1 ~ /^[0-9]+x[0-9]+$/ { print $1 }           # indented mode line
+  '
+}
+
+# Highest resolution common to both outputs (by pixel area).
+best_common_mode() {
+  comm -12 <(modes_for "$1" | sort -u) <(modes_for "$2" | sort -u) \
+    | awk -F x 'NF==2 {print ($1*$2), $1"x"$2}' | sort -rn | head -1 | awk '{print $2}'
+}
+
+# The output's PREFERRED (native) mode — the xrandr line marked with '+'.
+preferred_mode_for() {
+  xrandr --query | awk -v o="$1" '
+    /^[^ ]/ { grab = ($1==o) ? 1 : 0; next }
+    grab && /\+/ && $1 ~ /^[0-9]+x[0-9]+$/ { print $1; exit }
+  '
+}
+
+# Mirror resolution: prefer the EXTERNAL native mode (crisp, no interpolation),
+# but only if the INTERNAL panel can display it; otherwise highest common.
+choose_mirror_mode() {
+  local internal="$1" external="$2" pref
+  pref="$(preferred_mode_for "$external")"
+  if [ -n "$pref" ] && modes_for "$internal" | grep -qx "$pref"; then
+    printf '%s\n' "$pref"
+  else
+    best_common_mode "$internal" "$external"
+  fi
+}
+
+# Refresh rate to use for a given output at a given WxH mode.
+# In clone mode each output runs its own rate independently, so the external
+# could in principle use a higher refresh than the laptop panel's 60Hz.
+# BUT: prefer the EDID-marked preferred rate ('+') over any numerically
+# higher one. Extra high-Hz timings an EDID lists are sometimes marginal —
+# on this machine, driving HDMI-0 at its listed 180Hz (vs its preferred 60Hz)
+# caused intermittent "Unable to read EDID" failures and periodic 2-3s
+# screen blanking every 1-2 minutes, even with a known-good short cable.
+# Confirmed via journalctl: EDID failures every ~30-70s at 180Hz, zero over
+# a 10min window at 60Hz. Don't chase max Hz blindly.
+# xrandr prints the preferred marker joined ("60.00*+") while that rate is
+# current, and as its own field ("60.00 +") once another rate is current.
+max_rate_for() {
+  xrandr --query | awk -v o="$1" -v m="$2" '
+    /^[^ ]/ { grab = ($1==o) ? 1 : 0; next }
+    grab && $1==m {
+      pref=0; max=0; prev=0
+      for (i=2;i<=NF;i++){
+        r=$i
+        if (r == "+") { pref=prev; continue }
+        if (r ~ /\+/) { gsub(/[*+]/,"",r); pref=r+0 }
+        gsub(/[*+]/,"",r); if (r+0>max) max=r+0
+        prev=r+0
+      }
+      if (pref>0) printf "%.2f\n", pref
+      else if (max>0) printf "%.2f\n", max
+      exit
+    }
+  '
+}
+
+# External rate: the highest listed rate at or below EXTERNAL_MAX_HZ.
+# Soak-tested 2026-09-28: HDMI-0 at 143.99Hz ran 10min with no EDID error or
+# link drop, GPU stayed in P8 (~9-14W). 180Hz stays excluded (see above).
+capped_rate_for() {
+  xrandr --query | awk -v o="$1" -v m="$2" -v cap="$3" '
+    /^[^ ]/ { grab = ($1==o) ? 1 : 0; next }
+    grab && $1==m {
+      best=0
+      for (i=2;i<=NF;i++){ r=$i; gsub(/[*+]/,"",r); if (r!="" && r+0<=cap+0 && r+0>best) best=r+0 }
+      if (best>0) printf "%.2f\n", best
+      exit
+    }
+  '
+}
+
+# --- actions ----------------------------------------------------------------
+lid_closed() {
+  # The override also lets tests cover lid changes without touching real hardware.
+  local state
+  for state in ${MIRROR_LID_STATE_FILE:-/proc/acpi/button/lid/*/state}; do
+    if grep -qsE 'state:[[:space:]]+closed' "$state"; then return 0; fi
+  done
+  return 1
+}
+
+# Match geometry, primary selection and the actual active refresh rate.
+# The query is a single snapshot, so a disconnect mid-check cannot mix states.
+output_matches() {
+  local query="$1" output="$2" mode="$3" primary="$4" rate="$5"
+  awk -v o="$output" -v m="$mode" -v p="$primary" -v hz="$rate" '
+    /^[^ ]/ {
+      grab=($1==o && $2=="connected")
+      if (grab) {
+        for (i=3;i<=NF;i++) if ($i==m"+0+0") geometry=1
+        isprimary=($3=="primary")
+      }
+      next
+    }
+    grab && $1==m {
+      for (i=2;i<=NF;i++) if ($i ~ /\*/) {
+        r=$i; gsub(/[*+]/,"",r)
+        delta=r-hz; if (delta<0) delta=-delta
+        if (hz=="" || delta<0.02) active=1
+      }
+    }
+    END { exit !(geometry && isprimary==p && active) }
+  ' <<< "$query"
+}
+
+ensure_layout() {
+  local query internal external mode int_rate ext_rate
+  query="$(xrandr --query)" || return 1
+  internal="$(awk '/ connected/ && $1 ~ /^(eDP|LVDS|DSI)/ {print $1; exit}' <<< "$query")"
+  # GPU/provider or panel not ready yet: the timer will try again.
+  [ -n "$internal" ] || return 0
+  external="$(awk -v ipanel="$internal" '/ connected/ && $1!=ipanel {print $1; exit}' <<< "$query")"
+  if [ -z "$external" ]; then
+    # Never blank the only available display because the lid is shut.
+    lid_closed && return 0
+    mode="$(preferred_mode_for "$internal")"
+    [ -n "$mode" ] || return 0
+    int_rate="$(max_rate_for "$internal" "$mode")"
+    if output_matches "$query" "$internal" "$mode" 1 "$int_rate" &&
+       [[ "$query" == *"current ${mode%x*} x ${mode#*x},"* ]]; then return 0; fi
+  else
+    mode="$(choose_mirror_mode "$internal" "$external")"
+    [ -n "$mode" ] || return 1
+    int_rate="$(max_rate_for "$internal" "$mode")"
+    ext_rate="$(capped_rate_for "$external" "$mode" "$EXTERNAL_MAX_HZ")"
+    [ -n "$ext_rate" ] || ext_rate="$(max_rate_for "$external" "$mode")"
+    if [[ "$query" == *"current ${mode%x*} x ${mode#*x},"* ]]; then
+      if lid_closed; then
+        if output_matches "$query" "$external" "$mode" 1 "$ext_rate" &&
+           ! grep -qE "^${internal} connected (primary )?[0-9]+x[0-9]+[+-]" <<< "$query"; then return 0; fi
+      elif output_matches "$query" "$internal" "$mode" 1 "$int_rate" &&
+           output_matches "$query" "$external" "$mode" 0 "$ext_rate"; then return 0
+      fi
+    fi
+  fi
+  # A fresh process keeps set -e effective even when callers test our status.
+  bash "$SCRIPT_PATH" --apply
+}
+
+show_status() {
+  echo "=== Connected outputs ==="
+  xrandr --query | grep -E ' connected'
+}
+
+apply_mirror() {
+  local internal external mode
+  internal="$(detect_internal || true)"
+  [ -n "${internal}" ] || { echo "ERROR: no internal panel (eDP/LVDS/DSI) detected." >&2; exit 1; }
+
+  external="$(detect_external "$internal" || true)"
+  if [ -z "${external}" ]; then
+    echo "No external monitor connected. Ensuring internal panel is at its preferred mode."
+    xrandr --output "$internal" --primary --auto --pos 0x0
+    show_status
+    return 0
+  fi
+
+  mode="$(choose_mirror_mode "$internal" "$external" || true)"
+  [ -n "${mode}" ] || { echo "ERROR: no common resolution between ${internal} and ${external}." >&2; exit 1; }
+
+  local int_rate ext_rate
+  int_rate="$(max_rate_for "$internal" "$mode" || true)"   # laptop panel: its best rate (e.g. 60)
+  ext_rate="$(capped_rate_for "$external" "$mode" "$EXTERNAL_MAX_HZ" || true)"   # external: e.g. 143.99
+  [ -n "$ext_rate" ] || ext_rate="$(max_rate_for "$external" "$mode" || true)"
+
+  if lid_closed; then
+    echo "Lid closed: using ${external} (${mode}@${ext_rate:-auto}Hz) alone."
+    xrandr --output "$internal" --off \
+           --output "$external" --primary --mode "$mode" ${ext_rate:+--rate "$ext_rate"} --pos 0x0
+  else
+    echo "Mirroring ${external} (${mode}@${ext_rate:-auto}Hz) onto ${internal} (${mode}@${int_rate:-auto}Hz) ..."
+    xrandr --output "$internal" --primary --mode "$mode" ${int_rate:+--rate "$int_rate"} --pos 0x0 \
+           --output "$external" --mode "$mode" ${ext_rate:+--rate "$ext_rate"} --same-as "$internal"
+  fi
+  show_status
+}
+
+# Login path: the external can connect well after the session starts.
+# Poll for it, settle, then mirror. On timeout, apply anyway (laptop-only layout).
+wait_then_mirror() {
+  local internal waited=0
+  internal="$(detect_internal || true)"
+  [ -n "${internal}" ] || { echo "ERROR: no internal panel (eDP/LVDS/DSI) detected." >&2; exit 1; }
+
+  while [ -z "$(detect_external "$internal" || true)" ] && [ "$waited" -lt "$WAIT_TIMEOUT" ]; do
+    sleep 2
+    waited=$((waited + 2))
+  done
+  if [ -n "$(detect_external "$internal" || true)" ]; then
+    echo "External connected after ${waited}s; settling ${SETTLE_SECONDS}s for KScreen."
+    sleep "$SETTLE_SECONDS"
+  else
+    echo "No external after ${WAIT_TIMEOUT}s."
+  fi
+  apply_mirror
+}
+
+install_autostart() {
+  command -v xrandr >/dev/null || { echo 'Install x11-xserver-utils first (xrandr).' >&2; return 1; }
+  mkdir -p "$(dirname "$AUTOSTART_FILE")" "$UNIT_DIR"
+  # Quote systemd's command argument, including its own %/$ expansions.
+  local unit_path="$SCRIPT_PATH"
+  unit_path="${unit_path//\\/\\\\}"
+  unit_path="${unit_path//\"/\\\"}"
+  unit_path="${unit_path//%/%%}"
+  unit_path="${unit_path//\$/\$\$}"
+  cat > "$UNIT_DIR/mirror-monitor.service" <<EOF
+[Unit]
+Description=Keep the X11 monitor at its native mirrored resolution
+ConditionEnvironment=DISPLAY
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash "${unit_path}" --ensure
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mirror-monitor
+EOF
+  cat > "$UNIT_DIR/mirror-monitor.timer" <<'EOF'
+[Unit]
+Description=Recheck the monitor after boot, reconnect, resume or lid changes
+
+[Timer]
+OnStartupSec=10
+OnUnitInactiveSec=10
+AccuracySec=1
+
+[Install]
+WantedBy=timers.target
+EOF
+  cat > "$AUTOSTART_FILE" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Mirror external monitor
+Comment=Keep the native mirror correct, including late detection and lid changes
+Exec=bash -c "systemctl --user import-environment DISPLAY XAUTHORITY; systemctl --user restart mirror-monitor.timer mirror-monitor.service"
+X-KDE-autostart-phase=2
+OnlyShowIn=KDE;
+EOF
+  systemctl --user daemon-reload
+  # Before desktop login DISPLAY is absent: the unit safely skips that check.
+  # KDE's autostart imports the actual session environment, never hardcoded :0.
+  local -a session_vars=()
+  [ -z "${DISPLAY:-}" ] || session_vars+=(DISPLAY)
+  [ -z "${XAUTHORITY:-}" ] || session_vars+=(XAUTHORITY)
+  if [ "${#session_vars[@]}" -gt 0 ]; then systemctl --user import-environment "${session_vars[@]}"; fi
+  systemctl --user enable --now mirror-monitor.timer
+  systemctl --user start mirror-monitor.service
+  echo "Installed ${AUTOSTART_FILE}; mirror-monitor.timer checks every 10s."
+}
+
+uninstall_autostart() {
+  systemctl --user disable --now mirror-monitor.timer
+  systemctl --user stop mirror-monitor.service
+  rm -f "$AUTOSTART_FILE" "$UNIT_DIR/mirror-monitor.service" "$UNIT_DIR/mirror-monitor.timer"
+  systemctl --user daemon-reload
+  echo "Removed monitor autostart and timer."
+}
+
+case "${1:-}" in
+  --status)              show_status ;;
+  --ensure)              ensure_layout ;;
+  -h|--help)             echo "Usage: $0 [--apply|--ensure|--wait|--status|--install-autostart|--uninstall-autostart]" ;;
+  --install-autostart)   install_autostart ;;
+  --uninstall-autostart) uninstall_autostart ;;
+  ""|--apply)            apply_mirror ;;
+  --wait)                wait_then_mirror ;;
+  *) echo "Usage: $0 [--apply|--ensure|--wait|--status|--install-autostart|--uninstall-autostart]" >&2; exit 2 ;;
+esac
