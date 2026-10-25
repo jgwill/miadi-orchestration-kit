@@ -47,8 +47,11 @@ whole revision loop of any packages down the line is completed."* The first run'
    which starts the next cycle (R18: screenwalks move from one cycle to the next).
 6. **Make each lane a mission when you dispatch it.** Write the lane's task as a miadiRun prompt
    (`miadi-run create miadiRun-<yyMMddHHmm>-<tmux name>-<mission> --text-file F`), prepare it on its
-   episode, and start a new lane with `mct new <team> <tmux name> --mission <prompt>.v1
-   --authorized-by William`. The session is then born on its team and its mission. A lane that
+   episode, and ask Miette for her insight on it before the lane starts:
+   `node $MIADI_ORCHESTRATION_KIT_ROOT/claude/miette-plan-insight/scripts/miette-plan-insight.mjs
+   ask --mission <prompt>.v1 --episode <episode> --for <tmux name>`. She recommends `accept`, or
+   `revise` with each change named. A revision is a new prompt version, prepared again. Then
+   start the lane with `mct new <team> <tmux name> --mission <prompt>.v<N> --authorized-by William`. The session is then born on its team and its mission. A lane that
    already runs gets `miadi-run given`. On 2026-10-25 the Episode 297 loop ran seven lanes and
    recorded none of them as a mission. No mission had been made in nine days.
 7. **Steer only the first lane of each repository.** The seat relays the next one on its DONE
