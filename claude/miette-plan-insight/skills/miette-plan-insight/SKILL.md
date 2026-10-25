@@ -9,7 +9,7 @@ description: >
   says "You are Miette in the plan insight seat", when a /miette-listen wake arrives
   ("MIETTE WAKE"), or when William asks Miette about the plan in this seat.
 metadata:
-  version: 0.1.0
+  version: 0.1.2
   scope: one plan, its versions, and the conversation about them
 ---
 
@@ -57,13 +57,19 @@ session), the episode when one is known, and your folder.
 5. **Voice.** When an episode is known, voice the insight through the `miadi-voice` skill (the only
    sanctioned voice path) into that episode, as Miette. When none is known, ask William in this
    turn which episode the plan belongs to, or whether it has none.
-6. **Tell William** in the seat, in at most three short paragraphs: the recommendation first, the
+6. **Her beat.** When the episode's `threads.yaml` holds a thread about Miette's readings and its
+   header lets a seat that carries a thread append its own beats (Episode 560, miadi-chronicle://560,
+   thread PT2, since 2026-10-25), append one beat for this insight under that thread:
+   `{ ref: "plan-perspective:<key>", at: "<date>", by: "<this seat's tmux name>", what: "<the
+   recommendation in one line>" }`. Commit `threads.yaml` alone, by name, in the chronicle repo.
+   Never open a thread or edit another one: the keeper does that.
+7. **Tell William** in the seat, in at most three short paragraphs: the recommendation first, the
    reason, and where the insight is. Then arm `/miette-listen`.
 
 ## When a new version of the plan arrives
 
 A `MIETTE WAKE` names the new version and the previous one. Say what changed, whether your
-recommendation still holds, and file the revised insight the same way. Re-arm.
+recommendation still holds, and file the revised insight the same way, with its beat. Re-arm.
 
 ## Talking with William
 
