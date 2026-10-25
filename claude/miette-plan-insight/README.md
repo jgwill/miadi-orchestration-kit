@@ -27,8 +27,10 @@ Or install it from the `miadi-orchestration-kit` marketplace with `/plugin`, whi
 every session. `MIADI_MIETTE_PLAN_INSIGHT=0` turns it off for one session.
 
 The seat itself starts with the launcher alias `claudemietteinsight` (binscripts
-`etc/bash_aliases_common`), which loads this plugin, so `tide agents restore` can bring a seat
-back after a reboot. `MIADI_MIETTE_LAUNCH` names another launcher.
+`etc/bash_aliases_common`), so `tide agents restore` can bring a seat back after a reboot. Since
+0.1.1 the alias relies on the user-scope install and passes no `--plugin-dir`, so a seat loads the
+plugin once. On a host without the install, `MIADI_MIETTE_LAUNCH="claudeyolochroniclehoncho
+--plugin-dir <this folder>"` names a launcher that loads it.
 
 ## Two ways in
 

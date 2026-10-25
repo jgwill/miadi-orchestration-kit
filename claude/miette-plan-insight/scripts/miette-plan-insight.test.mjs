@@ -39,6 +39,11 @@ test("the recommendation line is what a one-line summary of an insight carries",
   assert.equal(recommendationLine("I would accept this plan as it is."), "I would accept this plan as it is.");
   assert.equal(recommendationLine("x".repeat(300)).length, 200);
   assert.equal(recommendationLine("I would revise the README so it says the truth.\n\nRecommendation: accept."), "Recommendation: accept.", "the recommendation line wins over an earlier mention of revise");
+  assert.equal(
+    recommendationLine("## What it makes\n\nA check.\n\n## Recommendation\n\n**Revise.** No yes was found on the issue."),
+    "Recommendation: Revise. No yes was found on the issue.",
+    "a bare heading takes the verdict from the line under it (the first mission insight, 2026-10-25)"
+  );
 });
 
 test("tmux unless herdr is named; the plugin turns off for one session with MIADI_MIETTE_PLAN_INSIGHT=0", () => {
