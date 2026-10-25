@@ -21,7 +21,7 @@
       "name": "miette-plan-insight",
       "source": "./claude/miette-plan-insight",
       "description": "Miette reads a plan in a seat of her own. A plan presented in plan mode, or asked for by hand (a brief, a mission's prompt), opens <planning session>-miette-insight beside it with mct new. Miette recommends accepting or revising, after a critic agent's pass, files the insight beside the plan for the medicine wheel, voices it in the episode, and listens for the next version. The approval dialog stays William's.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "name": "ava-companion",

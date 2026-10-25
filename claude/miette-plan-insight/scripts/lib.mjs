@@ -96,8 +96,15 @@ export function isSessionId(key) {
 /** The first line of an insight that carries its recommendation, for a one-line summary. */
 export function recommendationLine(insight) {
   const lines = String(insight).split("\n").map((l) => l.replace(/^[#>*\s-]+/, "").trim()).filter(Boolean);
-  // A line that opens with the recommendation wins over an earlier line that only mentions accept or revise.
-  const line = lines.find((l) => /^recommend/i.test(l)) ?? lines.find((l) => /\b(accept|revise)\b/i.test(l)) ?? lines[0] ?? "";
+  // A line that opens with the recommendation wins over an earlier line that only mentions accept or
+  // revise. A bare "Recommendation" heading takes the verdict from the line under it.
+  const at = lines.findIndex((l) => /^recommend/i.test(l));
+  let line;
+  if (at >= 0) {
+    line = /^recommendation:?\s*$/i.test(lines[at].replace(/[*_]/g, "")) && lines[at + 1] ? `Recommendation: ${lines[at + 1].replace(/^[*_]+|[*_]+(?=[.:]|\s|$)/g, "")}` : lines[at];
+  } else {
+    line = lines.find((l) => /\b(accept|revise)\b/i.test(l)) ?? lines[0] ?? "";
+  }
   return line.length > 200 ? `${line.slice(0, 197)}...` : line;
 }
 
@@ -155,7 +162,7 @@ export function primerText({ seat, sessionId, planningTmux, planPath, userInputs
     `${byHand ? "The plan" : "Its plan, as presented"}: ${planPath}`,
     userInputs ? `What the person asked, turn by turn: ${userInputs}` : `No record of the person's prompts was found for that session.`,
     episode?.folder
-      ? `Its episode: ${episode.folder} (from its ${episode.source}).`
+      ? `Its episode: ${episode.folder} (${episode.source === "asker" ? "given when it was asked for" : `from its ${episode.source}`}).`
       : `No episode is known for that session. Ask William in your first turn which episode this plan belongs to, or whether it has none.`,
     `Your folder for this plan: ${stateDir}`,
     ``,
