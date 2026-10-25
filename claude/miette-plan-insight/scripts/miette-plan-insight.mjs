@@ -25,6 +25,8 @@ import {
   episodeOf,
   isDisabled,
   isSeatName,
+  isSessionId,
+  recommendationLine,
   parseHookInput,
   planStamp,
   primerText,
@@ -131,7 +133,14 @@ function keepPlan({ key, planText, planningTmux, cwd, transcriptPath, mission, e
   writeFileSync(planPath, planText.endsWith("\n") ? planText : `${planText}\n`);
 
   const prior = readJson(seatFileOf(key), {});
-  const seat = prior.seat ?? seatNameOf(planningTmux, key);
+  // A seat name already serving another key gets a number, so two plans asked for from one
+  // tmux session never share a seat, and a running seat's listener never loses its key.
+  let seat = prior.seat;
+  for (let n = 1; !seat; n += 1) {
+    const candidate = seatNameOf(planningTmux, key, n);
+    const holder = readJson(seatIndexOf(candidate));
+    if (!holder || holder.planning_session === key || n > 20) seat = candidate;
+  }
   writeJson(seatFileOf(key), {
     ...prior,
     planning_session: key,
@@ -209,29 +218,75 @@ function sessionOfPane(pane) {
  * beside the session asking (or the one named with --for), and a mission or an episode given
  * here is what the seat files the insight under.
  */
+/** miadi-run, the kit skill script: MIADI_RUN_BIN when set (an executable), else the skill beside the kit. */
+function miadiRun(args, timeout = 60_000) {
+  if (env.MIADI_RUN_BIN) return existsSync(env.MIADI_RUN_BIN) ? run(env.MIADI_RUN_BIN, args, { timeout }) : { ok: false, status: 127, out: "", err: `${env.MIADI_RUN_BIN} not found` };
+  const script = [
+    env.MIADI_ORCHESTRATION_KIT_ROOT && join(env.MIADI_ORCHESTRATION_KIT_ROOT, "skills", "miadi-run", "miadi-run.mjs"),
+    join(homedir(), ".claude", "skills", "miadi-run", "miadi-run.mjs"),
+    resolve(PLUGIN_ROOT, "..", "..", "skills", "miadi-run", "miadi-run.mjs")
+  ].find((p) => p && existsSync(p));
+  if (!script) return { ok: false, status: 127, out: "", err: "the miadi-run skill script is not found" };
+  return run(process.execPath, [script, ...args], { timeout });
+}
+
+/**
+ * An episode given by number becomes its folder name, which is what the binding line, the
+ * wheel and plan-insight-register name an episode by. A folder name is kept as given.
+ */
+function episodeFolderOf(value) {
+  const v = typeof value === "string" ? value.trim().replace(/^miadi-chronicle:(\/\/)?/, "") : "";
+  if (!/^\d+$/.test(v)) return v || undefined;
+  const root = env.MIADI_CHRONICLE_ROOT || "/srv/miadi/episodes/miadi-chronicle";
+  const n = String(Number(v));
+  try {
+    return readdirSync(root).find((d) => new RegExp(`-episode-0*${n}-`).test(d)) ?? v;
+  } catch {
+    return v;
+  }
+}
+
 function ask(args) {
+  const mission = safeSegment(args.mission);
   const planFile = args.plan ?? args.positional[0];
-  if (!planFile || !existsSync(planFile)) {
-    console.error("ask: give the plan, brief or mission prompt to read: ask --plan <file> [--for <tmux session>] [--session <id>] [--mission <id>] [--episode <folder>]");
+  let planText;
+  let from;
+  if (planFile) {
+    if (!existsSync(planFile)) {
+      console.error(`ask: ${planFile} does not exist`);
+      return EXIT_USAGE;
+    }
+    planText = readFileSync(planFile, "utf8");
+    from = resolve(planFile);
+  } else if (mission) {
+    // A mission's plan is its pinned prompt version, read the way its seat reads it.
+    const r = miadiRun(["prompt", mission]);
+    if (!r.ok) {
+      console.error(`ask: miadi-run prompt ${mission} failed (exit ${r.status}): ${(r.err || r.out).split("\n").at(-1)}`);
+      return EXIT_USAGE;
+    }
+    planText = r.out;
+    from = `miadi-run prompt ${mission}`;
+  } else {
+    console.error("ask: give the plan to read: ask --plan <file> | --mission <miadiRun prompt>.v<N> [--for <tmux session>] [--session <id>] [--episode <folder or number>]");
     return EXIT_USAGE;
   }
-  const planText = readFileSync(planFile, "utf8");
   if (!planText.trim()) {
-    console.error(`ask: ${planFile} is empty`);
+    console.error(`ask: ${from} is empty`);
     return EXIT_USAGE;
   }
   const here = tmuxSessionOfPane(env.TMUX_PANE);
-  const planningTmux = args.for ?? (isSeatName(here) ? undefined : here);
-  const mission = safeSegment(args.mission);
-  const key = safeSegment(args.session) ?? (args.for ? undefined : sessionOfPane(env.TMUX_PANE)) ?? (mission ? `mission-${mission}` : `ask-${stamp()}`);
+  // A mission is its own key: asked from any pane, it never borrows that pane's session.
+  const planningTmux = args.for ?? (mission || isSeatName(here) ? undefined : here);
+  const key = safeSegment(args.session) ?? (mission ? `mission-${mission}` : undefined) ?? (args.for ? undefined : sessionOfPane(env.TMUX_PANE)) ?? `ask-${stamp()}`;
   const { seat, running, planPath } = keepPlan({
     key,
-    planText: `<!-- asked by hand from ${resolve(planFile)} -->\n\n${planText}`,
+    planText: `<!-- asked by hand from ${from} -->\n\n${planText}`,
     planningTmux,
     cwd: process.cwd(),
     mission,
-    episode: args.episode,
-    source: `asked by hand: ${resolve(planFile)}`
+    episode: episodeFolderOf(args.episode),
+    source: `asked by hand: ${from}`
   });
   console.log(running ? `${seat} runs: Miette's listener wakes on ${planPath}` : `opening ${seat} for ${planPath} (log: ${join(stateDirOf(key), "open.log")})`);
   return 0;
@@ -438,8 +493,10 @@ function file(args) {
   const kept = join(stateDir, `insight-${stamp()}.md`);
   copyFileSync(insight, kept);
 
-  // The perspective sits where @miadi/plan-insight has always looked for it.
-  const sessionDir = join(sessionDataRoot(env), sessionId);
+  // The perspective sits where @miadi/plan-insight has always looked for it: the planning
+  // session's capture folder. A mission or an ask has no capture folder, so it gets one inside
+  // the seat's own folder, and the capture root holds only real sessions.
+  const sessionDir = isSessionId(sessionId) ? join(sessionDataRoot(env), sessionId) : join(stateDir, "session");
   const plansDir = join(sessionDir, "plans");
   mkdirSync(plansDir, { recursive: true });
   // plan-insight-register registers a perspective with the plan it answers, `session_<id>_<stamp>.md`.
@@ -461,9 +518,17 @@ function file(args) {
     const r = run(register, regArgs, { timeout: 60_000 });
     carried = r.ok ? `carried to the wheel: ${(r.out.match(/"id"\s*:\s*"([^"]+)"/) ?? [])[1] ?? "registered"}` : `the wheel did not take it (exit ${r.status}): ${(r.err || r.out).split("\n").at(-1)}`;
   }
+  // On a mission, the recommendation is also a research observation, which miadi-run keeps in
+  // mission.json with its summary, so the Missions page shows it before the launch.
+  let observed = "";
+  const summary = recommendationLine(readFileSync(insight, "utf8"));
+  if (seatState.mission && !args.noRegister) {
+    const r = miadiRun(["observe", seatState.mission, "--kind", "research", "--summary", `Miette: ${summary}`, "--detail-file", kept]);
+    observed = r.ok ? `\nobserved on ${seatState.mission} as research` : `\nmiadi-run observe on ${seatState.mission} failed (exit ${r.status}): ${(r.err || r.out).split("\n").at(-1)}`;
+  }
   const insights = Array.isArray(seatState.insights) ? seatState.insights : [];
-  writeJson(seatFile, { ...seatState, insights: [...insights, { at: now(), file: kept, plan: seatState.heard_plan ?? seatState.last_plan ?? null }] });
-  console.log(`filed: ${kept}\nbeside the plan: ${join(plansDir, "miette_perspective.md")}\n${carried}`);
+  writeJson(seatFile, { ...seatState, insights: [...insights, { at: now(), file: kept, plan: seatState.heard_plan ?? seatState.last_plan ?? null, summary }] });
+  console.log(`filed: ${kept}\nbeside the plan: ${join(plansDir, "miette_perspective.md")}\n${carried}${observed}`);
   return 0;
 }
 

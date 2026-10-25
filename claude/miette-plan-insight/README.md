@@ -38,12 +38,18 @@ back after a reboot. `MIADI_MIETTE_LAUNCH` names another launcher.
 - **By hand.** For a brief, a mission's prompt or any plan file:
 
   ```bash
-  node scripts/miette-plan-insight.mjs ask --plan <file> [--mission <miadiRun prompt>.v<N>] [--episode <folder>] [--for <tmux session>]
+  node scripts/miette-plan-insight.mjs ask --mission <miadiRun prompt>.v<N> [--for <tmux session>] [--episode <folder or number>]
+  node scripts/miette-plan-insight.mjs ask --plan <file> [--mission <id>] [--episode <folder or number>] [--for <tmux session>]
   ```
 
-  or `/miette-insight <file> …` in a session that loaded the plugin. A mission or an episode given
-  here is what the insight is filed under. Without `--session`, a plan asked for from inside a
-  Claude session is keyed by that session, otherwise by its mission, otherwise by the moment.
+  or `/miette-insight …` in a session that loaded the plugin. Without `--plan`, a mission is read
+  from its pinned prompt (`miadi-run prompt <mission>`), the text its seat will run. A mission is
+  the seat's key, so its insight is filed under the mission and never under the session that
+  asked. Filing it also adds a `research` observation to the mission (`miadi-run observe`), whose
+  summary is Miette's recommendation. Without a mission, a plan asked for from inside a Claude
+  session is keyed by that session, otherwise by the moment. An episode number becomes its folder.
+  Two keys asked from one tmux session get two seats, `<tmux>-miette-insight` and
+  `<tmux>-2-miette-insight`.
 
 ## The seat
 

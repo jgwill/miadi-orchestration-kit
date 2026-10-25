@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { carrierOf, episodeOf, isDisabled, isSeatName, parseHookInput, planStamp, primerText, seatNameOf } from "./lib.mjs";
+import { carrierOf, episodeOf, isDisabled, isSeatName, isSessionId, parseHookInput, planStamp, primerText, recommendationLine, seatNameOf, shortKey } from "./lib.mjs";
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "miette-plan-insight.mjs");
 const SID = "4a740ef7-7613-4c69-a608-77456b8bf57f";
@@ -27,6 +27,17 @@ test("the seat is named after the planning tmux session, and a seat never opens 
   assert.equal(seatNameOf(undefined, SID), "plan-4a740ef7-miette-insight");
   assert.equal(isSeatName("ep553-work-miette-insight"), true);
   assert.equal(isSeatName("ep553-work"), false);
+  assert.equal(seatNameOf("ep553-work", SID, 2), "ep553-work-2-miette-insight", "a second key from one tmux session gets a number");
+  assert.equal(shortKey("mission-miadiRun-2610251115-ep560-261020-fork-02-creative-space-ep560-pt1.v3"), "mission-2610251115-v3");
+  assert.equal(seatNameOf(undefined, "mission-miadiRun-2610251115-x-y.v1"), "plan-mission-2610251115-v1-miette-insight");
+  assert.equal(isSessionId(SID), true);
+  assert.equal(isSessionId("mission-miadiRun-2610251115-x-y.v1"), false);
+});
+
+test("the recommendation line is what a one-line summary of an insight carries", () => {
+  assert.equal(recommendationLine("# Insight\n\nThe plan makes a seat.\n\n**Recommendation: revise.** Name the episode."), "Recommendation: revise.** Name the episode.");
+  assert.equal(recommendationLine("I would accept this plan as it is."), "I would accept this plan as it is.");
+  assert.equal(recommendationLine("x".repeat(300)).length, 200);
 });
 
 test("tmux unless herdr is named; the plugin turns off for one session with MIADI_MIETTE_PLAN_INSIGHT=0", () => {
@@ -71,6 +82,9 @@ function host() {
   spawnSync("mkdir", ["-p", bin, join(dir, "sessiondata")]);
   // A stand-in mct that records what it was asked to open, and an interpreter that knows the episode.
   writeFileSync(join(bin, "mct"), `#!/bin/bash\nprintf '%s\\n' "$@" > "${dir}/mct.args"\ncp "\${@: -2:1}" "${dir}/primer.seen" 2>/dev/null\nexit 0\n`, { mode: 0o755 });
+  // A stand-in miadi-run: `prompt` prints a pinned version, `observe` records its arguments.
+  writeFileSync(join(bin, "miadi-run"), `#!/bin/bash\nif [ "$1" = prompt ]; then echo "# Pinned prompt of $2"; echo "do the work"; exit 0; fi\nprintf '%s\\n' "$@" > "${dir}/observe.args"\nexit 0\n`, { mode: 0o755 });
+  spawnSync("mkdir", ["-p", join(dir, "chronicle", "2026-10-20-episode-560-the-desk")]);
   writeFileSync(join(bin, "interp"), `#!/bin/bash\necho '[{"session_id":"${SID}","episode":{"id":"2026-10-12-episode-553-x","source":"cwd"}}]'\n`, { mode: 0o755 });
   const env = {
     PATH: process.env.PATH,
@@ -79,7 +93,9 @@ function host() {
     CLAUDE_SESSIONDATA_ROOT: join(dir, "sessiondata"),
     MIADI_MCT_BIN: join(bin, "mct"),
     MIADI_HOOKS_INTERPRET_BIN: join(bin, "interp"),
-    MIADI_PLAN_INSIGHT_REGISTER_BIN: join(bin, "absent")
+    MIADI_PLAN_INSIGHT_REGISTER_BIN: join(bin, "absent"),
+    MIADI_RUN_BIN: join(bin, "miadi-run"),
+    MIADI_CHRONICLE_ROOT: join(dir, "chronicle")
   };
   return { dir, env, stateOf: (key) => join(dir, "state", key) };
 }
@@ -207,6 +223,48 @@ test("file puts the insight beside the plan, where plan-insight looks, and recor
     assert.equal(JSON.parse(readFileSync(join(stateOf(SID), "seat.json"), "utf8")).insights.length, 1);
     const s = cli(["status", "--session", SID], env);
     assert.match(s.stdout, /insights filed 1/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a mission asked for without a file is read from its pinned prompt, its episode number becomes the folder, and a second mission from one tmux gets its own seat", async () => {
+  const { dir, env, stateOf } = host();
+  try {
+    const first = cli(["ask", "--mission", "miadiRun-2610251100-desk-a.v1", "--for", "desk", "--episode", "560"], env);
+    assert.equal(first.status, 0, first.stderr);
+    assert.match(first.stdout, /desk-miette-insight/);
+    const key1 = "mission-miadiRun-2610251100-desk-a.v1";
+    assert.ok(await until(() => existsSync(join(stateOf(key1), "seat.json")) && JSON.parse(readFileSync(join(stateOf(key1), "seat.json"), "utf8")).opened_at));
+    const seat1 = JSON.parse(readFileSync(join(stateOf(key1), "seat.json"), "utf8"));
+    assert.equal(seat1.episode, "2026-10-20-episode-560-the-desk");
+    const plan = readdirSync(stateOf(key1)).find((n) => n.startsWith("plan-"));
+    assert.match(readFileSync(join(stateOf(key1), plan), "utf8"), /Pinned prompt of miadiRun-2610251100-desk-a\.v1/);
+
+    const second = cli(["ask", "--mission", "miadiRun-2610251100-desk-b.v1", "--for", "desk"], env);
+    assert.equal(second.status, 0, second.stderr);
+    assert.match(second.stdout, /desk-2-miette-insight/);
+    assert.equal(cli(["ask", "--mission", "x.v1"], { ...env, MIADI_RUN_BIN: join(dir, "absent") }).status, 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("filing an insight on a mission records it on the mission and keeps the capture root for real sessions", async () => {
+  const { dir, env, stateOf } = host();
+  try {
+    cli(["ask", "--mission", "miadiRun-2610251100-desk-a.v1", "--for", "desk"], { ...env, MIADI_MCT_BIN: "/nonexistent" });
+    const key = "mission-miadiRun-2610251100-desk-a.v1";
+    const insight = join(dir, "insight.md");
+    writeFileSync(insight, "# Insight\n\nRecommendation: accept. It does what was asked.\n");
+    const r = cli(["file", insight, "--session", key], env);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /observed on miadiRun-2610251100-desk-a\.v1 as research/);
+    const args = readFileSync(join(dir, "observe.args"), "utf8").trim().split("\n");
+    assert.deepEqual(args.slice(0, 4), ["observe", "miadiRun-2610251100-desk-a.v1", "--kind", "research"]);
+    assert.equal(args[5], "Miette: Recommendation: accept. It does what was asked.");
+    assert.ok(existsSync(join(stateOf(key), "session", "plans", "miette_perspective.md")));
+    assert.equal(existsSync(join(dir, "sessiondata", key)), false, "no folder for a mission in the capture root");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

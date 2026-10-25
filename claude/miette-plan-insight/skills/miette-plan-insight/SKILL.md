@@ -52,7 +52,8 @@ session), the episode when one is known, and your folder.
 4. **File.** Write the final to `insight.md` in your folder and run
    `node "${CLAUDE_PLUGIN_ROOT}/scripts/miette-plan-insight.mjs" file <your folder>/insight.md`.
    It keeps the version, puts it beside the plan as `plans/miette_perspective.md`, and carries it
-   to the medicine wheel through `plan-insight-register`. Report what it printed.
+   to the medicine wheel through `plan-insight-register`. When the seat serves a mission, it also
+   adds your recommendation to the mission as a `research` observation. Report what it printed.
 5. **Voice.** When an episode is known, voice the insight through the `miadi-voice` skill (the only
    sanctioned voice path) into that episode, as Miette. When none is known, ask William in this
    turn which episode the plan belongs to, or whether it has none.

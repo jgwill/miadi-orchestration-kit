@@ -64,9 +64,33 @@ export function parseHookInput(raw) {
  * runs outside tmux gives `plan-<first 8 of its id>-miette-insight`. A tmux name may hold
  * characters tmux itself refuses in a target (`.` and `:`), so they become `-`.
  */
-export function seatNameOf(planningTmux, sessionId) {
-  const base = text(planningTmux) ?? `plan-${String(sessionId).slice(0, 8)}`;
-  return `${base.replace(/[.:]/g, "-")}${SEAT_SUFFIX}`;
+export function seatNameOf(planningTmux, sessionId, n = 1) {
+  const base = text(planningTmux) ?? `plan-${shortKey(sessionId)}`;
+  return `${base.replace(/[^\w-]/g, "-")}${n > 1 ? `-${n}` : ""}${SEAT_SUFFIX}`;
+}
+
+/**
+ * A short, still distinct form of a key for a seat name: a session id's first 8 characters, a
+ * miadi-run mission `miadiRun-<yyMMddHHmm>-<tmux>-<name>.v<N>` as `mission-<yyMMddHHmm>-v<N>`.
+ */
+export function shortKey(key) {
+  const k = String(key);
+  const mission = k.match(/^mission-miadiRun-(\d{10})-.*\.v(\d+)$/);
+  if (mission) return `mission-${mission[1]}-v${mission[2]}`;
+  if (k.startsWith("mission-") || k.startsWith("ask-")) return k.slice(0, 32);
+  return k.slice(0, 8);
+}
+
+/** A Claude session id, as opposed to a mission or an ask kept by this plugin. */
+export function isSessionId(key) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(key));
+}
+
+/** The first line of an insight that carries its recommendation, for a one-line summary. */
+export function recommendationLine(insight) {
+  const lines = String(insight).split("\n").map((l) => l.replace(/^[#>*\s-]+/, "").trim()).filter(Boolean);
+  const line = lines.find((l) => /^recommend/i.test(l) || /\b(accept|revise)\b/i.test(l)) ?? lines[0] ?? "";
+  return line.length > 200 ? `${line.slice(0, 197)}...` : line;
 }
 
 /** A seat never opens a seat for its own plans. */
