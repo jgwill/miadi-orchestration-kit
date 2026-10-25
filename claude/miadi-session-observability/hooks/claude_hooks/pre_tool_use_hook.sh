@@ -45,19 +45,9 @@ if [ "$tool_name" = "ExitPlanMode" ]; then
     if [ -n "$plan_content" ]; then
         plan_file="$plans_dir/session_${session_id}_${timestamp}.md"
         claude_sanitize_text "$plan_content" > "$plan_file"
-	 #Add the content of the Plan as observation to the trace
-	 #/src/miette/claude-plan-insights/miette_claude_plan_perspective_claude.sh
-	 #./miette_claude_plan_perspective.sh
-
-        # stdio MUST be detached from the hook's pipes: Claude Code holds the
-        # ExitPlanMode tool open until every writer on the hook's stdout/stderr
-        # closes — an inherited fd in this background subshell stalls the plan
-        # presentation for the whole carriage duration (up to 30 min).
-        ((cd /opt/binscripts/plan-insight && \
-                ./miette_claude_plan_perspective_claude.sh $plan_file) \
-			&& echo "Plan content parsed thru Miette at $(tlid min)" >> "$output_dir/trace.log" || echo "Miette parsing failed at $(tlid min)" >> "$output_dir/trace.log" ) \
-			>> "$output_dir/miette_carriage.log" 2>&1 < /dev/null &
-
+        # Miette's perspective on the plan is the miette-plan-insight plugin's work since
+        # 0.1.19: a session that loads it opens a seat beside itself on this same event. This
+        # hook only keeps the plan, which plan-insight-register reads beside the perspective.
     fi
 elif [ "$tool_name" = "Write" ]; then
     # Create the 'proposed' directory for storing agent's proposed files

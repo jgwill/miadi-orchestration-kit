@@ -1,0 +1,17 @@
+{
+  "description": "miette-plan-insight: a plan presented by this session (ExitPlanMode) opens a Miette seat beside it, or wakes the one already open. The hook returns at once; the seat opens in the background. MIADI_MIETTE_PLAN_INSIGHT=0 turns it off for a session, and a seat never opens a seat for its own plans.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/miette-plan-insight.mjs\" hook",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
