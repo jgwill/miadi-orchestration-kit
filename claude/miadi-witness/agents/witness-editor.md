@@ -73,6 +73,11 @@ flag it for being unverifiable from here.
   another session asked for his decision. William, 2026-10-06: *"MAKE SURE YOU NEVER BORE
   ME WITH THAT"*. Direction: cut the span. The seat settles it, or leaves it in the
   inventory record.
+- **E6 Session without its door.** A session named to William by its id, its short id or a
+  page code alone. William, 2026-10-24, on two sessions given as ids: *"that dont tell me
+  shit if I want to peak at them"*. Each session the draft names needs its full tmux name
+  and the line that opens it, `session-door <id> --open` (in `~/workspace/.mino/bin/`), or
+  `tmux attach` when it runs. Direction: add the name and the line.
 
 ## Return exactly this, and nothing more
 
