@@ -8,6 +8,7 @@
 //   launch  <mission> --authorized-by <who>
 //   given   <mission> --session <claude-session-id | prefix | tmux-session> --authorized-by <who> [--at <iso>]
 //   prompt  <mission>                                                   (the seat reads its pinned version)
+//   backfill <mission>                                                  (summaries of a record made before 0.6.0, from its trace)
 //   observe <mission> --kind research|return --summary <text> [--detail-file F]
 //   observe --trace <trace-id> --kind research --summary <text>        (research before any mission)
 //   show    <mission>
@@ -68,11 +69,20 @@ function domainsToTry(env, given) {
   return DOMAINS.filter((d) => domainKeys(env, d))
 }
 
+// A 429 is Langfuse's rate limit, not an answer about the resource: wait as it asks (at most 20 s)
+// and ask again, three times, so a busy minute does not read as a missing or changed prompt.
 async function langfuseGet(deps, domain, path) {
   const k = domainKeys(deps.env, domain)
   if (!k) return { status: 0 }
-  const res = await deps.fetch(k.base + path, { headers: { Authorization: "Basic " + Buffer.from(`${k.pub}:${k.sec}`).toString("base64") } })
-  return { status: res.status, body: res.ok ? await res.json() : null }
+  for (let attempt = 0; ; attempt += 1) {
+    const res = await deps.fetch(k.base + path, { headers: { Authorization: "Basic " + Buffer.from(`${k.pub}:${k.sec}`).toString("base64") } })
+    if (res.status === 429 && attempt < 3) {
+      const wait = Math.min(Number(res.headers?.get?.("retry-after")) || 5, 20)
+      await new Promise((r) => setTimeout(r, wait * 1000))
+      continue
+    }
+    return { status: res.status, body: res.ok ? await res.json() : null }
+  }
 }
 
 // ---------- provider reads (metadata, and the one prompt body a mission pins) ----------
@@ -160,10 +170,15 @@ export function observationArgs({ traceId, root, session, kind, subject, input, 
   ]
 }
 
-function observe(deps, phase, trace, kind, subject, payload) {
-  const args = observationArgs({ traceId: trace.id, root: trace.root, session: trace.session, kind, subject, ...payload })
+// The session that writes an event or an observation, so a reader can open the session that did
+// the work (0.6.0, jgwill/Miadi#868). Claude Code gives every tool call its session id.
+export const writerOf = (env) => env.CLAUDE_CODE_SESSION_ID || null
+
+function observe(deps, phase, trace, kind, subject, payload, summary) {
+  const by = writerOf(deps.env)
+  const args = observationArgs({ traceId: trace.id, root: trace.root, session: trace.session, kind, subject, ...payload, metadata: { ...(payload.metadata ?? {}), ...(by ? { by } : {}) } })
   const r = run(deps, phase, "coaia", args, { env: coaiaEnv(deps.env, trace.domain) })
-  return { kind, at: deps.now().toISOString(), ok: r.status === 0, ...(r.status === 0 ? {} : { error: (r.stderr || r.stdout || "").trim().slice(0, 300) }) }
+  return { kind, at: deps.now().toISOString(), ok: r.status === 0, ...(by ? { by } : {}), ...(summary ? { summary } : {}), ...(r.status === 0 ? {} : { error: (r.stderr || r.stdout || "").trim().slice(0, 300) }) }
 }
 
 async function holdOnEpisode(deps, episode, body, dryRun) {
@@ -207,7 +222,8 @@ async function create(deps, opts) {
 
   const reference = `miadi-tracing:${domain}/prompt/${name}@${version}`
   const input = { prompt: reference, prompt_sha256: pinned.sha256 }
-  const metadata = { miadi_run: { kind: "research", prompt: reference, created: true } }
+  const by = writerOf(deps.env)
+  const metadata = { miadi_run: { kind: "research", prompt: reference, created: true, ...(by ? { by } : {}) } }
   let held
   if (trace) {
     held = { id: trace.id, reference: trace.reference, opened: false, ...observe(deps, "create", trace, "research", reference, { input, output: { created: version }, metadata: { prompt: reference, created: true } }) }
@@ -361,6 +377,7 @@ async function prepare(deps, opts) {
       episode: { ref: String(opts.episode), relations },
       launcher: { kind: "companion", seat, add_dirs: opts.addDirs, session: plan.session ?? null, plan_state: plan.state ?? null, delivers_brief: BRIEF_STATES.includes(plan.state), refused: plan.refused ?? null },
       prepared_at: deps.now().toISOString(),
+      prepared_by: writerOf(deps.env),
       launch: { authorized_by: null, at: null, executed: false },
       observations: [],
     }
@@ -409,7 +426,7 @@ async function launch(deps, opts) {
   }
   mission.state = "launched"
   const seen = seatsOf(deps.env, id).at(-1)
-  mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, via: "tide", state: result.state, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null, claude_session_id: seen?.session_id ?? null }
+  mission.launch = { authorized_by: opts.authorizedBy.trim(), at: deps.now().toISOString(), executed: true, via: "tide", state: result.state, session: result.session ?? mission.launcher.session, tide_session_id: result.session_id ?? null, claude_session_id: seen?.session_id ?? null, recorded_by: writerOf(deps.env) }
   mission.observations.push(observe(deps, "launch", mission.trace, "execution", id, {
     prompt: { name: mission.prompt.name, version: mission.prompt.version },
     input: { prompt: mission.prompt.reference, authorized_by: mission.launch.authorized_by },
@@ -441,7 +458,7 @@ async function given(deps, opts) {
   if (remote.sha256 !== mission.prompt.sha256) throw new Refusal(5, `prompt ${mission.prompt.reference} no longer matches what was prepared (sha256)`)
 
   mission.state = "launched"
-  mission.launch = { authorized_by: opts.authorizedBy.trim(), at, executed: true, via: "given", session: seat.tmux, pane_id: seat.pane_id, host: seat.host, claude_session_id: seat.session_id, recorded_at: deps.now().toISOString() }
+  mission.launch = { authorized_by: opts.authorizedBy.trim(), at, executed: true, via: "given", session: seat.tmux, pane_id: seat.pane_id, host: seat.host, claude_session_id: seat.session_id, recorded_at: deps.now().toISOString(), recorded_by: writerOf(deps.env) }
   mission.observations.push(observe(deps, "given", mission.trace, "execution", id, {
     prompt: { name: mission.prompt.name, version: mission.prompt.version },
     input: { prompt: mission.prompt.reference, authorized_by: mission.launch.authorized_by },
@@ -472,7 +489,7 @@ async function observeCmd(deps, opts) {
     if (kind !== "research" || !opts.trace) throw new Refusal(2, "without a mission, observe takes --trace <id> --kind research")
     const trace = await findTrace(deps, opts.trace, opts.domain)
     if (!trace) throw new Refusal(4, `trace ${opts.trace} is in no configured domain`)
-    return observe(deps, "observe", trace, "research", trace.id, { input: { summary: opts.summary }, output: detail ? { detail } : {}, metadata: {} })
+    return observe(deps, "observe", trace, "research", trace.id, { input: { summary: opts.summary }, output: detail ? { detail } : {}, metadata: {} }, opts.summary)
   }
   const mission = loadMission(deps.env, id)
   if (kind === "return" && mission.state === "prepared") throw new Refusal(4, `mission ${id} has not launched; a return follows a launch`)
@@ -481,19 +498,50 @@ async function observeCmd(deps, opts) {
     input: { summary: opts.summary },
     output: detail ? { detail } : {},
     metadata: { mission: id, prompt: mission.prompt.reference, episode: mission.episode.ref, state: mission.state, seat_sessions: missionSeats(deps.env, mission).map((s) => s.session_id) },
-  })
+  }, opts.summary)
   mission.observations.push(done)
   if (kind === "return" && done.ok) mission.state = "returned"
   saveMission(deps.env, mission)
   return mission
 }
 
-// The seat the launch or the hand-off recorded, and every session that recorded the mission itself.
+// The seat the launch or the hand-off recorded, every session that recorded the mission itself, and
+// every session that signed one of its events or observations.
 function missionSeats(env, mission) {
   const seats = seatsOf(env, mission.id)
   const named = mission.launch?.claude_session_id
   if (named && !seats.some((s) => s.session_id === named)) seats.unshift({ session_id: named, tmux: mission.launch.session ?? null, source: mission.launch.via ?? null })
+  const signers = [mission.prepared_by, mission.launch?.recorded_by, ...(mission.observations ?? []).map((o) => o.by)]
+  for (const by of signers) if (by && !seats.some((s) => s.session_id === by)) seats.push({ session_id: by, tmux: null, source: "signed" })
   return seats
+}
+
+// A record made before 0.6.0 kept no summary. Each research and return observation written for the
+// mission is read back from its trace, in time order, and its summary kept in the record. Nothing is
+// written to the trace.
+async function backfill(deps, opts) {
+  const id = opts.positional[0]
+  if (!id) throw new Refusal(2, "backfill needs a mission id")
+  const mission = loadMission(deps.env, id)
+  const r = await langfuseGet(deps, mission.trace.domain, `/api/public/traces/${encodeURIComponent(mission.trace.id)}`)
+  if (r.status !== 200) throw new Refusal(4, `trace ${mission.trace.id} not readable in ${mission.trace.domain} (HTTP ${r.status})`)
+  const onTrace = {}
+  for (const o of (r.body.observations ?? []).filter((o) => typeof o.name === "string" && o.name.endsWith(` · ${id}`)).sort((a, b) => String(a.startTime ?? "").localeCompare(String(b.startTime ?? "")))) {
+    const kind = o.name.split(" · ")[1]
+    ;(onTrace[kind] ??= []).push(o)
+  }
+  const seen = {}
+  let filled = 0
+  for (const entry of mission.observations ?? []) {
+    if (!entry.ok) continue // a refused observation never reached the trace
+    const i = (seen[entry.kind] = (seen[entry.kind] ?? -1) + 1)
+    if (entry.summary || (entry.kind !== "return" && entry.kind !== "research")) continue
+    let input = onTrace[entry.kind]?.[i]?.input
+    if (typeof input === "string") { try { input = JSON.parse(input) } catch { /* plain text has no summary field */ } }
+    if (input && typeof input.summary === "string") { entry.summary = input.summary; filled += 1 }
+  }
+  if (filled) saveMission(deps.env, mission)
+  return { id, filled, observations: mission.observations }
 }
 
 function show(deps, opts) {
@@ -535,6 +583,7 @@ miadi-run prepare --prompt <name> --version <N> --trace <trace-id> --episode <re
 miadi-run launch  <mission> --authorized-by <who>
 miadi-run given   <mission> --session <claude-session-id | prefix | tmux-session> --authorized-by <who> [--at <iso>]
 miadi-run prompt  <mission>
+miadi-run backfill <mission>
 miadi-run observe <mission> --kind research|return --summary <text> [--detail-file F]
 miadi-run observe --trace <trace-id> --kind research --summary <text>
 miadi-run show    <mission>`
@@ -551,6 +600,7 @@ export async function main(argv, deps = defaultDeps()) {
   if (verb === "prompt") return promptCmd(deps, opts)
   if (verb === "observe") return observeCmd(deps, opts)
   if (verb === "show") return show(deps, opts)
+  if (verb === "backfill") return backfill(deps, opts)
   throw new Refusal(2, `unknown verb "${verb}"\n${USAGE}`)
 }
 

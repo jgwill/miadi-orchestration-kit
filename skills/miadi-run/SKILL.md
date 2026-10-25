@@ -16,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.5.0
+  version: 0.6.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -40,6 +40,7 @@ $R prompt  <mission>
 $R observe <mission> --kind research|return --summary "<text>" [--detail-file F]
 $R observe --trace <trace-id> --kind research --summary "<text>"
 $R show    <mission>
+$R backfill <mission>
 ```
 
 A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/mission.json`
@@ -102,10 +103,11 @@ then only listened.
    `execution` generation links that seat to the prompt version. A mission is given or launched
    once.
 
-   **show** lists `seats`: the session a launch or a hand-off recorded, and every session whose
-   binding line has a `session.mission` line for this mission (capture plugin 0.1.12 and later).
-   A `return` carries the same ids as `seat_sessions`. From the trace you can then open the
-   session that did the work.
+   **show** lists `seats`: the session a launch or a hand-off recorded, every session whose
+   binding line has a `session.mission` line for this mission (capture plugin 0.1.12 and later),
+   and every session that signed one of the mission's events (`source: "signed"`). A `return`
+   carries the same ids as `seat_sessions`. From the trace you can then open the session that did
+   the work.
 4. **prompt** `<mission>` prints the pinned version, read from the provider, and refuses (exit 5)
    when the provider no longer holds the text that was prepared. It is the seat's first read.
 5. **observe** adds `research` (discussion of the prompt, with or without a mission) or
@@ -115,8 +117,17 @@ then only listened.
    `execution` (the pinned version given to a seat) and `return` (what the seat made of it) are
    written as generations linked to that prompt version (`--prompt-name`, `--prompt-version`), so
    the prompt's page in Langfuse lists every mission it started. `research` and `preparation`
-   stay events. This needs coaia 0.5.3 or later (jgwill/coaiajs#14). An older coaia refuses the
-   options, and the observation is reported as not written (exit 8).
+   stay events. This needs coaia 0.5.3 or later (jgwill/coaiajs#14), and coaia 0.8.1 or later
+   on a fresh install (jgwill/coaiajs#15). An older coaia refuses the options, and the
+   observation is reported as not written (exit 8).
+
+   From 0.6.0 (jgwill/Miadi#868), each event and observation is signed with the session that
+   wrote it, from `CLAUDE_CODE_SESSION_ID`. The signature appears as `prepared_by`,
+   `launch.recorded_by`, each observation's `by`, and `by` in the observation's metadata on the
+   trace. A research or return observation also keeps its `--summary` in `mission.json`, so a
+   reader of the record sees what came back without reading the trace. **backfill** `<mission>`
+   reads those summaries back from the trace for a record made before 0.6.0, in time order. It
+   writes nothing to the trace.
 
 ## What is never touched
 
