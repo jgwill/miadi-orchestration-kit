@@ -13,7 +13,7 @@
 // Exit codes: 0 done, 2 usage, 3 no seat state, 4 listen timed out, 5 another listener runs.
 
 import { spawn, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,10 +55,21 @@ function readJson(path, fallback = null) {
   }
 }
 
+/** Write to a temporary file and rename it, so a reader never meets a half-written file. */
 function writeJson(path, value) {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
+  renameSync(tmp, path);
 }
+
+/** Merge fields into a JSON file read again just before writing, so a concurrent writer is not undone. */
+function updateJson(path, fields) {
+  writeJson(path, { ...readJson(path, {}), ...fields });
+}
+
+/** A value as one single-quoted shell word. */
+const shellQuote = (value) => `'${String(value).replace(/'/g, `'\\''`)}'`;
 
 function run(cmd, args, options = {}) {
   const r = spawnSync(cmd, args, { encoding: "utf8", timeout: options.timeout ?? 30_000, env: options.env ?? env });
@@ -101,11 +112,43 @@ function planVersions(stateDir) {
   }
 }
 
+function herdrHasWorkspace(label) {
+  const herdr = findBin("herdr", env.MIADI_HERDR_BIN);
+  if (!herdr) return false;
+  const r = run(herdr, ["workspace", "list"], { timeout: 10_000 });
+  try {
+    return r.ok && (JSON.parse(r.out)?.result?.workspaces ?? []).some((w) => w.label === label);
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a seat runs: its tmux session, or the herdr workspace it was opened in. */
+function seatRunning(seat, carrier) {
+  return tmuxHasSession(seat) || (carrier === "herdr" && herdrHasWorkspace(seat));
+}
+
+function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+/** Whether a listener waits for this key: a new plan version only wakes a seat whose listener runs. */
+function listenerAlive(key) {
+  const holder = readJson(join(stateDirOf(key), "listener.pid"));
+  return Boolean(holder?.pid && pidAlive(holder.pid));
+}
+
 /** Which planning session this process serves: --session, else the seat it runs in. */
 function servedSession(args) {
   const given = safeSegment(args.session);
   if (given) return given;
-  const seat = tmuxSessionOfPane(env.TMUX_PANE);
+  const seat = safeSegment(env.MIADI_MIETTE_SEAT) ?? tmuxSessionOfPane(env.TMUX_PANE);
   if (seat) {
     const index = readJson(seatIndexOf(seat));
     if (index?.planning_session) return index.planning_session;
@@ -135,12 +178,14 @@ function keepPlan({ key, planText, planningTmux, cwd, transcriptPath, mission, e
   const prior = readJson(seatFileOf(key), {});
   // A seat name already serving another key gets a number, so two plans asked for from one
   // tmux session never share a seat, and a running seat's listener never loses its key.
+  // A name whose seat no longer runs is free again.
   let seat = prior.seat;
-  for (let n = 1; !seat; n += 1) {
+  for (let n = 1; !seat && n <= 50; n += 1) {
     const candidate = seatNameOf(planningTmux, key, n);
     const holder = readJson(seatIndexOf(candidate));
-    if (!holder || holder.planning_session === key || n > 20) seat = candidate;
+    if (!holder || holder.planning_session === key || !seatRunning(candidate, readJson(seatFileOf(holder.planning_session), {}).carrier)) seat = candidate;
   }
+  seat ??= seatNameOf(planningTmux, `${key}-${planStamp()}`);
   writeJson(seatFileOf(key), {
     ...prior,
     planning_session: key,
@@ -161,15 +206,24 @@ function keepPlan({ key, planText, planningTmux, cwd, transcriptPath, mission, e
   const log = openSync(join(stateDir, "open.log"), "a");
   const child = spawn(process.execPath, [SCRIPT, "open", "--session", key], { detached: true, stdio: ["ignore", log, log], env });
   child.unref();
-  return { seat, running: tmuxHasSession(seat), planPath };
+  return { seat, running: seatRunning(seat, prior.carrier), listening: listenerAlive(key), planPath };
+}
+
+/** What the person who presented the plan is told about the seat. */
+function seatNotice(seat, running, listening) {
+  if (!running) return `Miette is opening a seat named ${seat} to read this plan.`;
+  if (listening) return `Miette reads this new version of the plan in ${seat}.`;
+  return `Miette's seat ${seat} is open and is not listening: run /miette-listen there and she reads this version.`;
 }
 
 async function hook() {
   if (isDisabled(env)) return 0;
   const input = parseHookInput(await readStdin());
   if (!input) return 0;
+  // A seat's own plans never open a seat: Miette does not watch herself. A herdr seat has no
+  // tmux session of its own, so the seat is also named in its environment.
+  if (env.MIADI_MIETTE_SEAT) return 0;
   const planningTmux = tmuxSessionOfPane(env.TMUX_PANE);
-  // A seat's own plans never open a seat: Miette does not watch herself.
   if (isSeatName(planningTmux)) return 0;
 
   let plan = input.plan;
@@ -182,7 +236,7 @@ async function hook() {
   }
   if (!plan?.trim()) return 0;
 
-  const { seat, running } = keepPlan({
+  const { seat, running, listening } = keepPlan({
     key: input.sessionId,
     planText: plan,
     planningTmux,
@@ -190,11 +244,7 @@ async function hook() {
     transcriptPath: input.transcriptPath,
     source: "ExitPlanMode"
   });
-  process.stdout.write(
-    `${JSON.stringify({
-      systemMessage: running ? `Miette reads this new version of the plan in tmux ${seat}.` : `Miette is opening tmux ${seat} to read this plan.`
-    })}\n`
-  );
+  process.stdout.write(`${JSON.stringify({ systemMessage: seatNotice(seat, running, listening) })}\n`);
   return 0;
 }
 
@@ -276,10 +326,14 @@ function ask(args) {
     return EXIT_USAGE;
   }
   const here = tmuxSessionOfPane(env.TMUX_PANE);
+  if ((env.MIADI_MIETTE_SEAT || isSeatName(here)) && !args.for && !mission) {
+    console.error("ask: this is a Miette seat. Name the session the plan is for with --for, or the mission with --mission.");
+    return EXIT_USAGE;
+  }
   // A mission is its own key: asked from any pane, it never borrows that pane's session.
   const planningTmux = args.for ?? (mission || isSeatName(here) ? undefined : here);
   const key = safeSegment(args.session) ?? (mission ? `mission-${mission}` : undefined) ?? (args.for ? undefined : sessionOfPane(env.TMUX_PANE)) ?? `ask-${stamp()}`;
-  const { seat, running, planPath } = keepPlan({
+  const { seat, running, listening, planPath } = keepPlan({
     key,
     planText: `<!-- asked by hand from ${from} -->\n\n${planText}`,
     planningTmux,
@@ -288,7 +342,7 @@ function ask(args) {
     episode: episodeFolderOf(args.episode),
     source: `asked by hand: ${from}`
   });
-  console.log(running ? `${seat} runs: Miette's listener wakes on ${planPath}` : `opening ${seat} for ${planPath} (log: ${join(stateDirOf(key), "open.log")})`);
+  console.log(`${seatNotice(seat, running, listening)}\nplan: ${planPath}\nlog: ${join(stateDirOf(key), "open.log")}`);
   return 0;
 }
 
@@ -310,7 +364,7 @@ function joinRecord(sessionId) {
   }
 }
 
-function herdrOpen({ seat, cwd, launch, primerPath, log }) {
+function herdrOpen({ seat, cwd, launch, team, primerPath, log }) {
   const herdr = findBin("herdr", env.MIADI_HERDR_BIN);
   if (!herdr || !run(herdr, ["workspace", "list"], { timeout: 10_000 }).ok) {
     log("herdr does not answer: opening in tmux instead");
@@ -329,8 +383,11 @@ function herdrOpen({ seat, cwd, launch, primerPath, log }) {
   }
   // One short command reaches the pane whole; the primer is the agent's first prompt.
   const launcher = join(dirname(primerPath), "herdr-launch.sh");
-  writeFileSync(launcher, `#!/bin/bash\ncd ${JSON.stringify(cwd)}\nexec $SHELL -ic '${launch} -n ${seat} "$(cat ${primerPath})"'\n`, { mode: 0o755 });
-  run(herdr, ["pane", "run", pane, `bash ${launcher}`], { timeout: 20_000 });
+  // Every value is one quoted word. The seat is named in the environment for the recursion guard,
+  // declared on its team, and opened to Remote Control as mct does for a tmux seat.
+  const command = `MIADI_MIETTE_SEAT=${shellQuote(seat)} MIADI_TEAM=${shellQuote(team)} ${launch} -n ${shellQuote(seat)} --remote-control ${shellQuote(seat)} "$(cat ${shellQuote(primerPath)})"`;
+  writeFileSync(launcher, `#!/bin/bash\ncd ${shellQuote(cwd)} || exit 1\nexec "$SHELL" -ic ${shellQuote(command)}\n`, { mode: 0o755 });
+  run(herdr, ["pane", "run", pane, `bash ${shellQuote(launcher)}`], { timeout: 20_000 });
   return { carrier: "herdr", pane };
 }
 
@@ -354,10 +411,38 @@ function open(args) {
     return EXIT_NO_SEAT;
   }
   const seat = seatState.seat;
-  if (!args.dryRun && tmuxHasSession(seat)) {
-    log(`${seat} already runs: ${plan} waits for its listener`);
+  if (!args.dryRun && seatRunning(seat, seatState.carrier)) {
+    log(`${seat} already runs: ${plan} ${listenerAlive(sessionId) ? "wakes its listener" : "waits until /miette-listen is armed there"}`);
     return 0;
   }
+  // Two plans in one moment start two openers: the first holds the lock and opens, the second leaves.
+  const lock = join(stateDir, "open.lock");
+  if (!args.dryRun) {
+    try {
+      mkdirSync(lock);
+    } catch {
+      let age = 0;
+      try {
+        age = Date.now() - statSync(lock).mtimeMs;
+      } catch {
+        age = 0;
+      }
+      if (age < 120_000) {
+        log(`another opener holds ${lock}: ${plan} is left for it`);
+        return 0;
+      }
+      rmSync(lock, { recursive: true, force: true });
+      mkdirSync(lock, { recursive: true });
+    }
+  }
+  try {
+    return openSeat({ args, sessionId, stateDir, seatState, seat, plan, log });
+  } finally {
+    if (!args.dryRun) rmSync(lock, { recursive: true, force: true });
+  }
+}
+
+function openSeat({ args, sessionId, stateDir, seatState, seat, plan, log }) {
 
   const episode = seatState.episode_given
     ? { folder: seatState.episode_given, source: "asker" }
@@ -373,7 +458,8 @@ function open(args) {
     episode,
     mission: seatState.mission,
     source: seatState.last_source,
-    stateDir
+    stateDir,
+    fileCommand: `node ${SCRIPT} file`
   });
   const primerPath = join(stateDir, `primer-${stamp()}.md`);
   const team = env.MIADI_MIETTE_TEAM || DEFAULT_TEAM;
@@ -386,20 +472,23 @@ function open(args) {
   }
   writeFileSync(primerPath, `${primer}\n`);
 
-  let opened = carrier === "herdr" ? herdrOpen({ seat, cwd, launch, primerPath, log }) : null;
+  let opened = carrier === "herdr" ? herdrOpen({ seat, cwd, launch, team, primerPath, log }) : null;
   if (!opened) {
     const mct = findBin("mct", env.MIADI_MCT_BIN);
     if (!mct) {
       log("mct is not found: the seat cannot be opened (install @miadi/chronicle-tui)");
       return EXIT_NO_SEAT;
     }
-    const r = run(mct, ["new", team, seat, "--cwd", cwd, "--launch", launch, "--remote", "--prompt-file", primerPath, "-d"], { timeout: 60_000 });
+    // The seat is named in its environment too: the hook's recursion guard reads it.
+    const r = run(mct, ["new", team, seat, "--cwd", cwd, "--launch", `MIADI_MIETTE_SEAT=${seat} ${launch}`, "--remote", "--prompt-file", primerPath, "-d"], { timeout: 60_000 });
     log(`mct new ${team} ${seat}: exit ${r.status}${r.err ? ` · ${r.err.split("\n").at(-1)}` : ""}`);
     if (!r.ok) return r.status ?? 1;
     opened = { carrier: "tmux" };
   }
-  writeJson(seatFileOf(sessionId), {
-    ...readJson(seatFileOf(sessionId), seatState),
+  // heard_plan is the plan the primer names, so a version that arrives while Miette writes her
+  // first insight still wakes her when she arms the listener.
+  updateJson(seatFileOf(sessionId), {
+    heard_plan: plan,
     opened_at: now(),
     carrier: opened.carrier,
     herdr_pane: opened.pane ?? null,
@@ -413,16 +502,6 @@ function open(args) {
 }
 
 // ---------- listen ----------
-
-function pidAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
 
 async function listen(args) {
   const sessionId = servedSession(args);
@@ -439,15 +518,38 @@ async function listen(args) {
   }
   const pidFile = join(stateDir, "listener.pid");
   const holder = readJson(pidFile);
-  if (holder && holder.pid !== process.pid && pidAlive(holder.pid)) {
+  if (holder?.pid && holder.pid !== process.pid && pidAlive(holder.pid)) {
     console.log(`another listener already waits for ${seatState.planning_tmux ?? sessionId}: pid ${holder.pid} since ${holder.since}`);
     return EXIT_BUSY;
   }
-  writeJson(pidFile, { pid: process.pid, since: now() });
+  // Claim the file exclusively, so two listeners started together cannot both run.
+  const claim = `${pidFile}.claim`;
+  try {
+    closeSync(openSync(claim, "wx"));
+  } catch {
+    console.log(`another listener is starting for ${seatState.planning_tmux ?? sessionId}`);
+    return EXIT_BUSY;
+  }
+  try {
+    writeJson(pidFile, { pid: process.pid, since: now() });
+  } finally {
+    rmSync(claim, { force: true });
+  }
+  const release = () => {
+    const current = readJson(pidFile);
+    if (current?.pid === process.pid) writeJson(pidFile, { pid: null, since: null, ended: now() });
+  };
+  // TaskStop sends SIGTERM, which skips finally: release the pid there too.
+  for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+    process.on(signal, () => {
+      release();
+      process.exit(0);
+    });
+  }
 
   // The plan the first insight answered is the baseline: only a later version wakes the seat.
   let heard = seatState.heard_plan ?? planVersions(stateDir).at(-1) ?? null;
-  writeJson(seatFile, { ...readJson(seatFile, seatState), heard_plan: heard });
+  updateJson(seatFile, { heard_plan: heard });
 
   const interval = Math.max(1, Number(args.interval ?? 5)) * 1000;
   const deadline = Date.now() + Math.max(60, Number(args.timeout ?? 6 * 3600)) * 1000;
@@ -455,7 +557,7 @@ async function listen(args) {
     while (Date.now() < deadline) {
       const latest = planVersions(stateDir).at(-1) ?? null;
       if (latest && latest !== heard) {
-        writeJson(seatFile, { ...readJson(seatFile, seatState), heard_plan: latest });
+        updateJson(seatFile, { heard_plan: latest });
         console.log(
           [
             `MIETTE WAKE · a new version of the plan in ${seatState.planning_tmux ?? sessionId}`,
@@ -470,11 +572,10 @@ async function listen(args) {
       }
       await new Promise((r) => setTimeout(r, interval));
     }
-    console.log(`witness: no new plan version for ${seatState.planning_tmux ?? sessionId} before the timeout`);
+    console.log(`miette-plan-insight: no new plan version for ${seatState.planning_tmux ?? sessionId} before the timeout`);
     return EXIT_TIMEOUT;
   } finally {
-    const current = readJson(pidFile);
-    if (current?.pid === process.pid) writeJson(pidFile, { pid: null, since: null, ended: now() });
+    release();
   }
 }
 
@@ -496,16 +597,22 @@ function file(args) {
   // The perspective sits where @miadi/plan-insight has always looked for it: the planning
   // session's capture folder. A mission or an ask has no capture folder, so it gets one inside
   // the seat's own folder, and the capture root holds only real sessions.
-  const sessionDir = isSessionId(sessionId) ? join(sessionDataRoot(env), sessionId) : join(stateDir, "session");
+  // plan-insight-register takes the record's id from this folder's name, so it carries the key.
+  const sessionDir = isSessionId(sessionId) ? join(sessionDataRoot(env), sessionId) : join(stateDir, sessionId);
   const plansDir = join(sessionDir, "plans");
   mkdirSync(plansDir, { recursive: true });
   // plan-insight-register registers a perspective with the plan it answers, `session_<id>_<stamp>.md`.
   // session-observability writes it when it is loaded. When it is not, or the plan was asked
   // for by hand, the plan this insight answers is put there.
+  // register reads the newest snapshot by name, so when the plan this insight answers is not the
+  // newest snapshot's text, it is written as a newer one.
   const answered = seatState.heard_plan ?? seatState.last_plan;
-  const hasSnapshot = readdirSync(plansDir).some((n) => n.startsWith(`session_${sessionId}_`) && n.endsWith(".md"));
-  if (!hasSnapshot && answered && existsSync(answered)) {
-    copyFileSync(answered, join(plansDir, `session_${sessionId}_${stamp().slice(0, 10)}.md`));
+  const snapshots = readdirSync(plansDir).filter((n) => n.startsWith(`session_${sessionId}_`) && n.endsWith(".md")).sort();
+  const newest = snapshots.at(-1);
+  if (answered && existsSync(answered)) {
+    const answeredText = readFileSync(answered, "utf8");
+    const newestText = newest ? readFileSync(join(plansDir, newest), "utf8") : null;
+    if (newestText?.trim() !== answeredText.trim()) copyFileSync(answered, join(plansDir, `session_${sessionId}_${stamp()}.md`));
   }
   copyFileSync(insight, join(plansDir, "miette_perspective.md"));
   writeFileSync(join(plansDir, ".miette_perspective.done"), `${now()}\n`);
@@ -526,9 +633,30 @@ function file(args) {
     const r = miadiRun(["observe", seatState.mission, "--kind", "research", "--summary", `Miette: ${summary}`, "--detail-file", kept]);
     observed = r.ok ? `\nobserved on ${seatState.mission} as research` : `\nmiadi-run observe on ${seatState.mission} failed (exit ${r.status}): ${(r.err || r.out).split("\n").at(-1)}`;
   }
-  const insights = Array.isArray(seatState.insights) ? seatState.insights : [];
-  writeJson(seatFile, { ...seatState, insights: [...insights, { at: now(), file: kept, plan: seatState.heard_plan ?? seatState.last_plan ?? null, summary }] });
+  const fresh = readJson(seatFile, seatState);
+  const insights = Array.isArray(fresh.insights) ? fresh.insights : [];
+  updateJson(seatFile, { insights: [...insights, { at: now(), file: kept, plan: answered ?? null, summary }] });
   console.log(`filed: ${kept}\nbeside the plan: ${join(plansDir, "miette_perspective.md")}\n${carried}${observed}`);
+  return 0;
+}
+
+// ---------- session-start ----------
+
+/** In a seat that starts, resumes or compacts: say which plan it serves and that its listener needs arming. */
+function sessionStart() {
+  const seat = safeSegment(env.MIADI_MIETTE_SEAT) ?? tmuxSessionOfPane(env.TMUX_PANE);
+  if (!seat || (!env.MIADI_MIETTE_SEAT && !isSeatName(seat))) return 0;
+  const index = readJson(seatIndexOf(seat));
+  if (!index?.planning_session) return 0;
+  const key = index.planning_session;
+  const seatState = readJson(seatFileOf(key), {});
+  const filed = Array.isArray(seatState.insights) ? seatState.insights : [];
+  const context = [
+    `This session is the Miette plan insight seat ${seat}. It serves ${seatState.planning_tmux ? `tmux ${seatState.planning_tmux}` : key} (${key}).`,
+    `Follow the miette-plan-insight skill. ${filed.length ? `${filed.length} insight(s) are filed; the last is ${filed.at(-1).file}.` : "No insight is filed yet."}`,
+    listenerAlive(key) ? "Its listener is running." : "Its listener is not running: arm /miette-listen once the current turn is done."
+  ].join("\n");
+  process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } })}\n`);
   return 0;
 }
 
@@ -557,7 +685,7 @@ function status(args) {
   const plans = planVersions(stateDir);
   console.log(
     [
-      `seat ${seatState.seat}${tmuxHasSession(seatState.seat) ? " (running)" : " (not running)"} · ${seatState.carrier ?? "not opened yet"}`,
+      `seat ${seatState.seat}${seatRunning(seatState.seat, seatState.carrier) ? " (running)" : " (not running)"} · ${seatState.carrier ?? "not opened yet"}`,
       `serves ${seatState.planning_tmux ?? "a session outside tmux"} · ${sessionId}`,
       `episode ${seatState.episode ?? "none"}${seatState.episode_source ? ` (${seatState.episode_source})` : ""}`,
       `plan versions ${plans.length} · heard ${seatState.heard_plan ? seatState.heard_plan.split("/").at(-1) : "none"}`,
@@ -601,6 +729,8 @@ async function main() {
   switch (command) {
     case "hook":
       return hook();
+    case "session-start":
+      return sessionStart();
     case "ask":
       return ask(args);
     case "open":
@@ -624,7 +754,7 @@ if (process.argv[1] && resolve(process.argv[1]) === SCRIPT) {
     (error) => {
       // A hook must never block the plan: report and leave with 0 there.
       console.error(`miette-plan-insight: ${error?.message ?? error}`);
-      process.exit(process.argv[2] === "hook" ? 0 : 1);
+      process.exit(["hook", "session-start"].includes(process.argv[2]) ? 0 : 1);
     }
   );
 }

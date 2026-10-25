@@ -55,8 +55,14 @@ back after a reboot. `MIADI_MIETTE_LAUNCH` names another launcher.
 
 - **Opened by** `mct new T3 <seat> --cwd <planning cwd> --launch claudemietteinsight --remote --prompt-file <primer> -d`
   (chronicle-tui). T3 is the witness team: William hears and judges what is produced before
-  anything is revised. `MIADI_MIETTE_TEAM` names another team. `MIADI_PLAN_INSIGHT_CARRIER=herdr`
-  opens it in a herdr workspace instead, and falls back to tmux when herdr does not answer.
+  anything is revised. `MIADI_MIETTE_TEAM` names another team. The launch carries
+  `MIADI_MIETTE_SEAT=<seat>`, which the hooks read to know they run in a seat.
+  `MIADI_PLAN_INSIGHT_CARRIER=herdr` opens it in a herdr workspace labelled with the seat's name
+  instead, with the same team, seat name and Remote Control, and falls back to tmux when herdr
+  does not answer. A seat counts as open while its tmux session or herdr workspace exists.
+- **A new plan version** wakes the seat only while `/miette-listen` runs there. The hook says so
+  when it does not, and a seat that starts, resumes or compacts is reminded by the plugin's
+  SessionStart hook to arm it.
 - **Primed with** the plan, the planning session's `_claude_user_inputs.jsonl`, the episode and
   its own folder.
 - **The episode** is the planning session's binding-line episode (never the `declared` fallback),

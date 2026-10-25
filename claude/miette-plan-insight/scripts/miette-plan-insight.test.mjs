@@ -38,6 +38,7 @@ test("the recommendation line is what a one-line summary of an insight carries",
   assert.equal(recommendationLine("# Insight\n\nThe plan makes a seat.\n\n**Recommendation: revise.** Name the episode."), "Recommendation: revise.** Name the episode.");
   assert.equal(recommendationLine("I would accept this plan as it is."), "I would accept this plan as it is.");
   assert.equal(recommendationLine("x".repeat(300)).length, 200);
+  assert.equal(recommendationLine("I would revise the README so it says the truth.\n\nRecommendation: accept."), "Recommendation: accept.", "the recommendation line wins over an earlier mention of revise");
 });
 
 test("tmux unless herdr is named; the plugin turns off for one session with MIADI_MIETTE_PLAN_INSIGHT=0", () => {
@@ -228,7 +229,7 @@ test("file puts the insight beside the plan, where plan-insight looks, and recor
   }
 });
 
-test("a mission asked for without a file is read from its pinned prompt, its episode number becomes the folder, and a second mission from one tmux gets its own seat", async () => {
+test("a mission asked for without a file is read from its pinned prompt, its episode number becomes the folder, and the name of a seat that no longer runs is free for the next mission", async () => {
   const { dir, env, stateOf } = host();
   try {
     const first = cli(["ask", "--mission", "miadiRun-2610251100-desk-a.v1", "--for", "desk", "--episode", "560"], env);
@@ -241,9 +242,12 @@ test("a mission asked for without a file is read from its pinned prompt, its epi
     const plan = readdirSync(stateOf(key1)).find((n) => n.startsWith("plan-"));
     assert.match(readFileSync(join(stateOf(key1), plan), "utf8"), /Pinned prompt of miadiRun-2610251100-desk-a\.v1/);
 
+    // The first seat does not run here (mct is a stand-in), so its name is free again. A running
+    // seat would make this one desk-2-miette-insight (seatNameOf's numbering, tested above).
     const second = cli(["ask", "--mission", "miadiRun-2610251100-desk-b.v1", "--for", "desk"], env);
     assert.equal(second.status, 0, second.stderr);
-    assert.match(second.stdout, /desk-2-miette-insight/);
+    assert.match(second.stdout, /seat named desk-miette-insight/);
+    assert.equal(JSON.parse(readFileSync(join(dir, "state", "seats", "desk-miette-insight.json"), "utf8")).planning_session, "mission-miadiRun-2610251100-desk-b.v1");
     assert.equal(cli(["ask", "--mission", "x.v1"], { ...env, MIADI_RUN_BIN: join(dir, "absent") }).status, 2);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -263,8 +267,69 @@ test("filing an insight on a mission records it on the mission and keeps the cap
     const args = readFileSync(join(dir, "observe.args"), "utf8").trim().split("\n");
     assert.deepEqual(args.slice(0, 4), ["observe", "miadiRun-2610251100-desk-a.v1", "--kind", "research"]);
     assert.equal(args[5], "Miette: Recommendation: accept. It does what was asked.");
-    assert.ok(existsSync(join(stateOf(key), "session", "plans", "miette_perspective.md")));
+    assert.ok(existsSync(join(stateOf(key), key, "plans", "miette_perspective.md")), "the register folder carries the key, so missions never share a wheel record");
     assert.equal(existsSync(join(dir, "sessiondata", key)), false, "no folder for a mission in the capture root");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a seat never opens a seat: the hook and an unnamed ask both stand down inside one", () => {
+  const { dir, env } = host();
+  try {
+    const seatEnv = { ...env, MIADI_MIETTE_SEAT: "x-miette-insight" };
+    const hooked = cli(["hook"], seatEnv, JSON.stringify({ session_id: SID, tool_name: "ExitPlanMode", tool_input: { plan: "p" } }));
+    assert.equal(hooked.status, 0);
+    assert.equal(hooked.stdout, "");
+    const brief = join(dir, "b.md");
+    writeFileSync(brief, "b\n");
+    assert.equal(cli(["ask", "--plan", brief], seatEnv).status, 2);
+    assert.equal(existsSync(join(dir, "state")), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the plan the primer names is the one heard, and a later answered plan becomes a newer snapshot for the wheel", async () => {
+  const { dir, env, stateOf } = host();
+  try {
+    cli(["hook"], env, JSON.stringify({ session_id: SID, tool_name: "ExitPlanMode", cwd: dir, tool_input: { plan: "v1" } }));
+    assert.ok(await until(() => existsSync(join(stateOf(SID), "seat.json")) && JSON.parse(readFileSync(join(stateOf(SID), "seat.json"), "utf8")).opened_at));
+    const seatFile = join(stateOf(SID), "seat.json");
+    const v1 = JSON.parse(readFileSync(seatFile, "utf8")).heard_plan;
+    assert.equal(readFileSync(v1, "utf8"), "v1\n");
+    const insight = join(dir, "i.md");
+    writeFileSync(insight, "Recommendation: accept.\n");
+    cli(["file", insight, "--session", SID], env);
+    // v2 arrives and is heard; its insight is filed against it, not against v1.
+    cli(["hook"], { ...env, MIADI_MCT_BIN: "/nonexistent" }, JSON.stringify({ session_id: SID, tool_name: "ExitPlanMode", cwd: dir, tool_input: { plan: "v2" } }));
+    const v2 = readdirSync(stateOf(SID)).filter((n) => n.startsWith("plan-")).sort().at(-1);
+    writeFileSync(seatFile, JSON.stringify({ ...JSON.parse(readFileSync(seatFile, "utf8")), heard_plan: join(stateOf(SID), v2) }));
+    await new Promise((r) => setTimeout(r, 1100));
+    writeFileSync(insight, "Recommendation: revise.\n");
+    cli(["file", insight, "--session", SID], env);
+    const plans = join(dir, "sessiondata", SID, "plans");
+    const snapshots = readdirSync(plans).filter((n) => n.startsWith(`session_${SID}_`)).sort();
+    assert.equal(snapshots.length, 2);
+    assert.equal(readFileSync(join(plans, snapshots.at(-1)), "utf8"), "v2\n");
+    const seat = JSON.parse(readFileSync(seatFile, "utf8"));
+    assert.equal(seat.insights.length, 2);
+    assert.equal(seat.insights[1].summary, "Recommendation: revise.");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a seat that starts is told which plan it serves and that its listener is not running", () => {
+  const { dir, env } = host();
+  try {
+    cli(["hook"], { ...env, MIADI_MCT_BIN: "/nonexistent" }, JSON.stringify({ session_id: SID, tool_name: "ExitPlanMode", cwd: dir, tool_input: { plan: "p" } }));
+    const r = cli(["session-start"], { ...env, MIADI_MIETTE_SEAT: "plan-4a740ef7-miette-insight" });
+    assert.equal(r.status, 0, r.stderr);
+    const context = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
+    assert.match(context, /Miette plan insight seat plan-4a740ef7-miette-insight/);
+    assert.match(context, /not running: arm \/miette-listen/);
+    assert.equal(cli(["session-start"], env).stdout, "", "silent outside a seat");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

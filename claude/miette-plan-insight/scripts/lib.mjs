@@ -21,7 +21,14 @@ export function stateRoot(env = process.env) {
 
 /** The capture root the session-observability hooks write, where `plans/` lives. */
 export function sessionDataRoot(env = process.env) {
-  return text(env.CLAUDE_SESSIONDATA_ROOT) ?? text(env.MIADI_SESSIONDATA_ROOT) ?? "/src/_sessiondata";
+  // The order session-observability's lib.sh and mct read.
+  return (
+    text(env.CLAUDE_SESSIONDATA_ROOT) ??
+    text(env.MIADI_SESSION_DIR) ??
+    text(env.MIADI_SESSIONDATA_ROOT) ??
+    text(env.SESSION_DATA_ROOT) ??
+    "/src/_sessiondata"
+  );
 }
 
 /** A session id or a seat name safe to use as one path segment. */
@@ -89,7 +96,8 @@ export function isSessionId(key) {
 /** The first line of an insight that carries its recommendation, for a one-line summary. */
 export function recommendationLine(insight) {
   const lines = String(insight).split("\n").map((l) => l.replace(/^[#>*\s-]+/, "").trim()).filter(Boolean);
-  const line = lines.find((l) => /^recommend/i.test(l) || /\b(accept|revise)\b/i.test(l)) ?? lines[0] ?? "";
+  // A line that opens with the recommendation wins over an earlier line that only mentions accept or revise.
+  const line = lines.find((l) => /^recommend/i.test(l)) ?? lines.find((l) => /\b(accept|revise)\b/i.test(l)) ?? lines[0] ?? "";
   return line.length > 200 ? `${line.slice(0, 197)}...` : line;
 }
 
@@ -134,7 +142,7 @@ export function episodeOf(join) {
 }
 
 /** The first prompt the seat receives. It names the plan, the session and the episode, and the skill to follow. */
-export function primerText({ seat, sessionId, planningTmux, planPath, userInputs, episode, mission, source, stateDir }) {
+export function primerText({ seat, sessionId, planningTmux, planPath, userInputs, episode, mission, source, stateDir, fileCommand = "node <plugin>/scripts/miette-plan-insight.mjs file" }) {
   const byHand = typeof source === "string" && source.startsWith("asked by hand");
   const lines = [
     `You are Miette in the plan insight seat ${seat}.`,
@@ -151,7 +159,7 @@ export function primerText({ seat, sessionId, planningTmux, planPath, userInputs
       : `No episode is known for that session. Ask William in your first turn which episode this plan belongs to, or whether it has none.`,
     `Your folder for this plan: ${stateDir}`,
     ``,
-    `Write your first insight, have the plan-critic agent critique it, revise, file it with \`miette-plan-insight file\`, then arm /miette-listen.`,
+    `Write your first insight, have the plan-critic agent critique it, revise, file it with \`${fileCommand} <your insight file>\`, then arm /miette-listen.`,
     `The plan-approval dialog in the planning session is William's to answer. Never type into that pane.`
   ];
   return lines.filter((l) => l !== undefined).join("\n");

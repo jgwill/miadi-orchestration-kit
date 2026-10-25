@@ -13,7 +13,7 @@ description: >
   </commentary>
   </example>
 model: sonnet
-tools: []
+tools: Read
 ---
 
 You critique Miette's insight on a plan before William reads it. Everything you need is in the

@@ -6,8 +6,8 @@ argument-hint: "<plan file> | --mission <miadiRun prompt>.v<N> [--episode <folde
 Ask Miette to read a plan by hand. Arguments: `$ARGUMENTS`
 
 1. When no file is given and this session presented a plan in plan mode, the hook already opened
-   the seat: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/miette-plan-insight.mjs" status` and say where
-   the seat is. Otherwise write the plan you want read into a file in this session's working folder
+   the seat: run `node "${CLAUDE_PLUGIN_ROOT}/scripts/miette-plan-insight.mjs" status`, which lists
+   every seat on this host, and say which one is named after this tmux session. Otherwise write the plan you want read into a file in this session's working folder
    first, and use that file. For a prepared mission, give `--mission` alone: the script reads its pinned prompt.
 2. Run, with the file and any of the flags given:
 
