@@ -201,9 +201,10 @@ installed plugin is a copy of this folder, so it cannot reach the kit by a relat
 
 ## Host integrations it uses when present
 
-- `/opt/binscripts/plan-insight/miette_claude_plan_perspective_claude.sh`, run in the
-  background when a plan is presented. When it is missing, `trace.log` records the failure and
-  nothing else changes.
+- A presented plan is kept as `plans/session_<id>_<yyMMddHHmm>.md`. Until 0.1.19 the hook also ran
+  `/opt/binscripts/plan-insight/miette_claude_plan_perspective_claude.sh`. Miette's perspective is
+  now the [`miette-plan-insight`](../miette-plan-insight) plugin's: a session that loads it opens a
+  Miette seat beside itself on the same event.
 - `jq` and `perl` are required. The sanitizer is written in perl.
 
 ## Check

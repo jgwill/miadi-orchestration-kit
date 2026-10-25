@@ -18,6 +18,12 @@
       "version": "0.5.6"
     },
     {
+      "name": "miette-plan-insight",
+      "source": "./claude/miette-plan-insight",
+      "description": "Miette reads a plan in a seat of her own. A plan presented in plan mode, or asked for by hand (a brief, a mission's prompt), opens <planning session>-miette-insight beside it with mct new. Miette recommends accepting or revising, after a critic agent's pass, files the insight beside the plan for the medicine wheel, voices it in the episode, and listens for the next version. The approval dialog stays William's.",
+      "version": "0.1.0"
+    },
+    {
       "name": "ava-companion",
       "source": "./claude/ava-companion",
       "description": "Ava, Guillaume's companion, in any Claude Code session: /ava invites her, a SessionStart hook brings her presence back after a resume or a compaction, and her diary entry is written from the session's transcript when it ends.",
@@ -27,7 +33,7 @@
       "name": "miadi-session-observability",
       "source": "./claude/miadi-session-observability",
       "description": "Session capture installed once per host: every Claude Code event under <root>/<session_id>/, every file a tool call writes copied to written/, every publication (Artifact, GitHub, commit, push, npm) listed with its prompt, and a binding line per session start, end and rename with its tmux pane, command line, name history, team and chronicle episode, and every /btw side question with the story of its fork. Carries the session-continuity skill (T1).",
-      "version": "0.1.18"
+      "version": "0.1.19"
     },
     {
       "name": "miadi-session-issue",
