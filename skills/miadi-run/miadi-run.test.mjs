@@ -27,10 +27,13 @@ const NEW_V2 = NEW_V1 + "and a second thought\n"
 const SEAT_ID = "aaaa1111-2222-4333-8444-555566667777"
 const SEAT_TMUX = `${NEW}-seat`
 const LAUNCHED_ID = "bbbb2222-3333-4444-8555-666677778888"
+// the session running every command of this test, as Claude Code names it to a tool call
+const SIGNER = "cccc3333-4444-4555-8666-777788889999"
 
 let root, stubs, logs, home, server, base, sessiondata
 const requests = []
 let promptBody = BODY_V1
+let limited = false
 
 function stub(name, stdout) {
   const file = join(stubs, name)
@@ -69,6 +72,8 @@ echo "observation sent"`)
       requests.push({ method: req.method, url: req.url, body })
       const send = (status, json) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(json)) }
       const u = new URL(req.url, "http://x")
+      // one rate limit before the first answer about the busy prompt, as Langfuse sends it
+      if (u.pathname === `/api/public/v2/prompts/${PROMPT}` && !limited) { limited = true; res.writeHead(429, { "Retry-After": "0" }); return res.end("{}") }
       if (u.pathname === "/api/public/v2/prompts" && u.searchParams.get("name") === PROMPT) return send(200, { data: [{ name: PROMPT, versions: [1], labels: ["latest", "production"], type: "text" }] })
       if (u.pathname === `/api/public/v2/prompts/${PROMPT}`) {
         const v = Number(u.searchParams.get("version"))
@@ -80,7 +85,7 @@ echo "observation sent"`)
         const file = join(logs, `created.${Number(u.searchParams.get("version"))}.txt`)
         return existsSync(file) ? send(200, { name: NEW, version: Number(u.searchParams.get("version")), type: "text", prompt: readFileSync(file, "utf8"), labels: [] }) : send(404, {})
       }
-      if (u.pathname === `/api/public/traces/${TRACE}`) return send(200, { id: TRACE, name: "Reciprocal mission inquiry — source and synthesis", sessionId: "miadi-reciprocal-mission-261011", input: "never printed", observations: [{ id: "child-1", parentObservationId: "root-1", startTime: "2026-10-11T10:48:01Z" }, { id: "root-1", parentObservationId: null, startTime: "2026-10-11T10:48:00Z" }] })
+      if (u.pathname === `/api/public/traces/${TRACE}`) return send(200, { id: TRACE, name: "Reciprocal mission inquiry — source and synthesis", sessionId: "miadi-reciprocal-mission-261011", input: "never printed", observations: [{ id: "child-1", parentObservationId: "root-1", startTime: "2026-10-11T10:48:01Z" }, { id: "root-1", parentObservationId: null, startTime: "2026-10-11T10:48:00Z" }, { id: "ret-1", parentObservationId: "root-1", startTime: "2026-10-12T09:00:00Z", name: `miadi-run · return · ${PROMPT}.v1`, input: JSON.stringify({ summary: "seat opened, mission done" }) }] })
       if (u.pathname === "/api/chronicle/episodes/9/tracing" && req.method === "POST") return send(JSON.parse(body).dryRun ? 200 : 201, { ok: true })
       return send(404, {})
     })
@@ -103,6 +108,7 @@ function cli(args) {
     MIADI_API_URL: base,
     MIADI_API_TOKEN_WRITER: SECRETS[2],
     CLAUDE_SESSIONDATA_ROOT: sessiondata,
+    CLAUDE_CODE_SESSION_ID: SIGNER,
   }
   return new Promise((resolve) => execFile(process.execPath, [SCRIPT, ...args], { env }, (error, stdout, stderr) => resolve({ code: error ? error.code : 0, stdout, stderr })))
 }
@@ -150,6 +156,10 @@ test("prepare --dry-run warns when tide's plan would not type the mission prompt
   assert.equal(existsSync(join(home, MISSION)), false)
 })
 
+test("a rate limit (429) is waited out, not read as a missing prompt", async () => {
+  assert.equal(limited, true, "the dry runs above already met one 429 on the prompt and went on")
+})
+
 test("prepare cannot execute: tide is asked for its plan only, nothing starts a seat", async () => {
   requests.length = 0
   const r = await cli(PREPARE)
@@ -190,6 +200,8 @@ test("prepare cannot execute: tide is asked for its plan only, nothing starts a 
   assert.match(coaia[0], /^fuse traces add-observation --trace-id d87a4c11\S* --parent-id root-1 /, "a parentless observation would become a root and rename the trace")
   assert.match(coaia[0], /miadi-run · preparation · /)
   assert.doesNotMatch(coaia[0], /--trace-name|prompts create|prompts update|--label/)
+  assert.equal(m.prepared_by, SIGNER, "the record names the session that prepared it")
+  assert.match(coaia[0], new RegExp(`"by":"${SIGNER}"`), "the observation names the session that wrote it")
 })
 
 test("a prepared mission is immutable: the same version cannot be prepared twice", async () => {
@@ -260,7 +272,10 @@ test("research and return observations are distinct kinds", async () => {
   assert.equal((await cli(["observe", "--trace", TRACE, "--kind", "research", "--summary", "discussed the prompt"])).code, 0)
   const r = await cli(["observe", MISSION, "--kind", "return", "--summary", "seat opened, mission done"])
   assert.equal(r.code, 0, r.stderr)
-  assert.equal(JSON.parse(r.stdout).state, "returned")
+  const returned = JSON.parse(r.stdout)
+  assert.equal(returned.state, "returned")
+  assert.deepEqual([returned.observations.at(-1).summary, returned.observations.at(-1).by], ["seat opened, mission done", SIGNER], "a return keeps its summary and its writer in the record")
+  assert.equal(returned.launch.recorded_by, SIGNER)
   const kinds = log("coaia").map((c) => c.match(/miadi-run · (\w+) · /)[1])
   assert.deepEqual(kinds, ["preparation", "execution", "research", "return"])
   const types = log("coaia").map((c) => c.match(/--type (\w+)/)[1])
@@ -351,10 +366,29 @@ test("given records the seat a mission was handed to and links it to the prompt 
 
 test("show and a return name the seat sessions of a mission", async () => {
   const shown = JSON.parse((await cli(["show", MISSION])).stdout)
-  assert.deepEqual(shown.seats.map((s) => s.session_id), [LAUNCHED_ID])
+  assert.deepEqual(shown.seats.map((s) => s.session_id), [LAUNCHED_ID, SIGNER], "the seat that recorded the mission, then the session that signed its events")
   const r = await cli(["observe", GIVEN, "--kind", "return", "--summary", "done in its own seat"])
   assert.equal(r.code, 0, r.stderr)
-  assert.match(log("coaia").at(-1), new RegExp(`"seat_sessions":\\["${SEAT_ID}"\\]`))
+  assert.match(log("coaia").at(-1), new RegExp(`"seat_sessions":\\["${SEAT_ID}","${SIGNER}"\\]`))
+})
+
+test("backfill reads a return's summary back from the trace into a record made before 0.6.0", async () => {
+  const file = join(home, MISSION, "mission.json")
+  const m = JSON.parse(readFileSync(file, "utf8"))
+  for (const o of m.observations) delete o.summary
+  writeFileSync(file, JSON.stringify(m, null, 2))
+  const coaiaBefore = log("coaia").length
+  const r = await cli(["backfill", MISSION])
+  assert.equal(r.code, 0, r.stderr)
+  const out = JSON.parse(r.stdout)
+  assert.equal(out.filled, 1)
+  assert.equal(JSON.parse(readFileSync(file, "utf8")).observations.find((o) => o.kind === "return").summary, "seat opened, mission done")
+  assert.equal(log("coaia").length, coaiaBefore, "backfill writes nothing to the trace")
+})
+
+test("show lists the sessions that signed a mission's events beside its seat", async () => {
+  const shown = JSON.parse((await cli(["show", MISSION])).stdout)
+  assert.deepEqual(shown.seats.map((s) => [s.session_id, s.source]), [[LAUNCHED_ID, "prompt"], [SIGNER, "signed"]])
 })
 
 test("the creative domain's keys are read from the env file", () => {
