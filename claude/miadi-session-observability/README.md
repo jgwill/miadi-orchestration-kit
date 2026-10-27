@@ -121,6 +121,20 @@ the Agent tool launched has no question and writes no line. SubagentStop names a
 its question in `agents/<id>.output.md` and `trace.log`, from Claude Code's `meta.json`.
 `tests/btw.sh` holds the rules.
 
+## Uncommitted, not written
+
+At each Stop, `hooks/claude_hooks/uncommitted_not_written.sh` reads `git status` in the repository
+the session runs in and in every repository it wrote a file into, and lists the uncommitted files
+that neither the session nor its subagents wrote (`_claude_files_written.jsonl`) in
+`<root>/<session_id>/_claude_uncommitted_not_written.json`. The session's own capture folder is
+left out, an untracked folder is the session's when it wrote inside it, and a repository reached
+through a link is named by its real path. When the reply that ends the turn names one of those
+files (by path, or by a file name only one of them carries), the hook stops the turn once and
+names them, so the report does not count another session's or the person's changes as its own.
+It never stops a turn twice in a row. R6 of the requirements of 2026-10-19, lane K6e.
+`tests/uncommitted-not-written.sh` holds the rules. On gaia's largest trees a Stop takes 1 to 3 s,
+most of it `git status` in `/home/mia/workspace`.
+
 ## Publications
 
 What a session put where other people can see it is one line in
@@ -219,6 +233,7 @@ bash tests/artifact-comments.sh
 bash tests/binding-agent.sh
 bash tests/binding-mission.sh
 bash tests/workspace-clone-guard.sh
+bash tests/uncommitted-not-written.sh
 CLAUDE_SESSIONDATA_ROOT=$(mktemp -d) claude --restricted --plugin-dir . --model haiku
 ```
 

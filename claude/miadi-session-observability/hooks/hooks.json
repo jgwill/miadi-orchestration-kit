@@ -136,6 +136,11 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/stop_hook.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/uncommitted_not_written.sh\"",
+            "timeout": 30
           }
         ]
       }
