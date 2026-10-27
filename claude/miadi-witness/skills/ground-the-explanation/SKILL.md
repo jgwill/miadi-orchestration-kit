@@ -39,7 +39,12 @@ description.
 3. **Ground it, with at least two sources, in this order:**
    - `/a/src/Miadi/foundations/<field>/` (README, field.md, synthesis.md). `ls` the folder first,
      because the field names change.
-   - The Wilson source, `/src/IAIP/sources/wilson-2008-research-is-ceremony/INDEX.md`. Search it
+   - The Wilson source, `/src/IAIP/sources/wilson-2008-research-is-ceremony/INDEX.md`, **only when
+     the work in front of us does what the page describes**: a circle held, a relationship answered
+     for, knowledge returned to the people it came from. Never as an analogy for a feature or a log.
+     Read the page in `text/pNNN.md`, not only the index line, and quote the sentence with what
+     comes before it. William, 2026-10-27: "you can't trust yourself on using that as a reference
+     without a loop" (witness-editor E7). Search it
      by its search words and cite a page.
    - Miadi reviews (the `miadi-review` skill, search) and chronicle episodes on the same subject.
    - Outside research. Verify it in the same turn with a web search when you can, and give the

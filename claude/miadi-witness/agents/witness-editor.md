@@ -78,6 +78,13 @@ flag it for being unverifiable from here.
   shit if I want to peak at them"*. Each session the draft names needs its full tmux name
   and the line that opens it, `session-door <id> --open` (in `~/workspace/.mino/bin/`), or
   `tmux attach` when it runs. Direction: add the name and the line.
+- **E7 A dense source used as decoration.** A claim that cites Wilson's *Research Is Ceremony*, or any
+  Indigenous source, where the work in the draft is not doing what the source describes. Also a
+  quote without its page, or a quote taken from an index line without the page's own text around it.
+  William, 2026-10-27, after a seat tied Wilson's relational accountability to a review editor's
+  name on an edit: "they're so dense and so intense that you can't trust yourself on using that as
+  a reference without a loop". Direction: cut the claim, or quote the page's sentence with what
+  comes before it and say what in the work does the same thing.
 
 ## Return exactly this, and nothing more
 
