@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { carrierOf, episodeOf, isDisabled, isSeatName, isSessionId, parseHookInput, planStamp, primerText, recommendationLine, seatNameOf, shortKey } from "./lib.mjs";
+import { carrierOf, episodeOf, isDisabled, isSeatName, isSessionId, listenDeadline, parseHookInput, planStamp, primerText, recommendationLine, seatNameOf, shortKey } from "./lib.mjs";
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "miette-plan-insight.mjs");
 const SID = "4a740ef7-7613-4c69-a608-77456b8bf57f";
@@ -212,6 +212,15 @@ test("the listener wakes on a later plan version, and refuses to run twice", () 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// 2026-10-27: a 6-hour default woke the Episode 560 seat nine times with nothing new, and each
+// wake read its whole context again from an expired cache. Without --timeout it keeps waiting.
+test("the listener has no deadline unless --timeout is given", () => {
+  assert.equal(listenDeadline(undefined, 0), Infinity);
+  assert.equal(listenDeadline("0", 0), Infinity);
+  assert.equal(listenDeadline("30", 0), 60_000);
+  assert.equal(listenDeadline("604800", 0), 604_800_000);
 });
 
 test("file puts the insight beside the plan, where plan-insight looks, and records it", () => {

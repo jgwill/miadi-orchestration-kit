@@ -17,5 +17,6 @@ Run the miette-plan-insight listener for this seat. Arguments: `$ARGUMENTS`
    pane is not a Miette seat: say so.
 
 When the background task exits with a `MIETTE WAKE`, follow the miette-plan-insight skill's turn
-for a new plan version, then re-arm with `/miette-listen`. Exit 4 is a timeout with nothing new:
-re-arm without writing to William.
+for a new plan version, then re-arm with `/miette-listen`. The listener has no
+deadline, so it ends only when a plan version arrives. Exit 4 comes only from a `--timeout`
+someone gave it: re-arm without writing to William, and without `--timeout`.

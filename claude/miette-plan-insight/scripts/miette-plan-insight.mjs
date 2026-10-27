@@ -26,6 +26,7 @@ import {
   isDisabled,
   isSeatName,
   isSessionId,
+  listenDeadline,
   recommendationLine,
   parseHookInput,
   planStamp,
@@ -552,7 +553,7 @@ async function listen(args) {
   updateJson(seatFile, { heard_plan: heard });
 
   const interval = Math.max(1, Number(args.interval ?? 5)) * 1000;
-  const deadline = Date.now() + Math.max(60, Number(args.timeout ?? 6 * 3600)) * 1000;
+  const deadline = listenDeadline(args.timeout);
   try {
     while (Date.now() < deadline) {
       const latest = planVersions(stateDir).at(-1) ?? null;

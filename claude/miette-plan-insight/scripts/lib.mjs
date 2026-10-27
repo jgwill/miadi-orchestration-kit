@@ -113,6 +113,15 @@ export function isSeatName(tmuxName) {
   return typeof tmuxName === "string" && tmuxName.endsWith(SEAT_SUFFIX);
 }
 
+/**
+ * When the listener gives up: never, unless --timeout names seconds (at least 60). A deadline that
+ * wakes the seat with nothing new makes it read its whole context again from an expired cache.
+ */
+export function listenDeadline(timeout, now = Date.now()) {
+  const seconds = Number(timeout ?? 0);
+  return seconds > 0 ? now + Math.max(60, seconds) * 1000 : Infinity;
+}
+
 /** tmux by default; herdr when MIADI_PLAN_INSIGHT_CARRIER names it. */
 export function carrierOf(env = process.env) {
   return text(env.MIADI_PLAN_INSIGHT_CARRIER)?.toLowerCase() === "herdr" ? "herdr" : "tmux";
