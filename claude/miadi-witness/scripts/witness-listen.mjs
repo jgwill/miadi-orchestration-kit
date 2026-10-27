@@ -8,6 +8,10 @@
 //   thread  a thread of this seat seen for the first time (binding lines and the registry)
 //   idle    a thread of this seat, or one named with --watch, went from busy to idle
 //
+// --classify (off by default) asks Jev what each idle event means (J7, scripts/wake-classify.mjs):
+// done, holds_question, idle_no_marks or running, one paid call per idle event. --classify-dry
+// builds the same request and sends nothing.
+//
 // What was present when the seat first listened is its baseline and never wakes it. State is
 // one file per seat: $WITNESS_STATE_DIR, else $XDG_STATE_HOME/miadi-witness/<seat>.json.
 
@@ -19,6 +23,7 @@ import { fileURLToPath } from "node:url";
 
 import { defaultPaths, snapshot } from "../service/threads.mjs";
 import { asksDir, readLedger } from "./asks-lib.mjs";
+import { classifyWake, loadDecider, wakeLine } from "./wake-classify.mjs";
 
 const SCRIPT = fileURLToPath(import.meta.url);
 const STATE_VERSION = 1;
@@ -266,7 +271,7 @@ function tmuxOf(thread) {
   return thread.tmux ? `tmux ${thread.tmux.session} ${thread.tmux.pane_id ?? ""}`.trim() : "no tmux";
 }
 
-export function formatWake({ seat, events, threads, asks, sessiondata, rearm = true, watch = [], onlyWatched = false }) {
+export function formatWake({ seat, events, threads, asks, sessiondata, rearm = true, watch = [], onlyWatched = false, classify = null }) {
   const lines = [`WITNESS WAKE · seat ${seat} · ${events.length} event${events.length === 1 ? "" : "s"} · ${new Date().toISOString()}`, ""];
   events.forEach((event, index) => {
     const n = `${index + 1}.`;
@@ -293,6 +298,7 @@ export function formatWake({ seat, events, threads, asks, sessiondata, rearm = t
         `${n} THREAD WENT IDLE · ${t.name ?? "(no name)"} (${t.session_id}) · busy → ${t.status}${t.status_since ? ` at ${t.status_since}` : ""}`,
         `   ${tmuxOf(t)}`,
         `   its last message: ${said ? JSON.stringify(said) : "not captured"}`,
+        ...(event.classification ? [wakeLine(event.classification)] : []),
         "",
       );
     }
@@ -301,7 +307,7 @@ export function formatWake({ seat, events, threads, asks, sessiondata, rearm = t
   lines.push(`Open asks (${open.length}, ledger ${join(asksDir(), `${seat}.json`)}):`);
   for (const ask of open) lines.push(`  ${ask.id} ${ask.status} · ${ask.title}`);
   if (!open.length) lines.push("  none");
-  const watchArgs = watch.map((w) => ` --watch "${w}"`).join("") + (onlyWatched ? " --only-watched" : "");
+  const watchArgs = watch.map((w) => ` --watch "${w}"`).join("") + (onlyWatched ? " --only-watched" : "") + (classify === "dry" ? " --classify-dry" : classify ? " --classify" : "");
   lines.push(
     "",
     "Turn budget (miadi-witness): this wake carries what an ordinary event needs.",
@@ -317,7 +323,7 @@ export function formatWake({ seat, events, threads, asks, sessiondata, rearm = t
 // ---------- commands ----------
 
 function parseArgs(argv) {
-  const args = { _: [], seat: "mino", interval: 20, timeout: 0, watch: [], self: undefined, onlyWatched: false };
+  const args = { _: [], seat: "mino", interval: 20, timeout: 0, watch: [], self: undefined, onlyWatched: false, classify: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--seat") args.seat = argv[++i];
@@ -326,6 +332,8 @@ function parseArgs(argv) {
     else if (arg === "--watch") args.watch.push(argv[++i]);
     else if (arg === "--self") args.self = argv[++i];
     else if (arg === "--only-watched") args.onlyWatched = true;
+    else if (arg === "--classify") args.classify = "jev";
+    else if (arg === "--classify-dry") args.classify = "dry";
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }
@@ -335,6 +343,9 @@ function parseArgs(argv) {
 const USAGE = `usage: witness-listen.mjs <command> [--seat mino] [--watch <session id or name>]... [--only-watched] [--self <id>|none]
   --only-watched  wake for the --watch sessions and their forks only, not every thread of the seat,
                   and for input blocks addressed to them only
+  --classify      ask Jev what each idle event means (J7): done, holds_question, idle_no_marks or
+                  running. One paid call per idle event, ledger ~/.miadi/decisions/wake-classify.jsonl.
+                  Off by default. --classify-dry builds the request and sends nothing.
   status   what this seat has seen, what is waiting, whether a listener runs
   peek     print what is waiting as a wake, without marking it seen
   await    block until an event, print the wake, exit 0
@@ -344,6 +355,22 @@ Scratchpads: $WITNESS_SCRATCHPADS_DIR, else ~/workspace/scratchpads.
 State: $WITNESS_STATE_DIR, else $XDG_STATE_HOME/miadi-witness/<seat>.json.`;
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+// J7 on each idle event, when asked. A reading that fails is printed as not read; the wake goes on.
+async function classifyEvents(events, mode, sessiondata) {
+  if (!mode || !events.some((e) => e.kind === "idle")) return events;
+  let decider;
+  try {
+    decider = await loadDecider();
+  } catch (error) {
+    for (const e of events) if (e.kind === "idle") e.classification = { error: `no decider: ${error.message}` };
+    return events;
+  }
+  for (const e of events) {
+    if (e.kind === "idle") e.classification = await classifyWake(e, { decider, dry: mode === "dry", sessiondata, bindingsPath: defaultPaths().bindings });
+  }
+  return events;
+}
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -364,6 +391,7 @@ async function main() {
   if (command === "status" || command === "peek") {
     const events = eventsOf(state, current);
     if (command === "peek") {
+      await classifyEvents(events, args.classify, sessiondata);
       console.log(events.length ? formatWake({ seat: args.seat, events, threads: current.model.threads, asks: asks(), sessiondata, rearm: false }) : "witness-listen: nothing waiting");
       return 0;
     }
@@ -403,7 +431,8 @@ async function main() {
     working = absorb(working, current, events);
     saveState(working);
     if (events.length) {
-      console.log(formatWake({ seat: args.seat, events, threads: current.model.threads, asks: asks(), sessiondata, watch: args.watch, onlyWatched: args.onlyWatched }));
+      await classifyEvents(events, args.classify, sessiondata);
+      console.log(formatWake({ seat: args.seat, events, threads: current.model.threads, asks: asks(), sessiondata, watch: args.watch, onlyWatched: args.onlyWatched, classify: args.classify }));
       return 0;
     }
     if (Date.now() >= deadline) {

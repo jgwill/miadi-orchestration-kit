@@ -28,6 +28,11 @@ Arguments: `$ARGUMENTS`
    Otherwise tell William in one line that the seat is listening, and what is waiting. If
    events are already waiting, the listener wakes at once. That is expected.
 
+`--classify` (off by default) adds Jev's reading under each idle event (J7,
+`scripts/wake-classify.mjs`): done, holds_question, idle_no_marks or running, with the move
+and the bar. Only a `holds_question` at or above the bar is for William; below the bar, read
+the thread yourself. One paid call per idle event; `--classify-dry` sends nothing.
+
 When the background task exits with a `WITNESS WAKE`, follow the turn budget it carries:
 hear from the wake, decide for each event, draft, run the `witness-editor` agent once with
 the draft and the open asks, revise against every span it returns, reply, then re-arm with

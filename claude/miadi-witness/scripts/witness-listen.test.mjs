@@ -176,6 +176,19 @@ test("a thread that goes from busy to idle wakes the seat with its last message;
   assert.equal(run(fx, quiet).code, 4);
 });
 
+test("Jev's reading of an idle event is off by default; --classify-dry adds its line and keeps the flag on re-arm", () => {
+  const fx = fixture();
+  run(fx, ["status"]);
+  registry(fx, ORIGINAL, "idle", "mino-260926");
+  mkdirSync(join(fx.sessiondata, ORIGINAL), { recursive: true });
+  writeFileSync(join(fx.sessiondata, ORIGINAL, "last_claude_AssistantResponse.json"), JSON.stringify({ last_assistant_message: "DONE K6 · tests pass" }));
+  assert.doesNotMatch(run(fx, ["peek"]).stdout, /Jev \(J7/);
+  const wake = run(fx, [...quiet, "--classify-dry"]);
+  assert.equal(wake.code, 0);
+  assert.match(wake.stdout, /its last message: "DONE K6 · tests pass"\n {3}Jev \(J7, dry\): nothing sent · ~\d+ tokens estimated, ~\d+ paid expected · DONE line present/);
+  assert.match(wake.stdout, /Re-arm in the background: node ".*witness-listen\.mjs" await --seat mino --classify-dry/);
+});
+
 test("a thread whose turn ends with a background command running (status shell) wakes the seat too", () => {
   const fx = fixture();
   run(fx, ["status"]);
