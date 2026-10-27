@@ -45,7 +45,12 @@ whole revision loop of any packages down the line is completed."* The first run'
    the revised ones, and regenerate each video from its prompt, as a new prompt version where the
    instruction changes. Keep the new videos and hand them to William for his next screenwalk,
    which starts the next cycle (R18: screenwalks move from one cycle to the next).
-6. **Make each lane a mission when you dispatch it.** Write the lane's task as a miadiRun prompt
+6. **Let Jev choose the worker before you start one.** Run
+   `node $MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-witness/scripts/choose-worker.mjs --task "<the lane>"`.
+   It answers `self`, `haiku`, `sonnet`, `opus`, `fable` or `seat`. Take its answer when its
+   confidence is 0.6 or more, and say which worker it chose. William, 2026-10-26: be "Economic in
+   your usage of subagents or spawning of other tmux workers".
+7. **Make each lane a mission when you dispatch it.** Write the lane's task as a miadiRun prompt
    (`miadi-run create miadiRun-<yyMMddHHmm>-<tmux name>-<mission> --text-file F`), prepare it on its
    episode, and ask Miette for her insight on it before the lane starts:
    `node $MIADI_ORCHESTRATION_KIT_ROOT/claude/miette-plan-insight/scripts/miette-plan-insight.mjs
@@ -54,9 +59,9 @@ whole revision loop of any packages down the line is completed."* The first run'
    start the lane with `mct new <team> <tmux name> --mission <prompt>.v<N> --authorized-by William`. The session is then born on its team and its mission. A lane that
    already runs gets `miadi-run given`. On 2026-10-25 the Episode 297 loop ran seven lanes and
    recorded none of them as a mission. No mission had been made in nine days.
-7. **Steer only the first lane of each repository.** The seat relays the next one on its DONE
+8. **Steer only the first lane of each repository.** The seat relays the next one on its DONE
    line (MINO §5, 2026-10-21). Read the pane and run `pane-write-guard.sh` before writing into it.
-8. **Report to him with session doors.** Name each seat by its full tmux name and the line
+9. **Report to him with session doors.** Name each seat by its full tmux name and the line
    `session-door <id> --open` (witness-editor E6), and give the map's path.
 
 ## What the first run found (Episode 297, 2026-10-25)
