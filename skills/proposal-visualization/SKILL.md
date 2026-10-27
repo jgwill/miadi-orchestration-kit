@@ -83,41 +83,78 @@ Leave out any part the proposal does not need. Keep the order of the ones you us
 
 On 2026-10-10 the owner asked that a proposal say which of its cards the agent would
 execute without him and which need him, and that the split come from the decision engine,
-not from the agent's own sense of it (session `miadi-episodic-memory-schema-and-mw-261010`,
-Episode 076 holds the Jev review the practice stands on). His rule of 2026-10-09: act when
-his word and the engine agree at 0.8 or above; otherwise come back.
+not from the agent's own sense of it (session `miadi-episodic-memory-schema-and-mw-261010`).
+The Jev review the practice stands on is miadi-review://b02ec47d-cd92-4829-84ed-238aafd1d9d6,
+and the study that revised it is `jev-study-261026.md` in Episode 564
+(miadi-chronicle://564). His rule of 2026-10-09: act when his word and the engine agree at
+0.8 or above; otherwise come back.
 
 The run is `scoring/score-proposal.mjs`. It reads every coded card on the page (A, E, D, Q
-by default), sends each one to Jev with the owner's request in his words, the page's own
-"Today" facts and the Decision Gate's D1 rule, and asks `questions.json`: is it implied by
-the request, reversible, grounded by the facts, is it his to decide, and then `obvious_now`
-(do now, do after his go, needs a decision). `policy.json` holds the thresholds and says who
-set them. Bands, in this order:
+by default) and sends each one to Jev with three things: the card, the owner's request in his
+words (`--request`), and a facts file written for the page (`--facts`). It asks
+`questions.json`:
 
-- **needs you** when `needs_owner` reads true at or above `owner_at` (names, deletions,
-  outside audiences, relationships), whatever `obvious_now` says. That is the D1 rule.
-- **would do now** when `obvious_now` is `do_now` at or above `act_at`.
+- six literal yes/no triggers, one trigger each: does the card delete something that exists,
+  touch a credential, name something new, spend money, write to a repository that is not his,
+  reach an outside audience;
+- for steps, whether the request implies it, whether it is reversible, and whether the facts
+  ground it; for decisions, whether only he can make it and whether the recommendation is sound.
+  These are kept in the ledger and stay off the band until his rulings show whether they
+  separate;
+- `obvious_now`: do now, do after his go, needs a decision, or `other` when none of those fits.
+
+The Decision Gate's D1 rule is written into `obvious_now`'s instructions, never sent as state.
+Jev reads the state as data: in Episode 549 a rule sent as state turned 6 "author" answers
+into 22. `policy.json` holds the thresholds and says who set them. Bands, in this order:
+
+- **needs you** when any trigger reads at or above `owner_at` (0.5), whatever `obvious_now`
+  says. That is the D1 rule.
+- **needs you** when any trigger reads between 0.4 and 0.6. An uncertain reading errs toward him.
+- **needs you** when `obvious_now` is `needs_decision` or `other`.
+- **would do now** when `obvious_now` is `do_now` at a confidence of `act_at` or above.
 - **after your go** otherwise.
+
+A choice's confidence is `(p_max - 1/n) / (1 - 1/n)`: how far the top option sits above an even
+split over its `n` options. So 0.8 on `obvious_now`'s four options means a top probability of
+0.85. Each record keeps both numbers.
+
+Write the facts file before scoring. It names the paths, numbers and versions each card
+rests on. The page's "Today" list is page-level and a card rarely restates its path, so
+`evidence_sufficient` averaged 0.24 on it. Without `--facts` the script falls back to that
+list and says so.
 
 ```bash
 cd skills/proposal-visualization/scoring
-node score-proposal.mjs page.html --request request.md --dry           # the requests, nothing sent
-node score-proposal.mjs page.html --request request.md --model jev-1.13.0 --out scores.json
+node score-proposal.mjs page.html --request request.md --facts facts.md --dry   # the requests, nothing sent
+node score-proposal.mjs page.html --request request.md --facts facts.md --out scores.json
 ```
 
-Then on the page: a chip on every scored card (`Jev · do_now 0.70 · after your go`), one
-section with the three lists, and a "Revision N" band saying the run happened. The ledger
-(`~/.miadi/decisions/proposal-score.jsonl`, outside every repository) keeps one record per
-question; the owner's one-word answers on the "needs you" cards are the first rulings the
-thresholds are calibrated from. Pin the model you calibrated on.
+The dry run prints the estimated tokens and the paid tokens to expect, at the ratio
+Episode 562 measured over 2,001 calls (paid = 1.61 × the estimate). The model is pinned in
+`questions.json` (`jev-1.13.0` for version 0.2.0). Never pass an alias: `jev-latest` is
+1.13.0 on jev-ai.pro and 1.14.0 on TypeSafe, and the script refuses it. `obvious_now`'s
+options are rotated card by card, because Jev leans toward the option that comes first.
 
-What leaves the host, per card: the card's text, the request file, the Today facts and the
+Then on the page: a chip on every scored card (`Jev · do_now 0.70 · after your go`), one
+section with the three lists, and a "Revision N" band saying the run happened.
+
+The ledger is `~/.miadi/decisions/proposal-score.jsonl`, outside every repository. Per card
+it keeps one `call` record: requested and resolved model, billing headers, tokens estimated
+beside tokens paid, the option order sent and the facts file's hash. Per question it keeps
+one `decision` record. Nothing is calibrated yet: 113 cards were scored by 2026-10-26 and
+none of the owner's answers was written down. His one-word answer on each "needs you" card is
+a ruling on that card's `obvious_now` decision. The script prints the command for each one,
+and `policy.json` holds it under `calibration`. After twenty rulings in a class,
+`lane-check.mjs calibrate` reports the cut that agreed with him, and a person sets the
+threshold from it.
+
+What leaves the host, per card: the card's text, the request file, the facts file and the
 questions. Never the page's other sections, never a key. The decider and the gate are
 lane-check's (`jgwill/smcraft` `examples/decision-gate/lane-check`), imported by path until
 they move into this kit; `LANE_CHECK_DIR` points at another checkout.
 
-An empty "would do now" is a result, not a failure: on the first page scored, every step read
-as implied and reversible and still sat under 0.8 while its shape awaited the owner's go.
+An empty "would do now" is a result, not a failure. Over the first 113 cards, 7 were "would do
+now", 61 "after your go" and 45 "needs you".
 
 ## Coded cards
 

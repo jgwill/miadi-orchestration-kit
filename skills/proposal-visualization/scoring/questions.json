@@ -1,12 +1,52 @@
 {
-  "about": "The typed questions Jev answers about one coded card of a proposal page, in the request shape lane-check uses (jgwill/smcraft examples/decision-gate/lane-check/lib/questions.mjs). The state is { card, request, facts, rule }: the card's own text, Guillaume's request in his words, the page's Today facts, and the Decision Gate's D1 rule. `kind_sets` maps a code prefix to a question set. `owner_question` names the noul that sends a card to 'needs you' whatever its number. Written by Mia on 2026-10-10 from Guillaume's rule of 2026-10-09 (act when his word and the engine agree at high confidence, come back otherwise).",
-  "version": "0.1.0",
+  "about": "The typed questions Jev answers about one coded card of a proposal page, in the request shape lane-check uses (jgwill/smcraft examples/decision-gate/lane-check/lib/questions.mjs). The state is { card, request, facts }: the card's own text, Guillaume's request in his words, and the facts file written for the page (--facts) or, without one, the page's Today list. The Decision Gate's D1 rule is not sent as state: Episode 549 measured that a rule in the state is read as data (22 author answers against 6). D1 lives in obvious_now's instructions, and its triggers are the six literal nouls of `triggers`, each one trigger with true and false reading the same way as the instruction; they are added to every set. Any trigger at or above owner_at, or inside policy's uncertain band, sends the card to 'needs you' whatever its number. obvious_now's options are rotated between cards and the order sent is recorded; `other` is its exit and always goes to 'needs you'. Written by Mia on 2026-10-10 from Guillaume's rule of 2026-10-09; revised 2026-10-26 from the Jev study of Episode 564 (R1, R3, R4, R7, R10).",
+  "version": "0.2.0",
   "model": "jev-1.13.0",
+  "model_rule": "One pinned version per questions version (R1). Never an alias: jev-latest is jev-1.13.0 on jev-ai.pro and jev-1.14.0 on TypeSafe. 458 of the first 519 records were on jev-1.13.0, and JevBench ranks jev-1.14.0 below it; move to another version only with rulings on both.",
   "default_kinds": "A,E,D,Q",
   "kind_names": { "A": "action step", "E": "text edit", "D": "decision", "Q": "question", "C": "correction", "R": "risk", "N": "later outcome" },
   "kind_sets": { "A": "step", "E": "step", "D": "decision", "Q": "decision" },
-  "owner_question": "needs_owner",
-  "rule": "Decision Gate D1: decisions about relationships, names, deletions, money and anything reaching people outside the circle are never settled by a number; they go to the person with the evidence. Everything else that his request already asks for, that can be undone without asking forgiveness, and that the facts ground, is done and reported.",
+  "trigger_questions": ["deletes", "credential", "names_new", "money", "foreign_repo", "outside_audience"],
+  "rotate": ["obvious_now"],
+  "exit_options": { "obvious_now": "other" },
+  "triggers": {
+    "deletes": {
+      "class": "trigger",
+      "type": "noul",
+      "instructions": "Does `card` delete a file, a branch, a record or a session that exists today?",
+      "criteria": { "true": "It deletes something that exists.", "false": "It deletes nothing." }
+    },
+    "credential": {
+      "class": "trigger",
+      "type": "noul",
+      "instructions": "Does `card` create, read, move or send a key, a token or a password?",
+      "criteria": { "true": "It touches a credential.", "false": "It touches none." }
+    },
+    "names_new": {
+      "class": "trigger",
+      "type": "noul",
+      "instructions": "Does `card` give a new name to a package, repository, session, episode or public title?",
+      "criteria": { "true": "It names something new.", "false": "It names nothing new." }
+    },
+    "money": {
+      "class": "trigger",
+      "type": "noul",
+      "instructions": "Does `card` spend money or change a plan or a balance?",
+      "criteria": { "true": "It spends or changes money.", "false": "It does not." }
+    },
+    "foreign_repo": {
+      "class": "trigger",
+      "type": "noul",
+      "instructions": "Does `card` write to a repository or account that is not Guillaume's own?",
+      "criteria": { "true": "It writes to someone else's repository or account.", "false": "It writes only to Guillaume's own, or to none." }
+    },
+    "outside_audience": {
+      "class": "trigger",
+      "type": "noul",
+      "instructions": "Does `card` publish, post, release or send something people outside the circle will see?",
+      "criteria": { "true": "It reaches an outside audience.", "false": "It reaches nobody outside the circle." }
+    }
+  },
   "sets": {
     "step": {
       "implied_by_request": {
@@ -36,23 +76,15 @@
           "false": "The card rests on something not measured, or on a choice the facts leave open."
         }
       },
-      "needs_owner": {
-        "class": "needs_owner",
-        "type": "noul",
-        "instructions": "Does `card` name something new, delete something, change a repository or account that is not the agent's own, reach an outside audience, or settle a relationship between people, so that under `rule` only Guillaume may decide it?",
-        "criteria": {
-          "true": "The card does at least one of those things.",
-          "false": "The card does none of those things."
-        }
-      },
       "obvious_now": {
         "class": "obvious_now",
         "type": "choice",
-        "instructions": "Should the agent do `card` now, before Guillaume reads the proposal, under `rule`?",
+        "instructions": "Should the agent do `card` now, before Guillaume reads the proposal? The Decision Gate's D1 rule: decisions about relationships, names, deletions, credentials, money, someone else's repository and anything reaching people outside the circle are never settled by a number; they go to him with the evidence. Everything else that his request already asks for, that can be undone without asking forgiveness, and that the facts ground, is done and reported.",
         "criteria": {
           "do_now": "The request asks for it, it is reversible, the facts ground it, and it names, deletes, publishes or settles nothing that is his: do it and report it.",
           "do_after_go": "It is right but rests on a shape or an order Guillaume has not yet accepted on this page; do it once he says go.",
-          "needs_decision": "It cannot be done rightly without an answer only he can give."
+          "needs_decision": "It cannot be done rightly without an answer only he can give.",
+          "other": "None of the above: doing it now, doing it after his go and needing his answer all misdescribe this card."
         }
       }
     },
@@ -60,7 +92,7 @@
       "only_owner_decides": {
         "class": "only_owner_decides",
         "type": "noul",
-        "instructions": "Is the choice in `card` one only Guillaume can make under `rule`: a name, a deletion, a relationship, money, an outside audience, or the shape of his own practice?",
+        "instructions": "Is the choice in `card` one only Guillaume can make: a name, a deletion, a relationship, money, an outside audience, or the shape of his own practice?",
         "criteria": {
           "true": "Only he can make it.",
           "false": "A careful colleague could make it from the facts and report it."
@@ -75,23 +107,15 @@
           "false": "The recommendation rests on a preference of his the facts do not show, or another option is as good."
         }
       },
-      "needs_owner": {
-        "class": "needs_owner",
-        "type": "noul",
-        "instructions": "Does settling `card` name something new, delete something, reach an outside audience, or settle a relationship between people, so that under `rule` only Guillaume may settle it?",
-        "criteria": {
-          "true": "It does at least one of those things.",
-          "false": "It does none of those things."
-        }
-      },
       "obvious_now": {
         "class": "obvious_now",
         "type": "choice",
-        "instructions": "Should the agent settle `card` on its recommended option now, before Guillaume reads the proposal, under `rule`?",
+        "instructions": "Should the agent settle `card` on its recommended option now, before Guillaume reads the proposal? The Decision Gate's D1 rule: decisions about relationships, names, deletions, credentials, money, someone else's repository and anything reaching people outside the circle are never settled by a number; they go to him with the evidence. Everything else that his request already asks for, that can be undone without asking forgiveness, and that the facts ground, is done and reported.",
         "criteria": {
           "do_now": "The recommendation follows from the facts, is reversible, and settles nothing that is his: take it and say so.",
           "do_after_go": "The recommendation is sound but the card belongs to a shape he has not yet accepted on this page.",
-          "needs_decision": "Only he can answer it."
+          "needs_decision": "Only he can answer it.",
+          "other": "None of the above: settling it now, after his go, or by his answer all misdescribe this card."
         }
       }
     }

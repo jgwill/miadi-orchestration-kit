@@ -2,25 +2,31 @@
 // score-proposal — ask Jev, for every coded card on a proposal page, whether it is obvious
 // enough to execute now, and split the page into "would do now", "after your go" and "needs you".
 //
-//   node score-proposal.mjs <page.html> --request <request.md> [--facts <facts.md>]
+//   node score-proposal.mjs <page.html> --request <request.md> --facts <facts.md>
 //        [--questions questions.json] [--policy policy.json] [--model jev-1.13.0]
 //        [--only A,E,D,Q] [--dry] [--out scores.json] [--ledger <file.jsonl>]
 //   node score-proposal.mjs models            # the key's service and models; no inference
 //
 // What leaves the host, per card: the card's own text, Guillaume's request (the --request
-// file, his words), the page's "Today" facts, and the typed questions. Nothing else. The key
-// is read by lane-check's decider from the environment or one literal line of ~/.env, and
-// it is never printed. `--dry` sends nothing and prints the request sizes.
+// file, his words), the page's facts file (--facts: the paths and numbers the cards rest on;
+// without it, the page's "Today" list), and the typed questions. Nothing else. The key is
+// read by lane-check's decider from the environment or one literal line of ~/.env, and it is
+// never printed. `--dry` sends nothing and prints the request sizes, with the paid tokens to
+// expect at Episode 562's measured ratio.
 //
 // The decider and the DecisionGate machine are lane-check's (jgwill/smcraft
 // examples/decision-gate/lane-check), imported by path until they move into the kit
 // (lane-check/ISSUE-DRAFTS.md). Set LANE_CHECK_DIR to another checkout.
 //
-// Bands, per card, after the Decision Gate's D1 rule: a card the engine reads as naming,
-// deleting, reaching an outside audience or settling a relationship goes to "needs you"
-// whatever its number. Otherwise obvious_now decides: do_now at or above act_at is
-// "would do now"; do_now below it, or do_after_go, is "after your go"; needs_decision is
-// "needs you". Thresholds come from policy.json and say who set them.
+// Bands, per card, in this order (Jev study of Episode 564, S2):
+//   1. any of the six trigger nouls at or above owner_at -> needs you (the D1 rule);
+//   2. any trigger inside the uncertain band (0.4 to 0.6) -> needs you;
+//   3. obvious_now needs_decision, or its exit `other` -> needs you;
+//   4. obvious_now do_now at confidence >= act_at -> would do now;
+//   5. otherwise -> after your go.
+// Thresholds come from policy.json and say who set them. A choice's confidence is
+// (p_max - 1/n) / (1 - 1/n), so each record keeps top_probability beside it.
+import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -32,6 +38,12 @@ const decider = await import(pathToFileURL(join(LANE_CHECK, "lib", "decider.mjs"
 const { buildRequest, decideDry, decideJev, listModels, readAnswer, estimateTokens } = decider;
 
 export const BANDS = { act: "would do now", ask: "after your go", owner: "needs you" };
+// Paid input tokens were 1.61 times the JSON/4 estimate over Episode 562's 2,001 calls
+// (jev-study-261026.md part 2.6). The dry run prints the estimate at that ratio until each
+// page's ledger measures its own (estimated_input_tokens beside paid_input_tokens).
+export const PAID_RATIO = 1.61;
+// Aliases resolve to different versions on the two hosts; a ledger on one cannot be read.
+export const ALIASES = ["jev-latest", "jev-preview"];
 
 function parseArgs(argv) {
   const args = { _: [], flags: {} };
@@ -80,58 +92,127 @@ export function extractFacts(html) {
 
 export function loadJson(path) { return JSON.parse(readFileSync(path, "utf8")); }
 
-function wire(questions) {
-  return Object.fromEntries(Object.entries(questions).map(([id, q]) => [id, { type: q.type, instructions: q.instructions, criteria: q.criteria }]));
+// The questions for one card: the set's own questions plus the six trigger nouls.
+export function questionsFor(set, setName) {
+  const own = set.sets?.[setName];
+  if (!own) return null;
+  return { ...own, ...(set.triggers ?? {}) };
 }
 
-// One card's readings into a band. The D1 rule first, then obvious_now against the policy.
-export function bandOf(readings, policy, set) {
-  const ownerQ = set.owner_question;
-  const owner = readings[ownerQ];
-  const act_at = policy.classes?.obvious_now?.act_at;
-  if (owner && owner.value === true && typeof owner.p === "number" && owner.p >= (policy.classes?.[ownerQ]?.owner_at ?? 0.5)) {
-    return { band: "owner", why: `${ownerQ} ${owner.p.toFixed(2)}: the Decision Gate's D1 rule, never settled by the number` };
+// obvious_now's options in a rotated order, so the first-option lean the vendor documents
+// can be measured (R7). Card i gets the options shifted by i.
+export function rotateCriteria(criteria, shift) {
+  const keys = Object.keys(criteria);
+  const k = ((shift % keys.length) + keys.length) % keys.length;
+  const order = [...keys.slice(k), ...keys.slice(0, k)];
+  return { order, criteria: Object.fromEntries(order.map((key) => [key, criteria[key]])) };
+}
+
+export function wire(questions, shift = 0, rotate = []) {
+  const orders = {};
+  const out = {};
+  for (const [id, q] of Object.entries(questions)) {
+    let criteria = q.criteria;
+    if (q.type === "choice" && criteria && !Array.isArray(criteria)) {
+      if (rotate.includes(id)) ({ criteria } = rotateCriteria(criteria, shift));
+      orders[id] = Object.keys(criteria);
+    }
+    out[id] = { type: q.type, instructions: q.instructions, criteria };
   }
+  return { questions: out, orders };
+}
+
+export function topProbability(probabilities) {
+  const values = Object.values(probabilities ?? {}).filter((v) => typeof v === "number");
+  return values.length ? Math.max(...values) : null;
+}
+
+// The top probability a confidence bar requires on a choice of n options.
+export function topProbabilityFor(confidence, n) {
+  return Number((confidence * (1 - 1 / n) + 1 / n).toFixed(3));
+}
+
+export function sha256(text) {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+// One card's readings into a band, in the order of S2.
+export function bandOf(readings, policy, set) {
+  const trigger = policy.classes?.trigger ?? {};
+  const ownerAt = trigger.owner_at ?? 0.5;
+  const [low, high] = trigger.uncertain_band ?? [0.4, 0.6];
+  const ids = set.trigger_questions ?? [];
+  const fmt = (id) => `${id} ${typeof readings[id]?.p === "number" ? readings[id].p.toFixed(2) : "unanswered"}`;
+  const over = ids.filter((id) => typeof readings[id]?.p === "number" && readings[id].p >= ownerAt);
+  if (over.length) return { band: "owner", why: `${over.map(fmt).join(", ")}: the Decision Gate's D1 rule, never settled by the number`, triggers: over };
+  const unsure = ids.filter((id) => typeof readings[id]?.p !== "number" || (readings[id].p >= low && readings[id].p <= high));
+  if (unsure.length) return { band: "owner", why: `${unsure.map(fmt).join(", ")}: uncertain, so it errs toward the person`, triggers: unsure };
+  const actAt = policy.classes?.obvious_now?.act_at;
+  const exit = set.exit_options?.obvious_now ?? "other";
   const o = readings.obvious_now;
-  if (!o || o.value == null) return { band: "ask", why: "obvious_now unanswered" };
-  if (o.value === "needs_decision") return { band: "owner", why: `obvious_now needs_decision ${o.p.toFixed(2)}` };
-  if (o.value === "do_now" && typeof act_at === "number" && o.p >= act_at) return { band: "act", why: `obvious_now do_now ${o.p.toFixed(2)} at or above act_at ${act_at}` };
-  if (o.value === "do_now") return { band: "ask", why: `obvious_now do_now ${o.p.toFixed(2)} below act_at ${act_at ?? "unset"}` };
-  return { band: "ask", why: `obvious_now ${o.value} ${o.p.toFixed(2)}` };
+  if (!o || o.value == null) return { band: "ask", why: "obvious_now unanswered", triggers: [] };
+  if (o.value === "needs_decision") return { band: "owner", why: `obvious_now needs_decision ${o.p.toFixed(2)}`, triggers: [] };
+  if (o.value === exit) return { band: "owner", why: `obvious_now ${exit} ${o.p.toFixed(2)}: none of the options fits, so he reads it whatever its confidence`, triggers: [] };
+  if (o.value === "do_now" && typeof actAt === "number" && o.p >= actAt) return { band: "act", why: `obvious_now do_now ${o.p.toFixed(2)} at or above act_at ${actAt}`, triggers: [] };
+  if (o.value === "do_now") return { band: "ask", why: `obvious_now do_now ${o.p.toFixed(2)} below act_at ${actAt ?? "unset"}`, triggers: [] };
+  return { band: "ask", why: `obvious_now ${o.value} ${o.p.toFixed(2)}`, triggers: [] };
 }
 
 export function ledgerPath(env = process.env) {
   return env.PROPOSAL_SCORE_LEDGER || join(homedir(), ".miadi", "decisions", "proposal-score.jsonl");
 }
 
-async function scoreCard({ card, request, facts, set, policy, model, dry }) {
-  const questions = set.sets[set.kind_sets[card.kind]];
+async function scoreCard({ card, index, request, facts, set, policy, model, dry }) {
+  const questions = questionsFor(set, set.kind_sets[card.kind]);
   if (!questions) return null;
-  const state = { card: { code: card.code, kind: set.kind_names[card.kind] ?? card.kind, text: card.text }, request, facts, rule: set.rule };
-  const req = buildRequest(state, wire(questions), model);
+  const state = { card: { code: card.code, kind: set.kind_names[card.kind] ?? card.kind, text: card.text }, request, facts };
+  const { questions: wired, orders } = wire(questions, index, set.rotate ?? []);
+  const req = buildRequest(state, wired, model);
   const result = dry ? await decideDry(req) : await decideJev(req);
   const readings = {};
   for (const [id, q] of Object.entries(questions)) {
     const r = readAnswer(result.answers?.[id]);
-    readings[id] = { class: q.class, type: q.type, value: r.value, p: r.p, p_measures: r.p_measures, probabilities: r.probabilities ?? null };
+    readings[id] = { class: q.class, type: q.type, value: r.value, p: r.p, p_measures: r.p_measures, probabilities: r.probabilities ?? null, top_probability: q.type === "choice" ? topProbability(r.probabilities) : null, option_order: orders[id] ?? null, read_status: r.read_status ?? null, failures: r.failures ?? null };
   }
-  const band = dry ? { band: null, why: "dry run: nothing sent" } : bandOf(readings, policy, set);
-  return { code: card.code, kind: card.kind, estimated_input_tokens: estimateTokens(req), model: result.model, sent: result.sent, run_id: result.billing?.run_id ?? result.id ?? null, billing: result.billing ?? null, readings, ...band };
+  const band = dry ? { band: null, why: "dry run: nothing sent", triggers: [] } : bandOf(readings, policy, set);
+  const estimated = estimateTokens(req);
+  const paid = Number(result.billing?.paid_input_tokens_used ?? NaN);
+  return {
+    code: card.code, kind: card.kind, requested_model: model, model: result.model, sent: result.sent,
+    run_id: result.billing?.run_id ?? result.id ?? null, billing: result.billing ?? null, usage: result.usage ?? null,
+    estimated_input_tokens: estimated, expected_paid_tokens: Math.round(estimated * PAID_RATIO),
+    paid_input_tokens: Number.isFinite(paid) ? paid : (result.usage?.input_tokens ?? null),
+    validation: result.validation ?? null, readings, ...band,
+  };
 }
 
-function ledgerRecords(scored, { page, policy, set, now }) {
+export function ledgerRecords(scored, { page, policy, set, now, facts }) {
+  const stamp = now.replace(/[-:.TZ]/g, "").slice(0, 14);
   const out = [];
   for (const s of scored) {
+    const subject = `proposal:${page}#${s.code}`;
+    // One record per call: what it cost, beside what the dry estimate said (R5).
+    out.push({
+      kind: "call", id: `call-${s.code}-${stamp}`, at: now, subject_ref: subject, questions_version: set.version,
+      requested_model: s.requested_model, decider: s.model, run_id: s.run_id,
+      facts_source: facts.source, facts_sha256: facts.sha256,
+      option_orders: Object.fromEntries(Object.entries(s.readings).filter(([, r]) => r.option_order).map(([q, r]) => [q, r.option_order])),
+      estimated_input_tokens: s.estimated_input_tokens, expected_paid_tokens: s.expected_paid_tokens, paid_input_tokens: s.paid_input_tokens,
+      billing: s.billing, usage: s.usage, validation: s.validation,
+    });
     for (const [qid, r] of Object.entries(s.readings)) {
+      const cls = policy.classes?.[r.class];
       out.push({
         kind: "decision",
-        id: `prop-${s.code}-${qid}-${now.replace(/[-:.TZ]/g, "").slice(0, 14)}`,
+        id: `prop-${s.code}-${qid}-${stamp}`,
         at: now,
-        question: { id: qid, class: r.class, kind: r.type, subject_ref: `proposal:${page}#${s.code}`, criteria_ref: set.version },
-        relation: policy.classes?.[r.class] ? { word_owner: policy.classes[r.class].word_owner ?? "lane", reversible: policy.classes[r.class].reversible ?? true, outward_facing: policy.classes[r.class].outward_facing ?? false } : null,
-        policy: { class: r.class, act_at: policy.classes?.[r.class]?.act_at ?? null, block_at: policy.classes?.[r.class]?.block_at ?? null, set_by: policy.set_by ?? null },
-        value: r.value, p: r.p, p_measures: r.p_measures, probabilities: r.probabilities,
-        band: s.band, band_why: s.why, decider: s.model, run_id: s.run_id, ruling_id: null,
+        question: { id: qid, class: r.class, kind: r.type, subject_ref: subject, criteria_ref: set.version },
+        relation: cls ? { word_owner: cls.word_owner ?? "lane", reversible: cls.reversible ?? true, outward_facing: cls.outward_facing ?? false } : null,
+        policy: { class: r.class, act_at: cls?.act_at ?? null, owner_at: cls?.owner_at ?? null, block_at: cls?.block_at ?? null, set_by: policy.set_by ?? null },
+        value: r.value, p: r.p, p_measures: r.p_measures, probabilities: r.probabilities, top_probability: r.top_probability,
+        option_order: r.option_order, read_status: r.read_status, failures: r.failures,
+        band: s.band, band_why: s.why, requested_model: s.requested_model, decider: s.model, run_id: s.run_id,
+        facts_sha256: facts.sha256, ruling_id: null,
       });
     }
   }
@@ -159,7 +240,7 @@ async function main() {
   }
   const page = pos[0];
   if (!page || !flags.request) {
-    console.log("usage: score-proposal.mjs <page.html> --request <request.md> [--facts <facts.md>] [--questions q.json] [--policy p.json] [--model jev-1.13.0] [--only A,E,D,Q] [--dry] [--out scores.json] [--ledger file]");
+    console.log("usage: score-proposal.mjs <page.html> --request <request.md> --facts <facts.md> [--questions q.json] [--policy p.json] [--model jev-1.13.0] [--only A,E,D,Q] [--dry] [--out scores.json] [--ledger file]");
     process.exit(2);
   }
   const html = readFileSync(page, "utf8");
@@ -167,27 +248,47 @@ async function main() {
   const policy = loadJson(flags.policy || join(HERE, "policy.json"));
   const only = (flags.only || set.default_kinds || "A,E,D,Q").split(",").map((s) => s.trim());
   const request = readFileSync(flags.request, "utf8").trim();
-  const facts = flags.facts ? readFileSync(flags.facts, "utf8").trim() : extractFacts(html);
-  const model = flags.model || set.model || "jev-latest";
+  const factsText = flags.facts ? readFileSync(flags.facts, "utf8").trim() : extractFacts(html);
+  const facts = { text: factsText, source: flags.facts ? `file:${resolve(flags.facts)}` : "page Today list", sha256: sha256(factsText) };
+  if (!flags.facts) console.error("score-proposal: no --facts file; the page's Today list is sent, and evidence_sufficient reads thin on it (R4). Write the paths and numbers the cards rest on into a facts file.");
+  const model = flags.model || set.model;
+  if (!model) throw new Error(`${flags.questions || "questions.json"} pins no model; pin one version (R1)`);
+  if (ALIASES.includes(model)) throw new Error(`${model} is an alias that resolves differently on jev-ai.pro and TypeSafe; pin a version such as ${set.model ?? "jev-1.13.0"} (R1)`);
+  if (set.model && model !== set.model) console.error(`score-proposal: questions ${set.version} are pinned to ${set.model}; this run on ${model} is recorded as requested_model ${model} and is not the pinned series (R1).`);
   const dry = Boolean(flags.dry);
   const cards = extractCards(html, only);
   if (cards.length === 0) throw new Error("no coded cards found on the page");
   const scored = [];
-  for (const card of cards) {
-    const s = await scoreCard({ card, request, facts, set, policy, model, dry });
+  for (const [index, card] of cards.entries()) {
+    const s = await scoreCard({ card, index, request, facts: facts.text, set, policy, model, dry });
     if (!s) continue;
     scored.push(s);
     const o = s.readings.obvious_now;
-    console.log(`${(s.band ? BANDS[s.band] : "dry").padEnd(13)} ${s.code.padEnd(4)} ${String(o?.value ?? "-").padEnd(15)} p=${typeof o?.p === "number" ? o.p.toFixed(2) : "  -  "} ~${s.estimated_input_tokens} tokens${s.sent ? "" : " (not sent)"}`);
+    const tokens = dry ? `~${s.estimated_input_tokens} tokens estimated, ~${s.expected_paid_tokens} paid expected at Episode 562's ratio ${PAID_RATIO} (not sent)` : `${s.paid_input_tokens ?? "?"} tokens paid (estimated ~${s.estimated_input_tokens})`;
+    console.log(`${(s.band ? BANDS[s.band] : "dry").padEnd(13)} ${s.code.padEnd(4)} ${String(o?.value ?? "-").padEnd(15)} p=${typeof o?.p === "number" ? o.p.toFixed(2) : "  -  "} top=${typeof o?.top_probability === "number" ? o.top_probability.toFixed(2) : "  -  "} ${tokens}`);
   }
   const now = new Date().toISOString();
-  const record = { at: now, page: resolve(page), model, questions_version: set.version, policy_set_by: policy.set_by ?? null, dry, cards: scored };
+  const n = Object.keys(set.sets?.step?.obvious_now?.criteria ?? {}).length || 4;
+  const actAt = policy.classes?.obvious_now?.act_at;
+  if (typeof actAt === "number") console.log(`act_at ${actAt} on obvious_now's ${n} options is a top probability of ${topProbabilityFor(actAt, n)}`);
+  if (dry) {
+    const est = scored.reduce((a, s) => a + s.estimated_input_tokens, 0);
+    console.log(`dry: ${scored.length} calls, ~${est} tokens estimated, ~${Math.round(est * PAID_RATIO)} paid expected at Episode 562's ratio ${PAID_RATIO}`);
+  }
+  const record = { at: now, page: resolve(page), requested_model: model, questions_version: set.version, policy_set_by: policy.set_by ?? null, facts_source: facts.source, facts_sha256: facts.sha256, dry, cards: scored };
   if (flags.out) writeFileSync(flags.out, JSON.stringify(record, null, 2) + "\n");
   if (!dry) {
     const ledger = flags.ledger || ledgerPath();
     mkdirSync(dirname(ledger), { recursive: true });
-    for (const r of ledgerRecords(scored, { page: resolve(page), policy, set, now })) appendFileSync(ledger, `${JSON.stringify(r)}\n`);
+    const records = ledgerRecords(scored, { page: resolve(page), policy, set, now, facts });
+    for (const r of records) appendFileSync(ledger, `${JSON.stringify(r)}\n`);
     console.log(`ledger ${ledger}`);
+    const owner = new Set(scored.filter((s) => s.band === "owner").map((s) => s.code));
+    const ids = records.filter((r) => r.kind === "decision" && r.question.id === "obvious_now" && owner.has(r.question.subject_ref.split("#").pop()));
+    if (ids.length) {
+      console.log("his answer on each 'needs you' card is a ruling on its obvious_now decision:");
+      for (const r of ids) console.log(`  LANE_CHECK_LEDGER=${ledger} node ${join(LANE_CHECK, "lane-check.mjs")} rule ${r.id} --by Guillaume --verdict <act|hold|deepen|return|defer|no> --words "<his words>"`);
+    }
   }
   console.log("");
   console.log(summary(scored));
