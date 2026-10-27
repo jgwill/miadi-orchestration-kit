@@ -1,0 +1,7 @@
+# Words the word gate (hooks/word-gate.mjs) refuses in a prompt or in kept text.
+# One entry per line: <word> | <what to write instead> | <what the word was being used for>
+# A word matches whole, in any case, and with a plural "s". A package name that carries it
+# (`@medicine-wheel/gap-analysis`, or a quoted `gap-analysis`) is not refused.
+# William, 2026-10-26: "ensure that is not into the specification, code or whatever and we shall
+# continue to have validation and even some insurance in DeepDiver's plugin, hooks".
+gap | resolve tension | the space between current reality and the desired outcome

@@ -1,0 +1,17 @@
+{
+  "description": "miadi-deepdiver: the word gate refuses a prompt or kept text that carries a word from forbidden-words.txt (first entry: the space between current reality and the desired outcome is written as resolve tension). Deterministic, no model.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/word-gate.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

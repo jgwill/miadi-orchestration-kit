@@ -19,8 +19,9 @@ claude plugin install miadi-deepdiver@miadi-orchestration-kit
 | command `/deepdive` | Give it an episode, a review, or both. It finds the other, takes the review's Deep Diver line as its brief, checks Chrome is signed in, builds the notebook, asks the questions, makes the media, and lands it in the episode with `notebooks:` in `episode.yaml`. Ends with `DONE <notebook url> <commit>`. |
 | command `/notebook-from-reviews` | The notebook and media only, for a set of review IDs or an episode's reviews. It never posts to a talking circle or writes into an episode. |
 | command `/notebook-from-handoff` | A notebook from a handoff or spec written in a repository — a session's `docs/handoffs/*.md` and the spec it links — asked the handoff's open inquiries, with its media kept beside it (`<handoff>.notebook-<id>/`). The brief is the handoff's **The Deep Diver path.** line. First handoff written for it: jgwill/smcraft `docs/handoffs/2026-10-18-stage-and-marks.md`. |
+| hook `word-gate` | PreToolUse on Write and Edit. Refuses a prompt or kept text (a file named for a prompt or under `prompts/`, and what a notebook keeps: `captures/notebook-<id>/`, `keep/`, `<handoff>.notebook-<id>/`) whose added text carries a word from `forbidden-words.txt`, and names the word and the system rule. The first entry is the word for the space between current reality and the desired outcome, written as "resolve tension". A package name that carries it (`@medicine-wheel/gap-analysis`) passes. A list and a match, no model. Tests: `node --test claude/miadi-deepdiver/hooks/word-gate.test.mjs`. |
 
-The plugin has no hooks and no MCP server. DeepDiver is a command line.
+The plugin has no MCP server. DeepDiver is a command line.
 
 ## Runtime floors
 
