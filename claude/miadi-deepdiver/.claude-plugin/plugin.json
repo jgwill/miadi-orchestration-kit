@@ -1,7 +1,7 @@
 {
   "name": "miadi-deepdiver",
-  "description": "DeepDiver for the Miadi Factory's production team (T6): feed Miadi reviews and their screenwalk videos into a Gemini Notebook, ask it the episode's questions, generate and keep its media (infographics, video and audio overviews, interactive reports), and put that media on screen in the next screenwalk. Give /deepdive an episode, a review, or both and it runs the whole pass, from a Chrome signed in once to the media landed in the episode. Carries the screenwalk-notebook skill, which performs the NotebookFed and MediaMade transitions of the screenwalk media cycle, /notebook-from-reviews, and /notebook-from-handoff for a session's handoff or spec written in a repository.",
-  "version": "0.3.0",
+  "description": "DeepDiver for the Miadi Factory's production team (T6): feed Miadi reviews and their screenwalk videos into a Gemini Notebook, ask it the episode's questions, generate and keep its media (infographics, video and audio overviews, interactive reports), and put that media on screen in the next screenwalk. Give /deepdive an episode, a review, or both and it runs the whole pass, from a Chrome signed in once to the media landed in the episode. Carries the screenwalk-notebook skill, which performs the NotebookFed and MediaMade transitions of the screenwalk media cycle, /notebook-from-reviews, and /notebook-from-handoff for a session's handoff or spec written in a repository. A word gate (PreToolUse on Write and Edit) refuses a prompt or kept text carrying a word from forbidden-words.txt.",
+  "version": "0.4.0",
   "author": {
     "name": "jgwill"
   },
