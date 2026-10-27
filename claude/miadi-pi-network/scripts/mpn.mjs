@@ -165,7 +165,9 @@ async function consumeEvents(state, onEvent, signal) {
     signal,
   });
   if (!response.ok || !response.body) {
-    throw new Error(`event stream failed with HTTP ${response.status}`);
+    const error = new Error(`event stream failed with HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
@@ -444,13 +446,25 @@ async function cmdSend(options, positional) {
   }
 }
 
+// timeoutSeconds 0 waits until the hub resolves the message: an answer, an error, or the hub's
+// own 30-minute expiry. A hub that does not answer for a while does not end that wait.
 async function waitForResponse(state, msgId, timeoutSeconds) {
-  const deadline = Date.now() + timeoutSeconds * 1000;
+  const deadline = timeoutSeconds > 0 ? Date.now() + timeoutSeconds * 1000 : Infinity;
+  let lastError = "";
   while (Date.now() < deadline) {
-    const message = await api(
-      "GET",
-      `/v1/messages/${encodeURIComponent(msgId)}?caller_session=${encodeURIComponent(state.session_id)}`,
-    );
+    let message;
+    try {
+      message = await api(
+        "GET",
+        `/v1/messages/${encodeURIComponent(msgId)}?caller_session=${encodeURIComponent(state.session_id)}`,
+      );
+    } catch (error) {
+      if (timeoutSeconds > 0 || (error?.status >= 400 && error?.status < 500)) throw error;
+      if (redact(error) !== lastError) process.stderr.write(`mpn: ${redact(error)}, still waiting\n`);
+      lastError = redact(error);
+      await sleep(5000);
+      continue;
+    }
     if (["complete", "error", "timeout"].includes(message.status)) {
       out(`--- ${message.status} from ${message.target_name ?? "peer"} ---`);
       if (message.error) out(`error: ${message.error}`);
@@ -461,54 +475,71 @@ async function waitForResponse(state, msgId, timeoutSeconds) {
     }
     await sleep(2000);
   }
-  out(`still ${"pending"} after ${timeoutSeconds}s — poll again with: mpn await ${msgId}`);
+  out(`still pending after ${timeoutSeconds}s — wait for it as a background task: mpn await ${msgId}`);
   process.exit(3);
 }
 
 async function cmdAwait(options, positional) {
   const state = identity(options);
   const msgId = positional[0];
-  if (!msgId) fail("usage: mpn await <msg_id> [--timeout 180]");
-  await waitForResponse(state, msgId, Number(options.timeout) || 180);
+  if (!msgId) fail("usage: mpn await <msg_id> [--timeout S]");
+  await waitForResponse(state, msgId, Number(options.timeout) || 0);
 }
 
 // Drain inbound prompts. The hub replays queued and delivered prompts when a
 // stream opens, so a short connection is enough to see the backlog. With
-// --wait N the process keeps listening and exits as soon as a prompt arrives,
-// which is the wake path for a backgrounded shell.
+// --wait the process keeps listening and exits as soon as a prompt arrives,
+// which is the wake path for a backgrounded shell. --wait alone has no
+// deadline and reopens a stream the hub drops, so a quiet network wakes
+// nobody; --wait N gives up after N seconds (exit 3).
 async function cmdInbox(options) {
   const state = identity(options);
-  const waitSeconds = Number(options.wait ?? 0);
+  const listen = options.wait === true || Number(options.wait) > 0;
+  const waitSeconds = options.wait === true ? 0 : Number(options.wait ?? 0);
   const controller = new AbortController();
-  const prompts = [];
+  const prompts = new Map();
   let settle = null;
 
   const finish = () => controller.abort(new Error("done"));
-  const stream = consumeEvents(state, (event, data) => {
-    if (event !== "prompt") return;
-    prompts.push(data);
+  const onEvent = (event, data) => {
+    if (event !== "prompt" || prompts.has(data.msg_id)) return;
+    prompts.set(data.msg_id, data);
     if (settle) clearTimeout(settle);
     settle = setTimeout(finish, 250);
-  }, controller.signal).catch((error) => {
-    if (!controller.signal.aborted) throw error;
-  });
+  };
 
   const idle = setTimeout(() => {
-    if (prompts.length === 0 && waitSeconds > 0) return;
+    if (prompts.size === 0 && listen) return;
     finish();
   }, SETTLE_MS);
   const hardStop = waitSeconds > 0 ? setTimeout(finish, waitSeconds * 1000) : null;
 
-  await stream;
+  let backoff = 1000;
+  let lastError = "";
+  while (!controller.signal.aborted) {
+    try {
+      await consumeEvents(state, onEvent, controller.signal);
+      if (!listen) break;
+      lastError = "the hub closed the stream";
+    } catch (error) {
+      if (controller.signal.aborted) break;
+      // A refused token or an unknown peer will not heal while the seat sleeps.
+      if (!listen || waitSeconds > 0 || (error?.status >= 400 && error?.status < 500)) throw error;
+      if (redact(error) !== lastError) process.stderr.write(`mpn: stream lost (${redact(error)}), still listening\n`);
+      lastError = redact(error);
+    }
+    await sleep(backoff);
+    backoff = Math.min(backoff * 2, 10_000);
+  }
   clearTimeout(idle);
   if (hardStop) clearTimeout(hardStop);
   if (settle) clearTimeout(settle);
 
-  if (prompts.length === 0) {
+  if (prompts.size === 0) {
     out("no pending prompts");
     process.exit(waitSeconds > 0 ? 3 : 0);
   }
-  for (const prompt of prompts) {
+  for (const prompt of prompts.values()) {
     out(`--- ${prompt.msg_id} from ${prompt.sender?.name ?? "unknown"} (hops ${prompt.hops ?? 0}) ---`);
     out(prompt.prompt);
     out(`--- reply with: mpn respond ${prompt.msg_id} --stdin ---`);
@@ -675,8 +706,9 @@ const USAGE = `mpn — Miadi Pi Network client for Claude Code
                                          a detached keepalive (--no-keepalive to skip)
   mpn peers                              list other peers and their purposes
   mpn send PEER "prompt" [--await 180]   send a prompt; optionally block for the reply
-  mpn await MSG_ID [--timeout 180]       poll a sent message until it resolves
-  mpn inbox [--wait 300]                 show inbound prompts; --wait blocks until one lands
+  mpn await MSG_ID [--timeout S]         wait for a sent message until the hub resolves it
+  mpn inbox [--wait [S]]                 show inbound prompts; --wait blocks until one lands
+                                         (no deadline unless S is given)
   mpn respond MSG_ID "text" | --stdin    answer an inbound prompt
   mpn serve [--responder "claude -p"]    unattended peer: answer every inbound prompt
   mpn leave                              unregister this peer and stop its keepalive

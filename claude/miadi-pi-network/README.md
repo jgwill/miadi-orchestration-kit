@@ -57,8 +57,9 @@ To run a hub locally, see `pi/miadi-pi-network/README.md`.
 
 **Call out.** `mpn send <peer> "..." --await 180`. Works from any turn, no listener needed.
 
-**Be woken.** `mpn inbox --wait 600` as a background Bash command. It exits when a prompt
-arrives, and that exit re-invokes the session with the prompt in hand. The answer passes a
+**Be woken.** `mpn inbox --wait` as a background Bash command. It exits when a prompt
+arrives, and that exit re-invokes the session with the prompt in hand. It has no deadline, so
+a quiet network wakes nobody. The answer passes a
 human turn before `mpn respond` sends it.
 
 **Be unattended.** `mpn serve --responder 'claude -p'`. Holds the stream, heartbeats,
@@ -98,7 +99,9 @@ Two peers, one message, one reply. That is the proof.
 ```
 
 `serve` was verified the same way with a stub responder, and `inbox --wait` was verified to
-exit 0 on an arriving prompt and 3 on a quiet window.
+exit 0 on an arriving prompt and 3 on a quiet window. Since 0.1.1 (2026-10-27) `inbox --wait`
+and `await` have no deadline unless one is given: verified to exit 0 on an arriving prompt, to
+keep listening while the hub is down, and to exit 2 on a refused token.
 
 ## Boundaries
 

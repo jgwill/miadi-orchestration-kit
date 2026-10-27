@@ -13,8 +13,10 @@
 // name, so nothing else tells the listener the seat wrote them.
 //
 // `await` blocks until something new arrives, prints a CIRCLE WAKE with the exact words, marks
-// them seen, and exits 0. Exit 4: timeout, nothing new. Exit 5: another await already listens
-// for this seat. Exit 2: usage, or a door that refused forty polls in a row (about twenty minutes). Run it with run_in_background: true.
+// them seen, and exits 0. It has no deadline and a door that refuses does not end it, so a quiet
+// circle costs the seat no tokens. Exit 4: a --timeout someone gave ran out, nothing new.
+// Exit 5: another await already listens for this seat. Exit 2: usage, a missing token, or a door
+// that answers 401, 403 or 404. Run it with run_in_background: true.
 //
 // The first read of a ceremony or of the review list is a baseline: what is already there is
 // seen. Tokens are read from the environment, else from ~/.env, and never printed:
@@ -40,7 +42,7 @@ function usage(msg) {
 }
 
 function parseArgs(argv) {
-  const a = { cmd: argv[0], seat: "mino", ceremonies: [], reviews: false, reviewIds: [], interval: 30, timeout: 6 * 3600 };
+  const a = { cmd: argv[0], seat: "mino", ceremonies: [], reviews: false, reviewIds: [], interval: 30, timeout: 0 };
   for (let i = 1; i < argv.length; i++) {
     const k = argv[i];
     if (k === "--seat") a.seat = argv[++i];
@@ -241,8 +243,11 @@ async function main() {
   for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => process.exit(130));
 
   console.log(`circle-listen: listening for seat ${args.seat}`);
-  const deadline = Date.now() + args.timeout * 1000;
+  // No deadline unless --timeout names seconds: a wake with nothing new makes the seat read its
+  // whole context again from an expired cache, only to re-arm (2026-10-27, Episode 560's seat).
+  const deadline = args.timeout > 0 ? Date.now() + args.timeout * 1000 : Infinity;
   let failures = 0;
+  let lastError = "";
   for (;;) {
     // Re-read the state each poll: `mark`, run by the seat after it relays words, writes the
     // same file, and a listener holding its state in memory would wake on the relay anyway.
@@ -250,14 +255,22 @@ async function main() {
     let result;
     try {
       result = await read(args, state);
+      if (failures) console.error(`circle-listen: the door answers again after ${failures} failed poll${failures === 1 ? "" : "s"}`);
       failures = 0;
+      lastError = "";
     } catch (err) {
-      // A door that fails for a while is not the end of the watch: a 502 while the wheel's tunnel
-      // is down, or a production rebuild of the app (about ten minutes, measured 2026-10-06).
-      // Forty failures in a row, about twenty minutes at the default interval, is.
+      // A door that fails is not the end of the watch: a 502 while the wheel's tunnel is down, or
+      // a production rebuild of the app (about ten minutes, measured 2026-10-06). The seat can do
+      // nothing about it, so it is not woken. A new message is logged once, not every poll.
+      // A missing token, or a door that refuses this seat or does not know the ceremony, will not
+      // heal while the seat sleeps: that ends the watch at once, exit 2.
+      if (/ needed to read|answered 40[134]\b/.test(err.message)) {
+        console.error(`circle-listen: ${err.message}`);
+        process.exit(2);
+      }
       failures += 1;
-      console.error(`circle-listen: ${err.message} (${failures} in a row)`);
-      if (failures >= 40) process.exit(2);
+      if (err.message !== lastError) console.error(`circle-listen: ${err.message} (poll ${failures} in a row), still listening`);
+      lastError = err.message;
       await new Promise((r) => setTimeout(r, args.interval * 1000));
       continue;
     }

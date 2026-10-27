@@ -104,13 +104,16 @@ the thread; `await_marks` waits for it.
 
 ## Waiting for the person
 
-- `await_marks {timeoutSeconds: 120}` holds the tool call until a new mark or reply arrives.
-- To wake a session without holding a call — the companion pattern — run the CLI as a
-  **background task**; it exits 0 with the mark, the context, and the exact commands to answer and
-  to listen again (4 on timeout):
+- `await_marks {timeoutSeconds: 120}` holds the tool call until a new mark or reply arrives. Use
+  it for an answer you expect within that one call. Do not call it again in a loop: each call
+  reads the whole session again while nothing has happened.
+- To wait longer, wake the session without holding a call — the companion pattern: run the CLI as
+  a **background task**. It exits 0 with the mark, the context, and the exact commands to answer
+  and to listen again. It has no deadline (smcx 0.1.7 and later; 0.1.5 and earlier stop after
+  1800 s), so it costs nothing until the person marks:
 
   ```bash
-  smcx --doc /abs/system.sysdf.json marks await --timeout 1800
+  smcx --doc /abs/system.sysdf.json marks await
   smcx --doc /abs/system.sysdf.json marks reply m-… "what you say"
   ```
 

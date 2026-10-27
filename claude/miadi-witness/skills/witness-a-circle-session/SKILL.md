@@ -100,8 +100,9 @@ node "$KIT/claude/miadi-witness/scripts/circle-listen.mjs" await --seat mino --c
 
 It wakes on a turn or diary entry spoken by anyone but the seat, on a ceremony closing, and,
 with `--reviews`, on a new Miadi review. Its first read is a baseline. It prints the exact words
-and the re-arm command. Exit 4 is a timeout, and exit 5 means another listener already runs
-for the seat.
+and the re-arm command. It has no deadline and keeps listening through a door that refuses, so
+it wakes the seat only when the circle moves. Exit 4 comes only from a `--timeout` someone gave
+it, and exit 5 means another listener already runs for the seat.
 
 ## When William forks the seat
 

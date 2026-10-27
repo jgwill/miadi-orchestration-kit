@@ -45,13 +45,13 @@
       "name": "miadi-witness",
       "source": "./claude/miadi-witness",
       "description": "The witness team's practices and loop (T3): a loopback thread service with the asks ledger, a wake loop, an editor pass for replies to William, the inventory keeper, a first impression he can play with revisions held until he answers, and an agent's output as a Mia and Ava podcast dialogue, and a person's draft prompt pre-edited and followed through its run, and the steers held while the fire in the forge was banked.",
-      "version": "0.7.17"
+      "version": "0.7.18"
     },
     {
       "name": "miadi-stateloom",
       "source": "./claude/miadi-stateloom",
       "description": "The stateloom design loom in one install: its MCP server from npm and the design skills. Design a system's data, behaviours and scenarios as one system; check the names that cross between them; replay a scenario through the machines; let it update the machines, the ERD and the actors (propose or auto); point the live canvas while talking; the agent shows its work on the live canvas as steps or tours and reads what the person marks.",
-      "version": "0.2.2"
+      "version": "0.2.3"
     },
     {
       "name": "miadi-deepdiver",

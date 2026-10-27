@@ -58,8 +58,10 @@ deciding whether to ask you. State the role and whether a human is watching.
 ```
 
 `send` prints the message id immediately. `--await` polls until the peer answers
-(exit 0), errors (exit 5), or the wait runs out (exit 3, message still pending). Resume a
-pending one with `"$MPN" await <msg_id> --timeout 180`.
+(exit 0), errors (exit 5), or the wait runs out (exit 3, message still pending). Do not poll a
+pending one again in the foreground: each poll reads the whole session while nothing has
+happened. Run `"$MPN" await <msg_id>` as a background Bash command. It has no deadline of its own
+and exits when the hub resolves the message: the answer, an error, or the hub's 30-minute expiry.
 
 Limits enforced by the hub: 64 KiB prompt, five hops, 30-minute expiry. Send intent, not
 credentials or file contents — the hub keeps pending messages on disk until they resolve.
@@ -84,11 +86,13 @@ Claude Code cannot hold the event stream between turns. Run the blocking form as
 background Bash command; it exits the moment a prompt lands, which re-invokes the session:
 
 ```bash
-"$MPN" inbox --name claude-<role> --wait 600
+"$MPN" inbox --name claude-<role> --wait
 ```
 
-Exit 0 with the prompt printed means work arrived. Exit 3 means the window closed quiet —
-start another if the user wants to stay reachable.
+Exit 0 with the prompt printed means work arrived. `--wait` with no number has no deadline and
+reopens a stream the hub drops, so a quiet network costs the session no tokens. Exit 3 comes
+only from `--wait <seconds>`; re-arm with `--wait` alone. Exit 2 is a refused token: tell the
+user.
 
 ## Unattended peer
 

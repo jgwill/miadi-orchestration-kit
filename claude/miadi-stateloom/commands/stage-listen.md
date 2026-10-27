@@ -19,8 +19,11 @@ Arguments: `$ARGUMENTS`
    `run_in_background: true`:
 
    ```bash
-   npx -y -p @miadi/stateloom-cli smcx --doc "<abs path>" marks await --timeout 3600
+   npx -y -p @miadi/stateloom-cli@0.1.7 smcx --doc "<abs path>" marks await
    ```
+
+   No `--timeout`: the listener ends only when the person marks, so a quiet canvas costs no
+   tokens. smcx 0.1.5 and earlier stop after 1800 s, hence the pinned version.
 
    Tell the person in one line that you are listening on that drawing or system.
 
@@ -32,7 +35,7 @@ When the task exits 0 with `NEW MARK FROM …`:
    elements with your words as the caption), or the `smcx … marks reply` command the wake prints.
    One or two sentences on the canvas; anything longer goes in your reply to the person.
 3. If the answer needs a walk through several drawings, `show_step` them in order, or `/stage-present`.
-4. Re-arm with the command the wake printed (background again). Exit 4 is a timeout: re-arm
-   silently.
+4. Re-arm with the command above (background again). Exit 4 comes only from a `--timeout`
+   someone gave it: re-arm silently, without `--timeout`.
 
 Never edit a `.marks.json` by hand: the tools keep the thread's status right and tell the canvas.
