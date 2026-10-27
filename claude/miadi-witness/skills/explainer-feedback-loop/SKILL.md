@@ -46,10 +46,13 @@ whole revision loop of any packages down the line is completed."* The first run'
    instruction changes. Keep the new videos and hand them to William for his next screenwalk,
    which starts the next cycle (R18: screenwalks move from one cycle to the next).
 6. **Let Jev choose the worker before you start one.** Run
-   `node $MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-witness/scripts/choose-worker.mjs --task "<the lane>"`.
+   `node $MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-witness/scripts/choose-worker.mjs --task "<the lane>" --facts-file <survey lines> --repository <owner/repo|none> --shared-service <name|none>`.
    It answers `self`, `haiku`, `sonnet`, `opus`, `fable` or `seat`. Take its answer when its
-   confidence is 0.6 or more, and say which worker it chose. William, 2026-10-26: be "Economic in
-   your usage of subagents or spawning of other tmux workers".
+   confidence is 0.6 or more (a top probability of 0.667 on six options), and say which worker
+   it chose. Below the bar, choose between the top two and record it with
+   `choose-worker.mjs --ruling confirm|override --by <seat> --choice <worker>`. Any trigger it
+   prints after "needs William for" goes into the lane's brief as the act the lane stops before.
+   William, 2026-10-26: be "Economic in your usage of subagents or spawning of other tmux workers".
 7. **Make each lane a mission when you dispatch it.** Write the lane's task as a miadiRun prompt
    (`miadi-run create miadiRun-<yyMMddHHmm>-<tmux name>-<mission> --text-file F`), prepare it on its
    episode, and ask Miette for her insight on it before the lane starts:
