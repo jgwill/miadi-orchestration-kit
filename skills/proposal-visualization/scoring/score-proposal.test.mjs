@@ -16,7 +16,7 @@ const choice = (value, p) => ({ class: "obvious_now", type: "choice", value, p }
 
 test("the D1 rule is not sent as state, and every set carries the six trigger nouls and an exit", () => {
   assert.equal(set.rule, undefined);
-  assert.equal(set.version, "0.2.0");
+  assert.equal(set.version, "0.3.0");
   assert.ok(!ALIASES.includes(set.model));
   assert.deepEqual(set.trigger_questions, ["deletes", "credential", "names_new", "money", "foreign_repo", "outside_audience"]);
   for (const name of Object.keys(set.sets)) {

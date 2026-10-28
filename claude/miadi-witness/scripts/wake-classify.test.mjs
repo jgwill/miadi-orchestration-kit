@@ -84,7 +84,7 @@ test("a classified wake is one call, one ledger record, and one line under the e
   const decider = fakeDecider(choice("holds_question", { done: 0.05, holds_question: 0.85, idle_no_marks: 0.05, running: 0.05 }));
   const c = await classifyWake(idle, { decider, sessiondata: fx.sessiondata, bindingsPath: fx.bindings, env: { WAKE_CLASSIFY_LEDGER: fx.ledger }, now: () => new Date("2026-10-27T05:00:00Z") });
   assert.equal(decider.sent.length, 1);
-  assert.equal(decider.sent[0].model, "jev-1.13.0");
+  assert.equal(decider.sent[0].model, "jev-1.14.0");
   assert.equal(decider.sent[0].state.marks.done_line, false);
   assert.equal(c.state, "holds_question");
   const record = JSON.parse(readFileSync(fx.ledger, "utf8").trim());

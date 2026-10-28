@@ -18,8 +18,8 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const MODEL = "jev-1.13.0";
-export const QUESTIONS_VERSION = "0.1.0";
+export const MODEL = "jev-1.14.0";
+export const QUESTIONS_VERSION = "0.2.0";
 export const BAR = 0.6;
 export const TAIL_EVENTS = 3;
 export const MESSAGE_TAIL = 1500;

@@ -7,7 +7,7 @@
 // usage: choose-worker.mjs --task "<what the work is>" [--task-file F]
 //                          [--facts "<what is known>"] [--facts-file F]
 //                          --repository <owner/repo|none> [--shared-service <name|none>]
-//                          [--model jev-1.13.0] [--dry] [--json]
+//                          [--model jev-1.14.0] [--dry] [--json]
 //        choose-worker.mjs --ruling <confirm|override> --by <who> --choice <worker> [--words "<verbatim>"]
 //
 // What leaves the host: the task, the facts (the dispatch survey's lines), the repository the
@@ -32,11 +32,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const LANE_CHECK = process.env.LANE_CHECK_DIR || "/workspace/repos/jgwill/smcraft/examples/decision-gate/lane-check";
 const { buildRequest, decideDry, decideJev, estimateTokens, readAnswer } = await import(pathToFileURL(join(LANE_CHECK, "lib", "decider.mjs")).href);
 
-// Pinned with the proposal scorer (study R1): jev-1.13.0 holds 458 of its 519 records and
-// JevBench ranks 1.14.0 below it. The questions changed in 0.2.0, so these records start a
-// fresh series whatever the model.
-export const MODEL = "jev-1.13.0";
-export const QUESTIONS_VERSION = "0.2.0";
+// Pinned with the proposal scorer (study R1): jev-1.14.0 from questions 0.3.0 on 2026-10-28,
+// at the owner's word. jev-1.13.0 held the 0.2.0 series (458 of 519 records). Each questions
+// version starts a fresh series whatever the model.
+export const MODEL = "jev-1.14.0";
+export const QUESTIONS_VERSION = "0.3.0";
 export const ALIASES = ["jev-latest", "jev-preview"];
 export const OWNER_AT = 0.5;
 export const WORKER_BAR = 0.6;
@@ -188,7 +188,7 @@ function args(argv) {
   return out;
 }
 
-const USAGE = "usage: choose-worker.mjs --task \"<work>\" [--task-file F] [--facts \"<known>\"] [--facts-file F] --repository <owner/repo|none> [--shared-service <name|none>] [--model jev-1.13.0] [--dry] [--json]\n       choose-worker.mjs --ruling <confirm|override> --by <who> --choice <worker> [--words \"<verbatim>\"]";
+const USAGE = "usage: choose-worker.mjs --task \"<work>\" [--task-file F] [--facts \"<known>\"] [--facts-file F] --repository <owner/repo|none> [--shared-service <name|none>] [--model jev-1.14.0] [--dry] [--json]\n       choose-worker.mjs --ruling <confirm|override> --by <who> --choice <worker> [--words \"<verbatim>\"]";
 
 async function main() {
   const a = args(process.argv.slice(2));

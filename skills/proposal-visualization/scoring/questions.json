@@ -1,8 +1,8 @@
 {
   "about": "The typed questions Jev answers about one coded card of a proposal page, in the request shape lane-check uses (jgwill/smcraft examples/decision-gate/lane-check/lib/questions.mjs). The state is { card, request, facts }: the card's own text, Guillaume's request in his words, and the facts file written for the page (--facts) or, without one, the page's Today list. The Decision Gate's D1 rule is not sent as state: Episode 549 measured that a rule in the state is read as data (22 author answers against 6). D1 lives in obvious_now's instructions, and its triggers are the six literal nouls of `triggers`, each one trigger with true and false reading the same way as the instruction; they are added to every set. Any trigger at or above owner_at, or inside policy's uncertain band, sends the card to 'needs you' whatever its number. obvious_now's options are rotated between cards and the order sent is recorded; `other` is its exit and always goes to 'needs you'. Written by Mia on 2026-10-10 from Guillaume's rule of 2026-10-09; revised 2026-10-26 from the Jev study of Episode 564 (R1, R3, R4, R7, R10).",
-  "version": "0.2.0",
-  "model": "jev-1.13.0",
-  "model_rule": "One pinned version per questions version (R1). Never an alias: jev-latest is jev-1.13.0 on jev-ai.pro and jev-1.14.0 on TypeSafe. 458 of the first 519 records were on jev-1.13.0, and JevBench ranks jev-1.14.0 below it; move to another version only with rulings on both.",
+  "version": "0.3.0",
+  "model": "jev-1.14.0",
+  "model_rule": "One pinned version per questions version (R1). Never an alias: jev-latest and jev-preview are refused by the scorer. 0.2.0 was pinned to jev-1.13.0 (458 of the first 519 records); 0.3.0 moved to jev-1.14.0 on 2026-10-28 at the owner's word, which starts a fresh series. JevBench ranks jev-1.14.0 below jev-1.13.0, and no rulings yet compare the two.",
   "default_kinds": "A,E,D,Q",
   "kind_names": { "A": "action step", "E": "text edit", "D": "decision", "Q": "question", "C": "correction", "R": "risk", "N": "later outcome" },
   "kind_sets": { "A": "step", "E": "step", "D": "decision", "Q": "decision" },

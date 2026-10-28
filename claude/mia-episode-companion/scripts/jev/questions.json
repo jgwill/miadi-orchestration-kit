@@ -1,7 +1,7 @@
 {
   "about": "The typed questions Jev answers about one Mia return before it reaches William, in the request shape lane-check uses (jgwill/smcraft examples/decision-gate/lane-check/lib/questions.mjs). The state is { take, draft, evidence }: William's words exactly, the revised return exactly, and one line per thing the turn actually did. `flag_when` says which answer asks Mia to look again. A flag never blocks delivery: Mia revises once more or keeps the sentence and says why. First written in Episode 120's jev branch (2026-10-09), where these questions caught both of William's catches on one return and missed a limit offered as a proposal on the next (branches/jev/report.md); 0.2.0 widens outside_limit for that miss and pins the model.",
-  "version": "0.2.0",
-  "model": "jev-1.13.0",
+  "version": "0.3.0",
+  "model": "jev-1.14.0",
   "questions": {
     "return_status": {
       "class": "return_status",

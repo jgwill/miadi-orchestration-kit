@@ -131,8 +131,8 @@ node score-proposal.mjs page.html --request request.md --facts facts.md --out sc
 
 The dry run prints the estimated tokens and the paid tokens to expect, at the ratio
 Episode 562 measured over 2,001 calls (paid = 1.61 × the estimate). The model is pinned in
-`questions.json` (`jev-1.13.0` for version 0.2.0). Never pass an alias: `jev-latest` is
-1.13.0 on jev-ai.pro and 1.14.0 on TypeSafe, and the script refuses it. `obvious_now`'s
+`questions.json` (`jev-1.14.0` for version 0.3.0; 0.2.0 was `jev-1.13.0`). Never pass an
+alias: `jev-latest` is 1.13.0 on jev-ai.pro and 1.14.0 on TypeSafe, and the script refuses it. `obvious_now`'s
 options are rotated card by card, because Jev leans toward the option that comes first.
 
 Then on the page: a chip on every scored card (`Jev · do_now 0.70 · after your go`), one

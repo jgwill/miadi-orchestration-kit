@@ -7,7 +7,7 @@
 // lane's mission as a `research` observation with `miadi-run observe`.
 //
 //   score-lanes.mjs <plan.md> --request <request.md> [--facts <facts.md>] [--lane K6,K7a]
-//                   [--mission <id> | --trace <id>] [--model jev-1.13.0] [--dry] [--out F] [--json]
+//                   [--mission <id> | --trace <id>] [--model jev-1.14.0] [--dry] [--out F] [--json]
 //
 // The table is the first Markdown table whose header has a `lane` column. Every cell of a row
 // goes into its card as `<column>: <cell>`. What leaves the host is score-proposal's: the card,
@@ -127,7 +127,7 @@ export const defaultDeps = () => ({
   err: (line) => console.error(line),
 });
 
-const USAGE = "usage: score-lanes.mjs <plan.md> --request <request.md> [--facts <facts.md>] [--lane K6,K7a] [--mission <id> | --trace <id>] [--model jev-1.13.0] [--dry] [--out F] [--json]";
+const USAGE = "usage: score-lanes.mjs <plan.md> --request <request.md> [--facts <facts.md>] [--lane K6,K7a] [--mission <id> | --trace <id>] [--model jev-1.14.0] [--dry] [--out F] [--json]";
 
 export async function main(argv, deps = defaultDeps()) {
   const a = parseArgs(argv);

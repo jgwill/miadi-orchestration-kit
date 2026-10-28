@@ -41,7 +41,7 @@ test("needs_person is computed in code: any trigger at or above owner_at, or una
 });
 
 test("the model is pinned, never an alias", () => {
-  assert.equal(MODEL, "jev-1.13.0");
+  assert.equal(MODEL, "jev-1.14.0");
   assert.ok(!ALIASES.includes(MODEL));
 });
 
@@ -50,7 +50,7 @@ test("the record carries the bar beside the number, the top probability and both
   const r = makeRecord({ result: answer("opus", probs, { ...quiet, foreign_repo: 0.71 }), requestedModel: MODEL, task: "t", facts: "f", repository: "jgwill/smcraft", sharedService: "none", request, now: "2026-10-26T12:00:00.000Z" });
   assert.equal(r.kind, "decision");
   assert.equal(r.id, "wc-20261026120000000");
-  assert.equal(r.requested_model, "jev-1.13.0");
+  assert.equal(r.requested_model, "jev-1.14.0");
   assert.equal(r.model, "typesafe/jev-1.13-20260917");
   assert.equal(r.top_probability, 0.65);
   assert.deepEqual(r.bar, { confidence: 0.6, top_probability: 0.667, options: 6 });

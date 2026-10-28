@@ -3,7 +3,7 @@
 // enough to execute now, and split the page into "would do now", "after your go" and "needs you".
 //
 //   node score-proposal.mjs <page.html> --request <request.md> --facts <facts.md>
-//        [--questions questions.json] [--policy policy.json] [--model jev-1.13.0]
+//        [--questions questions.json] [--policy policy.json] [--model jev-1.14.0]
 //        [--only A,E,D,Q] [--dry] [--out scores.json] [--ledger <file.jsonl>]
 //   node score-proposal.mjs models            # the key's service and models; no inference
 //
@@ -240,7 +240,7 @@ async function main() {
   }
   const page = pos[0];
   if (!page || !flags.request) {
-    console.log("usage: score-proposal.mjs <page.html> --request <request.md> --facts <facts.md> [--questions q.json] [--policy p.json] [--model jev-1.13.0] [--only A,E,D,Q] [--dry] [--out scores.json] [--ledger file]");
+    console.log("usage: score-proposal.mjs <page.html> --request <request.md> --facts <facts.md> [--questions q.json] [--policy p.json] [--model jev-1.14.0] [--only A,E,D,Q] [--dry] [--out scores.json] [--ledger file]");
     process.exit(2);
   }
   const html = readFileSync(page, "utf8");
@@ -253,7 +253,7 @@ async function main() {
   if (!flags.facts) console.error("score-proposal: no --facts file; the page's Today list is sent, and evidence_sufficient reads thin on it (R4). Write the paths and numbers the cards rest on into a facts file.");
   const model = flags.model || set.model;
   if (!model) throw new Error(`${flags.questions || "questions.json"} pins no model; pin one version (R1)`);
-  if (ALIASES.includes(model)) throw new Error(`${model} is an alias that resolves differently on jev-ai.pro and TypeSafe; pin a version such as ${set.model ?? "jev-1.13.0"} (R1)`);
+  if (ALIASES.includes(model)) throw new Error(`${model} is an alias that resolves differently on jev-ai.pro and TypeSafe; pin a version such as ${set.model ?? "jev-1.14.0"} (R1)`);
   if (set.model && model !== set.model) console.error(`score-proposal: questions ${set.version} are pinned to ${set.model}; this run on ${model} is recorded as requested_model ${model} and is not the pinned series (R1).`);
   const dry = Boolean(flags.dry);
   const cards = extractCards(html, only);
