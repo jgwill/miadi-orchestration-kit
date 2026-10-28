@@ -31,6 +31,12 @@ On the iPhone, open `https://<host>.<tailnet>.ts.net:8443/` in Safari and allow 
 microphone. The hook gives each session the link with `?episode=<its folder>`. The page
 also remembers the last episode.
 
+A handoff asks for the same address. `GET /api/handoff?episode=<folder>` answers
+`{ phone: { label, href } }` for that episode. The `href` is the public base when it is
+https, which is what `ensure.sh` sets from `tailscale serve`. Otherwise `phone` is null and
+`reason` says why. The Miadi episode room draws that address as a QR code beside the seat's
+cockpit link.
+
 Log: `$XDG_STATE_HOME/miadi-phone-capture/service.log`. To stop it:
 `tailscale serve --https=8443 off`, then `pkill -f phone-capture/server.mjs`. The next
 session start will bring it back unless the plugin is disabled.

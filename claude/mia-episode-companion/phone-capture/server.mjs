@@ -364,6 +364,24 @@ export function linkBase(value) {
   return /^https?:\/\/[^\s"'<>]+$/.test(base) ? base : "";
 }
 
+// The phone page's address for one episode, which a handoff carries to a phone as a QR code.
+// `tailscale serve` publishes the service at the https address its public base names. A loopback
+// or plain-http base is not reachable from a phone, so it names no link.
+export function handoffLink(publicBase, episode) {
+  let url;
+  try {
+    url = new URL(String(publicBase ?? "").trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) return null;
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("episode", episode);
+  return url.toString();
+}
+
 // The trading chart records spoken notes for labelled examples through /api/takes
 // (jgwill/jgtsrc#190, 2026-10-09). It runs on another origin, so these may post.
 const CORS_ORIGINS = (process.env.MIADI_PHONE_CAPTURE_CORS_ORIGINS || "https://trading.tail3b11eb.ts.net")
@@ -1085,6 +1103,15 @@ export function createApp({
       }
       if (req.method === "GET" && url.pathname === "/api/links") {
         sendJson(res, 200, { success: true, ...linkBases });
+        return;
+      }
+      if (req.method === "GET" && url.pathname === "/api/handoff") {
+        const episode = url.searchParams.get("episode") || defaultEpisode;
+        episodeDir(chronicleRoot, episode);
+        const href = handoffLink(service.config.publicBaseUrl, episode);
+        sendJson(res, 200, href
+          ? { success: true, episode, phone: { label: "Phone page", href } }
+          : { success: true, episode, phone: null, reason: "this service has no tailnet address: its public base is not https" });
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/episodes") {

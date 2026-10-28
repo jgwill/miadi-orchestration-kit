@@ -16,7 +16,7 @@ process.env.STATELOOM_BRIDGE_URL = "http://127.0.0.1:9";
 delete process.env.SMCRAFT_BRIDGE_URL;
 const EPISODE = "2026-09-20-episode-901-phone-fixture";
 
-async function bridge({ transcriber, voice = null, language = "fr", locate, links } = {}) {
+async function bridge({ transcriber, voice = null, language = "fr", locate, links, publicBaseUrl = "https://gaia.example:8443" } = {}) {
   const base = mkdtempSync(join(tmpdir(), "phone-capture-"));
   const chronicleRoot = join(base, "chronicle");
   mkdirSync(join(chronicleRoot, EPISODE), { recursive: true });
@@ -24,7 +24,7 @@ async function bridge({ transcriber, voice = null, language = "fr", locate, link
   const registrations = [];
   const config = resolveConfig({}, {
     port: 8799, host: "127.0.0.1", takesDir: join(base, "takes"), driver: "file-import",
-    publicBaseUrl: "https://gaia.example:8443", chronicleRoot, mwApiUrl: "http://wheel.invalid", language,
+    publicBaseUrl, chronicleRoot, mwApiUrl: "http://wheel.invalid", language,
   });
   const service = new CaptureService({
     config,
@@ -837,5 +837,22 @@ test("the page learns where its links lead: the loom and the room, empty when no
     set.close();
     unset.close();
     odd.close();
+  }
+});
+
+test("the phone page's address for an episode is the tailnet one, and no address names no link", async () => {
+  const tailnet = await bridge({ transcriber: stubTranscriber });
+  const loopback = await bridge({ transcriber: stubTranscriber, publicBaseUrl: "http://127.0.0.1:8771" });
+  try {
+    assert.deepEqual(await (await fetch(`${tailnet.url}/api/handoff?episode=${EPISODE}`)).json(), {
+      success: true, episode: EPISODE, phone: { label: "Phone page", href: `https://gaia.example:8443/?episode=${EPISODE}` },
+    });
+    const none = await (await fetch(`${loopback.url}/api/handoff?episode=${EPISODE}`)).json();
+    assert.equal(none.phone, null);
+    assert.match(none.reason, /not https/);
+    assert.equal((await fetch(`${tailnet.url}/api/handoff?episode=2026-01-01-episode-902-missing`)).status, 404);
+  } finally {
+    tailnet.close();
+    loopback.close();
   }
 });
