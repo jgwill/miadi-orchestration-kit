@@ -89,21 +89,24 @@ endpoints, bearer-key isolation and streaming. Keys stay in the private Hermes
 boot ownership and overrides. Copies track Gaia's `linux_migration/` installer;
 run `bash tests/hermes-tailnet-sync.sh` after changing either copy.
 
-### Optional X11 monitor mirror (0.2.6)
+### Optional X11 monitor mirror (0.2.7)
 
 On an X11/KDE laptop, run `miadi-mirror-monitor --install-autostart` as the
 **desktop user** (needs `x11-xserver-utils` and a systemd user manager). It
 installs that user's `mirror-monitor.timer` and KDE autostart; package
-installation alone changes no display or home directory. Every 10 seconds,
-`--ensure` checks the layout and only applies a modeset when it is wrong:
+installation alone changes no display or home directory. For 5 minutes after
+each login (`MIRROR_CHECK_WINDOW`, seconds), every 10 seconds, `--ensure`
+checks the layout and only applies a modeset when it is wrong:
 
 - Lid open: both outputs use the external's native resolution at the same
   origin, falling back to the highest common mode. The external refresh is
   capped at 144 Hz (override: `MIRROR_EXTERNAL_MAX_HZ` in a service drop-in).
 - Lid closed: the external alone stays at that resolution, as the primary.
 - External disconnected: restore the internal panel's native mode when open.
-- Late monitor detection, resume, failed modesets and KScreen overrides are
-  retried indefinitely. There is no startup deadline.
+- Late monitor detection, failed modesets and KScreen overrides are retried
+  until the window ends. Each check runs `xrandr --query` 5 times and each
+  probe holds the X server ~0.27 s, so checking indefinitely made the cursor
+  lag (0.2.7). A monitor plugged in or turned on later needs `--apply`.
 
 KDE login refreshes the user manager's actual `DISPLAY`/`XAUTHORITY`; no `:0`
 is hardcoded. `systemctl --user status mirror-monitor.timer` checks it,

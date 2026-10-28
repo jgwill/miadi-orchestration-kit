@@ -33,7 +33,7 @@
 #   ./66-mirror-monitor.sh --wait             # wait for the external to appear, then apply
 #   ./66-mirror-monitor.sh --status           # show current output/mode state
 #   ./66-mirror-monitor.sh --ensure           # repair only if the layout is wrong
-#   ./66-mirror-monitor.sh --install-autostart   # keep the layout correct across reboot/hotplug
+#   ./66-mirror-monitor.sh --install-autostart   # keep the layout correct for 5 min after each login
 #   ./66-mirror-monitor.sh --uninstall-autostart
 #
 # NOTE ON KDE: KScreen (KDE's display daemon) can re-assert its own layout on
@@ -54,6 +54,13 @@
 #   changing nothing when correct. With the lid closed, use the external alone;
 #   opening the lid returns to a full clone. Missing X/outputs are retried, not
 #   a reason to give up. Packaged as miadi-mirror-monitor in miadi-config.
+#
+# CURSOR LAG (2026-10-28): each --ensure runs `xrandr --query` 5 times, and
+#   each probe holds the X server ~0.27s while it rereads EDID: a ~1.4s stall
+#   every 12s, felt as a lagging cursor. The timer no longer starts at boot and
+#   no longer runs indefinitely: login starts it and stops it CHECK_WINDOW
+#   seconds later (default 300). A monitor plugged in or turned on after that
+#   window needs `--apply`.
 
 set -euo pipefail
 
@@ -64,6 +71,7 @@ UNIT_DIR="${CONFIG_HOME}/systemd/user"
 WAIT_TIMEOUT="${MIRROR_WAIT_TIMEOUT:-180}"   # --wait: seconds to wait for the external
 SETTLE_SECONDS=5                             # --wait: let KScreen's hotplug apply land first
 EXTERNAL_MAX_HZ="${MIRROR_EXTERNAL_MAX_HZ:-144}"   # external refresh ceiling (180Hz fails on gaia)
+CHECK_WINDOW="${MIRROR_CHECK_WINDOW:-300}"   # timer: seconds of --ensure checks after login
 
 # --- output detection -------------------------------------------------------
 # Internal panel: eDP* / LVDS* / DSI*. External: first other connected output.
@@ -305,25 +313,25 @@ SyslogIdentifier=mirror-monitor
 EOF
   cat > "$UNIT_DIR/mirror-monitor.timer" <<'EOF'
 [Unit]
-Description=Recheck the monitor after boot, reconnect, resume or lid changes
+Description=Recheck the monitor for the first minutes after login (late detection, lid)
 
 [Timer]
-OnStartupSec=10
+OnActiveSec=10
 OnUnitInactiveSec=10
 AccuracySec=1
-
-[Install]
-WantedBy=timers.target
 EOF
-  cat > "$AUTOSTART_FILE" <<'EOF'
+  # Started by login, never at boot; the transient timer stops it after the window.
+  cat > "$AUTOSTART_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Mirror external monitor
-Comment=Keep the native mirror correct, including late detection and lid changes
-Exec=bash -c "systemctl --user import-environment DISPLAY XAUTHORITY; systemctl --user restart mirror-monitor.timer mirror-monitor.service"
+Comment=Keep the native mirror correct for ${CHECK_WINDOW}s after login, including late detection and lid changes
+Exec=bash -c "systemctl --user import-environment DISPLAY XAUTHORITY; systemctl --user restart mirror-monitor.timer mirror-monitor.service; systemd-run --user --collect --on-active=${CHECK_WINDOW} /usr/bin/systemctl --user stop mirror-monitor.timer"
 X-KDE-autostart-phase=2
 OnlyShowIn=KDE;
 EOF
+  # Earlier installs enabled the timer at boot.
+  rm -f "$UNIT_DIR/timers.target.wants/mirror-monitor.timer"
   systemctl --user daemon-reload
   # Before desktop login DISPLAY is absent: the unit safely skips that check.
   # KDE's autostart imports the actual session environment, never hardcoded :0.
@@ -331,15 +339,16 @@ EOF
   [ -z "${DISPLAY:-}" ] || session_vars+=(DISPLAY)
   [ -z "${XAUTHORITY:-}" ] || session_vars+=(XAUTHORITY)
   if [ "${#session_vars[@]}" -gt 0 ]; then systemctl --user import-environment "${session_vars[@]}"; fi
-  systemctl --user enable --now mirror-monitor.timer
+  systemctl --user restart mirror-monitor.timer
   systemctl --user start mirror-monitor.service
-  echo "Installed ${AUTOSTART_FILE}; mirror-monitor.timer checks every 10s."
+  systemd-run --user --collect --on-active="${CHECK_WINDOW}" /usr/bin/systemctl --user stop mirror-monitor.timer
+  echo "Installed ${AUTOSTART_FILE}; mirror-monitor.timer checks every 10s for ${CHECK_WINDOW}s after login."
 }
 
 uninstall_autostart() {
-  systemctl --user disable --now mirror-monitor.timer
-  systemctl --user stop mirror-monitor.service
-  rm -f "$AUTOSTART_FILE" "$UNIT_DIR/mirror-monitor.service" "$UNIT_DIR/mirror-monitor.timer"
+  systemctl --user stop mirror-monitor.timer mirror-monitor.service
+  rm -f "$AUTOSTART_FILE" "$UNIT_DIR/mirror-monitor.service" "$UNIT_DIR/mirror-monitor.timer" \
+    "$UNIT_DIR/timers.target.wants/mirror-monitor.timer"
   systemctl --user daemon-reload
   echo "Removed monitor autostart and timer."
 }

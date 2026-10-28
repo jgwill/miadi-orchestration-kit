@@ -84,7 +84,8 @@ class MirrorMonitorTest(unittest.TestCase):
         self.root = Path(self.tmp.name)
         bin_dir = self.root / 'bin'
         bin_dir.mkdir()
-        for name, content in [('xrandr', XRANDR), ('systemctl', '#!/bin/bash\nprintf "%s\\n" "$*" >> "$MOCK_SYSTEMCTL"\n')]:
+        log_args = '#!/bin/bash\nprintf "%s\\n" "$*" >> "$MOCK_SYSTEMCTL"\n'
+        for name, content in [('xrandr', XRANDR), ('systemctl', log_args), ('systemd-run', log_args)]:
             exe = bin_dir / name
             exe.write_text(content)
             exe.chmod(0o755)
@@ -238,12 +239,17 @@ class MirrorMonitorTest(unittest.TestCase):
         self.assertIn('--ensure', unit)
         self.assertIn('ConditionEnvironment=DISPLAY', unit)
         self.assertIn('OnUnitInactiveSec=10', timer)
-        self.assertIn('WantedBy=timers.target', timer)
+        # Each --ensure stalls X while xrandr probes: never at boot, never indefinitely.
+        self.assertNotIn('WantedBy=timers.target', timer)
         self.assertNotIn('--wait', desktop)
         self.assertIn('import-environment DISPLAY XAUTHORITY', desktop)
         self.assertIn('restart mirror-monitor.timer mirror-monitor.service', desktop)
+        stop = '--on-active=300 /usr/bin/systemctl --user stop mirror-monitor.timer'
+        self.assertIn(stop, desktop)
         calls = (self.root / 'systemctl.log').read_text()
-        self.assertIn('enable --now mirror-monitor.timer', calls)
+        self.assertNotIn('enable', calls)
+        self.assertIn('restart mirror-monitor.timer', calls)
+        self.assertIn(stop, calls)
         self.run_script('--install-autostart')
         self.assertEqual((config / 'systemd/user/mirror-monitor.timer').read_text(), timer)
         self.run_script('--uninstall-autostart')
