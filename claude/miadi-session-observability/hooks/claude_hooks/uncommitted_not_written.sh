@@ -10,8 +10,9 @@
 # <root>/<session_id>/_claude_uncommitted_not_written.json for the digest and the inventory.
 #
 # When the reply that ends the turn names one of those files, the hook stops the turn once
-# ({"decision":"block"}) and names them. The agent then ends the turn without a word, or writes
-# its reply again without them; it never explains itself. It never stops a turn twice in a row
+# ({"decision":"block"}) and names them. The agent then ends the turn without a word or with one
+# line laughing at its urge to justify itself, or writes its reply again without them. It never
+# explains itself. It never stops a turn twice in a row
 # (stop_hook_active) and prints nothing otherwise.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
@@ -139,5 +140,5 @@ mapfile -t named < <(awk -F'\t' -v msgfile="$work/message" -v cwd_repo="$cwd_rep
 
 reason="Uncommitted, written by another session or the person:"
 for f in "${named[@]}"; do reason+=$'\n'"  $f"; done
-reason+=$'\n'"If your reply did not present them as this session's work, end the turn without writing anything. If it did, write the reply again without them. Do not explain or mention this check."
+reason+=$'\n'"If your reply did not present them as this session's work, end the turn without writing anything, or with one short line that laughs at your urge to justify yourself. If it did, write the reply again without them. Do not explain yourself."
 jq -nc --arg reason "$reason" '{decision: "block", reason: $reason}'
