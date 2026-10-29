@@ -9,11 +9,11 @@
 # capture folder is left out. The list is written each turn to
 # <root>/<session_id>/_claude_uncommitted_not_written.json for the digest and the inventory.
 #
-# When the reply that ends the turn names one of those files, the hook stops the turn once
-# ({"decision":"block"}) and names them. The agent then ends the turn without a word or with one
-# line laughing at its urge to justify itself, or writes its reply again without them. It never
-# explains itself. It never stops a turn twice in a row
-# (stop_hook_active) and prints nothing otherwise.
+# When the reply that ends the turn counts one of those files as work done (a sentence that names
+# it says wrote, updated, committed...), the hook stops the turn once ({"decision":"block"}) and
+# asks for those sentences corrected, nothing else. A reply that only mentions them, or says they
+# are not its own, is never stopped, so the agent has nothing to answer. It never stops a turn
+# twice in a row (stop_hook_active) and prints nothing otherwise.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 
@@ -96,6 +96,18 @@ done
 wait
 cat "$work"/status.* > "$work/foreign" 2>/dev/null
 
+# MIADI_UNCOMMITTED_IGNORE: shell patterns separated by ':', matched against each file's absolute
+# path (an untracked folder ends with /). A file that matches is left out of the list and never
+# stops a turn: */.claude/skills/* leaves out the skill links another agent installs.
+if [ -n "${MIADI_UNCOMMITTED_IGNORE:-}" ] && [ -s "$work/foreign" ]; then
+    IFS=: read -ra ignore <<<"$MIADI_UNCOMMITTED_IGNORE"
+    while IFS=$'\t' read -r r xy rel; do
+        for g in "${ignore[@]}"; do [[ -n "$g" && "$r/$rel" == $g ]] && continue 2; done
+        printf '%s\t%s\t%s\n' "$r" "$xy" "$rel"
+    done < "$work/foreign" > "$work/kept"
+    mv "$work/kept" "$work/foreign"
+fi
+
 claude_write_json "$output_dir/_claude_uncommitted_not_written.json" "$(jq -Rnc \
     --arg session_id "$session_id" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
     [inputs | select(length > 0) | split("\t") | {repo: .[0], status: .[1], path: .[2]}] as $all
@@ -106,14 +118,37 @@ claude_write_json "$output_dir/_claude_uncommitted_not_written.json" "$(jq -Rnc 
 [ "$active" = "true" ] && exit 0
 [ -n "$message" ] && [ -s "$work/foreign" ] || exit 0
 
-# Which of them the reply names: by absolute path, by repository path (a file at the root of
-# the session's own repository by its name), or by a file name that only one uncommitted file
-# carries (five characters or more). A name counts only where it stands whole: STC.md is not
-# named by STCISSUE.md.
+# Which of them the reply counts as work done. A file is named by absolute path, by repository
+# path (a file at the root of the session's own repository by its name), or by a file name that
+# only one uncommitted file carries (five characters or more, with an extension: Miadi is a word,
+# not a file). A name counts only where it stands whole: STC.md is not named by STCISSUE.md. The
+# sentence around the name must say the work was done and must not say not, another, someone.
+# Paths are left out of that reading, so notes-by-another.md does not read as "another".
 printf '%s\n' "$message" > "$work/message"
 mapfile -t named < <(awk -F'\t' -v msgfile="$work/message" -v cwd_repo="$cwd_repo" '
-    BEGIN { while ((getline l < msgfile) > 0) msg = msg l "\n" }
-    function names(n, before_re,   start, s, i, p, b, a) {
+    BEGIN {
+        while ((getline l < msgfile) > 0) msg = msg l "\n"
+        done_re = "(^|[^a-z])(wrote|written|updated|changed|edited|created|added|fixed|committed|modified|staged|pushed|shipped|landed|moved|renamed|removed|deleted)([^a-z]|$)"
+        not_re = "(^|[^a-z])(not|never|another|someone|yours|theirs)([^a-z]|$)|n.t([^a-z]|$)|other session|the person"
+    }
+    function sentence(p, n,   s, e, c, d) {
+        s = p
+        while (s > 1) {
+            c = substr(msg, s - 1, 1); d = substr(msg, s, 1)
+            if (c == "\n" || (c ~ /[.!?]/ && d ~ /[ \t]/)) break
+            s--
+        }
+        e = p + n
+        while (e <= length(msg)) {
+            c = substr(msg, e, 1); d = substr(msg, e + 1, 1)
+            if (c == "\n" || (c ~ /[.!?]/ && (d == "" || d ~ /[ \t\n]/))) break
+            e++
+        }
+        c = tolower(substr(msg, s, e - s))
+        gsub(/[^ \t]*[.\/][^ \t]*/, " ", c)
+        return c
+    }
+    function claims(n, before_re,   start, s, i, p, b, a, t) {
         start = 1
         while (start <= length(msg)) {
             s = substr(msg, start); i = index(s, n)
@@ -121,7 +156,10 @@ mapfile -t named < <(awk -F'\t' -v msgfile="$work/message" -v cwd_repo="$cwd_rep
             p = start + i - 1
             b = p > 1 ? substr(msg, p - 1, 1) : ""
             a = substr(msg, p + length(n), 1)
-            if ((b == "" || b !~ before_re) && (a == "" || a !~ /[A-Za-z0-9_-]/)) return 1
+            if ((b == "" || b !~ before_re) && (a == "" || a !~ /[A-Za-z0-9_-]/)) {
+                t = sentence(p, length(n))
+                if (t ~ done_re && t !~ not_re) return 1
+            }
             start = p + 1
         }
         return 0
@@ -129,8 +167,8 @@ mapfile -t named < <(awk -F'\t' -v msgfile="$work/message" -v cwd_repo="$cwd_rep
     { repo[NR] = $1; xy[NR] = $2; rel[NR] = $3; b = $3; sub(/.*\//, "", b); base[NR] = b; if (b != "") count[b]++ }
     END {
         for (k = 1; k <= NR; k++) {
-            if (names(repo[k] "/" rel[k], "[A-Za-z0-9_.-]") || ((rel[k] ~ /\// || (repo[k] == cwd_repo && length(rel[k]) >= 5)) && names(rel[k], "[A-Za-z0-9_./-]")) \
-                || (base[k] != "" && count[base[k]] == 1 && length(base[k]) >= 5 && names(base[k], "[A-Za-z0-9_./-]"))) {
+            if (claims(repo[k] "/" rel[k], "[A-Za-z0-9_.-]") || ((rel[k] ~ /\// || (repo[k] == cwd_repo && rel[k] ~ /\./ && length(rel[k]) >= 5)) && claims(rel[k], "[A-Za-z0-9_./-]")) \
+                || (base[k] ~ /\./ && count[base[k]] == 1 && length(base[k]) >= 5 && claims(base[k], "[A-Za-z0-9_./-]"))) {
                 print xy[k] " " repo[k] "/" rel[k]
                 if (++c >= 12) exit
             }
@@ -138,7 +176,7 @@ mapfile -t named < <(awk -F'\t' -v msgfile="$work/message" -v cwd_repo="$cwd_rep
     }' "$work/foreign")
 [ "${#named[@]}" -gt 0 ] || exit 0
 
-reason="Uncommitted, written by another session or the person:"
+reason="Your reply counts these as this session's work. Another session or the person wrote them:"
 for f in "${named[@]}"; do reason+=$'\n'"  $f"; done
-reason+=$'\n'"If your reply did not present them as this session's work, end the turn without writing anything, or with one short line that laughs at your urge to justify yourself. If it did, write the reply again without them. Do not explain yourself."
+reason+=$'\n'"Write only those sentences again, corrected. No preamble, nothing else."
 jq -nc --arg reason "$reason" '{decision: "block", reason: $reason}'

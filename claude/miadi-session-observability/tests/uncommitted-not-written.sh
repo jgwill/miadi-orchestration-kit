@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Uncommitted, not written (R6): at each Stop, the uncommitted files of the repositories a
 # session ran in or wrote to that the session did not write are listed in
-# _claude_uncommitted_not_written.json. When the reply names one of them, the turn is stopped
-# once with their names; otherwise the hook prints nothing.
+# _claude_uncommitted_not_written.json. When the reply counts one of them as work done, the turn
+# is stopped once with their names; otherwise the hook prints nothing.
 # Run: bash tests/uncommitted-not-written.sh
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -72,9 +72,23 @@ expect "the reason does not name its own file" "no" "$(grep -qF "mine.md" <<<"$r
 o=$(stop "Done: updated STC.md." true)
 expect "a turn already stopped by a Stop hook is never stopped again" "" "$o"
 o=$(stop "See src/their-draft.mjs in the other repository.")
-expect "a repository path in the reply is named" "block" "$(jq -r .decision <<<"$o" 2>/dev/null)"
-o=$(stop "The STCISSUE.md notes and docs/plan.md are fine.")
+expect "a mention that claims no work does not stop the turn" "" "$o"
+o=$(stop "Updated src/their-draft.mjs in the other repository.")
+expect "a repository path in a claim is named" "block" "$(jq -r .decision <<<"$o" 2>/dev/null)"
+o=$(stop "F2: STC.md holds a duplicate record. This session did not write it.")
+expect "a finding about a file is not a claim" "" "$o"
+o=$(stop "STC.md was updated by another session.")
+expect "a sentence that gives the work to another is not a claim" "" "$o"
+o=$(stop "The STCISSUE.md notes and docs/plan.md were updated.")
 expect "a longer name or a committed file is not a mention" "" "$o"
+printf 'theirs\n' > "$repo/docs/Miadi"
+o=$(stop "Updated the Miadi notes.")
+expect "a bare name without an extension is a word, not a file" "" "$o"
+
+MIADI_UNCOMMITTED_IGNORE="*/docs/notes-by-*:*/src/their-*" stop "Updated docs/notes-by-another.md and src/their-draft.mjs." > "$WORK/ignored"
+expect "an ignored file never stops a turn" "" "$(cat "$WORK/ignored")"
+expect "an ignored file is left out of the list" "STC.md|docs/Miadi" "$(jq -r '[.repos[].files[].path] | sort | join("|")' "$list")"
+stop "" >/dev/null
 
 # When the capture root sits inside the repository (gaia: /a/src/_sessiondata in /a/src), the
 # hooks' own files for this session are not counted.

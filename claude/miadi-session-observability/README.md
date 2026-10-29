@@ -128,11 +128,14 @@ the session runs in and in every repository it wrote a file into, and lists the 
 that neither the session nor its subagents wrote (`_claude_files_written.jsonl`) in
 `<root>/<session_id>/_claude_uncommitted_not_written.json`. The session's own capture folder is
 left out, an untracked folder is the session's when it wrote inside it, and a repository reached
-through a link is named by its real path. When the reply that ends the turn names one of those
-files (by path, or by a file name only one of them carries), the hook stops the turn once and
-names them. The agent ends the turn without a word, or with one line laughing at its urge to
-justify itself, when its reply did not claim them, or writes the reply again without them. It
-never explains itself.
+through a link is named by its real path. When the reply that ends the turn counts one of those
+files as work done (a sentence that names it, by path or by a file name with an extension only
+one of them carries, says wrote, updated, committed and does not say not, another, someone), the
+hook stops the turn once, names them, and asks for those sentences corrected with nothing else.
+A reply that only mentions them is never stopped, so the agent never answers the check.
+`MIADI_UNCOMMITTED_IGNORE` (shell patterns separated by `:`, matched against the absolute path,
+set in the shell or in `settings.json` `env`) leaves files out of the list and the check, for
+example `*/.claude/skills/*:*/.mino/session-inventory/*`.
 It never stops a turn twice in a row. R6 of the requirements of 2026-10-19, lane K6e.
 `tests/uncommitted-not-written.sh` holds the rules. On gaia's largest trees a Stop takes 1 to 3 s,
 most of it `git status` in `/home/mia/workspace`.
