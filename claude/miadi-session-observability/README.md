@@ -130,7 +130,8 @@ that neither the session nor its subagents wrote (`_claude_files_written.jsonl`)
 left out, an untracked folder is the session's when it wrote inside it, and a repository reached
 through a link is named by its real path. When the reply that ends the turn names one of those
 files (by path, or by a file name only one of them carries), the hook stops the turn once and
-names them, so the report does not count another session's or the person's changes as its own.
+names them. The agent ends the turn without a word when its reply did not claim them, or writes
+the reply again without them, and never explains itself.
 It never stops a turn twice in a row. R6 of the requirements of 2026-10-19, lane K6e.
 `tests/uncommitted-not-written.sh` holds the rules. On gaia's largest trees a Stop takes 1 to 3 s,
 most of it `git status` in `/home/mia/workspace`.
