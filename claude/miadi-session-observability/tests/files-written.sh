@@ -172,6 +172,30 @@ pre=$(jq -nc --arg s "$sid" --arg cwd "$proj" --arg f "$proj/next.md" '{session_
 event pre_tool_use_hook.sh "$pre"
 expect "a Write still lands in proposed/ before it runs" "proposed body" "$(cat "$out/proposed/next.md" 2>/dev/null)"
 expect "a Write sets no scan mark" "no" "$([ -e "$out/.tool_marks/toolu_w2.start" ] && echo yes || echo no)"
+# Memory: a file under <config>/projects/<key>/memory/ also gets a line in _claude_memory.jsonl.
+mem="$WORK/home/.claude/projects/-work-proj/memory"; mkdir -p "$mem"
+memidx="$out/_claude_memory.jsonl"
+printf -- '---\nname: deploy-rule\ndescription: "deploy uses %s"\nmetadata:\n  node_type: memory\n  type: feedback\n  originSessionId: aaaa-bbbb\n---\n\nBody.\n' "$secret" > "$mem/deploy-rule.md"
+post=$(jq -nc --arg s "$sid" --arg cwd "$proj" --arg f "$mem/deploy-rule.md" '{session_id:$s, hook_event_name:"PostToolUse", tool_name:"Write", tool_use_id:"toolu_mem", prompt_id:"prompt-2", cwd:$cwd, tool_input:{file_path:$f, content:"x"}, tool_response:{type:"create", filePath:$f}}')
+event post_tool_use_hook.sh "$post"
+settle toolu_mem
+l=$(jq -c 'select(.tool_use_id == "toolu_mem")' "$memidx" 2>/dev/null)
+expect "a memory Write gets a memory line" "deploy-rule.md" "$(field "$l" file)"
+expect "it names the project key" "-work-proj" "$(field "$l" project)"
+expect "it reads the name" "deploy-rule" "$(field "$l" name)"
+expect "it reads the nested type, not node_type" "feedback" "$(field "$l" type)"
+expect "it reads the session that first wrote it" "aaaa-bbbb" "$(field "$l" origin_session_id)"
+expect "its description is sanitized and unquoted" "yes" \
+    "$(field "$l" description | grep -q '^deploy uses ' && ! grep -q "$secret" "$memidx" && echo yes || echo no)"
+expect "it points at the copy" "written$mem/deploy-rule.md" "$(field "$l" copy)"
+expect "it names the prompt" "prompt-2" "$(field "$l" prompt_id)"
+bash_call toolu_memidx "printf -- '- [Deploy rule](deploy-rule.md)\\n' >> $mem/MEMORY.md && printf 'n\\n' > $mem/../notes.md && printf '{}\\n' > $mem/data.json"
+l=$(jq -c 'select(.tool_use_id == "toolu_memidx")' "$memidx" 2>/dev/null)
+expect "a Bash append to MEMORY.md gets a memory line" "MEMORY.md" "$(field "$l" file)"
+expect "it is marked as the index" "true" "$(printf '%s' "$l" | jq -r '.index')"
+expect "a file beside memory/ or not .md gets none" 1 "$(jq -r 'select(.tool_use_id == "toolu_memidx") | .file' "$memidx" | wc -l | tr -d ' ')"
+expect "a file outside a memory folder gets none" 0 "$(jq -r '.path' "$memidx" | grep -vc '/memory/')"
+
 expect "the hooks print nothing" 0 "$stdout_bytes"
 expect "trace.log names the copies" "yes" "$(grep -q 'written by Bash (toolu_heredoc)' "$out/trace.log" && echo yes || echo no)"
 

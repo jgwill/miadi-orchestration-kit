@@ -18,7 +18,7 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
 - `tests/episode-resolution.sh`: the episode rules, 13 checks.
 - `tests/transcript-archive.sh`: the transcript archive rules, 25 checks.
 - `hooks/claude_hooks/files_written.sh` and `tests/files-written.sh`: the files-written capture
-  (0.1.11), 41 checks.
+  (0.1.11) and the memory index (0.1.25), 53 checks.
 - `hooks/claude_hooks/publications.sh` and `tests/publications.sh`: the publication index
   (0.1.12), 43 checks.
 - `hooks/claude_hooks/artifact_comments.sh` and `tests/artifact-comments.sh`: the Artifact
@@ -73,7 +73,12 @@ those rules here goes there too.
   PostToolUseFailure mark its end and queue a detached copy of each file whose inode changed
   between the marks to `written/<absolute path>`, with a line in `_claude_files_written.jsonl`.
   The hook adds one `jq` call and returns at once. `tests/files-written.sh` holds the rules,
-  41 checks. jgwill/miadi-orchestration-kit#82 holds the Phase 2 proposals.
+  53 checks. jgwill/miadi-orchestration-kit#82 holds the Phase 2 proposals.
+- **The memory index** (`lib.sh`, `claude_memory_note`, since 0.1.25). A copied file under
+  `<config>/projects/<key>/memory/` ending in `.md` also gets a line in `_claude_memory.jsonl`
+  with the fields of its frontmatter. Claude's memory folder is readable by its own user only,
+  so this line and the copy are how another agent learns what Claude memorized.
+  jgwill/miadi-orchestration-kit#111.
 - **The publication index** (`lib.sh`, `publications.sh`, since 0.1.12). Artifact pages, GitHub
   issues, comments, pull requests and releases, commits checked in their tree, pushes and npm
   releases, one line each in `_claude_publications.jsonl` with the `tool_use_id` and

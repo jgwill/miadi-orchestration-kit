@@ -675,7 +675,62 @@ claude_files_written_keep() {
           copy: (if $copy == "" then null else $copy end),
           note: (if $note == "" then null else $note end),
           command: (if $command == "" then null else $command end)}')"
+    claude_memory_note "$output_dir" "$path" "$kind" "$tool_use_id" "$tool_name" "$agent_id" "$prompt_id" "$sha" "$copy"
     [ -n "$copy" ] && [ "${note#not copied}" = "$note" ]
+}
+
+# --- Memory -----------------------------------------------------------------
+# What Claude memorized lives in <config>/projects/<key>/memory/, with MEMORY.md
+# its index, readable by its own user only. The copy in written/ is how another
+# agent or user reads it, so each memory file a call writes also gets a line in
+# _claude_memory.jsonl with the fields of its frontmatter (since 0.1.25,
+# jgwill/miadi-orchestration-kit#111).
+
+# Prints the project key when <path> is a Claude memory file.
+claude_memory_project() {
+    local path="$1" rest="" key
+    case "$path" in *.md) ;; *) return 1 ;; esac
+    case "$path" in */.claude/projects/*) rest="${path##*/.claude/projects/}" ;; esac
+    if [ -z "$rest" ] && [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then
+        case "$path" in "${CLAUDE_CONFIG_DIR%/}"/projects/*) rest="${path#"${CLAUDE_CONFIG_DIR%/}"/projects/}" ;; esac
+    fi
+    key="${rest%%/*}"
+    case "${rest#*/}" in memory/*) [ -n "$key" ] && printf '%s\n' "$key" ;; *) return 1 ;; esac
+}
+
+# name, description, type and originSessionId from the frontmatter at the top
+# of <file>, one per line, empty when absent.
+_claude_memory_frontmatter() {
+    awk 'NR == 1 && $0 != "---" { exit }
+        NR > 1 && $0 == "---" { exit }
+        NR > 1 {
+            if (name == "" && match($0, /^name:[ \t]*/)) name = substr($0, RLENGTH + 1)
+            else if (desc == "" && match($0, /^description:[ \t]*/)) desc = substr($0, RLENGTH + 1)
+            else if (type == "" && match($0, /^[ \t]*type:[ \t]*/)) type = substr($0, RLENGTH + 1)
+            else if (origin == "" && match($0, /^[ \t]*originSessionId:[ \t]*/)) origin = substr($0, RLENGTH + 1)
+        }
+        END { print name; print desc; print type; print origin }' "$1" 2>/dev/null
+}
+
+claude_memory_note() {
+    local output_dir="$1" path="$2" kind="$3" tool_use_id="$4" tool_name="$5" agent_id="$6" prompt_id="$7" sha="$8" copy="$9"
+    local project name="" desc="" type="" origin=""
+    project=$(claude_memory_project "$path") || return 0
+    if [ -n "$copy" ] && [ -f "$output_dir/$copy" ]; then
+        { IFS= read -r name; IFS= read -r desc; IFS= read -r type; IFS= read -r origin; } \
+            < <(_claude_memory_frontmatter "$output_dir/$copy")
+    fi
+    claude_write_jsonl "$output_dir/_claude_memory.jsonl" "$(jq -nc \
+        --arg session_id "$(basename "$output_dir")" --arg tool_use_id "$tool_use_id" \
+        --arg tool_name "$tool_name" --arg agent_id "$agent_id" --arg prompt_id "$prompt_id" --arg kind "$kind" \
+        --arg project "$project" --arg path "$path" --arg name "$name" --arg description "$desc" \
+        --arg type "$type" --arg origin "$origin" --arg sha256 "$sha" --arg copy "$copy" \
+        'def v: if . == "" then null else (if test("^\".*\"$") or test("^'"'"'.*'"'"'$") then .[1:-1] else . end) end;
+        ($path | split("/") | last) as $file
+        | {timestamp: (now | todate), $session_id, agent: "claude", $tool_use_id, $tool_name,
+          agent_id: ($agent_id | v), prompt_id: ($prompt_id | v), $kind, $project, $file,
+          index: ($file == "MEMORY.md"), $path, name: ($name | v), description: ($description | v),
+          type: ($type | v), origin_session_id: ($origin | v), sha256: ($sha256 | v), copy: ($copy | v)}')"
 }
 
 # files_written.sh: find and copy what one tool call wrote, then drop its marks.

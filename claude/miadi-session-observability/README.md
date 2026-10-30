@@ -76,6 +76,17 @@ jgwill/miadi-orchestration-kit#82.
   command writes after its PostToolUse. A file written by another process during the call is
   listed as if the call wrote it.
 
+## What Claude memorized
+
+Claude Code keeps a project's memory in `<config>/projects/<key>/memory/` (`~/.claude` unless
+`CLAUDE_CONFIG_DIR` says otherwise), one file per memory and `MEMORY.md` as its index. Only the
+user that ran the session can read that folder, and other agents never look there. Each memory
+file a call writes is copied like any other file, and also listed in `_claude_memory.jsonl`
+with `project` (the key), `file`, `index` (true for `MEMORY.md`), `name`, `description`,
+`type` and `origin_session_id` read from the copy's frontmatter, plus `kind`, `tool_use_id`,
+`prompt_id`, `sha256` and `copy`. A memory file that is removed is not listed. Since 0.1.25,
+jgwill/miadi-orchestration-kit#111.
+
 ## Subagents, forks and what a person said to them
 
 A person can open a running subagent in the agent view and talk to it, or fork a `/btw` side
