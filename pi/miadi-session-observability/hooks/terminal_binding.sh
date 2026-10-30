@@ -160,6 +160,16 @@ _mtb_episode_json() {
 
 # miadi_write_terminal_binding <agent> <event> <fields json> <root>
 # event: session.start | session.end | session.observed
+# The person this local account acts for (jgwill/Miadi#887): MIADI_ACCOUNT_PERSON, else the line
+# `miadi-local-account bind` wrote to ~/.miadi/person.env. Empty when the account acts for nobody yet.
+_mtb_account_person() {
+    local p="${MIADI_ACCOUNT_PERSON:-}"
+    if [ -z "$p" ] && [ -r "$HOME/.miadi/person.env" ]; then
+        p=$(sed -n 's/^MIADI_ACCOUNT_PERSON=//p' "$HOME/.miadi/person.env" 2>/dev/null | head -n 1)
+    fi
+    printf '%s' "$p"
+}
+
 miadi_write_terminal_binding() {
     local agent="$1" event="$2" fields="$3" root="$4" session_id
     session_id=$(printf '%s' "$fields" | jq -r '.session_id // empty' 2>/dev/null)
@@ -197,12 +207,14 @@ miadi_write_terminal_binding() {
         --argjson tmux "${tmux_json:-null}" \
         --argjson team "${team_json:-null}" \
         --argjson episode "${episode_json:-null}" \
+        --arg account_person "$(_mtb_account_person)" \
         '{at: $at, event: $event, source: (.source // ""), agent: $agent,
           session_id: .session_id, cwd: (.cwd // ""), transcript_path: (.transcript_path // ""),
           host: $host, pid: ($pid | tonumber? // null), argv: $argv, launch_alias: $launch_alias,
           name: (if (.name // "") == "" then null
                  else {name: .name, source: $agent, since: null, former: []} end),
-          tmux: $tmux, team: $team, episode: $episode}' 2>/dev/null) || return 0
+          tmux: $tmux, team: $team, episode: $episode}
+          + (if $account_person != "" then {account_person: $account_person} else {} end)' 2>/dev/null) || return 0
     [ -n "$line" ] || return 0
 
     mkdir -p "$root/data" "$root/$session_id" 2>/dev/null || return 0

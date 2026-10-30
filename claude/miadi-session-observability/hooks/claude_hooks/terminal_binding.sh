@@ -86,6 +86,17 @@ _tb_name_json() {
             former: (.formerNames // [])}' "$f" 2>/dev/null || printf 'null'
 }
 
+# The person this local account acts for (jgwill/Miadi#887): MIADI_ACCOUNT_PERSON, else the line
+# `miadi-local-account bind` wrote to ~/.miadi/person.env, so a session started before the shell
+# read that file still records it. Empty when the account acts for nobody yet.
+_tb_account_person() {
+    local p="${MIADI_ACCOUNT_PERSON:-}"
+    if [ -z "$p" ] && [ -r "$HOME/.miadi/person.env" ]; then
+        p=$(sed -n 's/^MIADI_ACCOUNT_PERSON=//p' "$HOME/.miadi/person.env" 2>/dev/null | head -n 1)
+    fi
+    printf '%s' "$p"
+}
+
 # {id, source} for the session's team (jgwill/miadi-orchestration-kit#56, D9 and D10 on its page).
 # Order: a declared team (MIADI_TEAM, or the tmux session option @miadi-team), then the list's
 # session names, then its folders (the longest prefix wins), then its name patterns, else
@@ -284,12 +295,14 @@ claude_write_terminal_binding() {
         --argjson tmux "${tmux_json:-null}" \
         --argjson team "${team_json:-null}" \
         --argjson episode "${episode_json:-null}" \
+        --arg account_person "$(_tb_account_person)" \
         --argjson mission "${mission_json:-null}" \
         '{at: $at, event: $event, source: (.source // .reason // ""), agent: "claude",
           session_id: .session_id, cwd: (.cwd // ""), transcript_path: (.transcript_path // ""),
           host: $host, pid: ($pid | tonumber? // null), argv: $argv,
           launch_alias: $launch_alias, name: $name, tmux: $tmux, team: $team,
-          episode: $episode} + (if $mission then {mission: $mission} else {} end)' 2>/dev/null) || return 0
+          episode: $episode} + (if $mission then {mission: $mission} else {} end)
+          + (if $account_person != "" then {account_person: $account_person} else {} end)' 2>/dev/null) || return 0
     [ -n "$line" ] || return 0
 
     _tb_append "$session_id" "$line"
