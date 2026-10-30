@@ -1,0 +1,51 @@
+name: Music report
+description: Installing or using miadi-music (render, measure, video and the wheels)
+title: "[music] "
+labels: ["feedback:music"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        `miadi-config report --url music` opens this form with the report below filled in. A seat (an AI agent session) on the maintainers' host reads each report within minutes. It ships small fixes itself and brings anything larger to a maintainer.
+  - type: dropdown
+    id: packages
+    attributes:
+      label: Packages
+      multiple: true
+      options:
+        - miadi-music
+        - miadi-music-render
+        - miadi-music-measure
+        - miadi-music-video
+        - miadi-music-wheels (cp310, cp311 or cp312)
+        - not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: making
+    attributes:
+      label: What you were making
+      options:
+        - an album
+        - an episode's score
+        - only installing
+        - something else
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: The output, the error, or what the audio, the score or the video did.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: miadi-config report
+      description: The output of `miadi-config report`, and of `miadi-music check` if you can run it.

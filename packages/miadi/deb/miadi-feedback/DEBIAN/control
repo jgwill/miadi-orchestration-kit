@@ -1,0 +1,20 @@
+Package: miadi-feedback
+Version: 0.1.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: bash, jq, tmux, coreutils
+Recommends: miadi-config (>= 0.2.8)
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Feedback channels: an issue opened on a Miadi repository wakes a seat
+ For a maintainer's host, not a tester's. Every 5 minutes a user timer reads
+ the open issues of each channel in /etc/miadi/feedback.d/ (installation,
+ music, questions) and starts one agent seat per new issue, through
+ `mct teams new`, on the model the Jev worker chooser picks. A seat ships a
+ minor fix itself, answers a plain question, and brings a major change or a
+ risk to the maintainer. A channel stops on its EXPIRES date.
+  miadi-feedback enable        turn the timer on for this user
+  miadi-feedback status        channels, live seats, decisions
+  miadi-feedback poll --dry-run  what the next run would start
+ Needs, on PATH when enabled: gh (logged in), mct, claude and node.

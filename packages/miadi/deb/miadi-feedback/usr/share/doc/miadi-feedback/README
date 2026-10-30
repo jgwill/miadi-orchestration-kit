@@ -1,0 +1,36 @@
+miadi-feedback: an issue opened on a Miadi repository wakes a seat
+====================================================================
+
+For a maintainer's host. A tester installs nothing of this: they open an issue
+with one of the kit's forms (install, music, question), and `miadi-config report
+--url <form>` fills in their host's facts.
+
+Turn it on, once per user, from the shell where agents start (so gh, mct, claude
+and node are on PATH):
+
+    miadi-feedback enable      # writes ~/.config/miadi/feedback.env, enables the timer
+    miadi-feedback check
+    miadi-feedback poll --dry-run
+    miadi-feedback status
+
+A channel is /etc/miadi/feedback.d/<channel>.conf: the repository, the label its
+form applies, SINCE and EXPIRES, the team and folder of its seats, the brief they
+follow and the models they may run on. A file of the same name under
+~/.config/miadi/feedback.d/ is read after it. A new kind of feedback is one more
+file and one more brief in /usr/share/miadi-feedback/briefs/.
+
+Each new issue gets one seat, a tmux session `feedback-<channel>-<repo>-<n>-<stamp>`
+started with `mct teams new`, so tide and tmux restore bring it back after a reboot.
+Its model is the channel model nearest to the worker Episode 564's chooser (Jev)
+picks. An author who is the repository's owner, a member, a collaborator or listed
+by `miadi-feedback trust <login>` gets a seat that may ship a minor fix; any other
+author gets a seat in plan mode, and the maintainer approves its plan.
+
+A seat ends with `miadi-feedback decide <owner/repo#n> <decision> "<what>"`, one of
+shipped, answered, no-change, waiting, needs-guillaume: the issue's label and a
+line in ~/.local/state/miadi-feedback/decisions.jsonl. An answer from the author on
+a `waiting` issue wakes a new seat. At most 4 seats hold undecided issues at once
+(MIADI_FEEDBACK_MAX_SEATS). After EXPIRES a channel posts what it handled to its
+TRACKING issue, once, and reads nothing more.
+
+Ref: jgwill/miadi-orchestration-kit#109

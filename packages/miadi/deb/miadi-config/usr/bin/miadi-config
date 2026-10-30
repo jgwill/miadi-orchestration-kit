@@ -16,6 +16,9 @@ usage: miadi-config [command]
   unset NAME        remove this host's value from miadi.env (needs root)
   check             what this host is missing
   settings          every known setting and what it does
+  report            what to paste into an issue: versions, sources, check, units
+  report --url install|question|music
+                    the same, as a link that opens the issue form with it filled in
 A value in the environment wins over miadi.env, which wins over the defaults.
 EOF
 }
@@ -134,6 +137,73 @@ check() {
 	[ "$missing" -eq 0 ] || { echo "$missing missing"; return 1; }
 }
 
+# report: what a person reporting a problem pastes into an issue, as Markdown. Nothing secret:
+# package versions and sources, the system, check, and the state of the Miadi units.
+report_body() {
+	local f
+	echo "### System"
+	echo '```'
+	sed -n 's/^PRETTY_NAME=//p' /etc/os-release 2>/dev/null | tr -d '"'
+	uname -srm
+	command -v python3 >/dev/null && python3 --version 2>&1
+	echo '```'
+	echo "### Miadi packages"
+	echo '```'
+	dpkg-query -W -f='${db:Status-Abbrev} ${Package} ${Version}\n' 'miadi*' 2>/dev/null | grep -v '^un' || echo "(none installed)"
+	dpkg --audit 2>/dev/null | head -20
+	echo '```'
+	for f in /usr/share/miadi*/SOURCE; do
+		[ -r "$f" ] || continue
+		echo "### ${f#/usr/share/}"
+		echo '```'
+		sed -n '1,/^$/p' "$f" | head -12
+		echo '```'
+	done
+	echo "### miadi-config check"
+	echo '```'
+	check 2>&1 || true
+	echo '```'
+	if command -v systemctl >/dev/null && systemctl --user show-environment >/dev/null 2>&1; then
+		echo "### User units"
+		echo '```'
+		systemctl --user list-unit-files --no-legend 'tide-*' 'miadi-*' 'tmux-*' 2>/dev/null
+		systemctl --user --failed --no-legend 2>/dev/null
+		echo '```'
+	fi
+}
+
+# urlencode: stdin, percent-encoded, with whichever of python3 and jq this host has
+urlencode() {
+	if command -v python3 >/dev/null; then python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read(), safe=""))'
+	elif command -v jq >/dev/null; then jq -sRr @uri
+	else return 1; fi
+}
+
+report() {
+	local kind= repo=jgwill/miadi-orchestration-kit body max=7000 enc
+	while [ $# -gt 0 ]; do
+		case $1 in
+			--url) kind=${2:-install}; [ $# -lt 2 ] || shift ;;
+			--repo) repo=${2:?--repo owner/repo}; shift ;;
+			*) die "usage: miadi-config report [--url install|question|music] [--repo owner/repo]" ;;
+		esac
+		shift
+	done
+	body=$(report_body)
+	[ -n "$kind" ] || { printf '%s\n' "$body"; return; }
+	case $kind in install | question | music) ;; *) die "--url is install, question or music" ;; esac
+	# GitHub and browsers refuse a URL much past 8,000 characters: the report is cut until its
+	# encoded form fits, and the person pastes the whole of `miadi-config report` into the form.
+	local cut=$body
+	while :; do
+		enc=$(printf '%s' "$cut" | urlencode) || die "needs python3 or jq to build the URL: paste the output of \`miadi-config report\` into https://github.com/$repo/issues/new/choose"
+		[ ${#enc} -gt $max ] || break
+		cut="${body:0:$(( ${#cut} * max / ${#enc} - 200 ))}
+(cut here: paste the whole output of \`miadi-config report\`)"
+	done
+	echo "https://github.com/$repo/issues/new?template=$kind-feedback.yml&report=$enc"
+}
+
 cmd=${1:-show}
 [ $# -eq 0 ] || shift
 case $cmd in
@@ -143,6 +213,7 @@ case $cmd in
 	unset) unset_value "$@" ;;
 	check) check ;;
 	settings) cat "$SETTINGS" ;;
+	report) report "$@" ;;
 	-h | --help | help) usage ;;
 	*) usage >&2; exit 2 ;;
 esac

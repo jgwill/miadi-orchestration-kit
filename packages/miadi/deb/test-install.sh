@@ -77,6 +77,10 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     echo "Monitor mirroring is available but opt-in (no display or user units changed)"
     apt-get install -y -qq --no-install-recommends python3 apache2-bin >/dev/null 2>&1
     MIRROR_MONITOR_SCRIPT=/usr/bin/miadi-mirror-monitor python3 /tmp/tests/mirror-monitor.py
+    miadi-config report > /tmp/report.md
+    grep -qx "### Miadi packages" /tmp/report.md && grep -q "^ii  miadi-config " /tmp/report.md && echo "miadi-config report names the installed packages"
+    miadi-config report --url music | grep -q "^https://github.com/jgwill/miadi-orchestration-kit/issues/new?template=music-feedback.yml&report=%23%23%23%20System" \
+      && echo "miadi-config report --url opens the form with the report filled in"
     useradd -m hermes-api-test
     install -m 0644 /tmp/tests/hermes-tailnet-proxy.py /tmp/hermes-tailnet-proxy.py
     su hermes-api-test -s /bin/bash -c "HERMES_TAILNET_INSTALLER=/usr/share/miadi/hermes-tailnet/26-hermes-tailscale-autostart.sh python3 /tmp/hermes-tailnet-proxy.py"
@@ -287,6 +291,16 @@ PY
     echo "miadi-perms opened the 3 entries that lacked g+rw, left the open file and the symlink target alone"
     miadi-perms /nonexistent | grep -qx "miadi-perms: /nonexistent does not exist, skipped" && echo "a missing directory is skipped"
     apt-get remove -y -qq miadi-perms >/dev/null 2>&1 && test ! -e /usr/bin/miadi-perms && echo "remove takes the command and units with it"
+  fi
+
+  if dpkg -s miadi-feedback >/dev/null 2>&1; then
+    dpkg -s miadi-feedback | sed -n "s/^Version: /installed miadi-feedback /p"
+    for c in install music question; do grep -qx /etc/miadi/feedback.d/$c.conf /var/lib/dpkg/info/miadi-feedback.conffiles; done
+    miadi-feedback channels | grep -qx "LABEL=feedback:question" && echo "miadi-feedback reads its three channels"
+    test -f /usr/lib/systemd/user/miadi-feedback.timer && test ! -e /etc/systemd/user/timers.target.wants/miadi-feedback.timer \
+      && echo "the timer is installed and off until a user enables it"
+    test -r /usr/share/miadi-feedback/briefs/install.md && test -r /usr/share/miadi-feedback/briefs/question.md
+    apt-get remove -y -qq miadi-feedback >/dev/null 2>&1 && test ! -e /usr/bin/miadi-feedback && echo "remove takes the command with it"
   fi
 
   if dpkg -s miadi-node >/dev/null 2>&1; then

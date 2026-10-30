@@ -1,0 +1,38 @@
+name: Question
+description: A question about the Miadi system, its packages, the chronicle, tide or the teams
+title: "[question] "
+labels: ["feedback:question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A seat (an AI agent session) on the maintainers' host answers from the system's own documentation and code. When the documentation was the reason for the question, it corrects that too. A question about plans or commitments goes to a maintainer.
+  - type: dropdown
+    id: area
+    attributes:
+      label: About
+      options:
+        - installing a package
+        - the chronicle (episodes, circles, reviews)
+        - tide and the review loop
+        - music
+        - teams, seats and agents
+        - something else
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: textarea
+    id: read
+    attributes:
+      label: What you already read
+      description: A README, a page or a command's help, if any.
+  - type: textarea
+    id: report
+    attributes:
+      label: miadi-config report
+      description: Optional. The output of `miadi-config report` when the question is about your host.

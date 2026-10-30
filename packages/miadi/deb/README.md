@@ -32,6 +32,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
 | `miadi-music-wheels-cp310`, `-cp311`, `-cp312` | the wheels for that venv, one package per Python (Ubuntu 22.04, Debian 12, Ubuntu 24.04); apt installs the one matching `python3` | 0.1.0 |
 | `miadi-music-video` | score videos for an episode: ImageMagick and ffmpeg beside the two above (recommended by `miadi-music`) | 0.1.0 |
+| `miadi-feedback` | for a maintainer's host: an issue opened with one of the kit's forms wakes a seat that ships a minor fix, answers a question, or brings the rest to a maintainer | 0.1.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
 installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
@@ -66,6 +67,8 @@ sudo miadi-config set MIADI_SRC /a/src/Miadi
 sudo miadi-config unset MIADI_SRC
 miadi-config check                        # what this host is missing
 miadi-config settings                     # what each setting does
+miadi-config report                       # what to paste into an issue: versions, sources, check, units (0.2.8)
+miadi-config report --url install         # the same, as a link to the issue form, filled in (or music, question)
 ```
 
 `miadi.env` stays the same file from 0.1.x on. A host that edited it keeps its
@@ -237,6 +240,41 @@ systemctl --user enable --now tide-runtime.service tide-store-prune.timer
 script) and `PANE_WRITE_GUARD_SRC`, and caches builds under `MIADI_DEB_CACHE`
 (`~/.cache/miadi-deb`).
 
+## miadi-feedback
+
+A person trying these packages reports through one of the kit's issue forms
+(installation, music, question). `miadi-config report --url <form>` opens it with
+their host's facts filled in. On the maintainer's host, `miadi-feedback` reads the
+open issues of each channel every 5 minutes and starts one seat per new issue
+(jgwill/miadi-orchestration-kit#109):
+
+```bash
+sudo apt install miadi-feedback
+miadi-feedback enable              # per user, from the shell where agents start
+miadi-feedback poll --dry-run      # what the next run would start
+miadi-feedback status              # channels, the timer, live seats, the last decisions
+miadi-feedback trust <login>       # a tester whose minor reports a seat may fix and ship
+```
+
+| file | holds |
+|---|---|
+| `/etc/miadi/feedback.d/<channel>.conf` | the repository, the form's label, `SINCE` and `EXPIRES`, the seat's team, folder, brief and models (conffile; a user's file of the same name under `~/.config/miadi/feedback.d/` is read after it) |
+| `/usr/share/miadi-feedback/briefs/` | what a seat does: `install.md` (installation and music), `question.md` |
+| `/usr/lib/systemd/user/miadi-feedback.timer` | every 5 minutes, off until `enable` |
+| `~/.local/state/miadi-feedback/decisions.jsonl` | each seat started and each decision |
+
+A seat is a tmux session started with `mct teams new`, so tide and tmux restore
+bring it back after a reboot, and the timer comes back with the user manager
+(linger). Its model is the channel model nearest to what Episode 564's worker
+chooser (Jev, `claude/miadi-witness/scripts/choose-worker.mjs`) answers. An author
+who is the repository's owner, a member, a collaborator or trusted gets a seat that
+may ship a minor fix; any other author gets a seat in plan mode, and the maintainer
+approves its plan. The brief says what is minor and what is a maintainer's. Every
+seat ends with `miadi-feedback decide`, which sets one label: `feedback:shipped`,
+`answered`, `no-change`, `waiting` or `needs-guillaume`. After `EXPIRES` a channel
+posts what it handled to its tracking issue and reads nothing more. A new kind of
+feedback is one more channel file and brief.
+
 ## miadi-perms
 
 Several users' agent sessions write into one capture directory,
@@ -342,6 +380,7 @@ python3 tests/tmux-click.py miadi-terminal/usr/share/miadi-terminal/tmux/miadi-c
 bash tests/session-continuity-sync.sh   # restore's copies against jgwill/gaia's installer
 bash tests/hermes-tailnet-sync.sh        # tailnet installer/publisher/proxy tests against Gaia
 bash tests/mirror-monitor-sync.sh        # lid/hotplug/reboot mirror tests against Gaia
+bash tests/feedback.sh                   # which issue wakes a feedback seat, its trust, model and labels
 sudo apt install ./dist/*_<version>_all.deb
 ```
 
@@ -371,6 +410,7 @@ for w in dist/miadi-music-wheels-cp3*_<version>_amd64.deb; do bash "$publish" "$
 bash "$publish" dist/miadi-music-measure_<version>_all.deb   # after the wheels it depends on
 bash "$publish" dist/miadi-music-video_<version>_all.deb   # after the two it depends on
 bash "$publish" dist/miadi-music_<version>_all.deb         # last
+bash "$publish" dist/miadi-feedback_<version>_all.deb      # after the miadi-config it recommends; nothing depends on it
 ```
 
 The repository publishes `amd64` only, so the Termux builds in `dist/termux/`

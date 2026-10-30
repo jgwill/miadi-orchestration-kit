@@ -7,8 +7,9 @@ tmux sessions that survive a reboot), `miadi-tide` (the tide runtime and review 
 write on the shared session capture every 4 hours), `miadi-chronicle-server` (the chronicle's host
 services) and, for any machine, `miadi-chronicle-client` (the chronicle's commands and MCP servers),
 both run by `miadi-node` (a private Node.js 24), and beside them `miadi-music` with
-`miadi-music-render`, `-measure` and `-video` (music for an album or an episode's score). README.md
-says what each package holds and how to build, test and publish it.
+`miadi-music-render`, `-measure` and `-video` (music for an album or an episode's score), and for
+the maintainer's host `miadi-feedback` (an issue on the kit wakes a seat, jgwill/miadi-orchestration-kit#109).
+README.md says what each package holds and how to build, test and publish it.
 
 ## Relationship with jgwill/gaia
 

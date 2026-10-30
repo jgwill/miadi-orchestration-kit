@@ -1,0 +1,333 @@
+#!/usr/bin/env bash
+# miadi-feedback — feedback channels: an issue opened on a Miadi repository wakes a seat.
+# Installed by miadi-feedback. Ref: jgwill/miadi-orchestration-kit#109
+#
+# A channel is one file in /etc/miadi/feedback.d/<channel>.conf (a user's
+# ~/.config/miadi/feedback.d/<channel>.conf is read after it). `poll`, run every 5 minutes by
+# the user timer, reads each open channel's issues and starts one seat per new issue with
+# `mct teams new`, on the model Episode 564's worker chooser (Jev) picks among the channel's
+# MODELS. The seat follows the channel's BRIEF and ends with `miadi-feedback decide`.
+set -euo pipefail
+shopt -u patsub_replacement 2>/dev/null || true
+
+ETC=${MIADI_FEEDBACK_ETC:-/etc/miadi/feedback.d}
+USER_ETC=${XDG_CONFIG_HOME:-$HOME/.config}/miadi/feedback.d
+ENVFILE=${XDG_CONFIG_HOME:-$HOME/.config}/miadi/feedback.env
+STATE=${MIADI_FEEDBACK_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/miadi-feedback}
+LEDGER=$STATE/decisions.jsonl
+KIT=${MIADI_ORCHESTRATION_KIT_ROOT:-/workspace/repos/jgwill/miadi-orchestration-kit}
+CHOOSE_WORKER=${MIADI_CHOOSE_WORKER:-$KIT/claude/miadi-witness/scripts/choose-worker.mjs}
+# Seats still holding an undecided issue, past which a poll starts no more (the issues wait).
+MAX_SEATS=${MIADI_FEEDBACK_MAX_SEATS:-4}
+DECISIONS="shipped answered no-change needs-guillaume waiting"
+MEMBERS="OWNER MEMBER COLLABORATOR"
+
+usage() {
+	cat <<'EOF'
+usage: miadi-feedback <command>
+  enable                 record PATH for the timer and turn it on for this user
+  disable                turn the timer off
+  status                 channels, the timer, live seats and the last decisions
+  check                  what a poll needs: gh logged in, mct, claude, node, the chooser
+  poll [--dry-run]       read every open channel once; --dry-run starts and labels nothing
+  decide <owner/repo#n> <shipped|answered|no-change|needs-guillaume|waiting> "<what>"
+                         a seat's decision: the issue's label and a ledger line
+  trust <login>          a GitHub login whose reports a seat may fix and ship (this user)
+  channels               the channel files and what each one sets
+EOF
+}
+
+die() { echo "miadi-feedback: $*" >&2; exit 1; }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+has() { case " $1 " in *" $2 "*) return 0 ;; esac; return 1; }
+
+channels() {
+	{ for f in "$ETC"/*.conf "$USER_ETC"/*.conf; do [ -e "$f" ] && basename "$f" .conf; done; } | sort -u
+}
+
+# load <channel>: its settings, the user's file after the system's
+load() {
+	REPO= LABEL= SINCE= EXPIRES= CATCH_UNLABELED=no TEAM= CWD= BRIEF= MODELS= TRUSTED= NOTIFY= TRACKING= LAUNCH=claude
+	if [ -r "$ETC/$1.conf" ]; then . "$ETC/$1.conf"; fi
+	if [ -r "$USER_ETC/$1.conf" ]; then . "$USER_ETC/$1.conf"; fi
+	if [ -r "$USER_ETC/trusted" ]; then TRUSTED="$TRUSTED $(tr '\n' ' ' < "$USER_ETC/trusted")"; fi
+	[ -n "$REPO" ] && [ -n "$LABEL" ] && [ -n "$SINCE" ] && [ -n "$EXPIRES" ] && [ -n "$BRIEF" ] && [ -n "$MODELS" ] \
+		|| die "channel $1: REPO, LABEL, SINCE, EXPIRES, BRIEF and MODELS are needed"
+	CHANNEL=$1
+}
+
+expired() { [[ $(date -u +%F) > $EXPIRES ]]; }
+
+ledger() { mkdir -p "$STATE"; printf '%s\n' "$1" >> "$LEDGER"; }
+
+seen_key() { echo "$STATE/seen/${1//\//_}"; }   # seen_key <owner/repo#n[-c<id>]>
+seen() { [ -e "$(seen_key "$1")" ]; }
+mark_seen() { local k; k=$(seen_key "$1"); mkdir -p "$(dirname "$k")"; now > "$k"; }
+
+# issues: the channel's open issues opened on or after SINCE, one JSON object per line
+issues() {
+	gh api -X GET "repos/$REPO/issues" -f state=open -f since="${SINCE}T00:00:00Z" -f per_page=100 --paginate \
+		--jq ".[] | select(.pull_request == null) | select(.created_at >= \"$SINCE\")
+			| {number, title, url: .html_url, author: .user.login, assoc: .author_association, labels: [.labels[].name]}"
+}
+
+# wake_key <issue json>: what wakes a seat for it now, or nothing
+#   <repo>#<n>         a new issue this channel takes
+#   <repo>#<n>-c<id>   the author answered a seat that asked (label feedback:waiting)
+wake_key() {
+	local j=$1 n labels author c
+	n=$(jq -r .number <<<"$j"); labels=$(jq -r '.labels | join(" ")' <<<"$j"); author=$(jq -r .author <<<"$j")
+	if has "$labels" feedback:waiting; then
+		has "$labels" "$LABEL" || return 0
+		c=$(gh api "repos/$REPO/issues/$n/comments" --jq "[.[] | select(.user.login == \"$author\")] | last | .id // empty")
+		if [ -n "$c" ] && ! seen "$REPO#$n-c$c"; then echo "$REPO#$n-c$c"; fi
+		return
+	fi
+	local d
+	for d in in-seat $DECISIONS; do has "$labels" "feedback:$d" && return; done
+	seen "$REPO#$n" && return
+	if has "$labels" "$LABEL"; then echo "$REPO#$n"; return; fi
+	if [ "$CATCH_UNLABELED" = yes ] && ! [[ " $labels" == *" feedback:"* ]] && ! has "$MEMBERS" "$(jq -r .assoc <<<"$j")"; then
+		echo "$REPO#$n"
+	fi
+}
+
+trust_of() { # trust_of <issue json>: trusted or outside
+	local author assoc t
+	author=$(jq -r .author <<<"$1"); assoc=$(jq -r .assoc <<<"$1")
+	has "$MEMBERS" "$assoc" && { echo trusted; return; }
+	for t in $TRUSTED; do [ "$t" = "$author" ] && { echo trusted; return; }; done
+	echo outside
+}
+
+rank() { case $1 in haiku) echo 1 ;; sonnet) echo 2 ;; opus) echo 3 ;; fable) echo 4 ;; *) echo 0 ;; esac; }
+model_id() { case $1 in haiku) echo claude-haiku-5-5 ;; sonnet) echo claude-sonnet-5-5 ;; opus) echo claude-opus-5-5 ;; fable) echo claude-fable-5-1 ;; esac; }
+
+# fit <worker>: the channel model nearest to Jev's worker, at or above it when one is
+fit() {
+	local want m best= top=
+	want=$(rank "$1")
+	[ "$want" -gt 0 ] || { echo "${MODELS%% *}"; return; }
+	for m in $MODELS; do
+		top=$m
+		if [ -z "$best" ] && [ "$(rank "$m")" -ge "$want" ]; then best=$m; fi
+	done
+	echo "${best:-$top}"
+}
+
+# choose <task> <facts>: sets MODEL and JEV (a JSON object, {} when Jev did not answer).
+# A seat runs whatever Jev answers, so `self` or `seat` says nothing of the model: then the
+# model class Jev gave the highest probability is taken (`pick`), and fitted to MODELS.
+choose() {
+	JEV='{}'
+	if [ -r "$CHOOSE_WORKER" ] && command -v node >/dev/null; then
+		JEV=$(node "$CHOOSE_WORKER" --task "$1" --facts "$2" --repository "$REPO" --json 2>/dev/null \
+			| jq -c '{worker, confidence, above_bar, needs_person_for, model, id, probabilities,
+				pick: (["haiku", "sonnet", "opus", "fable"] as $m | if (.worker | IN($m[])) then .worker
+					else ((.probabilities // {}) | to_entries | map(select(.key | IN($m[])) | select(.value > 0))
+						| max_by(.value) // {} | .key // "") end)}' 2>/dev/null) || JEV='{}'
+		[ -n "$JEV" ] || JEV='{}'
+	fi
+	MODEL=$(fit "$(jq -r '.pick // ""' <<<"$JEV")")
+}
+
+render() { # render <brief> <var=value>...: the brief with each {{VAR}} filled
+	local b kv
+	b=$(cat "$1"); shift
+	for kv; do b=${b//"{{${kv%%=*}}}"/"${kv#*=}"}; done
+	printf '%s\n' "$b"
+}
+
+live_seats() { tmux list-sessions -F '#S' 2>/dev/null | grep '^feedback-' || true; }
+
+# busy: live seats whose issue has no decision since the seat started
+busy() {
+	local s count=0
+	for s in $(live_seats); do
+		if [ ! -s "$LEDGER" ] || ! jq -e --arg s "$s" 'select(.event == "decided" and .seat == $s)' "$LEDGER" >/dev/null 2>&1; then
+			count=$((count + 1))
+		fi
+	done
+	echo "$count"
+}
+
+wake() { # wake <issue json> <key> <dry>
+	local j=$1 key=$2 dry=$3 n title url author trust mode seat brief task facts needs body
+	n=$(jq -r .number <<<"$j"); title=$(jq -r .title <<<"$j"); url=$(jq -r .url <<<"$j"); author=$(jq -r .author <<<"$j")
+	trust=$(trust_of "$j")
+	mode=bypassPermissions; [ "$trust" = trusted ] || mode=plan
+	if [ "$dry" = yes ]; then
+		echo "would wake $key: $CHANNEL, $trust, $mode, models $MODELS (Jev not asked on a dry run)"
+		return
+	fi
+	body=$(gh issue view "$n" -R "$REPO" --json body -q .body 2>/dev/null | head -c 1500 || true)
+	task="Handle feedback issue $REPO#$n ($CHANNEL channel): $title
+$body"
+	facts="The seat reads the issue, reproduces it in a clean container when it is a report, and either ships a minor fix to a Miadi apt package (version bump, build, test, apt publish) and replies, or answers a question from the documentation, or brings a major change or a risk to the maintainer. Replying on this issue and publishing the kit's apt packages are authorized for this channel by the maintainer (2026-10-29). It runs in a tmux seat of its own whatever the answer: what is chosen is the model class the seat runs on. The author is $trust."
+	choose "$task" "$facts"
+	needs=$(jq -r '(.needs_person_for // []) | if length == 0 then "none" else join(", ") end' <<<"$JEV")
+	seat="feedback-$CHANNEL-${REPO#*/}-$n-$(date +%y%m%d%H%M)"
+	mkdir -p "$STATE/briefs"
+	brief=$STATE/briefs/$seat.md
+	render "$BRIEF" ISSUE="$REPO#$n" REPO="$REPO" NUMBER="$n" URL="$url" AUTHOR="$author" TRUST="$trust" \
+		MODE="$mode" CHANNEL="$CHANNEL" MODEL="$MODEL ($(model_id "$MODEL"))" NEEDS="$needs" NOTIFY="${NOTIFY:-jgwill}" \
+		SEAT="$seat" EXPIRES="$EXPIRES" LEDGER="$LEDGER" KEY="$key" \
+		JEV="$(jq -r 'if .worker then "chose \(.worker) at confidence \(.confidence) (\(if .above_bar then "above" else "below" end) the bar), its model class \(if .pick == "" then "none, so the first model of the channel was taken" else .pick end), decision \(.id)" else "did not answer, so the first model of the channel was taken" end' <<<"$JEV")" \
+		> "$brief"
+	mct teams new "${TEAM:-T8}" "$seat" --cwd "${CWD:-$KIT}" -d \
+		--launch "$LAUNCH --model $(model_id "$MODEL") --permission-mode $mode" \
+		--prompt "Read $brief whole first, then do what it says. It is your brief as the feedback seat for $REPO#$n." >/dev/null
+	mark_seen "$key"
+	local add="$LABEL,feedback:in-seat"
+	if [[ $key == *-c* ]]; then
+		gh issue edit "$n" -R "$REPO" --add-label "$add" --remove-label feedback:waiting >/dev/null
+	else
+		gh issue edit "$n" -R "$REPO" --add-label "$add" >/dev/null
+	fi
+	if [ "$trust" = outside ] && [[ $key != *-c* ]]; then
+		gh issue comment "$n" -R "$REPO" --body "Thank you for this report. A seat (an AI agent session on the maintainers' host) is reading it now and will propose what to do. A maintainer, @${NOTIFY:-jgwill}, decides before anything is changed." >/dev/null
+	fi
+	ledger "$(jq -nc --arg at "$(now)" --arg issue "$REPO#$n" --arg key "$key" --arg channel "$CHANNEL" --arg seat "$seat" \
+		--arg trust "$trust" --arg model "$MODEL" --argjson jev "$JEV" \
+		'{at: $at, event: "woke", issue: $issue, key: $key, channel: $channel, seat: $seat, trust: $trust, model: $model, jev: $jev}')"
+	echo "woke $seat for $key on $MODEL ($trust)"
+}
+
+# summarize: once, after EXPIRES, every decision of the channel posted to TRACKING
+summarize() {
+	local mark=$STATE/expired-$CHANNEL lines
+	[ -e "$mark" ] || [ -z "$TRACKING" ] && return
+	lines=
+	if [ -s "$LEDGER" ]; then
+		lines=$(jq -rs --arg c "$CHANNEL" '
+			([.[] | select(.event == "woke" and .channel == $c) | .issue] | unique) as $mine
+			| [.[] | select(.issue as $i | $mine | index($i))] | group_by(.issue)[]
+			| (map(select(.event == "decided")) | last) as $d
+			| "- \(.[0].issue): \(if $d then "\($d.decision), \($d.line)" else "no decision yet" end)"' "$LEDGER")
+	fi
+	gh issue comment "${TRACKING##*#}" -R "${TRACKING%#*}" --body "The $CHANNEL channel ($REPO, label \`$LABEL\`) reached its end on $EXPIRES. @${NOTIFY:-jgwill}, what it handled:
+
+${lines:-No issue arrived.}
+
+Renew it by moving EXPIRES in \`/etc/miadi/feedback.d/$CHANNEL.conf\` (or the same file under \`~/.config/miadi/feedback.d/\`)." >/dev/null
+	now > "$mark"
+	echo "$CHANNEL expired: summary posted to $TRACKING"
+}
+
+poll() {
+	local dry=no c j key started=0
+	[ "${1:-}" != --dry-run ] || dry=yes
+	mkdir -p "$STATE"
+	exec 9> "$STATE/poll.lock"
+	flock -n 9 || { echo "another poll is running"; return 0; }
+	for c in $(channels); do
+		load "$c"
+		if expired; then [ "$dry" = yes ] && echo "$c: expired on $EXPIRES" || summarize; continue; fi
+		while IFS= read -r j; do
+			[ -n "$j" ] || continue
+			key=$(wake_key "$j")
+			[ -n "$key" ] || continue
+			if [ "$dry" = no ] && [ "$(busy)" -ge "$MAX_SEATS" ]; then
+				echo "$key waits: $MAX_SEATS seats hold undecided issues"
+				continue
+			fi
+			wake "$j" "$key" "$dry"
+			started=$((started + 1))
+		done < <(issues)
+	done
+	[ "$started" -gt 0 ] || echo "nothing new"
+}
+
+decide() {
+	[ $# -eq 3 ] || die 'usage: miadi-feedback decide <owner/repo#n> <decision> "<what was done or proposed>"'
+	local issue=$1 decision=$2 line=$3 repo n seat= labels rm= d
+	[[ $issue == */*#* ]] || die "the issue is owner/repo#number: $issue"
+	has "$DECISIONS" "$decision" || die "a decision is one of: $DECISIONS"
+	repo=${issue%#*} n=${issue##*#}
+	if [ -n "${TMUX:-}" ]; then seat=$(tmux display -p '#S' 2>/dev/null || true); fi
+	labels=$(gh issue view "$n" -R "$repo" --json labels -q '[.labels[].name] | join(" ")')
+	for d in in-seat $DECISIONS; do
+		[ "$d" = "$decision" ] && continue
+		has "$labels" "feedback:$d" && rm="$rm${rm:+,}feedback:$d"
+	done
+	if [ -n "$rm" ]; then gh issue edit "$n" -R "$repo" --add-label "feedback:$decision" --remove-label "$rm" >/dev/null
+	else gh issue edit "$n" -R "$repo" --add-label "feedback:$decision" >/dev/null; fi
+	if [ "$decision" = waiting ]; then
+		# Only an answer written after this question wakes a seat again.
+		local c
+		for c in $(gh api "repos/$repo/issues/$n/comments" --jq '.[].id'); do mark_seen "$repo#$n-c$c"; done
+	fi
+	ledger "$(jq -nc --arg at "$(now)" --arg issue "$issue" --arg decision "$decision" --arg line "$line" --arg seat "$seat" --arg by "$(id -un)" \
+		'{at: $at, event: "decided", issue: $issue, decision: $decision, line: $line, seat: $seat, by: $by}')"
+	echo "$issue: feedback:$decision"
+}
+
+trust() {
+	[[ ${1:-} =~ ^[A-Za-z0-9-]+$ ]] || die "usage: miadi-feedback trust <github login>"
+	mkdir -p "$USER_ETC"
+	grep -qx "$1" "$USER_ETC/trusted" 2>/dev/null || echo "$1" >> "$USER_ETC/trusted"
+	echo "$1: a seat may fix and ship their minor reports ($USER_ETC/trusted)"
+}
+
+status() {
+	local c s state
+	for c in $(channels); do
+		load "$c"
+		expired && state="expired on $EXPIRES" || state="open until $EXPIRES"
+		printf '%-9s %s %s, %s, team %s, models %s\n' "$c" "$REPO" "$LABEL" "$state" "${TEAM:-T8}" "$MODELS"
+	done
+	echo "timer     $(systemctl --user is-active miadi-feedback.timer 2>/dev/null || true), next $(systemctl --user show miadi-feedback.timer -p NextElapseUSecRealtime --value 2>/dev/null || true)"
+	for s in $(live_seats); do echo "seat      $s"; done
+	if [ -s "$LEDGER" ]; then
+		echo "last decisions ($LEDGER):"
+		tail -n 10 "$LEDGER" | jq -r '"  \(.at) \(.issue) \(.event) \(.decision // (.model + " " + .trust)) \(.line // .seat)"'
+	fi
+}
+
+check() {
+	local bad=0 c
+	ok() { echo "ok       $*"; }
+	no() { echo "missing  $*"; bad=$((bad + 1)); }
+	if gh auth status >/dev/null 2>&1; then ok "gh, as $(gh api user -q .login)"; else no "gh logged in (gh auth login)"; fi
+	for c in mct claude node jq tmux flock; do command -v "$c" >/dev/null && ok "$c $(command -v "$c")" || no "$c on PATH"; done
+	[ -r "$CHOOSE_WORKER" ] && ok "worker chooser $CHOOSE_WORKER" || no "worker chooser $CHOOSE_WORKER (MIADI_CHOOSE_WORKER): seats take each channel's first model"
+	for c in $(channels); do load "$c"; [ -r "$BRIEF" ] && ok "channel $c, brief $BRIEF" || no "channel $c: brief $BRIEF"; done
+	[ -r "$ENVFILE" ] && ok "$ENVFILE" || no "$ENVFILE (miadi-feedback enable writes it)"
+	[ "$bad" -eq 0 ]
+}
+
+enable() {
+	local c d path=
+	for c in gh mct claude node jq tmux; do
+		d=$(dirname "$(command -v "$c" 2>/dev/null || echo /missing/x)")
+		[ "$d" != /missing ] || die "$c is not on PATH here: run enable from the shell where agents start"
+		case ":$path:" in *":$d:"*) ;; *) path=$path${path:+:}$d ;; esac
+	done
+	mkdir -p "$(dirname "$ENVFILE")"
+	{
+		echo "# Written by miadi-feedback enable on $(now): what the timer's poll needs on PATH."
+		echo "PATH=$path:/usr/local/bin:/usr/bin:/bin"
+		echo "SHELL=${SHELL:-/bin/bash}"
+		[ -z "${MIADI_ORCHESTRATION_KIT_ROOT:-}" ] || echo "MIADI_ORCHESTRATION_KIT_ROOT=$MIADI_ORCHESTRATION_KIT_ROOT"
+	} > "$ENVFILE"
+	systemctl --user daemon-reload
+	systemctl --user enable --now miadi-feedback.timer
+	echo "enabled: $(systemctl --user is-active miadi-feedback.timer), PATH in $ENVFILE"
+	loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q '=yes' \
+		|| echo "note: linger is off, so the timer stops at logout: sudo loginctl enable-linger $(id -un)"
+}
+
+cmd=${1:-}
+[ $# -eq 0 ] || shift
+case $cmd in
+	poll) poll "$@" ;;
+	decide) decide "$@" ;;
+	status) status ;;
+	check) check ;;
+	enable) enable ;;
+	disable) systemctl --user disable --now miadi-feedback.timer ;;
+	trust) trust "$@" ;;
+	channels) for c in $(channels); do echo "== $c"; grep -hv '^#' "$ETC/$c.conf" "$USER_ETC/$c.conf" 2>/dev/null | grep . || true; done ;;
+	-h | --help | help | '') usage ;;
+	*) usage >&2; exit 2 ;;
+esac

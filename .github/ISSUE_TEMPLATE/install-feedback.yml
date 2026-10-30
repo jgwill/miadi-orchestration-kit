@@ -1,0 +1,65 @@
+name: Installation report
+description: Installing or running a Miadi apt package (miadi, miadi-tide, miadi-terminal, the chronicle client or server, miadi-tmux, Termux)
+title: "[install] "
+labels: ["feedback:install"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for trying Miadi. `miadi-config report --url install` opens this form with the report below filled in. A seat (an AI agent session) on the maintainers' host reads each report within minutes. It ships small fixes itself and brings anything larger to a maintainer.
+  - type: dropdown
+    id: packages
+    attributes:
+      label: Packages
+      description: The packages this report is about.
+      multiple: true
+      options:
+        - miadi
+        - miadi-config
+        - miadi-terminal
+        - miadi-tide
+        - miadi-tmux
+        - miadi-perms
+        - miadi-node
+        - miadi-chronicle-client
+        - miadi-chronicle-server
+        - miadi-termux (Android)
+        - not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options:
+        - Ubuntu 24.04
+        - Ubuntu 22.04
+        - Debian 12
+        - Termux on Android
+        - other (say which below)
+    validations:
+      required: true
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: The commands, in order.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: The output or error, as printed.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: miadi-config report
+      description: The output of `miadi-config report`, if miadi-config is installed.

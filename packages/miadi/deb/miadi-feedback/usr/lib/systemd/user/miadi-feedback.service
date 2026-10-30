@@ -1,0 +1,11 @@
+[Unit]
+Description=Miadi feedback channels: a seat for each new issue
+Documentation=file:///usr/share/doc/miadi-feedback/README
+
+[Service]
+Type=oneshot
+# PATH for gh, mct, claude and node, written by `miadi-feedback enable`.
+EnvironmentFile=-%h/.config/miadi/feedback.env
+ExecStart=/usr/bin/miadi-feedback poll
+# The primer helper mct starts beside each seat outlives this run.
+KillMode=process
