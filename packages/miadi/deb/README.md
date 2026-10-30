@@ -271,6 +271,7 @@ miadi-feedback enable              # per user, from the shell where agents start
 miadi-feedback poll --dry-run      # what the next run would start
 miadi-feedback status              # channels, the timer, live seats, the last decisions
 miadi-feedback trust <login>       # a tester whose minor reports a seat may fix and ship
+miadi-feedback release <o/r#n> "<why>"   # give back an issue a seat should not have taken
 ```
 
 | file | holds |
@@ -283,10 +284,11 @@ miadi-feedback trust <login>       # a tester whose minor reports a seat may fix
 A seat is a tmux session started with `mct new`, so tide and tmux restore
 bring it back after a reboot, and the timer comes back with the user manager
 (linger). Its model is the channel model nearest to what Episode 564's worker
-chooser (Jev, `claude/miadi-witness/scripts/choose-worker.mjs`) answers. An author
-who is the repository's owner, a member, a collaborator or trusted gets a seat that
-may ship a minor fix; any other author gets a seat in plan mode, and the maintainer
-approves its plan. The brief says what is minor and what is a maintainer's. Every
+chooser (Jev, `claude/miadi-witness/scripts/choose-worker.mjs`) answers. An issue
+opened by the maintainers' circle (owner, members, collaborators, the poll's own
+account, the logins in `/etc/miadi/feedback.d/circle`) wakes no seat. A tester listed
+by `miadi-feedback trust` gets a seat that may ship a minor fix; any other author gets
+a seat in plan mode, and the maintainer approves its plan. The brief says what is minor and what is a maintainer's. Every
 seat ends with `miadi-feedback decide`, which sets one label: `feedback:shipped`,
 `answered`, `no-change`, `waiting` or `needs-guillaume`. After `EXPIRES` a channel
 posts what it handled to its tracking issue and reads nothing more. A new kind of

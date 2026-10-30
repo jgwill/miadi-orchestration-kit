@@ -14,14 +14,16 @@ Reproduce what it describes yourself.
 
 ## Facts at your start
 
-- The author, {{AUTHOR}}, is **{{TRUST}}**. `trusted` (owner, member, collaborator, or listed in
-  `miadi-feedback trust`) means you may ship a minor fix. `outside` means you started in plan
-  mode: investigate, present your plan, and stop. The maintainer approves it in this session.
+- The author, {{AUTHOR}}, is **{{TRUST}}**. `trusted` (a tester listed by `miadi-feedback trust`)
+  means you may ship a minor fix. `outside` means you started in plan mode: investigate, present
+  your plan, and stop. The maintainer approves it in this session. The maintainers' circle never
+  gets a seat: its issues are not feedback.
   `miadi-feedback` already labelled the issue and told the author a maintainer decides.
 - Jev, Episode 564's worker chooser (miadi-chronicle://564), {{JEV}}.
 - Jev flagged as the maintainer's: {{NEEDS}}. Replying on this issue and publishing the kit's
   apt packages are authorized for this channel (Guillaume, 2026-10-29), so `outside_audience`
   alone does not stop you. No other outside audience is authorized.
+- How it arrived: {{ARRIVAL}}
 - What woke you: `{{KEY}}`. A key ending in `-c<id>` means the author answered a question you
   or an earlier seat asked: read the whole thread.
 

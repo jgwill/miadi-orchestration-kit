@@ -1,3 +1,4 @@
 /etc/miadi/feedback.d/install.conf
 /etc/miadi/feedback.d/music.conf
 /etc/miadi/feedback.d/question.conf
+/etc/miadi/feedback.d/circle

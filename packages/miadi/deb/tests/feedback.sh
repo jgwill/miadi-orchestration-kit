@@ -18,8 +18,10 @@ COMMENTS='[]'
 gh() {
 	case "$*" in
 		*"/comments --jq"*) jq -r "$(sed -n 's/.*--jq //p' <<<"$*")" <<<"$COMMENTS" ;;
+		"api user -q .login") echo miadisabelle ;;
 		"issue view"*labels*) echo "$LABELS" ;;
 		"issue edit"*) echo "$*" >> "$tmp/edits" ;;
+		"api -X PATCH"*) echo "$*" >> "$tmp/patches" ;;
 		*) echo "unstubbed gh $*" >&2; return 1 ;;
 	esac
 }
@@ -29,6 +31,10 @@ load install
 expect "a labelled issue wakes its channel" "jgwill/miadi-orchestration-kit#7" "$(wake_key "$(issue tester NONE '["feedback:install"]')")"
 expect "an outside author's unlabelled issue comes to install" "jgwill/miadi-orchestration-kit#7" "$(wake_key "$(issue tester NONE '[]')")"
 expect "a collaborator's unlabelled issue does not" "" "$(wake_key "$(issue miadisabelle COLLABORATOR '[]')")"
+expect "nor a collaborator's labelled one: we do not reply to ourselves" "" "$(wake_key "$(issue avadisabelle COLLABORATOR '["feedback:install"]')")"
+expect "nor one from a circle login GitHub calls NONE" "" "$(wake_key "$(issue guillaumedescoteauxisabelle NONE '[]')")"
+expect "the circle file is read without regard to case" "" "$(wake_key "$(issue miadifactory NONE '["feedback:install"]')")"
+expect "nor one from the poll's own account" "" "$(wake_key "$(issue miadisabelle NONE '["feedback:install"]')")"
 expect "another channel's issue is not taken" "" "$(wake_key "$(issue tester NONE '["feedback:question"]')")"
 expect "an issue already in a seat is not taken again" "" "$(wake_key "$(issue tester NONE '["feedback:install","feedback:in-seat"]')")"
 expect "a decided issue is not taken" "" "$(wake_key "$(issue tester NONE '["feedback:install","feedback:shipped"]')")"
@@ -43,7 +49,7 @@ expect "a waiting issue of another channel is left to it" "" "$(wake_key "$(issu
 
 load install
 expect "an outside author is outside" outside "$(trust_of "$(issue tester NONE '[]')")"
-expect "a collaborator is trusted" trusted "$(trust_of "$(issue someone COLLABORATOR '[]')")"
+expect "a collaborator is not trusted by association" outside "$(trust_of "$(issue someone COLLABORATOR '[]')")"
 miadi_trust_out=$(trust tester); load install
 expect "trust adds a login" trusted "$(trust_of "$(issue tester NONE '[]')")"
 
@@ -62,5 +68,13 @@ decide o/r#7 shipped "miadi-tide 0.1.13: x" >/dev/null
 expect "decide sets its label and removes the others" "issue edit 7 -R o/r --add-label feedback:shipped --remove-label feedback:in-seat,feedback:waiting" "$(cat "$tmp/edits")"
 expect "decide writes a ledger line" "shipped" "$(tail -1 "$LEDGER" | jq -r .decision)"
 (decide o/r#7 maybe x) 2>/dev/null; expect "an unknown decision is refused" 1 "$?"
+
+LABELS="feedback:install feedback:in-seat"; : > "$tmp/edits"
+COMMENTS='[{"id": 21, "user": {"login": "miadisabelle"}, "body": "Thank you for this report. A seat (an AI agent session) is reading it."}, {"id": 22, "user": {"login": "miadisabelle"}, "body": "interesting sets of idea"}]'
+release o/r#9 "It was opened by the maintainers' circle." >/dev/null
+expect "release removes every feedback: label" "issue edit 9 -R o/r --remove-label feedback:install,feedback:in-seat" "$(cat "$tmp/edits")"
+expect "release rewrites only the poll's acknowledgement" "21" "$(sed -n 's#.*issues/comments/\([0-9]*\) .*#\1#p' "$tmp/patches")"
+expect "a released issue is seen, so no poll takes it again" yes "$(seen 'o/r#9' && echo yes)"
+expect "release writes a ledger line" "released" "$(tail -1 "$LEDGER" | jq -r .event)"
 
 exit $fail

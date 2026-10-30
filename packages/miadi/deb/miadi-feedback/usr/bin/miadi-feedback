@@ -32,7 +32,9 @@ usage: miadi-feedback <command>
   poll [--dry-run]       read every open channel once; --dry-run starts and labels nothing
   decide <owner/repo#n> <shipped|answered|no-change|needs-guillaume|waiting> "<what>"
                          a seat's decision: the issue's label and a ledger line
-  trust <login>          a GitHub login whose reports a seat may fix and ship (this user)
+  trust <login>          a tester whose minor reports a seat may fix and ship (this user)
+  release <owner/repo#n> "<why>"
+                         give back an issue a seat should not have taken
   channels               the channel files and what each one sets
 EOF
 }
@@ -58,6 +60,18 @@ load() {
 
 expired() { [[ $(date -u +%F) > $EXPIRES ]]; }
 
+# circle: the logins of the maintainers' circle, one per line (the circle files and the poll's
+# own gh account). Owners, members and collaborators are in it by their association.
+circle() {
+	if [ -z "${SELF_LOGIN+x}" ]; then SELF_LOGIN=$(gh api user -q .login 2>/dev/null || true); fi
+	{ cat "$ETC/circle" "$USER_ETC/circle" 2>/dev/null | grep -v '^#'; echo "$SELF_LOGIN"; } | tr -d ' \t\r' | grep . || true
+}
+
+in_circle() { # in_circle <login> <association>: we do not reply to ourselves
+	has "$MEMBERS" "$2" && return 0
+	circle | grep -qixF -- "$1"
+}
+
 ledger() { mkdir -p "$STATE"; printf '%s\n' "$1" >> "$LEDGER"; }
 
 seen_key() { echo "$STATE/seen/${1//\//_}"; }   # seen_key <owner/repo#n[-c<id>]>
@@ -77,6 +91,7 @@ issues() {
 wake_key() {
 	local j=$1 n labels author c
 	n=$(jq -r .number <<<"$j"); labels=$(jq -r '.labels | join(" ")' <<<"$j"); author=$(jq -r .author <<<"$j")
+	in_circle "$author" "$(jq -r .assoc <<<"$j")" && return 0
 	if has "$labels" feedback:waiting; then
 		has "$labels" "$LABEL" || return 0
 		c=$(gh api "repos/$REPO/issues/$n/comments" --jq "[.[] | select(.user.login == \"$author\")] | last | .id // empty")
@@ -87,15 +102,16 @@ wake_key() {
 	for d in in-seat $DECISIONS; do has "$labels" "feedback:$d" && return; done
 	seen "$REPO#$n" && return
 	if has "$labels" "$LABEL"; then echo "$REPO#$n"; return; fi
-	if [ "$CATCH_UNLABELED" = yes ] && ! [[ " $labels" == *" feedback:"* ]] && ! has "$MEMBERS" "$(jq -r .assoc <<<"$j")"; then
+	if [ "$CATCH_UNLABELED" = yes ] && ! [[ " $labels" == *" feedback:"* ]]; then
 		echo "$REPO#$n"
 	fi
 }
 
-trust_of() { # trust_of <issue json>: trusted or outside
-	local author assoc t
-	author=$(jq -r .author <<<"$1"); assoc=$(jq -r .assoc <<<"$1")
-	has "$MEMBERS" "$assoc" && { echo trusted; return; }
+# trust_of <issue json>: trusted (a tester listed in TRUSTED) or outside. The circle never
+# reaches here: its issues wake no seat.
+trust_of() {
+	local author t
+	author=$(jq -r .author <<<"$1")
 	for t in $TRUSTED; do [ "$t" = "$author" ] && { echo trusted; return; }; done
 	echo outside
 }
@@ -144,7 +160,7 @@ live_seats() { tmux list-sessions -F '#S' 2>/dev/null | grep '^feedback-' || tru
 busy() {
 	local s count=0
 	for s in $(live_seats); do
-		if [ ! -s "$LEDGER" ] || ! jq -e --arg s "$s" 'select(.event == "decided" and .seat == $s)' "$LEDGER" >/dev/null 2>&1; then
+		if [ ! -s "$LEDGER" ] || ! jq -e --arg s "$s" 'select((.event == "decided" or .event == "released") and .seat == $s)' "$LEDGER" >/dev/null 2>&1; then
 			count=$((count + 1))
 		fi
 	done
@@ -166,12 +182,21 @@ $body"
 	facts="The seat reads the issue, reproduces it in a clean container when it is a report, and either ships a minor fix to a Miadi apt package (version bump, build, test, apt publish) and replies, or answers a question from the documentation, or brings a major change or a risk to the maintainer. Replying on this issue and publishing the kit's apt packages are authorized for this channel by the maintainer (2026-10-29). It runs in a tmux seat of its own whatever the answer: what is chosen is the model class the seat runs on. The author is $trust."
 	choose "$task" "$facts"
 	needs=$(jq -r '(.needs_person_for // []) | if length == 0 then "none" else join(", ") end' <<<"$JEV")
+	# A form's label says what the issue is. An issue caught without one is not labelled for the
+	# channel: its seat says what it is first.
+	local labelled=no arrival
+	has "$(jq -r '.labels | join(" ")' <<<"$j")" "$LABEL" && labelled=yes
+	if [ "$labelled" = yes ]; then
+		arrival="It carries \`$LABEL\`, the label of the form its author filled in."
+	else
+		arrival="It carried no form label. The $CHANNEL channel took it because its author is outside the maintainers' circle, so nobody has said yet what it is. Decide that first: a report this brief covers (add \`$LABEL\` with \`gh issue edit\`), a question (add \`feedback:question\` and follow /usr/share/miadi-feedback/briefs/question.md), or not feedback at all (\`miadi-feedback release $REPO#$n \"<why>\"\`, then stop)."
+	fi
 	seat="feedback-$CHANNEL-${REPO#*/}-$n-$(date +%y%m%d%H%M)"
 	mkdir -p "$STATE/briefs"
 	brief=$STATE/briefs/$seat.md
 	render "$BRIEF" ISSUE="$REPO#$n" REPO="$REPO" NUMBER="$n" URL="$url" AUTHOR="$author" TRUST="$trust" \
 		MODE="$mode" CHANNEL="$CHANNEL" MODEL="$MODEL ($(model_id "$MODEL"))" NEEDS="$needs" NOTIFY="${NOTIFY:-jgwill}" \
-		SEAT="$seat" EXPIRES="$EXPIRES" LEDGER="$LEDGER" KEY="$key" \
+		SEAT="$seat" EXPIRES="$EXPIRES" LEDGER="$LEDGER" KEY="$key" ARRIVAL="$arrival" \
 		JEV="$(jq -r 'if .worker then "chose \(.worker) at confidence \(.confidence) (\(if .above_bar then "above" else "below" end) the bar), its model class \(if .pick == "" then "none, so the first model of the channel was taken" else .pick end), decision \(.id)" else "did not answer, so the first model of the channel was taken" end' <<<"$JEV")" \
 		> "$brief"
 	# mct is `miadi-chronicle teams`: `mct new <team> <session>` starts the seat.
@@ -180,14 +205,15 @@ $body"
 		--prompt "Read $brief whole first, then do what it says. It is your brief as the feedback seat for $REPO#$n." >/dev/null \
 		|| { echo "mct could not start $seat: $key stays new" >&2; return 1; }
 	mark_seen "$key"
-	local add="$LABEL,feedback:in-seat"
+	local add=feedback:in-seat
+	[ "$labelled" = no ] || add="$LABEL,feedback:in-seat"
 	if [[ $key == *-c* ]]; then
 		gh issue edit "$n" -R "$REPO" --add-label "$add" --remove-label feedback:waiting >/dev/null
 	else
 		gh issue edit "$n" -R "$REPO" --add-label "$add" >/dev/null
 	fi
 	if [ "$trust" = outside ] && [[ $key != *-c* ]]; then
-		gh issue comment "$n" -R "$REPO" --body "Thank you for this report. A seat (an AI agent session on the maintainers' host) is reading it now and will propose what to do. A maintainer, @${NOTIFY:-jgwill}, decides before anything is changed." >/dev/null
+		gh issue comment "$n" -R "$REPO" --body "Thank you for opening this issue. A seat (an AI agent session on the maintainers' host) is reading it now and will propose what to do. A maintainer, @${NOTIFY:-jgwill}, decides before anything is changed." >/dev/null
 	fi
 	ledger "$(jq -nc --arg at "$(now)" --arg issue "$REPO#$n" --arg key "$key" --arg channel "$CHANNEL" --arg seat "$seat" \
 		--arg trust "$trust" --arg model "$MODEL" --argjson jev "$JEV" \
@@ -220,6 +246,7 @@ poll() {
 	local dry=no c j key started=0 failed=0
 	[ "${1:-}" != --dry-run ] || dry=yes
 	mkdir -p "$STATE"
+	circle >/dev/null   # SELF_LOGIN, once
 	exec 9> "$STATE/poll.lock"
 	flock -n 9 || { echo "another poll is running"; return 0; }
 	for c in $(channels); do
@@ -262,6 +289,27 @@ decide() {
 	ledger "$(jq -nc --arg at "$(now)" --arg issue "$issue" --arg decision "$decision" --arg line "$line" --arg seat "$seat" --arg by "$(id -un)" \
 		'{at: $at, event: "decided", issue: $issue, decision: $decision, line: $line, seat: $seat, by: $by}')"
 	echo "$issue: feedback:$decision"
+}
+
+# release <owner/repo#n> "<why>": an issue a seat should not have taken goes back as it was.
+# Its feedback: labels are removed, the poll's acknowledgement says so, and it is not taken again.
+release() {
+	[ $# -eq 2 ] || die 'usage: miadi-feedback release <owner/repo#n> "<why>"'
+	local issue=$1 why=$2 repo n labels rm= l seat c
+	[[ $issue == */*#* ]] || die "the issue is owner/repo#number: $issue"
+	repo=${issue%#*} n=${issue##*#}
+	labels=$(gh issue view "$n" -R "$repo" --json labels -q '[.labels[].name] | join(" ")')
+	for l in $labels; do [[ $l == feedback:* ]] && rm="$rm${rm:+,}$l"; done
+	[ -z "$rm" ] || gh issue edit "$n" -R "$repo" --remove-label "$rm" >/dev/null
+	circle >/dev/null
+	for c in $(gh api "repos/$repo/issues/$n/comments" --jq ".[] | select(.user.login == \"$SELF_LOGIN\") | select(.body | test(\"^Thank you for (this report|opening this issue)\\\\. A seat\")) | .id"); do
+		gh api -X PATCH "repos/$repo/issues/comments/$c" -f body="Released by miadi-feedback: $why No feedback seat works on this issue." >/dev/null
+	done
+	mark_seen "$issue"
+	seat=$( [ -s "$LEDGER" ] && jq -r --arg i "$issue" 'select(.event == "woke" and .issue == $i) | .seat' "$LEDGER" | tail -1 || true)
+	ledger "$(jq -nc --arg at "$(now)" --arg issue "$issue" --arg why "$why" --arg seat "$seat" --arg by "$(id -un)" \
+		'{at: $at, event: "released", issue: $issue, line: $why, seat: $seat, by: $by}')"
+	echo "$issue released${rm:+ (removed $rm)}${seat:+; its seat $seat is still open: /exit it there when you choose}"
 }
 
 trust() {
@@ -330,6 +378,7 @@ case $cmd in
 	enable) enable ;;
 	disable) systemctl --user disable --now miadi-feedback.timer ;;
 	trust) trust "$@" ;;
+	release) release "$@" ;;
 	channels) for c in $(channels); do echo "== $c"; grep -hv '^#' "$ETC/$c.conf" "$USER_ETC/$c.conf" 2>/dev/null | grep . || true; done ;;
 	-h | --help | help | '') usage ;;
 	*) usage >&2; exit 2 ;;
