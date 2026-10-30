@@ -234,6 +234,23 @@ beside it:
 systemctl --user enable --now tide-runtime.service tide-store-prune.timer
 ```
 
+To check it, as the user who enabled it:
+
+```bash
+systemctl --user status tide-runtime.service   # Active: active (running)
+tide doctor --require-daemon --strict          # last line: READY package=<ironsilk version>
+```
+
+`tide doctor` prints one row per check, then `READY` or `BLOCKED`. With
+`--require-daemon`, `daemon_ping` must answer on the daemon socket,
+`~/.miadi/navigator/daemon.sock`: the unit sets `MIADI_HOME=%h/.miadi/navigator`,
+and a login shell leaves `MIADI_HOME` unset. `--strict` makes `BLOCKED` exit 1.
+Two rows read `warn` on a fresh package install and do not block: `user_service`
+looks for the file `tide service install` writes in `~/.config/systemd/user/`,
+not the packaged unit, and `domains_config` waits for `tide init`.
+`miadi-config check` is a different check: it covers this host's `MIADI_*`
+settings and directories, not the runtime.
+
 `build.sh` runs `prep/miadi-tide.sh` to add what git does not keep: the binary
 (rustup's cargo), the wheels (`pip`), and the packed Node sources (`pnpm`). It reads
 `MIADI_SRC` (default `/a/src/Miadi`), `GAIA_SRC` (`/a/src/gaia`, for the review
