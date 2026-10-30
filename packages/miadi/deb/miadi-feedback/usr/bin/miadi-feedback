@@ -298,7 +298,8 @@ check() {
 
 enable() {
 	local c d path=
-	for c in gh mct claude node jq tmux; do
+	# jq and tmux come from the package's Depends, in /usr/bin: only these four are the user's.
+	for c in gh mct claude node; do
 		d=$(dirname "$(command -v "$c" 2>/dev/null || echo /missing/x)")
 		[ "$d" != /missing ] || die "$c is not on PATH here: run enable from the shell where agents start"
 		case ":$path:" in *":$d:"*) ;; *) path=$path${path:+:}$d ;; esac
