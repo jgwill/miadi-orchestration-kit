@@ -27,7 +27,7 @@
     },
     "medicine-wheel-miadi-chronicle": {
       "command": "npx",
-      "args": ["-y", "${MWCV:-@medicine-wheel/mcp@4.27.2}"],
+      "args": ["-y", "${MWCV:-@medicine-wheel/mcp@4.27.3}"],
       "env": {
         "MW_API_URL": "${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}"
       }
