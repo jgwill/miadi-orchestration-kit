@@ -123,6 +123,10 @@ its question in `agents/<id>.output.md` and `trace.log`, from Claude Code's `met
 
 ## Uncommitted, not written
 
+Not wired since 0.1.24. A Stop hook that stops a turn makes the agent write a second reply, and
+that reply is what `tan` then annotates. A hook cannot change the reply itself, so the check is
+off. The script and its test stay here; the rest of this section says what it did.
+
 At each Stop, `hooks/claude_hooks/uncommitted_not_written.sh` reads `git status` in the repository
 the session runs in and in every repository it wrote a file into, and lists the uncommitted files
 that neither the session nor its subagents wrote (`_claude_files_written.jsonl`) in
