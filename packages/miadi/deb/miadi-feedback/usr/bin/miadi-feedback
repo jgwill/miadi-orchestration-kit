@@ -154,7 +154,9 @@ render() { # render <brief> <var=value>...: the brief with each {{VAR}} filled
 	printf '%s\n' "$b"
 }
 
-live_seats() { tmux list-sessions -F '#S' 2>/dev/null | grep '^feedback-' || true; }
+# live_seats: the seats this poll started (feedback-<channel>-<repo>-<n>-<yymmddHHMM>), not the
+# sessions others open beside them, such as a plan's -miette-insight seat
+live_seats() { tmux list-sessions -F '#S' 2>/dev/null | grep -E '^feedback-[a-z0-9-]+-[0-9]+-[0-9]{10}$' || true; }
 
 # busy: live seats whose issue has no decision since the seat started
 busy() {

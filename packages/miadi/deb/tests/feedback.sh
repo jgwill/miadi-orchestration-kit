@@ -77,4 +77,7 @@ expect "release rewrites only the poll's acknowledgement" "21" "$(sed -n 's#.*is
 expect "a released issue is seen, so no poll takes it again" yes "$(seen 'o/r#9' && echo yes)"
 expect "release writes a ledger line" "released" "$(tail -1 "$LEDGER" | jq -r .event)"
 
+tmux() { printf '%s\n' feedback-install-kit-112-2610300930 feedback-install-kit-112-2610300930-miette-insight other; }
+expect "a seat's neighbours are not seats" "feedback-install-kit-112-2610300930" "$(live_seats)"
+
 exit $fail
