@@ -12,7 +12,9 @@ jgwill/miadi-orchestration-kit#56.
   `session:window.pane` and pane id, the agent's command line, its name and name history, and
   its team, the chronicle episode it works in, and the miadi-run mission that started it (the
   pinned tracing prompt and its trace, from the seat's prompt that names the mission's
-  `prompt.md`, or from `MIADI_RUN_MISSION`). tmux restore and `tide agents restore` read
+  `prompt.md`, or from `MIADI_RUN_MISSION`). Since 0.1.26 it also holds `account_person`, the
+  person on the wheel the local account acts for (`MIADI_ACCOUNT_PERSON`, else
+  `~/.miadi/person.env`, jgwill/Miadi#887). tmux restore and `tide agents restore` read
   these lines to bring agents back.
 - **Workspace clone guard** (0.1.13). A repo that `stc-workspaces.json` maps to a working
   directory is not written, committed or pushed from its second clone under the auto-clone
