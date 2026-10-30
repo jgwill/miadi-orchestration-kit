@@ -1,5 +1,5 @@
 Package: miadi-feedback
-Version: 0.1.1
+Version: 0.1.2
 Section: misc
 Priority: optional
 Architecture: all
@@ -11,7 +11,7 @@ Description: Feedback channels: an issue opened on a Miadi repository wakes a se
  For a maintainer's host, not a tester's. Every 5 minutes a user timer reads
  the open issues of each channel in /etc/miadi/feedback.d/ (installation,
  music, questions) and starts one agent seat per new issue, through
- `mct teams new`, on the model the Jev worker chooser picks. A seat ships a
+ `mct new`, on the model the Jev worker chooser picks. A seat ships a
  minor fix itself, answers a plain question, and brings a major change or a
  risk to the maintainer. A channel stops on its EXPIRES date.
   miadi-feedback enable        turn the timer on for this user

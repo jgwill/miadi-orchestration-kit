@@ -263,7 +263,7 @@ miadi-feedback trust <login>       # a tester whose minor reports a seat may fix
 | `/usr/lib/systemd/user/miadi-feedback.timer` | every 5 minutes, off until `enable` |
 | `~/.local/state/miadi-feedback/decisions.jsonl` | each seat started and each decision |
 
-A seat is a tmux session started with `mct teams new`, so tide and tmux restore
+A seat is a tmux session started with `mct new`, so tide and tmux restore
 bring it back after a reboot, and the timer comes back with the user manager
 (linger). Its model is the channel model nearest to what Episode 564's worker
 chooser (Jev, `claude/miadi-witness/scripts/choose-worker.mjs`) answers. An author

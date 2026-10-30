@@ -20,7 +20,7 @@ follow and the models they may run on. A file of the same name under
 file and one more brief in /usr/share/miadi-feedback/briefs/.
 
 Each new issue gets one seat, a tmux session `feedback-<channel>-<repo>-<n>-<stamp>`
-started with `mct teams new`, so tide and tmux restore bring it back after a reboot.
+started with `mct new`, so tide and tmux restore bring it back after a reboot.
 Its model is the channel model nearest to the worker Episode 564's chooser (Jev)
 picks. An author who is the repository's owner, a member, a collaborator or listed
 by `miadi-feedback trust <login>` gets a seat that may ship a minor fix; any other

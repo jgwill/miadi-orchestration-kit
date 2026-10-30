@@ -5,7 +5,7 @@
 # A channel is one file in /etc/miadi/feedback.d/<channel>.conf (a user's
 # ~/.config/miadi/feedback.d/<channel>.conf is read after it). `poll`, run every 5 minutes by
 # the user timer, reads each open channel's issues and starts one seat per new issue with
-# `mct teams new`, on the model Episode 564's worker chooser (Jev) picks among the channel's
+# `mct new`, on the model Episode 564's worker chooser (Jev) picks among the channel's
 # MODELS. The seat follows the channel's BRIEF and ends with `miadi-feedback decide`.
 set -euo pipefail
 shopt -u patsub_replacement 2>/dev/null || true
@@ -174,9 +174,11 @@ $body"
 		SEAT="$seat" EXPIRES="$EXPIRES" LEDGER="$LEDGER" KEY="$key" \
 		JEV="$(jq -r 'if .worker then "chose \(.worker) at confidence \(.confidence) (\(if .above_bar then "above" else "below" end) the bar), its model class \(if .pick == "" then "none, so the first model of the channel was taken" else .pick end), decision \(.id)" else "did not answer, so the first model of the channel was taken" end' <<<"$JEV")" \
 		> "$brief"
-	mct teams new "${TEAM:-T8}" "$seat" --cwd "${CWD:-$KIT}" -d \
+	# mct is `miadi-chronicle teams`: `mct new <team> <session>` starts the seat.
+	mct new "${TEAM:-T8}" "$seat" --cwd "${CWD:-$KIT}" -d \
 		--launch "$LAUNCH --model $(model_id "$MODEL") --permission-mode $mode" \
-		--prompt "Read $brief whole first, then do what it says. It is your brief as the feedback seat for $REPO#$n." >/dev/null
+		--prompt "Read $brief whole first, then do what it says. It is your brief as the feedback seat for $REPO#$n." >/dev/null \
+		|| { echo "mct could not start $seat: $key stays new" >&2; return 1; }
 	mark_seen "$key"
 	local add="$LABEL,feedback:in-seat"
 	if [[ $key == *-c* ]]; then
@@ -215,7 +217,7 @@ Renew it by moving EXPIRES in \`/etc/miadi/feedback.d/$CHANNEL.conf\` (or the sa
 }
 
 poll() {
-	local dry=no c j key started=0
+	local dry=no c j key started=0 failed=0
 	[ "${1:-}" != --dry-run ] || dry=yes
 	mkdir -p "$STATE"
 	exec 9> "$STATE/poll.lock"
@@ -231,11 +233,11 @@ poll() {
 				echo "$key waits: $MAX_SEATS seats hold undecided issues"
 				continue
 			fi
-			wake "$j" "$key" "$dry"
-			started=$((started + 1))
+			if wake "$j" "$key" "$dry"; then started=$((started + 1)); else failed=$((failed + 1)); fi
 		done < <(issues)
 	done
-	[ "$started" -gt 0 ] || echo "nothing new"
+	[ "$started" -gt 0 ] || [ "$failed" -gt 0 ] || echo "nothing new"
+	[ "$failed" -eq 0 ]
 }
 
 decide() {
