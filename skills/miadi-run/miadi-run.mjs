@@ -793,7 +793,7 @@ async function draftEnded(deps, rec, e, opts) {
 // pre-session-draft-ready.md, step 2): when the person flagged the text, and whether tide pressed Enter.
 // From D11 (Guillaume, 2026-10-31) `sent` only says the line ran; `unstarted` says no session followed,
 // and the draft is a draft again. Both are marks on the trace, never an ending.
-export const DRAFT_MARKS = ["tide.draft.readied", "tide.draft.unreadied", "tide.draft.due", "tide.draft.sent", "tide.draft.unstarted"]
+export const DRAFT_MARKS = ["tide.draft.readied", "tide.draft.unreadied", "tide.draft.due", "tide.draft.sent", "tide.draft.unstarted", "tide.draft.reopened"]
 
 async function draftMark(deps, rec, e, opts) {
   const at = { event: e.id, draft: e.subject.id }
@@ -801,7 +801,7 @@ async function draftMark(deps, rec, e, opts) {
   if (rec.marks.includes(e.id) || !rec.trace || !rec.prompt) return null
   const mark = e.event_type.slice("tide.draft.".length)
   const p = e.payload ?? {}
-  const detail = Object.fromEntries(["send_at", "scheduler", "window_seconds", "sent", "reason"].filter((k) => p[k] !== undefined).map((k) => [k, p[k]]))
+  const detail = Object.fromEntries(["send_at", "scheduler", "window_seconds", "sent", "reason", "closed_as", "closed_reason"].filter((k) => p[k] !== undefined).map((k) => [k, p[k]]))
   if (opts.dryRun) return { ...at, would: { mark, ...detail } }
   const trace = await findTrace(deps, rec.trace.id, rec.prompt.domain)
   if (!trace?.root) throw new Refusal(4, `trace ${rec.trace.id} is not readable with a root observation yet`)
