@@ -770,7 +770,7 @@ function draftMission(deps, rec, e, last, trace, started, observation, episodes)
 
 // A draft that ends without a session leaves its ending on its prompt's trace, so a prompt nobody
 // will run says why (Guillaume, 2026-10-31: no dead bodies).
-export const DRAFT_ENDINGS = ["tide.draft.cleared", "tide.draft.abandoned", "tide.draft.expired", "tide.draft.withdrawn"]
+export const DRAFT_ENDINGS = ["tide.draft.cleared", "tide.draft.abandoned", "tide.draft.expired", "tide.draft.withdrawn", "tide.draft.dismissed"]
 
 async function draftEnded(deps, rec, e, opts) {
   const at = { event: e.id, draft: e.subject.id }

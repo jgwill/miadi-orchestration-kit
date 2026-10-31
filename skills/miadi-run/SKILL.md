@@ -16,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.11.2
+  version: 0.11.3
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
