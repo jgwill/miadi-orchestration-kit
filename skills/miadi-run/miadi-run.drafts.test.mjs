@@ -71,6 +71,8 @@ test("a draft's prompt is named after its mctgo session's minute and the session
   assert.equal(draftPromptName({ kind: "mctgo", pane: "mctgo-2610310442:0.0", target_session: SESSION }), NAME)
   assert.equal(draftPromptName({ kind: "mctgo", pane: "mctgo-2610310442:0.0", target_team: "T1" }), null, "no session named yet")
   assert.equal(draftPromptName({ kind: "shell", pane: "work:1.0", target_session: SESSION }), null)
+  assert.equal(draftPromptName({ kind: "mctgo", pane: "mctgo-2610310442:0.0", target_session: "t8-t1-miadi-attention-stateloom-integration-$(tlid" }),
+    "miadiRun-2610310442-t8-t1-miadi-attention-stateloom-integration-presession", "the part before $(tlid min)")
   const opened = new Date(2026, 9, 31, 4, 42).toISOString()
   assert.equal(draftPromptName({ kind: "mctgo", pane: "work:1.0", target_session: SESSION }, opened), `miadiRun-${tlidOf(opened)}-${SESSION}-presession`)
   assert.equal(tlidOf(opened), "2610310442")

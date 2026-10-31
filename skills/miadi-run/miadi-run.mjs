@@ -573,8 +573,11 @@ export function tlidOf(iso) {
 }
 
 // The prompt a draft's versions go to: its mctgo-<yyMMddHHmm> session's minute, else the minute it opened.
+// A session name still holding a shell substitution (`t8-x-$(tlid min)`, expanded only on Enter) is
+// named by the part before it.
 export function draftPromptName(payload, openedAt) {
-  const target = typeof payload?.target_session === "string" ? payload.target_session.trim() : ""
+  const raw = typeof payload?.target_session === "string" ? payload.target_session.trim() : ""
+  const target = raw.replace(/[^A-Za-z0-9._-].*$/s, "").replace(/[-_.]+$/, "")
   if (payload?.kind !== "mctgo" || !target) return null
   const m = String(payload.pane ?? "").split(":")[0].match(/^mctgo-(\d{10})$/)
   const stamp = m ? m[1] : tlidOf(openedAt)
