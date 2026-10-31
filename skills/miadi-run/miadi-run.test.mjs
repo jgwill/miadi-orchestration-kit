@@ -1,4 +1,4 @@
-// node --test skills/miadi-run/
+// node --test skills/miadi-run/*.test.mjs
 // Runs the real script as a process: stub tide, coaia, tmux and launchers on PATH log every call,
 // one local server answers as Langfuse and as the episode door. jgwill/miadi-orchestration-kit#84.
 

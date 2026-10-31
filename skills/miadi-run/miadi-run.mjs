@@ -12,6 +12,7 @@
 //   observe <mission> --kind research|return --summary <text> [--detail-file F]
 //   observe --trace <trace-id> --kind research --summary <text>        (research before any mission)
 //   show    <mission>
+//   drafts  [--dry-run] [--quiet]                                      (tide draft versions become prompt versions)
 //
 // Prepare never executes: it asks `tide companion open` for its plan (no --run), and the guard in
 // run() refuses --run outside launch. No prompt text is written to disk: the brief tide hands the
@@ -551,6 +552,135 @@ function show(deps, opts) {
 
 // ---------- cli ----------
 
+// ---------- drafts: a session being prepared becomes prompt versions ----------
+
+// tide writes a draft's life to <MIADI_HOME>/drafts/events.jsonl (ironsilk 0.9.53, jgwill/Miadi#691).
+// Each `tide.draft.versioned` of a mctgo draft that names its session becomes one version of
+// miadiRun-<yyMMddHHmm>-<session>-presession in the eng domain, under one research trace per draft,
+// and `tide.draft.started` relates the session that began to the last version, as an execution
+// generation linked to it. A draft naming an episode holds the prompt and the trace there too.
+// Episode 548, pre-session-draft-event.md, D3 and D4.
+export const DRAFT_DOMAIN = "eng"
+const draftEventsFile = (env) => join(env.MIADI_HOME || join(homedir(), ".miadi", "navigator"), "drafts", "events.jsonl")
+const draftsFollowFile = (env) => join(missionHome(env), "drafts-follow.json")
+
+// yyMMddHHmm in local time, as a person's tlid reads.
+export function tlidOf(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const two = (n) => String(n).padStart(2, "0")
+  return `${two(d.getFullYear() % 100)}${two(d.getMonth() + 1)}${two(d.getDate())}${two(d.getHours())}${two(d.getMinutes())}`
+}
+
+// The prompt a draft's versions go to: its mctgo-<yyMMddHHmm> session's minute, else the minute it opened.
+export function draftPromptName(payload, openedAt) {
+  const target = typeof payload?.target_session === "string" ? payload.target_session.trim() : ""
+  if (payload?.kind !== "mctgo" || !target) return null
+  const m = String(payload.pane ?? "").split(":")[0].match(/^mctgo-(\d{10})$/)
+  const stamp = m ? m[1] : tlidOf(openedAt)
+  const name = `miadiRun-${stamp}-${target}-presession`
+  return PROMPT_NAME_RE.test(name) ? name : null
+}
+
+// The first episode a draft's labels name, as miadi-chronicle://<n>.
+export function draftEpisode(labels) {
+  for (const a of Array.isArray(labels?.addresses) ? labels.addresses : []) {
+    const m = String(a).match(/^miadi-chronicle:(?:\/\/)?(\d+)\b/)
+    if (m) return m[1]
+  }
+  return null
+}
+
+async function draftVersion(deps, rec, e, opts) {
+  const at = { event: e.id, draft: e.subject.id }
+  if (rec.versions.some((v) => v.event === e.id)) return null
+  const name = rec.prompt?.name ?? draftPromptName(e.payload, rec.opened_at)
+  if (!name) return { ...at, skipped: e.payload?.kind === "mctgo" ? "the draft names no session yet" : "a shell draft stays on the host" }
+  const text = e.payload?.text
+  if (typeof text !== "string" || !text.trim()) return { ...at, skipped: "the version holds no text" }
+  if (opts.dryRun) return { ...at, would: { create: name, draft_version: e.payload.version, chars: text.length } }
+  const dir = mkdtempSync(join(tmpdir(), "miadi-run-draft-"))
+  const file = join(dir, "text")
+  writeFileSync(file, text, { mode: 0o600 })
+  try {
+    const out = await create(deps, { positional: [name], textFile: file, domain: rec.prompt?.domain ?? DRAFT_DOMAIN, trace: rec.trace?.id, session: rec.trace?.session ?? String(e.payload.pane ?? "").split(":")[0], commitMessage: `tide.draft.versioned ${e.subject.id} v${e.payload.version}` })
+    rec.prompt = { domain: out.prompt.domain, name }
+    if (!rec.trace) rec.trace = { id: out.trace.id, session: out.trace.session }
+    rec.versions.push({ event: e.id, draft_version: e.payload.version, prompt_version: out.prompt.version, reference: out.prompt.reference })
+    return { ...at, prompt: out.prompt.reference, trace: out.trace.reference, ...(out.trace.ok === false ? { warning: `trace not written: ${out.trace.error}` } : {}) }
+  } catch (err) {
+    if (!(err instanceof Refusal && err.code === 4 && /already holds this text/.test(err.message))) throw err
+    rec.prompt ??= { domain: DRAFT_DOMAIN, name }
+    const last = rec.versions.findLast((v) => v.prompt_version)
+    rec.versions.push({ event: e.id, draft_version: e.payload.version, prompt_version: last?.prompt_version ?? null, reference: last?.reference ?? null, same_text: true })
+    return { ...at, skipped: "the provider already holds this text" }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+async function draftStarted(deps, rec, e, opts) {
+  const at = { event: e.id, draft: e.subject.id }
+  if (rec.started?.event === e.id) return null
+  const started = { event: e.id, at: e.occurred_at, session: e.payload?.target_session ?? null, session_id: e.payload?.session_id ?? null, agent_kind: e.payload?.agent_kind ?? null }
+  const last = rec.versions.findLast((v) => v.prompt_version)
+  if (!rec.prompt || !last) { if (!opts.dryRun) rec.started = started; return { ...at, skipped: "no prompt version to relate the session to", started } }
+  if (opts.dryRun) return { ...at, would: { execution: last.reference, session_id: started.session_id } }
+  const trace = await findTrace(deps, rec.trace.id, rec.prompt.domain)
+  if (!trace?.root) throw new Refusal(4, `trace ${rec.trace.id} is not readable with a root observation yet`)
+  const observation = observe(deps, "drafts", trace, "execution", `${rec.prompt.name}.v${last.prompt_version}`, {
+    prompt: { name: rec.prompt.name, version: last.prompt_version },
+    input: { prompt: last.reference, draft: e.subject.id, authorized_by: e.actor?.id ?? null },
+    output: { state: "started", via: "tide-draft", session: started.session, claude_session_id: started.session_id, agent_kind: started.agent_kind },
+    metadata: { draft: e.subject.id, prompt: last.reference, sent_event: e.causation_id ?? null, started_event: e.id },
+  })
+  const episode = draftEpisode(e.payload?.labels)
+  rec.started = { ...started, prompt: last.reference, observation, ...(episode ? { episode: { ref: episode, relations: [
+    await holdOnEpisode(deps, episode, { reference: last.reference, name: rec.prompt.name, relation: "is-prompted-by" }, false),
+    await holdOnEpisode(deps, episode, { reference: trace.reference, name: trace.name ?? undefined, session: trace.session ?? undefined, relation: "is-traced-in" }, false),
+  ] } } : {}) }
+  return { ...at, related: last.reference, session_id: started.session_id, ...(observation.ok ? {} : { warning: `execution not written: ${observation.error}` }), ...(episode ? { episode } : {}) }
+}
+
+// Reads the lines written since the last run, in order. A line the provider cannot take yet stops
+// the run there, so the next run starts from it; nothing is skipped by a failure.
+async function drafts(deps, opts) {
+  const file = draftEventsFile(deps.env)
+  const stateFile = draftsFollowFile(deps.env)
+  const state = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, "utf8")) : { schema: "miadi-run/drafts-follow@1", offset: 0, drafts: {} }
+  if (!existsSync(file)) return { file, offset: state.offset, handled: [] }
+  const bytes = readFileSync(file)
+  if (bytes.length < state.offset) state.offset = 0 // the log was replaced
+  const handled = []
+  let offset = state.offset
+  let stopped = null
+  const rest = bytes.subarray(offset).toString("utf8")
+  for (const raw of rest.split(/(?<=\n)/)) {
+    if (!raw.endsWith("\n")) break // a line tide is still writing
+    let e = null
+    try { e = JSON.parse(raw) } catch { /* an unreadable line is passed over */ }
+    if (e && typeof e.event_type === "string" && e.event_type.startsWith("tide.draft.") && e.subject?.id) {
+      const rec = state.drafts[e.subject.id] ?? { opened_at: e.occurred_at, versions: [] }
+      try {
+        const out = e.event_type === "tide.draft.versioned" ? await draftVersion(deps, rec, e, opts)
+          : e.event_type === "tide.draft.started" ? await draftStarted(deps, rec, e, opts) : null
+        if (out) handled.push(out)
+      } catch (err) {
+        stopped = { event: e.id, draft: e.subject.id, error: err.message }
+        break
+      }
+      if (!opts.dryRun) state.drafts[e.subject.id] = rec
+    }
+    offset += Buffer.byteLength(raw, "utf8")
+  }
+  if (!opts.dryRun) {
+    state.offset = offset
+    mkdirSync(missionHome(deps.env), { recursive: true })
+    writeFileSync(stateFile, JSON.stringify(state, null, 2) + "\n")
+  }
+  return { file, offset, handled, ...(stopped ? { stopped } : {}), ...(opts.dryRun ? { dryRun: true } : {}), ...(opts.quiet ? { quiet: true } : {}) }
+}
+
 export function parseArgs(argv) {
   const opts = { positional: [], addDirs: [] }
   const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile", "--text-file": "textFile", "--session": "session", "--commit-message": "commitMessage", "--at": "at" }
@@ -559,6 +689,7 @@ export function parseArgs(argv) {
     if (takes[a]) opts[takes[a]] = argv[++i]
     else if (a === "--add-dir") opts.addDirs.push(argv[++i])
     else if (a === "--dry-run") opts.dryRun = true
+    else if (a === "--quiet") opts.quiet = true
     else if (a === "--run") opts.run = true
     else if (a === "--launch") opts.launch = true
     else if (a.startsWith("--")) throw new Refusal(2, `unknown flag ${a}`)
@@ -586,7 +717,8 @@ miadi-run prompt  <mission>
 miadi-run backfill <mission>
 miadi-run observe <mission> --kind research|return --summary <text> [--detail-file F]
 miadi-run observe --trace <trace-id> --kind research --summary <text>
-miadi-run show    <mission>`
+miadi-run show    <mission>
+miadi-run drafts  [--dry-run] [--quiet]`
 
 export async function main(argv, deps = defaultDeps()) {
   const [verb, ...rest] = argv
@@ -601,6 +733,7 @@ export async function main(argv, deps = defaultDeps()) {
   if (verb === "observe") return observeCmd(deps, opts)
   if (verb === "show") return show(deps, opts)
   if (verb === "backfill") return backfill(deps, opts)
+  if (verb === "drafts") return drafts(deps, opts)
   throw new Refusal(2, `unknown verb "${verb}"\n${USAGE}`)
 }
 
@@ -614,6 +747,8 @@ export function warnings(out) {
   if (launcher?.delivers_brief === false && (out?.mission ?? out)?.state === "prepared") w.push(`tide's plan for ${launcher.session} is "${launcher.plan_state}": a launch now would not type the mission prompt`)
   if (out?.trace?.ok === false) w.push(`${out.trace.kind} trace ${out.trace.id} not written: ${out.trace.error ?? "coaia failed"}`)
   if (out && out.kind && out.ok === false) w.push(`${out.kind} observation not written: ${out.error ?? "coaia failed"}`)
+  if (out?.stopped) w.push(`drafts stopped at ${out.stopped.event} (${out.stopped.draft}): ${out.stopped.error}`)
+  for (const h of Array.isArray(out?.handled) ? out.handled : []) if (h?.warning) w.push(`${h.event}: ${h.warning}`)
   return w
 }
 
@@ -621,7 +756,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main(process.argv.slice(2)).then(
     (out) => {
       if (typeof out?.promptText === "string") process.stdout.write(out.promptText)
-      else console.log(out?.usage ?? JSON.stringify(out, null, 2))
+      else if (!(out?.quiet && out.handled?.length === 0 && !out.stopped)) console.log(out?.usage ?? JSON.stringify(out, null, 2))
       const w = warnings(out)
       if (w.length) { for (const line of w) console.error(`miadi-run: ${line}`); process.exitCode = 8 }
     },

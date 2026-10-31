@@ -16,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.6.0
+  version: 0.7.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -41,6 +41,7 @@ $R observe <mission> --kind research|return --summary "<text>" [--detail-file F]
 $R observe --trace <trace-id> --kind research --summary "<text>"
 $R show    <mission>
 $R backfill <mission>
+$R drafts  [--dry-run] [--quiet]
 ```
 
 A mission is `<prompt-name>.v<N>`. Its record is `$MIADI_RUN_HOME/<mission>/mission.json`
@@ -128,6 +129,16 @@ then only listened.
    reader of the record sees what came back without reading the trace. **backfill** `<mission>`
    reads those summaries back from the trace for a record made before 0.6.0, in time order. It
    writes nothing to the trace.
+6. **drafts** (0.7.0, Episode 548 D3 and D4) carries a session being prepared to the provider.
+   It reads the lines tide wrote to `<MIADI_HOME>/drafts/events.jsonl` since its last run
+   (position in `$MIADI_RUN_HOME/drafts-follow.json`). Each `tide.draft.versioned` of a mctgo
+   draft that names its session becomes one version of
+   `miadiRun-<yyMMddHHmm>-<session>-presession` in `eng`, through `create`, under one trace per
+   draft. `tide.draft.started` adds an `execution` generation linked to the last version, carrying
+   the session id, and holds the prompt and the trace on an episode the draft's labels name. A
+   line the provider cannot take stops the run there for the next run. On gaia the user timer
+   `miadi-run-drafts.timer` runs it every 2 minutes (`--quiet`, log
+   `~/.miadi/missions/drafts-follow.log`).
 
 ## What is never touched
 
