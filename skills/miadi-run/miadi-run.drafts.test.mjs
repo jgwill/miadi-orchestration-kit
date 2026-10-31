@@ -142,6 +142,7 @@ test("a ceremony address binds the session to the episode the ceremony was held 
   const w = world()
   assert.deepEqual(await draftEpisodes(w.deps, { addresses: [`miadi-ceremony://${CEREMONY}`, "miadi-chronicle://548", "miadi-chronicle://9"] }),
     [{ folder: EPISODE, address: `miadi-ceremony://${CEREMONY}`, ceremony: CEREMONY }], "one place per episode; an unknown number binds nothing")
+  assert.deepEqual((await draftEpisodes(w.deps, { addresses: [`ceremony:${CEREMONY}`] })).map((p) => p.folder), [EPISODE], "the short form a person types")
 })
 
 test("a draft that ends without a session leaves its ending on its prompt's trace, once", async () => {

@@ -609,7 +609,7 @@ export async function draftEpisodes(deps, labels) {
   const out = []
   for (const a of Array.isArray(labels?.addresses) ? labels.addresses : []) {
     const ep = String(a).match(/^miadi-chronicle:(?:\/\/)?(\d+)\b/)
-    const ce = String(a).match(/^miadi-ceremony:(?:\/\/)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i)
+    const ce = String(a).match(/^(?:miadi-)?ceremony:(?:\/\/)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i)
     let folder = null
     if (ep) folder = episodeFolderOf(deps.env, ep[1])
     else if (ce && deps.env.MIADI_CHRONICLE_MW_URL) {
