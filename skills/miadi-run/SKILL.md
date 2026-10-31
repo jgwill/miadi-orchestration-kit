@@ -16,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.9.0
+  version: 0.10.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -147,7 +147,10 @@ then only listened.
    From 0.9.0 a version's words are redacted with the credential rules tide applies to pane
    captures (`$MIADI_SRC/packages/tide-contract/schema/secret-redaction.json`, or
    `MIADI_SECRET_RULES`) before `create`; the version's commit message names what was redacted, and
-   without the rules nothing is sent (Episode 548, pre-session-draft-audience.md, F5 and H1a). On gaia the user timer
+   without the rules nothing is sent (Episode 548, pre-session-draft-audience.md, F5 and H1a).
+   From 0.10.0 a session that began from a draft is written as a mission,
+   `$MIADI_RUN_HOME/<prompt>.v<N>/mission.json` with `launch.via: "draft"`, the person who
+   pressed Enter as `authorized_by` and the agent's session id, so `/missions` lists it (H5). On gaia the user timer
    `miadi-run-drafts.timer` runs it every 2 minutes (`--quiet`, log
    `~/.miadi/missions/drafts-follow.log`).
 

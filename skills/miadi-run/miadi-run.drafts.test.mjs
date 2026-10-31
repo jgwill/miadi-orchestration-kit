@@ -139,6 +139,12 @@ test("started relates the session to the last version, and holds both on a named
   assert.equal(bound[0].at, "2026-10-31T08:43:16.000Z", "written at the moment the agent was seen, not later")
   const state = JSON.parse(readFileSync(join(w.root, "missions", "drafts-follow.json"), "utf8"))
   assert.equal(state.drafts["draft:fc4b1bcbc582"].started.session_id, "8485453b-697e-4fbc-b108-8652c453f4b5")
+  const mission = JSON.parse(readFileSync(join(w.root, "missions", `${NAME}.v1`, "mission.json"), "utf8"))
+  assert.equal(mission.schema, "miadi-run/mission@1")
+  assert.equal(mission.state, "launched")
+  assert.deepEqual([mission.launch.via, mission.launch.claude_session_id, mission.launch.authorized_by], ["draft", SESSION_ID, "node:human:1789710466321:95nnhl"])
+  assert.equal(mission.episode.ref, "548", "/missions reads an episode by its number")
+  assert.equal(mission.prompt.reference, `miadi-tracing:eng/prompt/${NAME}@1`)
 })
 
 test("a ceremony address binds the session to the episode the ceremony was held for", async () => {

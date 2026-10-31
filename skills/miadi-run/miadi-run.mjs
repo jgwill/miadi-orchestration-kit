@@ -697,7 +697,7 @@ async function draftVersion(deps, rec, e, opts) {
     const out = await create(deps, { positional: [name], textFile: file, domain: rec.prompt?.domain ?? DRAFT_DOMAIN, trace: rec.trace?.id, session: rec.trace?.session ?? (UUID_RE.test(String(e.payload.session_id)) ? String(e.payload.session_id).toLowerCase() : String(e.payload.pane ?? "").split(":")[0]), commitMessage: `tide.draft.versioned ${e.subject.id} v${e.payload.version}${note}` })
     rec.prompt = { domain: out.prompt.domain, name }
     if (!rec.trace) rec.trace = { id: out.trace.id, session: out.trace.session }
-    rec.versions.push({ event: e.id, draft_version: e.payload.version, prompt_version: out.prompt.version, reference: out.prompt.reference, ...(redacted.length ? { redacted } : {}) })
+    rec.versions.push({ event: e.id, draft_version: e.payload.version, prompt_version: out.prompt.version, reference: out.prompt.reference, sha256: out.prompt.sha256, at: e.occurred_at, ...(redacted.length ? { redacted } : {}) })
     const followed = await followUp(deps, rec, e, out.prompt.reference)
     return { ...at, prompt: out.prompt.reference, trace: out.trace.reference, ...(redacted.length ? { redacted } : {}), ...(followed.length ? { follows_up: followed } : {}), ...(out.trace.ok === false ? { warning: `trace not written: ${out.trace.error}` } : {}) }
   } catch (err) {
@@ -738,8 +738,34 @@ async function draftStarted(deps, rec, e, opts) {
       ],
     })
   }
-  rec.started = { ...started, prompt: last.reference, observation, episodes }
+  const mission = draftMission(deps, rec, e, last, trace, started, observation, episodes)
+  rec.started = { ...started, prompt: last.reference, observation, episodes, mission: mission.id }
   return { ...at, related: last.reference, session_id: started.session_id, ...(observation.ok ? {} : { warning: `execution not written: ${observation.error}` }), ...(episodes.length ? { episodes: episodes.map((x) => x.episode) } : {}) }
+}
+
+// H5: the session that began from a draft is a mission, so /missions lists it with its prompt version,
+// its trace and its episode. The person's Enter on the draft is the launch (`via: "draft"`).
+function draftMission(deps, rec, e, last, trace, started, observation, episodes) {
+  const id = missionId(rec.prompt.name, last.prompt_version)
+  const dir = missionDir(deps.env, id)
+  if (existsSync(join(dir, "mission.json"))) return { id, existed: true }
+  const number = episodes.map((x) => String(x.episode).match(/-episode-0*(\d+)-/)?.[1]).find(Boolean) ?? ""
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, "mission.json"), JSON.stringify({
+    schema: "miadi-run/mission@1",
+    id,
+    state: "launched",
+    prompt: { domain: rec.prompt.domain, name: rec.prompt.name, version: last.prompt_version, reference: last.reference, sha256: last.sha256 ?? null },
+    trace: { domain: trace.domain, id: trace.id, reference: trace.reference, name: trace.name, session: trace.session, root: trace.root },
+    episode: { ref: number, relations: episodes.flatMap((x) => x.relations ?? []) },
+    launcher: { kind: "tide-draft", session: started.session },
+    prepared_at: rec.versions[0]?.at ?? started.at,
+    prepared_by: null,
+    launch: { authorized_by: e.actor?.id ?? null, at: started.at, executed: true, via: "draft", session: started.session, claude_session_id: started.session_id, recorded_by: writerOf(deps.env) },
+    draft: e.subject.id,
+    observations: [observation],
+  }, null, 2) + "\n")
+  return { id }
 }
 
 // A draft that ends without a session leaves its ending on its prompt's trace, so a prompt nobody
