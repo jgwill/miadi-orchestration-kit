@@ -651,24 +651,55 @@ function bindSession(deps, e, place) {
   return { episode: place.folder, ...(place.ceremony ? { ceremony: place.ceremony } : {}) }
 }
 
+// A version's words leave the host only after the credential rules tide applies to pane captures
+// (jgwill/Miadi#745) have redacted them: a token pasted into a primer would otherwise become a prompt
+// version as typed (Episode 548, pre-session-draft-audience.md, F5 and H1a). Without the rules nothing
+// is sent.
+export function secretRules(env) {
+  const files = [env.MIADI_SECRET_RULES, env.MIADI_SRC && join(env.MIADI_SRC, "packages", "tide-contract", "schema", "secret-redaction.json")].filter(Boolean)
+  const file = files.find((f) => existsSync(f))
+  if (!file) throw new Refusal(1, "no secret-redaction rules (MIADI_SECRET_RULES, or $MIADI_SRC/packages/tide-contract/schema/secret-redaction.json): a draft's words do not leave the host unchecked")
+  return JSON.parse(readFileSync(file, "utf8"))
+}
+
+export function redactSecrets(text, ruleset) {
+  const mask = ruleset.mask ?? "***"
+  const keep = (v) => v.slice(0, v.length >= 7 ? 6 : v.length >= 4 ? 4 : v.length) + mask
+  const found = []
+  let out = text
+  for (const rule of ruleset.rules ?? []) {
+    let n = 0
+    const regex = new RegExp(rule.pattern, (rule.flags ?? "") + "g")
+    out = out.replace(regex, (match, label, value) => {
+      n += 1
+      if (rule.kind === "block") return rule.replacement ?? mask
+      if (rule.kind === "labelled") return label + keep(value)
+      return keep(match)
+    })
+    if (n) found.push({ rule: rule.name, count: n })
+  }
+  return { text: out, redacted: found }
+}
+
 async function draftVersion(deps, rec, e, opts) {
   const at = { event: e.id, draft: e.subject.id }
   if (rec.versions.some((v) => v.event === e.id)) return null
   const name = rec.prompt?.name ?? draftPromptName(e.payload, rec.opened_at)
   if (!name) return { ...at, skipped: e.payload?.kind === "mctgo" ? "the draft names no session yet" : "a shell draft stays on the host" }
-  const text = e.payload?.text
-  if (typeof text !== "string" || !text.trim()) return { ...at, skipped: "the version holds no text" }
-  if (opts.dryRun) return { ...at, would: { create: name, draft_version: e.payload.version, chars: text.length } }
+  if (typeof e.payload?.text !== "string" || !e.payload.text.trim()) return { ...at, skipped: "the version holds no text" }
+  const { text, redacted } = redactSecrets(e.payload.text, secretRules(deps.env))
+  const note = redacted.length ? ` · redacted ${redacted.map((r) => `${r.count} ${r.rule}`).join(", ")}` : ""
+  if (opts.dryRun) return { ...at, would: { create: name, draft_version: e.payload.version, chars: text.length, ...(redacted.length ? { redacted } : {}) } }
   const dir = mkdtempSync(join(tmpdir(), "miadi-run-draft-"))
   const file = join(dir, "text")
   writeFileSync(file, text, { mode: 0o600 })
   try {
-    const out = await create(deps, { positional: [name], textFile: file, domain: rec.prompt?.domain ?? DRAFT_DOMAIN, trace: rec.trace?.id, session: rec.trace?.session ?? (UUID_RE.test(String(e.payload.session_id)) ? String(e.payload.session_id).toLowerCase() : String(e.payload.pane ?? "").split(":")[0]), commitMessage: `tide.draft.versioned ${e.subject.id} v${e.payload.version}` })
+    const out = await create(deps, { positional: [name], textFile: file, domain: rec.prompt?.domain ?? DRAFT_DOMAIN, trace: rec.trace?.id, session: rec.trace?.session ?? (UUID_RE.test(String(e.payload.session_id)) ? String(e.payload.session_id).toLowerCase() : String(e.payload.pane ?? "").split(":")[0]), commitMessage: `tide.draft.versioned ${e.subject.id} v${e.payload.version}${note}` })
     rec.prompt = { domain: out.prompt.domain, name }
     if (!rec.trace) rec.trace = { id: out.trace.id, session: out.trace.session }
-    rec.versions.push({ event: e.id, draft_version: e.payload.version, prompt_version: out.prompt.version, reference: out.prompt.reference })
+    rec.versions.push({ event: e.id, draft_version: e.payload.version, prompt_version: out.prompt.version, reference: out.prompt.reference, ...(redacted.length ? { redacted } : {}) })
     const followed = await followUp(deps, rec, e, out.prompt.reference)
-    return { ...at, prompt: out.prompt.reference, trace: out.trace.reference, ...(followed.length ? { follows_up: followed } : {}), ...(out.trace.ok === false ? { warning: `trace not written: ${out.trace.error}` } : {}) }
+    return { ...at, prompt: out.prompt.reference, trace: out.trace.reference, ...(redacted.length ? { redacted } : {}), ...(followed.length ? { follows_up: followed } : {}), ...(out.trace.ok === false ? { warning: `trace not written: ${out.trace.error}` } : {}) }
   } catch (err) {
     if (!(err instanceof Refusal && err.code === 4 && /already holds this text/.test(err.message))) throw err
     rec.prompt ??= { domain: DRAFT_DOMAIN, name }

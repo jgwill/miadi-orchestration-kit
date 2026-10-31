@@ -16,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.8.0
+  version: 0.9.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -143,7 +143,11 @@ then only listened.
    `draft`) to the binding line, so the room's Sessions card lists the session; a draft that ends
    without a session (cleared, abandoned, expired, withdrawn) leaves its ending on its trace; once
    tide gives a draft `session_id`, the prompt name ends with it and the trace takes it as its
-   session. The episode door's writer token is read from the env file when the environment lacks it. On gaia the user timer
+   session. The episode door's writer token is read from the env file when the environment lacks it.
+   From 0.9.0 a version's words are redacted with the credential rules tide applies to pane
+   captures (`$MIADI_SRC/packages/tide-contract/schema/secret-redaction.json`, or
+   `MIADI_SECRET_RULES`) before `create`; the version's commit message names what was redacted, and
+   without the rules nothing is sent (Episode 548, pre-session-draft-audience.md, F5 and H1a). On gaia the user timer
    `miadi-run-drafts.timer` runs it every 2 minutes (`--quiet`, log
    `~/.miadi/missions/drafts-follow.log`).
 

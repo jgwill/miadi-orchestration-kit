@@ -14,6 +14,8 @@ const NAME = `miadiRun-2610310442-${SESSION}-presession`
 const EPISODE = "2026-09-27-episode-548-before-choosing-a-broker"
 const CEREMONY = "51f2a8d4-64d1-46b7-a92d-9f87f1f00766"
 const SESSION_ID = "8485453b-697e-4fbc-b108-8652c453f4b5"
+// the rules tide applies to captures, as tide-contract publishes them
+const RULES = [process.env.MIADI_SECRET_RULES, "/a/src/Miadi/packages/tide-contract/schema/secret-redaction.json"].find((f) => f && existsSync(f))
 
 function world() {
   const root = mkdtempSync(join(tmpdir(), "miadi-run-drafts-"))
@@ -33,6 +35,7 @@ function world() {
       MIADI_CHRONICLE_ROOT: join(root, "chronicle"),
       MIADI_CHRONICLE_MW_URL: "http://mw",
       CLAUDE_SESSIONDATA_ROOT: join(root, "sessiondata"),
+      MIADI_SECRET_RULES: RULES,
     },
     now: () => new Date("2026-10-31T09:00:00Z"),
     run: (cmd, args) => {
@@ -155,6 +158,27 @@ test("a draft that ends without a session leaves its ending on its prompt's trac
   const ending = w.calls.filter((c) => c[2] === "traces" && c[3] === "add-observation").at(-1).join(" ")
   assert.match(ending, /--type event .*miadi-run · research · .*· cleared/)
   assert.match(ending, /"became_a_session":false/)
+})
+
+test("a credential in a version is redacted before it leaves the host, and the version says so", { skip: !RULES && "no secret-redaction rules on this host" }, async () => {
+  const w = world()
+  const token = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+  w.write("versioned", { text: `mctgo T1 ${SESSION} 'use ${token} for the API'`, version: 1, target_team: "T1", target_session: SESSION })
+  const out = await main(["drafts"], w.deps)
+  assert.deepEqual(out.handled[0].redacted, [{ rule: "github-token", count: 1 }])
+  assert.equal(w.prompts[NAME][0].includes(token), false, "the provider never holds the token")
+  assert.match(w.prompts[NAME][0], /ghp_A1\*\*\* for the API/)
+  const made = w.calls.find((c) => c[2] === "prompts" && c[3] === "create").join(" ")
+  assert.match(made, /--commit-message tide\.draft\.versioned draft:fc4b1bcbc582 v1 · redacted 1 github-token/)
+})
+
+test("without the redaction rules a version does not leave the host", async () => {
+  const w = world()
+  w.deps.env.MIADI_SECRET_RULES = join(w.root, "missing.json")
+  w.write("versioned", { text: `mctgo T1 ${SESSION} 'kept home'`, version: 1, target_team: "T1", target_session: SESSION })
+  const out = await main(["drafts"], w.deps)
+  assert.match(out.stopped.error, /secret-redaction rules/)
+  assert.equal(w.prompts[NAME], undefined)
 })
 
 test("a provider that cannot take a version stops the run at that line, and the next run takes it", async () => {
