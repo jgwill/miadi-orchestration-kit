@@ -791,7 +791,9 @@ async function draftEnded(deps, rec, e, opts) {
 
 // The ready flag and its moment, kept on the prompt's trace beside the versions (Episode 548,
 // pre-session-draft-ready.md, step 2): when the person flagged the text, and whether tide pressed Enter.
-export const DRAFT_MARKS = ["tide.draft.readied", "tide.draft.unreadied", "tide.draft.due"]
+// From D11 (Guillaume, 2026-10-31) `sent` only says the line ran; `unstarted` says no session followed,
+// and the draft is a draft again. Both are marks on the trace, never an ending.
+export const DRAFT_MARKS = ["tide.draft.readied", "tide.draft.unreadied", "tide.draft.due", "tide.draft.sent", "tide.draft.unstarted"]
 
 async function draftMark(deps, rec, e, opts) {
   const at = { event: e.id, draft: e.subject.id }

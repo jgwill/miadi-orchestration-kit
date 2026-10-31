@@ -200,6 +200,18 @@ test("the ready flag and its moment are kept on the prompt's trace, once each", 
   assert.deepEqual((await main(["drafts"], w.deps)).handled, [])
 })
 
+test("sent and unstarted are marks: the draft is a draft again when no session follows (D11)", async () => {
+  const w = world()
+  w.write("versioned", { text: `mctgo T1 ${SESSION} 'ran, nothing started'`, version: 1, target_team: "T1", target_session: SESSION })
+  w.write("sent", { target_team: "T1", target_session: SESSION })
+  w.write("unstarted", { target_team: "T1", target_session: SESSION, reason: "no session started within 600 s" })
+  const out = await main(["drafts"], w.deps)
+  assert.deepEqual(out.handled.filter((h) => h.mark).map((h) => h.mark), ["sent", "unstarted"])
+  assert.equal(out.handled.some((h) => h.ended), false, "neither ends the draft")
+  const state = JSON.parse(readFileSync(join(w.root, "missions", "drafts-follow.json"), "utf8"))
+  assert.equal(state.drafts["draft:fc4b1bcbc582"].ended, undefined)
+})
+
 test("a provider that cannot take a version stops the run at that line, and the next run takes it", async () => {
   const w = world()
   w.write("versioned", { text: `mctgo T1 ${SESSION} 'kept for later'`, version: 1, target_team: "T1", target_session: SESSION })
