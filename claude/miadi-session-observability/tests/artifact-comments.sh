@@ -10,6 +10,7 @@ HOOKS="$HERE/hooks/claude_hooks"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 export CLAUDE_SESSIONDATA_ROOT="$WORK/root"
+export XDG_STATE_HOME="$WORK/state"  # the work-in-progress marker stays in the test (0.1.27)
 mkdir -p "$CLAUDE_SESSIONDATA_ROOT"
 
 failures=0
