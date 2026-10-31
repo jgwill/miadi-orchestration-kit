@@ -16,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.10.0
+  version: 0.11.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -150,7 +150,10 @@ then only listened.
    without the rules nothing is sent (Episode 548, pre-session-draft-audience.md, F5 and H1a).
    From 0.10.0 a session that began from a draft is written as a mission,
    `$MIADI_RUN_HOME/<prompt>.v<N>/mission.json` with `launch.via: "draft"`, the person who
-   pressed Enter as `authorized_by` and the agent's session id, so `/missions` lists it (H5). On gaia the user timer
+   pressed Enter as `authorized_by` and the agent's session id, so `/missions` lists it (H5).
+   From 0.11.0 `tide.draft.readied`, `unreadied` and `due` (ironsilk 0.9.61) are kept on the
+   prompt's trace as research events: when the person flagged the text, and whether tide pressed
+   Enter or held, and why (Episode 548, pre-session-draft-ready.md). On gaia the user timer
    `miadi-run-drafts.timer` runs it every 2 minutes (`--quiet`, log
    `~/.miadi/missions/drafts-follow.log`).
 

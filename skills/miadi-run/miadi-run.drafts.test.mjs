@@ -187,6 +187,19 @@ test("without the redaction rules a version does not leave the host", async () =
   assert.equal(w.prompts[NAME], undefined)
 })
 
+test("the ready flag and its moment are kept on the prompt's trace, once each", async () => {
+  const w = world()
+  w.write("versioned", { text: `mctgo T1 ${SESSION} 'ready, not now'`, version: 1, target_team: "T1", target_session: SESSION })
+  w.write("readied", { target_team: "T1", target_session: SESSION, send_at: "2026-10-31T15:00:00+00:00", window_seconds: 3600 })
+  w.write("due", { target_team: "T1", target_session: SESSION, sent: false, send_at: "2026-10-31T15:00:00+00:00", reason: "a focused terminal shows the pane: the person sends it themselves" })
+  const out = await main(["drafts"], w.deps)
+  assert.deepEqual(out.handled.filter((h) => h.mark).map((h) => [h.mark, h.sent ?? null]), [["readied", null], ["due", false]])
+  const marks = w.calls.filter((c) => c[3] === "add-observation").map((c) => c.join(" "))
+  assert.match(marks.at(-2), /· readied.*"send_at":"2026-10-31T15:00:00\+00:00"/)
+  assert.match(marks.at(-1), /· due.*"sent":false.*the person sends it themselves/)
+  assert.deepEqual((await main(["drafts"], w.deps)).handled, [])
+})
+
 test("a provider that cannot take a version stops the run at that line, and the next run takes it", async () => {
   const w = world()
   w.write("versioned", { text: `mctgo T1 ${SESSION} 'kept for later'`, version: 1, target_team: "T1", target_session: SESSION })

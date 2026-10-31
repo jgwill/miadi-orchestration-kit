@@ -789,6 +789,30 @@ async function draftEnded(deps, rec, e, opts) {
   return { ...at, ended: ending, trace: `miadi-tracing:${rec.prompt.domain}/trace/${rec.trace.id}`, ...(observation.ok ? {} : { warning: `ending not written: ${observation.error}` }) }
 }
 
+// The ready flag and its moment, kept on the prompt's trace beside the versions (Episode 548,
+// pre-session-draft-ready.md, step 2): when the person flagged the text, and whether tide pressed Enter.
+export const DRAFT_MARKS = ["tide.draft.readied", "tide.draft.unreadied", "tide.draft.due"]
+
+async function draftMark(deps, rec, e, opts) {
+  const at = { event: e.id, draft: e.subject.id }
+  rec.marks ??= []
+  if (rec.marks.includes(e.id) || !rec.trace || !rec.prompt) return null
+  const mark = e.event_type.slice("tide.draft.".length)
+  const p = e.payload ?? {}
+  const detail = Object.fromEntries(["send_at", "scheduler", "window_seconds", "sent", "reason"].filter((k) => p[k] !== undefined).map((k) => [k, p[k]]))
+  if (opts.dryRun) return { ...at, would: { mark, ...detail } }
+  const trace = await findTrace(deps, rec.trace.id, rec.prompt.domain)
+  if (!trace?.root) throw new Refusal(4, `trace ${rec.trace.id} is not readable with a root observation yet`)
+  const last = rec.versions.findLast((v) => v.prompt_version)
+  const observation = observe(deps, "drafts", trace, "research", `${rec.prompt.name} · ${mark}`, {
+    input: { draft: e.subject.id, prompt: last?.reference ?? null },
+    output: { state: mark, ...detail },
+    metadata: { draft: e.subject.id, event: e.id, mark },
+  })
+  rec.marks.push(e.id)
+  return { ...at, mark, ...detail, ...(observation.ok ? {} : { warning: `${mark} not written: ${observation.error}` }) }
+}
+
 // Reads the lines written since the last run, in order. A line the provider cannot take yet stops
 // the run there, so the next run starts from it; nothing is skipped by a failure.
 async function drafts(deps, opts) {
@@ -811,7 +835,8 @@ async function drafts(deps, opts) {
       try {
         const out = e.event_type === "tide.draft.versioned" ? await draftVersion(deps, rec, e, opts)
           : e.event_type === "tide.draft.started" ? await draftStarted(deps, rec, e, opts)
-          : DRAFT_ENDINGS.includes(e.event_type) ? await draftEnded(deps, rec, e, opts) : null
+          : DRAFT_ENDINGS.includes(e.event_type) ? await draftEnded(deps, rec, e, opts)
+          : DRAFT_MARKS.includes(e.event_type) ? await draftMark(deps, rec, e, opts) : null
         if (out) handled.push(out)
       } catch (err) {
         stopped = { event: e.id, draft: e.subject.id, error: err.message }
