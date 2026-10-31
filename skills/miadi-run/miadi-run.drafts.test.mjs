@@ -7,14 +7,19 @@ import assert from "node:assert/strict"
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { draftEpisode, draftPromptName, main, tlidOf } from "./miadi-run.mjs"
+import { draftEpisodes, draftPromptName, main, tlidOf } from "./miadi-run.mjs"
 
 const SESSION = "t1-draft-follow-2610310900"
 const NAME = `miadiRun-2610310442-${SESSION}-presession`
+const EPISODE = "2026-09-27-episode-548-before-choosing-a-broker"
+const CEREMONY = "51f2a8d4-64d1-46b7-a92d-9f87f1f00766"
+const SESSION_ID = "8485453b-697e-4fbc-b108-8652c453f4b5"
 
 function world() {
   const root = mkdtempSync(join(tmpdir(), "miadi-run-drafts-"))
   mkdirSync(join(root, "navigator", "drafts"), { recursive: true })
+  mkdirSync(join(root, "chronicle", EPISODE), { recursive: true })
+  mkdirSync(join(root, "sessiondata", "data"), { recursive: true })
   const prompts = {}, traces = {}, calls = [], held = []
   const deps = {
     env: {
@@ -25,6 +30,9 @@ function world() {
       ENG_LANGFUSE_SECRET_KEY: "sk-lf-FAKE",
       ENG_LANGFUSE_BASE_URL: "http://lf",
       MIADI_API_URL: "http://api",
+      MIADI_CHRONICLE_ROOT: join(root, "chronicle"),
+      MIADI_CHRONICLE_MW_URL: "http://mw",
+      CLAUDE_SESSIONDATA_ROOT: join(root, "sessiondata"),
     },
     now: () => new Date("2026-10-31T09:00:00Z"),
     run: (cmd, args) => {
@@ -48,7 +56,8 @@ function world() {
       }
       const t = u.pathname.match(/^\/api\/public\/traces\/(.+)$/)
       if (t && traces[t[1]]) return answer(200, { id: t[1], name: traces[t[1]].name, sessionId: traces[t[1]].session, observations: [{ id: "root-1", parentObservationId: null, startTime: "2026-10-31T08:48:37Z" }] })
-      const e = u.pathname.match(/^\/api\/chronicle\/episodes\/(\d+)\/tracing$/)
+      if (u.pathname === `/api/ceremonies/${CEREMONY}`) return answer(200, { ceremony: { id: CEREMONY, episode_path: EPISODE, type: "talking_circle" } })
+      const e = u.pathname.match(/^\/api\/chronicle\/episodes\/([^/]+)\/tracing$/)
       if (e && init.method === "POST") { held.push({ episode: e[1], ...JSON.parse(init.body) }); return answer(201, { ok: true }) }
       return answer(404, null)
     },
@@ -76,8 +85,8 @@ test("a draft's prompt is named after its mctgo session's minute and the session
   const opened = new Date(2026, 9, 31, 4, 42).toISOString()
   assert.equal(draftPromptName({ kind: "mctgo", pane: "work:1.0", target_session: SESSION }, opened), `miadiRun-${tlidOf(opened)}-${SESSION}-presession`)
   assert.equal(tlidOf(opened), "2610310442")
-  assert.equal(draftEpisode({ addresses: ["miadi-review://abc", "miadi-chronicle://548"] }), "548")
-  assert.equal(draftEpisode({ paths: ["app/tide/"] }), null)
+  assert.equal(draftPromptName({ kind: "mctgo", pane: "mctgo-2610310442:0.0", target_session: SESSION, session_id: SESSION_ID.toUpperCase() }),
+    `${NAME}-${SESSION_ID}`, "D8: the session id mctdraft gave the draft ends the name")
 })
 
 test("versions become prompt versions under one trace, the prefilled line and repeats add none", async () => {
@@ -110,14 +119,41 @@ test("started relates the session to the last version, and holds both on a named
   const out = await main(["drafts"], w.deps)
   const rel = out.handled.at(-1)
   assert.equal(rel.related, `miadi-tracing:eng/prompt/${NAME}@1`)
-  assert.equal(rel.episode, "548")
+  assert.deepEqual(rel.episodes, [EPISODE])
   const execution = w.calls.find((c) => c.includes("--prompt-name")).join(" ")
   assert.match(execution, new RegExp(`--type generation --prompt-name ${NAME} --prompt-version 1 `))
   assert.match(execution, /"claude_session_id":"8485453b-697e-4fbc-b108-8652c453f4b5"/)
   assert.match(execution, new RegExp(`"sent_event":"${sent}"`))
-  assert.deepEqual(w.held.map((h) => [h.episode, h.relation]), [["548", "is-prompted-by"], ["548", "is-traced-in"]])
+  assert.deepEqual(w.held.map((h) => [h.episode, h.relation, h.reference]), [
+    [EPISODE, "is-followed-up-by", `miadi-tracing:eng/prompt/${NAME}@1`],
+    [EPISODE, "is-traced-in", w.held[1].reference],
+  ], "the version naming the episode makes the prompt its follow-up; the start adds the trace")
+  const bound = readFileSync(join(w.root, "sessiondata", "data", "terminal_bindings.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l))
+  assert.equal(bound.length, 1)
+  assert.equal(bound[0].event, "session.episode")
+  assert.equal(bound[0].session_id, SESSION_ID)
+  assert.deepEqual(bound[0].episode, { id: EPISODE, source: "draft" })
+  assert.equal(bound[0].at, "2026-10-31T08:43:16.000Z", "written at the moment the agent was seen, not later")
   const state = JSON.parse(readFileSync(join(w.root, "missions", "drafts-follow.json"), "utf8"))
   assert.equal(state.drafts["draft:fc4b1bcbc582"].started.session_id, "8485453b-697e-4fbc-b108-8652c453f4b5")
+})
+
+test("a ceremony address binds the session to the episode the ceremony was held for", async () => {
+  const w = world()
+  assert.deepEqual(await draftEpisodes(w.deps, { addresses: [`miadi-ceremony://${CEREMONY}`, "miadi-chronicle://548", "miadi-chronicle://9"] }),
+    [{ folder: EPISODE, address: `miadi-ceremony://${CEREMONY}`, ceremony: CEREMONY }], "one place per episode; an unknown number binds nothing")
+})
+
+test("a draft that ends without a session leaves its ending on its prompt's trace, once", async () => {
+  const w = world()
+  w.write("versioned", { text: `mctgo T1 ${SESSION} 'not today'`, version: 1, target_team: "T1", target_session: SESSION })
+  w.write("cleared", { target_team: "T1", target_session: SESSION })
+  w.write("abandoned", { target_team: "T1", target_session: SESSION, reason: "its pane closed" })
+  const out = await main(["drafts"], w.deps)
+  assert.deepEqual(out.handled.map((h) => h.ended).filter(Boolean), ["cleared"])
+  const ending = w.calls.filter((c) => c[2] === "traces" && c[3] === "add-observation").at(-1).join(" ")
+  assert.match(ending, /--type event .*miadi-run · research · .*· cleared/)
+  assert.match(ending, /"became_a_session":false/)
 })
 
 test("a provider that cannot take a version stops the run at that line, and the next run takes it", async () => {

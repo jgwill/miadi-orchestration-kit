@@ -22,7 +22,7 @@
 
 import { createHash, randomBytes } from "node:crypto"
 import { spawnSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -48,7 +48,7 @@ function envFileValues(env) {
   if (!file || !existsSync(file)) return {}
   const out = {}
   for (const line of readFileSync(file, "utf8").split("\n")) {
-    const m = line.match(new RegExp(`^((?:${DOMAINS.map((d) => d.toUpperCase()).join("|")})_LANGFUSE_[A-Z_]+)=(.*)$`))
+    const m = line.match(new RegExp(`^((?:${DOMAINS.map((d) => d.toUpperCase()).join("|")})_LANGFUSE_[A-Z_]+|MIADI_API_TOKEN_WRITER)=(.*)$`))
     if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, "")
   }
   return out
@@ -186,7 +186,9 @@ async function holdOnEpisode(deps, episode, body, dryRun) {
   const api = (deps.env.MIADI_API_URL || "").replace(/\/$/, "")
   if (!api) return { reference: body.reference, status: "pending", note: "MIADI_API_URL unset: hold it with the chronicle_episode_tracing MCP tool" }
   const headers = { "Content-Type": "application/json" }
-  if (deps.env.MIADI_API_TOKEN_WRITER) headers.Authorization = `Bearer ${deps.env.MIADI_API_TOKEN_WRITER}`
+  // the episode door asks a token even on loopback; a timer's environment has only the env file
+  const token = deps.env.MIADI_API_TOKEN_WRITER || envFileValues(deps.env).MIADI_API_TOKEN_WRITER
+  if (token) headers.Authorization = `Bearer ${token}`
   const res = await deps.fetch(`${api}/api/chronicle/episodes/${encodeURIComponent(episode)}/tracing`, { method: "POST", headers, body: JSON.stringify({ ...body, dryRun }) })
   return { reference: body.reference, relation: body.relation, status: res.status, held: res.ok && !dryRun }
 }
@@ -581,17 +583,72 @@ export function draftPromptName(payload, openedAt) {
   if (payload?.kind !== "mctgo" || !target) return null
   const m = String(payload.pane ?? "").split(":")[0].match(/^mctgo-(\d{10})$/)
   const stamp = m ? m[1] : tlidOf(openedAt)
-  const name = `miadiRun-${stamp}-${target}-presession`
+  // D8: once mctdraft gives the draft its session id, the prompt is named by it.
+  const id = typeof payload.session_id === "string" && UUID_RE.test(payload.session_id) ? `-${payload.session_id.toLowerCase()}` : ""
+  const name = `miadiRun-${stamp}-${target}-presession${id}`
   return PROMPT_NAME_RE.test(name) ? name : null
 }
 
-// The first episode a draft's labels name, as miadi-chronicle://<n>.
-export function draftEpisode(labels) {
-  for (const a of Array.isArray(labels?.addresses) ? labels.addresses : []) {
-    const m = String(a).match(/^miadi-chronicle:(?:\/\/)?(\d+)\b/)
-    if (m) return m[1]
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// The episode folder numbered n on the ledger, when exactly one carries it.
+export function episodeFolderOf(env, n) {
+  const root = env.MIADI_CHRONICLE_ROOT || "/srv/miadi/episodes/miadi-chronicle"
+  const re = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-episode-0*${Number(n)}-`)
+  try {
+    const hits = readdirSync(root).filter((d) => re.test(d))
+    return hits.length === 1 ? hits[0] : null
+  } catch {
+    return null
   }
-  return null
+}
+
+// The episodes a draft's labels name: miadi-chronicle://<n> directly, miadi-ceremony://<id> through
+// the episode the ceremony was held for (its episode_path on the chronicle wheel). H4.
+export async function draftEpisodes(deps, labels) {
+  const out = []
+  for (const a of Array.isArray(labels?.addresses) ? labels.addresses : []) {
+    const ep = String(a).match(/^miadi-chronicle:(?:\/\/)?(\d+)\b/)
+    const ce = String(a).match(/^miadi-ceremony:(?:\/\/)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i)
+    let folder = null
+    if (ep) folder = episodeFolderOf(deps.env, ep[1])
+    else if (ce && deps.env.MIADI_CHRONICLE_MW_URL) {
+      const res = await deps.fetch(`${deps.env.MIADI_CHRONICLE_MW_URL.replace(/\/$/, "")}/api/ceremonies/${ce[1]}`).catch(() => null)
+      const body = res?.ok ? await res.json() : null
+      folder = (body?.ceremony ?? body)?.episode_path ?? null
+    }
+    if (folder && !out.some((o) => o.folder === folder)) out.push({ folder, address: String(a), ...(ce ? { ceremony: ce[1].toLowerCase() } : {}) })
+  }
+  return out
+}
+
+// A draft that names an episode is a planned follow-up of it (Guillaume, 2026-10-31): the first version
+// that names it is held on the episode as `is-followed-up-by`, before any session exists.
+export const FOLLOW_UP_RELATION = "is-followed-up-by"
+
+async function followUp(deps, rec, e, reference) {
+  rec.followed ??= []
+  const held = []
+  for (const place of await draftEpisodes(deps, e.payload?.labels)) {
+    if (rec.followed.includes(place.folder)) continue
+    const r = await holdOnEpisode(deps, place.folder, { reference, name: rec.prompt.name, relation: FOLLOW_UP_RELATION }, false)
+    if (typeof r.status === "number" && r.status < 300) rec.followed.push(place.folder)
+    held.push({ episode: place.folder, status: r.status })
+  }
+  return held
+}
+
+// A line in the binding line that names the episode the session worked in, as the capture hook's
+// lines do, so the room's Sessions card and the inventory see it. Written at the moment the agent was
+// seen running, so a later hook line stays the session's newest.
+function bindSession(deps, e, place) {
+  const line = {
+    at: new Date(e.occurred_at).toISOString(), event: "session.episode", source: "tide-draft", agent: e.payload?.agent_kind ?? "claude",
+    session_id: e.payload.session_id, host: e.source?.instance ?? null, tmux: { session: e.payload?.target_session ?? null },
+    episode: { id: place.folder, source: "draft" }, draft: e.subject.id, address: place.address, ...(place.ceremony ? { ceremony: place.ceremony } : {}),
+  }
+  appendFileSync(join(sessionRoot(deps.env), "data", "terminal_bindings.jsonl"), JSON.stringify(line) + "\n")
+  return { episode: place.folder, ...(place.ceremony ? { ceremony: place.ceremony } : {}) }
 }
 
 async function draftVersion(deps, rec, e, opts) {
@@ -606,11 +663,12 @@ async function draftVersion(deps, rec, e, opts) {
   const file = join(dir, "text")
   writeFileSync(file, text, { mode: 0o600 })
   try {
-    const out = await create(deps, { positional: [name], textFile: file, domain: rec.prompt?.domain ?? DRAFT_DOMAIN, trace: rec.trace?.id, session: rec.trace?.session ?? String(e.payload.pane ?? "").split(":")[0], commitMessage: `tide.draft.versioned ${e.subject.id} v${e.payload.version}` })
+    const out = await create(deps, { positional: [name], textFile: file, domain: rec.prompt?.domain ?? DRAFT_DOMAIN, trace: rec.trace?.id, session: rec.trace?.session ?? (UUID_RE.test(String(e.payload.session_id)) ? String(e.payload.session_id).toLowerCase() : String(e.payload.pane ?? "").split(":")[0]), commitMessage: `tide.draft.versioned ${e.subject.id} v${e.payload.version}` })
     rec.prompt = { domain: out.prompt.domain, name }
     if (!rec.trace) rec.trace = { id: out.trace.id, session: out.trace.session }
     rec.versions.push({ event: e.id, draft_version: e.payload.version, prompt_version: out.prompt.version, reference: out.prompt.reference })
-    return { ...at, prompt: out.prompt.reference, trace: out.trace.reference, ...(out.trace.ok === false ? { warning: `trace not written: ${out.trace.error}` } : {}) }
+    const followed = await followUp(deps, rec, e, out.prompt.reference)
+    return { ...at, prompt: out.prompt.reference, trace: out.trace.reference, ...(followed.length ? { follows_up: followed } : {}), ...(out.trace.ok === false ? { warning: `trace not written: ${out.trace.error}` } : {}) }
   } catch (err) {
     if (!(err instanceof Refusal && err.code === 4 && /already holds this text/.test(err.message))) throw err
     rec.prompt ??= { domain: DRAFT_DOMAIN, name }
@@ -637,12 +695,41 @@ async function draftStarted(deps, rec, e, opts) {
     output: { state: "started", via: "tide-draft", session: started.session, claude_session_id: started.session_id, agent_kind: started.agent_kind },
     metadata: { draft: e.subject.id, prompt: last.reference, sent_event: e.causation_id ?? null, started_event: e.id },
   })
-  const episode = draftEpisode(e.payload?.labels)
-  rec.started = { ...started, prompt: last.reference, observation, ...(episode ? { episode: { ref: episode, relations: [
-    await holdOnEpisode(deps, episode, { reference: last.reference, name: rec.prompt.name, relation: "is-prompted-by" }, false),
-    await holdOnEpisode(deps, episode, { reference: trace.reference, name: trace.name ?? undefined, session: trace.session ?? undefined, relation: "is-traced-in" }, false),
-  ] } } : {}) }
-  return { ...at, related: last.reference, session_id: started.session_id, ...(observation.ok ? {} : { warning: `execution not written: ${observation.error}` }), ...(episode ? { episode } : {}) }
+  const places = await draftEpisodes(deps, e.payload?.labels)
+  const episodes = []
+  for (const place of places) {
+    episodes.push({
+      ...(started.session_id ? bindSession(deps, e, place) : { episode: place.folder }),
+      relations: [
+        // the prompt is already held as the episode's follow-up when an earlier version named it
+        ...(rec.followed?.includes(place.folder) ? [] : [await holdOnEpisode(deps, place.folder, { reference: last.reference, name: rec.prompt.name, relation: "is-prompted-by" }, false)]),
+        await holdOnEpisode(deps, place.folder, { reference: trace.reference, name: trace.name ?? undefined, session: trace.session ?? undefined, relation: "is-traced-in" }, false),
+      ],
+    })
+  }
+  rec.started = { ...started, prompt: last.reference, observation, episodes }
+  return { ...at, related: last.reference, session_id: started.session_id, ...(observation.ok ? {} : { warning: `execution not written: ${observation.error}` }), ...(episodes.length ? { episodes: episodes.map((x) => x.episode) } : {}) }
+}
+
+// A draft that ends without a session leaves its ending on its prompt's trace, so a prompt nobody
+// will run says why (Guillaume, 2026-10-31: no dead bodies).
+export const DRAFT_ENDINGS = ["tide.draft.cleared", "tide.draft.abandoned", "tide.draft.expired", "tide.draft.withdrawn"]
+
+async function draftEnded(deps, rec, e, opts) {
+  const at = { event: e.id, draft: e.subject.id }
+  if (rec.ended || !rec.trace || !rec.prompt || rec.started) return null
+  const ending = e.event_type.slice("tide.draft.".length)
+  if (opts.dryRun) return { ...at, would: { ended: ending, trace: rec.trace.id } }
+  const trace = await findTrace(deps, rec.trace.id, rec.prompt.domain)
+  if (!trace?.root) throw new Refusal(4, `trace ${rec.trace.id} is not readable with a root observation yet`)
+  const last = rec.versions.findLast((v) => v.prompt_version)
+  const observation = observe(deps, "drafts", trace, "research", `${rec.prompt.name} · ${ending}`, {
+    input: { draft: e.subject.id, prompt: last?.reference ?? null },
+    output: { state: ending, reason: e.payload?.reason ?? null, became_a_session: false },
+    metadata: { draft: e.subject.id, ended_event: e.id, ending },
+  })
+  rec.ended = { event: e.id, state: ending, reason: e.payload?.reason ?? null, at: e.occurred_at, observation }
+  return { ...at, ended: ending, trace: `miadi-tracing:${rec.prompt.domain}/trace/${rec.trace.id}`, ...(observation.ok ? {} : { warning: `ending not written: ${observation.error}` }) }
 }
 
 // Reads the lines written since the last run, in order. A line the provider cannot take yet stops
@@ -666,7 +753,8 @@ async function drafts(deps, opts) {
       const rec = state.drafts[e.subject.id] ?? { opened_at: e.occurred_at, versions: [] }
       try {
         const out = e.event_type === "tide.draft.versioned" ? await draftVersion(deps, rec, e, opts)
-          : e.event_type === "tide.draft.started" ? await draftStarted(deps, rec, e, opts) : null
+          : e.event_type === "tide.draft.started" ? await draftStarted(deps, rec, e, opts)
+          : DRAFT_ENDINGS.includes(e.event_type) ? await draftEnded(deps, rec, e, opts) : null
         if (out) handled.push(out)
       } catch (err) {
         stopped = { event: e.id, draft: e.subject.id, error: err.message }

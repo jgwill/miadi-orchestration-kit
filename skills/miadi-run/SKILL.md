@@ -16,7 +16,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.7.1
+  version: 0.8.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -136,7 +136,14 @@ then only listened.
    `miadiRun-<yyMMddHHmm>-<session>-presession` in `eng`, through `create`, under one trace per
    draft. `tide.draft.started` adds an `execution` generation linked to the last version, carrying
    the session id, and holds the prompt and the trace on an episode the draft's labels name. A
-   line the provider cannot take stops the run there for the next run. On gaia the user timer
+   line the provider cannot take stops the run there for the next run.
+   From 0.8.0 (Guillaume's marks, 2026-10-31): the first version that names an episode
+   (`miadi-chronicle://<n>`, or `miadi-ceremony://<id>` through the episode it was held for) is
+   held there as `is-followed-up-by`; `started` also writes a `session.episode` line (source
+   `draft`) to the binding line, so the room's Sessions card lists the session; a draft that ends
+   without a session (cleared, abandoned, expired, withdrawn) leaves its ending on its trace; once
+   tide gives a draft `session_id`, the prompt name ends with it and the trace takes it as its
+   session. The episode door's writer token is read from the env file when the environment lacks it. On gaia the user timer
    `miadi-run-drafts.timer` runs it every 2 minutes (`--quiet`, log
    `~/.miadi/missions/drafts-follow.log`).
 
