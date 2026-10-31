@@ -23,6 +23,8 @@ if [ "${1:-}" != "--detached" ]; then
 fi
 
 input="$MIADI_SESSION_END_INPUT"
+. "$SCRIPT_DIR/work_in_progress.sh"
+claude_work_finished "$input"
 claude_write_terminal_binding "session.end" "$input"
 session_id=$(echo "$input" | jq -r .session_id)
 transcript_path=$(echo "$input" | jq -r .transcript_path)

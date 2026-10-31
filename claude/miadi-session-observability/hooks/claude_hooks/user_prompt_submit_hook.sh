@@ -4,6 +4,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 input=$(cat -)
 
+# The session is now working on this prompt until its reply ends (work_in_progress.sh).
+. "$SCRIPT_DIR/work_in_progress.sh"
+claude_work_started "$input"
+
 # No hook fires on /rename: record a name change at the next prompt.
 . "$SCRIPT_DIR/terminal_binding.sh"
 claude_check_terminal_binding_rename "$input"

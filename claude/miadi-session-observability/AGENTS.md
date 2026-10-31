@@ -24,6 +24,8 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
 - `hooks/claude_hooks/artifact_comments.sh` and `tests/artifact-comments.sh`: the Artifact
   comment threads (0.1.16), 43 checks.
 - `tests/btw.sh`: the `/btw` index (0.1.17), 38 checks.
+- `hooks/claude_hooks/work_in_progress.sh` and `tests/work-in-progress.sh`: the marker of a session
+  working on a prompt, which tide reads after a power-off (0.1.27, jgwill/gaia#97), 11 checks.
 - `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a
