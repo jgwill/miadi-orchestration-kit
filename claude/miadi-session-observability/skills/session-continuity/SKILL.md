@@ -161,7 +161,14 @@ its `run-shell` jobs get `TMUX` for that server, so they stay on it.
   package keeps the old lookup: use the session id (`tmux attach -t '$84'`).
 - A message the human sends while an agent is working is stored in the transcript as an
   `attachment` of type `queued_command`, not as a `user` record. The hook capture
-  `_claude_user_inputs.jsonl` has it.
+  `_claude_user_inputs.jsonl` has it. Read it with `miadi-hooks-interpret digest <id>` or
+  `scripts/agent-talk.mjs person <id>`, not by hand.
+- Ask the tool, never the disk (2026-11-01). Which agent runs in a tmux session is
+  `tide agents list`; a session id to its pane, team, episode and inventory record is
+  `miadi-hooks-interpret join <id>`. A seat that ran `find / -name terminal_bindings.jsonl`
+  instead held its shell for 120 s. Since 0.1.28 `hooks/session_lookup_guard.sh` refuses a
+  `find` from `/`, a recursive search over the capture and a hand read of the raw `_claude_*`
+  files, and names these doors in its refusal.
 
 Earned 2026-10-03 (jgwill/gaia#90):
 

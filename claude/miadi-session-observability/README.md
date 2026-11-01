@@ -21,6 +21,13 @@ jgwill/miadi-orchestration-kit#56.
   root (`/workspace/repos` on gaia). `hooks/workspace_clone_guard.sh` refuses and names the
   working directory. It reads `$MIADI_SRC/config/stc-workspaces.json`, so a host without a
   Miadi checkout gets the capture and no guard. jgwill/workspace#60.
+- **Session lookup guard** (0.1.28). A Bash `find` from `/`, a recursive search over the
+  session capture, and a reader (`cat`, `jq`, `grep`, `tail`…) on a session's raw
+  `_claude_*` files are refused, and the refusal names the tools that answer the question:
+  `tide agents list`, `miadi-hooks-interpret join`, `digest`, `fleet`, the binding line.
+  The binding line stays readable. `MIADI_SESSION_LOOKUP_GUARD=off` in the session's
+  environment turns it off for work on the capture itself. Earned 2026-11-01, when a seat
+  ran `find / -name terminal_bindings.jsonl` for 120 s instead of `tide agents list`.
 - **Skill.** `session-continuity` carries T1's practice: the binding line, tmux save and
   restore, tide, and rebuilding what each pane held after a crash.
 
