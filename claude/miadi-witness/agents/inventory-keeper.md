@@ -59,7 +59,9 @@ set, it is `/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-witness
    circle and ceremony from the episode door with the seat's token, and that record is what
    lists the session on the episode's sessions page (`episode_source: inventory`). When the
    session released or changed a capability, write it in `capabilities` (SCHEMA.md) and run
-   `node $S capabilities --session <id>` to hold it in that episode. Append one
+   `node $S capabilities --session <id>` to hold it in that episode. Only a capability whose code
+   a commit of the session changed, with that commit as evidence: a lockstep re-release that
+   bumps only versions is not held. Append one
    `observations[]` line `{at, by: "inventory-keeper", what}` in one plain sentence. Never
    change `binding` or `hook_capture`. The script owns those.
    Then the team fit: run `node ${CLAUDE_PLUGIN_ROOT}/scripts/team-fit.mjs --session <id> --json`
