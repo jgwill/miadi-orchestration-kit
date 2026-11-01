@@ -147,6 +147,7 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     test "$(miadi-chronicle-open ceremony:ep343:talking-circle:1)" = "${open}miadi-ceremony%3Aceremony%3Aep343%3Atalking-circle%3A1"
     test "$(miadi-chronicle-open "miadi-notebook:6c3f477f-3606-47bf-871c-29bf66a3988e.")" = "${open}miadi-notebook%3A6c3f477f-3606-47bf-871c-29bf66a3988e"
     test "$(miadi-chronicle-open miadi-prompt:story/miadiRun-x@3)" = "${open}miadi-prompt%3Astory%2FmiadiRun-x%403"
+    test "$(miadi-chronicle-open "miadi-capability://jgwill/Miadi/package/@miadi/inquiry-weave.")" = "${open}miadi-capability%3A%2F%2Fjgwill%2FMiadi%2Fpackage%2F%40miadi%2Finquiry-weave"
     test "$(miadi-chronicle-open "rise://jgwill/Miadi/rispecs/miadi-chronicle-dsl/SPEC.md),")" = "${open}rise%3A%2F%2Fjgwill%2FMiadi%2Frispecs%2Fmiadi-chronicle-dsl%2FSPEC.md"
     echo "the opener builds the open door on the configured front, for a chronicle, ceremony, circle, artefact or rise reference"
     code() { set +e; "$@" >/dev/null 2>&1; echo $?; set -e; }
@@ -176,6 +177,8 @@ for text, want in [("see miadi-chronicle:126.", "miadi-chronicle:126"),
                    ("notes in miadi-notebook://6c3f477f-3606-47bf-871c-29bf66a3988e.", "miadi-notebook://6c3f477f-3606-47bf-871c-29bf66a3988e"),
                    ("traced at miadi-tracing://ceremony/trace/4b1c:9a+e2 today", "miadi-tracing://ceremony/trace/4b1c:9a+e2"),
                    ("built miadi-prototype:ep550-walk, then", "miadi-prototype:ep550-walk"),
+                   ("revised miadi-capability://jgwill/medicine-wheel/skill/fire-keeper-check.", "miadi-capability://jgwill/medicine-wheel/skill/fire-keeper-check"),
+                   ("uses miadi-capability:jgwill/Miadi/package/@miadi/inquiry-weave, then", "miadi-capability:jgwill/Miadi/package/@miadi/inquiry-weave"),
                    ("traced at miadi-tracing:ceremony/trace/4b1c:9a+e2;", "miadi-tracing:ceremony/trace/4b1c:9a+e2"),
                    ("ran miadi-prompt:story/miadiRun-2610121030-mia-walk@3 today", "miadi-prompt:story/miadiRun-2610121030-mia-walk@3"),
                    ("spec (rise://jgwill/Miadi/rispecs/miadi-chronicle-dsl/SPEC.md@a9fd1f40#4.1)", "rise://jgwill/Miadi/rispecs/miadi-chronicle-dsl/SPEC.md@a9fd1f40#4.1")]:
@@ -188,7 +191,7 @@ print("the plugin parses and its pattern finds chronicle, ceremony, circle, arte
 PY
     apt-get install -y -qq desktop-file-utils >/dev/null 2>&1
     desktop-file-validate /usr/share/applications/miadi-chronicle-open.desktop
-    for scheme in miadi-chronicle miadi-ceremony miadi-circle miadi-foundation miadi-notebook miadi-prototype miadi-tracing miadi-trace miadi-prompt rise; do
+    for scheme in miadi-chronicle miadi-ceremony miadi-circle miadi-foundation miadi-notebook miadi-prototype miadi-tracing miadi-trace miadi-prompt miadi-capability rise; do
       grep -q "x-scheme-handler/$scheme=miadi-chronicle-open.desktop" /usr/share/applications/mimeinfo.cache
     done
     echo "the scheme handler is valid and registered for every scheme"

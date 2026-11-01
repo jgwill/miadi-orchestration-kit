@@ -13,6 +13,8 @@ What an episode holds (jgwill/Miadi#769, jgwill/miadi-orchestration-kit#86)
 opens the same way: miadi-notebook:<uuid>, miadi-prototype:<slug>,
 miadi-tracing:<domain>/<resource>/<id>[@<v>] with its aliases miadi-trace:
 and miadi-prompt:, and a specification, rise://<owner>/<repo>/<path>[@<commit>].
+A capability, one thing a git repository provides (Episode 568), is
+miadi-capability:<owner>/<repo>/<kind>/<name>; it opens its registry page.
 In running text a specification is found only with its //, so the word
 "rise:" stays text.
 
@@ -47,14 +49,15 @@ import unicodedata
 from urllib.parse import quote
 
 SCHEMES = ("miadi-chronicle:", "miadi-ceremony:", "miadi-circle:", "miadi-foundation:",
-           "miadi-notebook:", "miadi-prototype:", "miadi-tracing:", "miadi-trace:", "miadi-prompt:", "rise:")
+           "miadi-notebook:", "miadi-prototype:", "miadi-tracing:", "miadi-trace:", "miadi-prompt:",
+           "miadi-capability:", "rise:")
 FRONT_SETTINGS = ("MIADI_CHRONICLE_OPEN_URL", "MIADI_URL_BASE")
 ETC_DEFAULT = "/etc/miadi"
 # The same pattern the Terminator plugin matches with. It stops at what ends a
 # URI in running text; trailing sentence punctuation is stripped after. A bare
 # wheel id counts only in the form the wheel mints, a timestamp or ep<N> after
 # its kind, so the word "circle:" in running text is not a reference.
-REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|(?:notebook|prototype|tracing|trace|prompt):(?://)?[A-Za-z0-9._~/:+@\-]+)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\brise://[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9._~/\-]+(?:@[A-Za-z0-9._/\-]+)?(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*''', re.I)
+REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|(?:notebook|prototype|tracing|trace|prompt|capability):(?://)?[A-Za-z0-9._~/:+@\-]+)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\brise://[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9._~/\-]+(?:@[A-Za-z0-9._/\-]+)?(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*''', re.I)
 BARE_WHEEL_ID = re.compile(r"(circle|ceremony):", re.I)
 TRAILING = ".,;:!?)]}'\""
 # A double click is two clicks; the second must not open the same page again.
@@ -339,7 +342,8 @@ def main(argv):
     else:
         print("usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>] | miadi-circle:<id> | circle:<id>"
               " | miadi-foundation:<slug> | miadi-notebook:<uuid> | miadi-prototype:<slug>"
-              " | miadi-tracing:<domain>/<resource>/<id> | rise://<owner>/<repo>/<path>",
+              " | miadi-tracing:<domain>/<resource>/<id> | miadi-capability:<owner>/<repo>/<kind>/<name>"
+              " | rise://<owner>/<repo>/<path>",
               file=sys.stderr)
         return 64
 

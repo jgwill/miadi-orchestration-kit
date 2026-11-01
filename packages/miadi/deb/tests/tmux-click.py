@@ -235,6 +235,20 @@ try:
 finally:
     s.close()
 
+# A capability (Episode 568): the address keeps the // it was written with, and a
+# scoped package keeps its @ and /. The row holds "miadi", which tmux looks for.
+s = Scenario(100, lines_program(["revised miadi-capability://jgwill/medicine-wheel/skill/fire-keeper-check.",
+                                 "uses miadi-capability:jgwill/Miadi/package/@miadi/inquiry-weave here"]))
+try:
+    s.click(20)
+    check("a capability opens its page", s.opened_lines(),
+          [f"{FRONT}miadi-capability%3A%2F%2Fjgwill%2Fmedicine-wheel%2Fskill%2Ffire-keeper-check"])
+    s.click(20, row=1)
+    check("a scoped package keeps its @ and /", s.opened_lines()[1:],
+          [f"{FRONT}miadi-capability%3Ajgwill%2FMiadi%2Fpackage%2F%40miadi%2Finquiry-weave"])
+finally:
+    s.close()
+
 
 def streaming(width, name):
     """A pane still printing: the click opens what was under it when it landed."""
