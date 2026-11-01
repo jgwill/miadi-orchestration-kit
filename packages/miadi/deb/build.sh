@@ -77,6 +77,8 @@ for control in "$here"/termux/*/control; do
 	stage=$(mktemp -d)
 	mkdir -p "$stage/DEBIAN" "$stage$PREFIX"
 	sed "s/@VERSION@/$version/" "$control" > "$stage/DEBIAN/control"
+	# A Termux revision of the Ubuntu version (`Version: @VERSION@-1`) names the build.
+	version=$(sed -n 's/^Version: //p' "$stage/DEBIAN/control")
 	for script in postinst prerm; do
 		if [ -f "$variant/$script" ]; then install -m 0755 "$variant/$script" "$stage/DEBIAN/$script"; fi
 	done

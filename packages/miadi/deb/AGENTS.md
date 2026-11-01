@@ -37,4 +37,14 @@ with it depends on you publishing it." A change to a package is finished when al
 6. Install on gaia: `sudo apt-get install --no-install-recommends <package>`.
 7. Say what was published.
 
+A Termux build (`termux/<package>`) is published by its push: a phone with
+`miadi-termux` 0.3.0 or later builds every Termux version it lacks from
+origin/main before each `apt update`, and `apt upgrade` installs it
+(termux/README.md). So bump its version before pushing: the package's own
+`Version:`, or for a build of an Ubuntu package the Ubuntu version or a Termux
+revision (`Version: @VERSION@-1`). A `miadi-tide` change that moves ironsilk or
+`prep/miadi-tide.constraints.txt` also changes
+`termux/miadi-tide/prefix/share/miadi-tide/requirements.txt`; run
+`MIADI_SRC=... bash tests/termux-tide-pins.sh`.
+
 Never `apt install tmux` on a host with `miadi-tmux`: it removes `miadi-tmux`.

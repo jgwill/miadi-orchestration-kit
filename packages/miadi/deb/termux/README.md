@@ -51,9 +51,15 @@ apt update && apt install miadi-termux
 `trusted=yes` is for a repository on the same phone, written only by its
 owner. A repository served to other phones needs a signed `Release`.
 
-Finishing a Termux package: bump `Version:`, commit and push, build, run
-`apt-repo.sh` with the new `.deb`, `apt upgrade` on the phone, and say what
-was published.
+Finishing a Termux package: bump its version, commit and push. On a phone
+with `miadi-termux` 0.3.0 or later, `apt update` first runs
+`share/miadi-termux/apt-update.sh` (from `apt.conf.d/50miadi-termux`): it
+fetches the kit checkout (`MIADI_ORCHESTRATION_KIT`), builds from
+`git archive origin/main` every Termux package whose version the repository
+lacks, and indexes them. Then `apt upgrade` installs them. The checkout's
+working tree is not touched. A Termux build of an Ubuntu package takes the
+Ubuntu version, or a Termux revision of it with `Version: @VERSION@-1`, which
+is how a change only the Termux build has gets a new version.
 
 ## miadi-tide
 

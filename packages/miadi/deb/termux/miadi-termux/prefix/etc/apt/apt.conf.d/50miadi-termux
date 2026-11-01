@@ -1,0 +1,4 @@
+// miadi-termux: before `apt update`, build the Termux packages that
+// jgwill/miadi-orchestration-kit's origin/main has and the Miadi Termux
+// repository on this phone lacks (share/miadi-termux/apt-update.sh).
+APT::Update::Pre-Invoke { "/usr/bin/bash /usr/share/miadi-termux/apt-update.sh || true"; };

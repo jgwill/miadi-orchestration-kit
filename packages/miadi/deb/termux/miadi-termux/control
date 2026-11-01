@@ -1,5 +1,5 @@
 Package: miadi-termux
-Version: 0.2.0
+Version: 0.3.0
 Section: metapackages
 Priority: optional
 Architecture: all
@@ -13,4 +13,7 @@ Description: Sets up a Termux phone for the Miadi factory
  and termux-services for Android and services, ffmpeg, fluidsynth and sox
  for recordings and scores, miadi-terminal for clickable chronicle
  references, and miadi-tide for the tide runtime with its daemon in tmux.
+ Before every `apt update` it builds the Termux packages the kit's
+ origin/main has and this phone's Miadi Termux repository lacks, so
+ `apt update && apt upgrade` installs what was pushed to the kit.
  Claude Code comes separately, from the claude-code-termux launcher.
