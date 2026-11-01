@@ -304,12 +304,13 @@ A script, a chapter or `status.md` names a ceremony as `miadi-ceremony:<id>` and
 
 ## S18. Holdings: what the episode room shows beyond its text
 
-The room's cards (Foundations, Specifications, Prototypes, Traces and prompts, Notebooks, Screenwalks, Reviews, Inquiries) are read from `episode.yaml` keys and from files, through doors under `$MIADI_API_URL/api/chronicle/episodes/<ref>/`. A file an agent writes in the vessel shows on no card until it is held. Measured 2026-10-12 in Episode 120 against jgwill/Miadi `28dc1df9`.
+The room's cards (Foundations, Specifications, Capabilities, Prototypes, Traces and prompts, Notebooks, Screenwalks, Reviews, Inquiries) are read from `episode.yaml` keys and from files, through doors under `$MIADI_API_URL/api/chronicle/episodes/<ref>/`. A file an agent writes in the vessel shows on no card until it is held. Measured 2026-10-12 in Episode 120 against jgwill/Miadi `28dc1df9`.
 
 | card | door | body | held as |
 |---|---|---|---|
 | Foundations | `POST …/foundations` | `{foundation, source?, relation}` | `foundations:` in the manifest; a package packet (`GET /api/foundations` lists the slugs) or, with `source: "episode"`, the episode's own `foundations/<slug>/README.md` |
 | Specifications | `POST …/rispecs` | `{spec: "rise://<owner>/<repo>/<path>", commit, title?, relation?}` | `rispecs:`; a spec kept in the episode is `rise://jgwill/episodes/miadi-chronicle/<episode>/<path>` |
+| Capabilities | `POST …/capabilities` | `{capability: "miadi-capability:<owner>/<repo>/<kind>/<name>", relation: uses\|revises\|brings-into-being, version?, evidence?[]}` | `capabilities:`, one entry per capability and version; the wheel node `capability:<kind>-<slug>` and one episode edge. Evidence is `owner/repo#n`, `owner/repo@<sha>`, `session:<uuid>`, `npm:<pkg>@<v>`. Added 2026-11-01, jgwill/Miadi#903 (Episode 568) |
 | Prototypes | `POST …/prototypes` | `{prototype, url, editor?, made_with?, …}` | `prototypes:`; the editing address goes to the wheel node only |
 | Traces and prompts | `POST …/tracing` | `{reference \| domain+resource+id, …}` | `tracing:`; never a key, a base URL or a provider |
 | Notebooks | `POST …/notebooks` | `{notebook, …}` | `notebooks:`; files under `captures/notebook-<uuid>/` |
