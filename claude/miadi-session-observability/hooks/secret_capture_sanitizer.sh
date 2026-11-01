@@ -38,9 +38,12 @@ hook_secret_sanitize_stream() {
         s{(mr_[A-Za-z0-9]{32,})}{redact($1)}ge;
         s{(eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})}{redact($1)}ge;
         s{\b([A-Za-z][A-Za-z0-9+.-]*://[^\s/:@"\047<>]*:)([^\s@/"\047<>]{3,})(@)}{$1 . redact($2) . $3}ge;
-        s{(\bdefine\(\s*["\047][A-Za-z0-9_]*(?i:password|passwd|secret|token|key|salt)[A-Za-z0-9_]*["\047]\s*,\s*["\047])([^"\047]{4,})}{$1 . redact($2)}ge;
+        # HOOK_SECRET_STRONG_ONLY=1 keeps only the patterns that name a credential by its own
+        # shape: the alert on tool output (secret_exposure_alert.sh) would fire on ordinary
+        # code with the two generic ones below.
+        s{(\bdefine\(\s*["\047][A-Za-z0-9_]*(?i:password|passwd|secret|token|key|salt)[A-Za-z0-9_]*["\047]\s*,\s*["\047])([^"\047]{4,})}{$1 . redact($2)}ge unless $ENV{HOOK_SECRET_STRONG_ONLY};
         s{((?i:\bBearer\s+))([A-Za-z0-9._~+/=-]{12,})}{$1 . redact($2)}gex;
-        s{((?i:\b[A-Za-z0-9_.-]*(?:api[_-]?key|secret|token|passwd|password|client[_-]?secret|access[_-]?key|private[_-]?key|auth[_-]?token)[A-Za-z0-9_.-]*\b)["\047\s]*[:=]\s*["\047]?)([A-Za-z0-9][A-Za-z0-9/_+.\-=~:]{7,})}{$1 . redact($2)}gex;
+        s{((?i:\b[A-Za-z0-9_.-]*(?:api[_-]?key|secret|token|passwd|password|client[_-]?secret|access[_-]?key|private[_-]?key|auth[_-]?token)[A-Za-z0-9_.-]*\b)["\047\s]*[:=]\s*["\047]?)([A-Za-z0-9][A-Za-z0-9/_+.\-=~:]{7,})}{$1 . redact($2)}gex unless $ENV{HOOK_SECRET_STRONG_ONLY};
     '
 }
 

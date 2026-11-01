@@ -21,6 +21,14 @@ jgwill/miadi-orchestration-kit#56.
   root (`/workspace/repos` on gaia). `hooks/workspace_clone_guard.sh` refuses and names the
   working directory. It reads `$MIADI_SRC/config/stc-workspaces.json`, so a host without a
   Miadi checkout gets the capture and no guard. jgwill/workspace#60.
+- **Secret exposure alert** (0.1.29). The capture under `<root>/<session_id>/` was already
+  redacted, but a credential printed in a tool's output reaches the model and Claude Code's
+  own transcript before any hook runs, and Claude Code lets a hook replace only an MCP tool's
+  output. When a tool's output matches one of the sanitizer's credential patterns (the ones
+  that recognise a credential by its shape, `HOOK_SECRET_STRONG_ONLY=1`), the person is told
+  on screen and the model is told not to repeat it, both by the redacted prefix only, and
+  the exposure is listed in `_claude_secret_exposures.jsonl` for rotation.
+  `tests/secret-exposure-alert.sh`.
 - **Session lookup guard** (0.1.28). A Bash `find` from `/`, a recursive search over the
   session capture, and a reader (`cat`, `jq`, `grep`, `tail`…) on a session's raw
   `_claude_*` files are refused, and the refusal names the tools that answer the question:
