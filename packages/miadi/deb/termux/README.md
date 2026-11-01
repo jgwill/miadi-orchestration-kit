@@ -61,6 +61,24 @@ working tree is not touched. A Termux build of an Ubuntu package takes the
 Ubuntu version, or a Termux revision of it with `Version: @VERSION@-1`, which
 is how a change only the Termux build has gets a new version.
 
+## When Termux's Python moves
+
+A Termux Python upgrade (3.13 to 3.14) leaves what was built for the old one
+without its interpreter: venvs, and pip packages under `lib/python3.13`.
+`miadi-termux` (0.4.0) runs `share/miadi-termux/python-moved.sh` after every
+dpkg run. When the minor version changed, it runs each python-moved hook once,
+in name order:
+
+| hooks | from |
+|---|---|
+| `$PREFIX/share/miadi/python-moved.d/*.sh` | packages: `50-miadi-tide.sh` rebuilds tide's venv and restarts the daemon |
+| `~/.config/miadi/python-moved.d/*.sh` | the host: its pip list, other venvs (jgwill/eury `etc/termux/python-moved.d/`) |
+
+Each hook records the Python it last ran for in
+`~/.local/state/miadi-termux/python-moved/`. A hook seen for the first time
+records the current Python without running. A failed hook runs again after the
+next apt run. Output goes to `~/.cache/miadi-termux/python-moved.log`.
+
 ## miadi-tide
 
 Termux has no systemd, so the Termux `miadi-tide` keeps the tide daemon in
@@ -73,7 +91,7 @@ tmux (jgwill/miadi-orchestration-kit#118):
 | `miadi-tide-service status`, `restart`, `stop`, `prune` | what they say. Logs in `~/.cache/miadi-tide/` |
 | `$PREFIX/share/miadi/termux-boot/50-miadi-tide.sh` | for a phone's Termux:Boot script, which runs every file in that folder |
 
-The review loop (`tan`, `plannotator-tui`) is not in the Termux build. After
-Termux's Python moves to a new minor version, rebuild the venv with
-`apt install --reinstall miadi-tide`. When the Ubuntu build moves to a new
-ironsilk, change `requirements.txt` with it.
+The review loop (`tan`, `plannotator-tui`) is not in the Termux build. The
+venv is built by `lib/miadi-tide/build-venv.sh`, at install and when Python
+moves. When the Ubuntu build moves to a new ironsilk, change
+`requirements.txt` with it.

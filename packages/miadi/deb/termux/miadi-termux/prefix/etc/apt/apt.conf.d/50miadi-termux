@@ -2,3 +2,6 @@
 // jgwill/miadi-orchestration-kit's origin/main has and the Miadi Termux
 // repository on this phone lacks (share/miadi-termux/apt-update.sh).
 APT::Update::Pre-Invoke { "/usr/bin/bash /usr/share/miadi-termux/apt-update.sh || true"; };
+// After every dpkg run: when Python moved to another minor version, rebuild
+// what was built for the old one (share/miadi-termux/python-moved.sh).
+DPkg::Post-Invoke { "/usr/bin/bash /usr/share/miadi-termux/python-moved.sh || true"; };

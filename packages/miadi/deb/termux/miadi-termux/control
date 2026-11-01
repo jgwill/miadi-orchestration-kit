@@ -1,5 +1,5 @@
 Package: miadi-termux
-Version: 0.3.0
+Version: 0.4.0
 Section: metapackages
 Priority: optional
 Architecture: all
@@ -16,4 +16,6 @@ Description: Sets up a Termux phone for the Miadi factory
  Before every `apt update` it builds the Termux packages the kit's
  origin/main has and this phone's Miadi Termux repository lacks, so
  `apt update && apt upgrade` installs what was pushed to the kit.
+ After every dpkg run, when Python moved to another minor version, it runs
+ the python-moved hooks that rebuild what was built for the old one.
  Claude Code comes separately, from the claude-code-termux launcher.
