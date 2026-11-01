@@ -231,3 +231,10 @@ test("a review the session is named after or handed becomes an evidence link, on
   assert.match(evidence[0].note, /session name review-261019-/);
   assert.match(run(fx, ["plan", "--session", REVIEWED]).stdout, new RegExp(`unchanged\\s+${REVIEWED}`));
 });
+
+test("repo keeps owner/repo, and repo_remote keeps the host it lives on", async () => {
+  const { repoFromRemote } = await import("./inventory.mjs");
+  assert.equal(repoFromRemote("ssh://mia@gaia:/srv/git/jgwill/episodes.git"), "jgwill/episodes");
+  assert.equal(repoFromRemote("git@github.com:jgwill/StorytellingPlatformBlueprint2510.git"), "jgwill/StorytellingPlatformBlueprint2510");
+  assert.equal(repoFromRemote(null), null);
+});

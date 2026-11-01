@@ -35,7 +35,7 @@ const SCRIPT = fileURLToPath(import.meta.url);
 const BY = "inventory-keeper (miadi-witness scripts/inventory.mjs)";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const FACT_KEYS = ["binding", "hook_capture"];
-const FILL_KEYS = ["tmux_session_name", "claude_session_name", "cwd", "repo", "team"];
+const FILL_KEYS = ["tmux_session_name", "claude_session_name", "cwd", "repo", "repo_remote", "team"];
 
 export function inventoryDir(env = process.env) {
   return env.WITNESS_INVENTORY_DIR || join(homedir(), "workspace", ".mino", "session-inventory");
@@ -81,15 +81,25 @@ function countLines(path) {
   }
 }
 
-function repoOf(cwd) {
+// The origin URL itself, so a reader knows the host: `owner/repo` alone reads jgwill/episodes
+// as GitHub when it lives at gaia:/srv/git (mw-rwl-repo, P18, 2026-11-01).
+function remoteOf(cwd) {
   if (!cwd || !existsSync(cwd)) return null;
   try {
-    const url = execFileSync("git", ["-C", cwd, "remote", "get-url", "origin"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    const match = url.match(/[:/]([^/:]+\/[^/]+?)(\.git)?$/);
-    return match ? match[1] : url;
+    return execFileSync("git", ["-C", cwd, "remote", "get-url", "origin"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
   } catch {
     return null;
   }
+}
+
+export function repoFromRemote(url) {
+  if (!url) return null;
+  const match = url.match(/[:/]([^/:]+\/[^/]+?)(\.git)?$/);
+  return match ? match[1] : url;
+}
+
+function repoOf(cwd) {
+  return repoFromRemote(remoteOf(cwd));
 }
 
 export function isHeadless(argv) {
@@ -137,6 +147,7 @@ export function factsFor(sessionId, entry, sessiondata) {
     claude_session_name: line.name?.name ?? null,
     cwd: entry.first.cwd ?? line.cwd ?? null,
     repo: repoOf(entry.first.cwd ?? line.cwd),
+    repo_remote: remoteOf(entry.first.cwd ?? line.cwd),
     team: line.team?.id ?? null,
     date: String(entry.first.at ?? "").slice(0, 10) || null,
     ended: entry.ended,
@@ -188,6 +199,7 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
       status: facts.ended ? "unreviewed" : "in_progress",
       cwd: facts.cwd,
       repo: facts.repo,
+      repo_remote: facts.repo_remote,
       team: facts.team,
       binding: facts.binding,
       hook_capture: facts.hook_capture,
