@@ -7,6 +7,9 @@
 //   circle-feed.mjs post  --episode <ref> --done "<DONE line>" [--done-file F|-] [--lane <code>]
 //                         [--mission <id>] [--seat mino] [--open] [--again] [--dry-run]
 //   circle-feed.mjs where --episode <ref> [--seat mino]
+//   circle-feed.mjs diary --episode <ref> [--ceremony <id>] --as seat|person [--person <name>]
+//                         [--entry-type <type>] [--phase <phase>] (--text "<entry>" | --file F|-)
+//                         [--seat mino] [--again] [--dry-run]
 //
 // post   finds the root circle's open ceremony through GET /api/chronicle/episodes/<ref>/wheel
 //        and speaks the line through POST /api/ceremony/<id>/turns. Only a line that begins
@@ -16,6 +19,17 @@
 //        for the episode's author and seats the seat as an agent-spirit), then speak.
 //        --dry-run reads the wheel and prints the turn and where it would go; it writes nothing.
 // where  prints the root circle and ceremony the seat would speak in.
+// diary  writes one diary entry in the ceremony (--ceremony, else the episode's root ceremony)
+//        through POST /api/ceremony/<id>/diary, routed by who it belongs to. --as seat: the
+//        seat's own entry, with MIADI_<SEAT>_TOKEN, refused unless that identity is an agent.
+//        --as person: the entry of the person the seat is talking with, with
+//        MIADI_PERSON_TOKEN_<NAME> when --person names them, else MIADI_PERSON_TOKEN, refused
+//        unless that identity is a human (and the named one). A person's entry opens with
+//        "Written by <seat> from <person>'s words…": the seat writes it, the quoted words are
+//        theirs. The same entry in the same ceremony is written once (--again to repeat).
+//        William, 2026-11-01: "as a witness, you know that you're capable of creating a diary
+//        entry for the human person that is actually interacting with you… So you do adequate
+//        routing".
 //
 // The seat speaks with MIADI_<SEAT>_TOKEN and nothing else. A token that is the person's
 // (MIADI_PERSON_TOKEN), or an identity that is not an agent, is refused before anything is sent.
@@ -159,6 +173,68 @@ export async function post(deps, opts) {
   return { state: "fed", ...record, circle_name: root.circle.name };
 }
 
+export const DIARY_TYPES = ["intention", "observation", "hypothesis", "data", "synthesis", "action", "reflection", "learning"];
+export const DIARY_PHASES = ["miigwechiwendam", "nindokendaan", "ningwaab", "nindoodam", "migwech"];
+
+// The person the seat is talking with: their own token, a human, the one named.
+export async function personIdentity(deps, person) {
+  const name = person ? `MIADI_PERSON_TOKEN_${person.toUpperCase().replace(/[^A-Z0-9]/g, "_")}` : "MIADI_PERSON_TOKEN";
+  const token = deps.envValue(name) || (person ? deps.envValue("MIADI_PERSON_TOKEN") : "");
+  if (!deps.api) throw new Refusal(2, "MIADI_API_URL is needed");
+  if (!token) throw new Refusal(2, `${name} is needed: a person's entry is written with their own token`);
+  const me = await call(deps, "GET", "/api/identity/me", token);
+  if (!me.ok) throw new Refusal(4, `/api/identity/me answered ${me.status} ${me.body.error ?? ""}`.trim());
+  const p = me.body.person ?? {};
+  if (p.being !== "human") throw new Refusal(2, `that token speaks as ${p.name ?? "?"} (${p.being ?? "no being"}), not as a person; refused`);
+  if (person && String(p.name ?? "").toLowerCase() !== person.toLowerCase()) throw new Refusal(2, `that token speaks as ${p.name}, not as ${person}; refused`);
+  return { token, id: p.id, name: p.name };
+}
+
+export function personEntryOf({ content, seatName, personName }) {
+  const text = String(content ?? "").trim();
+  if (/^Written by /.test(text)) return text;
+  return `Written by ${seatName} from ${personName}'s words in this session. The words in quotation marks are ${personName}'s.\n\n${text}`;
+}
+
+export async function diary(deps, opts) {
+  const seat = opts.seat ?? "mino";
+  const as = opts.as;
+  if (as !== "seat" && as !== "person") throw new Refusal(2, "diary needs --as seat or --as person");
+  if (!opts.episode && !opts.ceremony) throw new Refusal(2, "diary needs --episode <ref> or --ceremony <id>");
+  const raw = String(opts.content ?? "").trim();
+  if (!raw) throw new Refusal(2, "diary needs --text or --file with the entry");
+  const entryType = opts.entryType ?? "reflection";
+  if (!DIARY_TYPES.includes(entryType)) throw new Refusal(2, `--entry-type is one of ${DIARY_TYPES.join(", ")}`);
+  if (opts.phase && !DIARY_PHASES.includes(opts.phase)) throw new Refusal(2, `--phase is one of ${DIARY_PHASES.join(", ")}`);
+
+  const me = await seatIdentity(deps, seat);
+  let ceremony = opts.ceremony ?? null;
+  let episodePath = opts.episode ?? null;
+  if (!ceremony) {
+    const wheel = await call(deps, "GET", `/api/chronicle/episodes/${encodeURIComponent(opts.episode)}/wheel`, me.token);
+    if (!wheel.ok) throw new Refusal(4, `the episode's wheel answered ${wheel.status} ${wheel.body.error ?? ""}`.trim());
+    const root = rootCeremonyOf(wheel.body);
+    if (!root) throw new Refusal(3, `episode ${opts.episode} has no root ceremony ${me.name} sits in`);
+    ceremony = root.ceremony.id;
+    episodePath = wheel.body.episode?.path ?? episodePath;
+  }
+  const writer = as === "seat" ? me : await personIdentity(deps, opts.person);
+  const content = as === "seat" ? raw : personEntryOf({ content: raw, seatName: me.name, personName: writer.name });
+  const key = createHash("sha256").update(`diary\n${ceremony}\n${as}\n${content}`).digest("hex").slice(0, 24);
+  const ledger = ledgerPath(seat, deps.env);
+  const before = readLedger(ledger).find((r) => r.key === key);
+  if (before && !opts.again) return { state: "already-written", ceremony, entry_id: before.entry_id, as, by: writer.name };
+  const body = { content, entryType, ...(opts.phase ? { phase: opts.phase } : {}) };
+  if (opts.dryRun) return { state: "dry-run", ceremony, as, by: writer.name, ...body };
+  const written = await call(deps, "POST", `/api/ceremony/${encodeURIComponent(ceremony)}/diary`, writer.token, body);
+  const entryId = written.body.entry?.id ?? written.body.id ?? null;
+  if (!written.ok || !entryId) throw new Refusal(4, `the ceremony refused the diary entry (${written.status} ${written.body.error ?? written.body.message ?? ""})`.trim());
+  const record = { at: deps.now().toISOString(), key, kind: "diary", episode: episodePath, ceremony, entry_id: entryId, as, by: writer.id, by_name: writer.name, routed_by: me.id, entry_type: entryType };
+  mkdirSync(dirname(ledger), { recursive: true });
+  appendFileSync(ledger, `${JSON.stringify(record)}\n`);
+  return { state: "written", ...record };
+}
+
 function parseArgs(argv) {
   const a = { _: [], seat: "mino" };
   for (let i = 0; i < argv.length; i += 1) {
@@ -173,6 +249,13 @@ function parseArgs(argv) {
     else if (k === "--open") a.open = true;
     else if (k === "--again") a.again = true;
     else if (k === "--dry-run") a.dryRun = true;
+    else if (k === "--ceremony") a.ceremony = v();
+    else if (k === "--as") a.as = v();
+    else if (k === "--person") a.person = v();
+    else if (k === "--entry-type") a.entryType = v();
+    else if (k === "--phase") a.phase = v();
+    else if (k === "--text") a.text = v();
+    else if (k === "--file") a.file = v();
     else if (k.startsWith("--")) throw new Refusal(2, `unknown flag ${k}`);
     else a._.push(k);
   }
@@ -188,7 +271,8 @@ export const defaultDeps = (env = process.env) => ({
 });
 
 const USAGE = `usage: circle-feed.mjs post --episode <ref> --done "<DONE line>" [--done-file F|-] [--lane <code>] [--mission <id>] [--seat mino] [--open] [--again] [--dry-run]
-       circle-feed.mjs where --episode <ref> [--seat mino]`;
+       circle-feed.mjs where --episode <ref> [--seat mino]
+       circle-feed.mjs diary --episode <ref> [--ceremony <id>] --as seat|person [--person <name>] [--entry-type <type>] [--phase <phase>] (--text "<entry>" | --file F|-) [--seat mino] [--again] [--dry-run]`;
 
 export async function main(argv, deps = defaultDeps()) {
   const a = parseArgs(argv);
@@ -199,6 +283,13 @@ export async function main(argv, deps = defaultDeps()) {
     return root
       ? `${view.episode?.path ?? a.episode} · root circle ${root.circle.name ?? root.circle.id} (${root.circle.id}) · ceremony ${root.ceremony.id} · ${me.name} speaks there`
       : `${view.episode?.path ?? a.episode} · no root circle ${me.name} sits in (post --open opens it)`;
+  }
+  if (cmd === "diary") {
+    const content = a.file ? readFileSync(a.file === "-" ? 0 : a.file, "utf8") : a.text;
+    const out = await diary(deps, { ...a, content });
+    if (out.state === "already-written") return `already written · entry ${out.entry_id} · ceremony ${out.ceremony} · as ${out.as} (${out.by}) (--again to write it again)`;
+    if (out.state === "dry-run") return `dry run · nothing sent · ceremony ${out.ceremony} · as ${out.as}, written with ${out.by}'s token · ${out.entryType}${out.phase ? ` · ${out.phase}` : ""}\n${out.content}`;
+    return `written · entry ${out.entry_id} · ceremony ${out.ceremony} · as ${out.as} (${out.by_name}) · ${out.entry_type}`;
   }
   if (cmd !== "post") throw new Refusal(2, USAGE);
   const done = a.doneFile ? readFileSync(a.doneFile === "-" ? 0 : a.doneFile, "utf8") : a.done;

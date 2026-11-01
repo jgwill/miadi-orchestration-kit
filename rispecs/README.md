@@ -43,3 +43,4 @@ Open the folder's `README.md` first. A folder holding a single file is read from
 | [`pde-loop-closure-orchestration/`](./pde-loop-closure-orchestration/) | How agents, plugins and launch scripts consume miaco's PDE provenance instrument (proposed draft) | #35 |
 | [`permission-scoping-orchestration/`](./permission-scoping-orchestration/) | Least-authority boundaries, capability amplification checkpoints, human review gates for OpenClaw-style runtimes | #15 |
 | [`security-remediation-orchestration/`](./security-remediation-orchestration/) | Security-hardening work that starts in a live issue folder, extracts reusable patterns, and exports them as Miadi waves | jgwill/Miadi#263 |
+| [`witness-team-interface/`](./witness-team-interface/) | Reference for a later phase: what an MCP of the T1 witness would carry for other teams and other hosts, classified from the Miadi Chimera Factory connector's tools (Episode 568) | — |
