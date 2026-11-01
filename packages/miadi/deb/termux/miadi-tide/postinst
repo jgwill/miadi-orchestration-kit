@@ -1,0 +1,32 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# The tide runtime gets its own venv, from the pins in requirements.txt. The
+# Termux build carries no wheels: pip fetches them from PyPI, and builds PyYAML
+# from its sdist (jgwill/miadi-orchestration-kit#118).
+set -e
+prefix=/data/data/com.termux/files/usr
+venv=$prefix/lib/miadi-tide/tide-runtime
+case "$1" in
+configure)
+	py=$prefix/bin/python3
+	if ! "$py" -c 'import sys, ensurepip, venv; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
+		echo "miadi-tide: no Python 3.11+ with venv (pkg install python)" >&2
+		exit 1
+	fi
+	rm -rf "$venv"
+	"$py" -m venv "$venv"
+	PIP_DISABLE_PIP_VERSION_CHECK=1 "$venv/bin/pip" install -q -r "$prefix/share/miadi-tide/requirements.txt"
+	echo "miadi-tide: tide runtime $("$venv/bin/pip" show ironsilk | sed -n 's/^Version: //p') in $venv ($("$py" -V 2>&1))" >&2
+	# A daemon still running from the venv just replaced starts again on the new one.
+	if tmux has-session -t =tide-runtime 2>/dev/null; then
+		"$prefix/bin/miadi-tide-service" restart >&2 || true
+	else
+		echo "miadi-tide: start the daemon and its watchdog with: miadi-tide-service ensure" >&2
+	fi
+	# ironsilk installed by hand beside this package: `pip uninstall ironsilk` would delete
+	# this package's bin/tide, because pip installed one at the same path.
+	if "$py" -m pip show -q ironsilk >/dev/null 2>&1; then
+		echo "miadi-tide: ironsilk is also installed with pip. Run: pip uninstall ironsilk && apt install --reinstall miadi-tide" >&2
+	fi
+	;;
+esac
+exit 0

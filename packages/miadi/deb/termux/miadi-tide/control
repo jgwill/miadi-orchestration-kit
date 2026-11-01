@@ -1,0 +1,17 @@
+Package: miadi-tide
+Version: @VERSION@
+Section: misc
+Priority: optional
+Architecture: all
+Depends: python (>= 3.11), tmux, coreutils
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: The tide runtime on a Termux phone, its daemon kept in tmux
+ The Termux build of miadi-tide: tide from its own venv, built at install
+ from the pinned PyPI releases, and miadi-tide-service. Termux has no
+ systemd, so the Ubuntu build's tide-runtime.service and
+ tide-store-prune.timer become two tmux sessions: tide-runtime runs
+ `tide daemon`, and tide-runtime-watchdog starts it again when it stops and
+ prunes its snapshot store once a day. Termux:Boot starts both through
+ share/miadi/termux-boot/50-miadi-tide.sh. Run `miadi-tide-service ensure`
+ once after the first install. The review loop (tan) is not in this build.

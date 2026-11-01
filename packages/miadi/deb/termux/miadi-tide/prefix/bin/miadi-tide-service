@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# miadi-tide-service: the tide daemon on a Termux phone, which has no systemd.
+# The Ubuntu build's tide-runtime.service and tide-store-prune.timer, as two
+# tmux sessions (jgwill/miadi-orchestration-kit#118):
+#   tide-runtime           runs `tide daemon`; the session ends when the daemon does
+#   tide-runtime-watchdog  starts the daemon again within a minute, and prunes
+#                          its snapshot store once a day
+#
+#   miadi-tide-service ensure    start whichever of the two is not running
+#   miadi-tide-service status    the two sessions, the daemon's socket, the store
+#   miadi-tide-service restart   restart the daemon, keep the watchdog
+#   miadi-tide-service stop      stop both
+#   miadi-tide-service prune     prune the store now
+#   miadi-tide-service watch     the watchdog's loop (what tide-runtime-watchdog runs)
+#
+# Settings: MIADI_HOME (default ~/.miadi/navigator), MIADI_TIDE_INTERVAL (the
+# daemon's tick, 60 s), MIADI_TIDE_CHECK_INTERVAL (the watchdog's, 60 s),
+# MIADI_TIDE_LOG_DIR (~/.cache/miadi-tide).
+set -u
+export MIADI_HOME=${MIADI_HOME:-$HOME/.miadi/navigator}
+session=${MIADI_TIDE_SESSION:-tide-runtime}
+watchdog=${MIADI_TIDE_WATCHDOG_SESSION:-tide-runtime-watchdog}
+interval=${MIADI_TIDE_INTERVAL:-60}
+check=${MIADI_TIDE_CHECK_INTERVAL:-60}
+logs=${MIADI_TIDE_LOG_DIR:-$HOME/.cache/miadi-tide}
+store=$MIADI_HOME/context/snapshots.sqlite3
+lib=/usr/lib/miadi-tide
+self=/usr/bin/miadi-tide-service
+
+log() { mkdir -p "$logs" && echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >>"$logs/service.log"; }
+running() { tmux has-session -t "=$1" 2>/dev/null; }
+
+start_daemon() {
+	mkdir -p "$logs" "$MIADI_HOME"
+	# nice 10: an observer must not compete with the panes it observes (the Ubuntu unit's Nice=10).
+	tmux new-session -d -s "$session" -c "$HOME" -e "MIADI_HOME=$MIADI_HOME" \
+		"nice -n 10 /usr/bin/tide daemon --interval $interval 2>&1 | tee -a '$logs/daemon.log'"
+	log "started $session"
+}
+
+start_watchdog() {
+	tmux new-session -d -s "$watchdog" -c "$HOME" -e "MIADI_HOME=$MIADI_HOME" "'$self' watch"
+	log "started $watchdog"
+}
+
+prune() {
+	[ -f "$store" ] || return 0
+	MIADI_TIDE_STORE=$store MIADI_TIDE_PYTHON=$lib/tide-runtime/bin/python \
+		bash "$lib/tide-store-prune.sh" >>"$logs/prune.log" 2>&1
+	touch "$logs/pruned"
+}
+
+watch() {
+	mkdir -p "$logs"
+	while :; do
+		if ! running "$session"; then
+			log "$session is not running: starting it"
+			start_daemon
+		fi
+		# Once a day, as tide-store-prune.timer: 60 s ticks add about 23 MB a day.
+		if [ -z "$(find "$logs/pruned" -mmin -1440 2>/dev/null)" ]; then prune; fi
+		sleep "$check"
+	done
+}
+
+status() {
+	local rc=0 name
+	for name in "$session" "$watchdog"; do
+		if running "$name"; then printf '%-22s running\n' "$name"; else printf '%-22s stopped\n' "$name"; rc=3; fi
+	done
+	if [ -S "$MIADI_HOME/daemon.sock" ]; then printf '%-22s %s\n' socket "$MIADI_HOME/daemon.sock"; else printf '%-22s absent\n' socket; fi
+	if [ -f "$store" ]; then printf '%-22s %s\n' store "$(du -h "$store" | cut -f1) $store"; fi
+	printf '%-22s %s\n' logs "$logs"
+	return $rc
+}
+
+case "${1:-status}" in
+ensure)
+	running "$session" || start_daemon
+	running "$watchdog" || start_watchdog
+	status
+	;;
+status) status ;;
+restart)
+	if running "$session"; then tmux kill-session -t "=$session"; fi
+	start_daemon
+	status
+	;;
+stop)
+	if running "$watchdog"; then tmux kill-session -t "=$watchdog"; fi
+	if running "$session"; then tmux kill-session -t "=$session"; fi
+	log "stopped"
+	status || true
+	;;
+prune) mkdir -p "$logs" && prune && tail -n 5 "$logs/prune.log" ;;
+watch) watch ;;
+*)
+	sed -n '2,18s/^# \{0,1\}//p' "$0" >&2
+	exit 64
+	;;
+esac

@@ -11,6 +11,7 @@
 #   -> dist/termux/<package>_<version>_all.deb (termux/README.md). A directory
 # under termux/ with no Ubuntu package beside it is a Termux-only package: its
 # control file carries its own Version and it needs no include file.
+#   bash build.sh termux/<package>  -> only that package's Termux build
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 stage=
@@ -25,7 +26,10 @@ copyright() { # copyright <package>: the Debian copyright file, from LICENSE
 }
 
 only=${1:-}
+termux_only=
+case "$only" in termux/*) only=${only#termux/} termux_only=1 ;; esac
 for control in "$here"/*/DEBIAN/control; do
+	[ -z "$termux_only" ] || continue
 	root=$(dirname "$(dirname "$control")")
 	package=$(sed -n 's/^Package: //p' "$control")
 	[ -z "$only" ] || [ "$package" = "$only" ] || continue
@@ -73,12 +77,16 @@ for control in "$here"/termux/*/control; do
 	stage=$(mktemp -d)
 	mkdir -p "$stage/DEBIAN" "$stage$PREFIX"
 	sed "s/@VERSION@/$version/" "$control" > "$stage/DEBIAN/control"
-	if [ -f "$variant/postinst" ]; then install -m 0755 "$variant/postinst" "$stage/DEBIAN/postinst"; fi
+	for script in postinst prerm; do
+		if [ -f "$variant/$script" ]; then install -m 0755 "$variant/$script" "$stage/DEBIAN/$script"; fi
+	done
 	while IFS= read -r path; do
 		[ -n "$path" ] || continue
 		mkdir -p "$stage$PREFIX/$(dirname "${path#usr/}")"
 		cp -a "$here/$package/$path" "$stage$PREFIX/${path#usr/}"
 	done < <(cat "$variant/include" 2>/dev/null || true)
+	# termux/<package>/prefix/: what only the Termux build has, laid out as under the prefix.
+	if [ -d "$variant/prefix" ]; then cp -a "$variant/prefix/." "$stage$PREFIX/"; fi
 	find "$stage" -name __pycache__ -type d -prune -exec rm -rf {} +
 	find "$stage$PREFIX" -type f -exec sed -i "s#/usr/#$PREFIX/#g; s#/etc/miadi#$PREFIX/etc/miadi#g" {} +
 	find "$stage" -type d -exec chmod 0755 {} +

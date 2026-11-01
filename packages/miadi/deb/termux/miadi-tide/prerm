@@ -1,0 +1,13 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# The venv is built at install, so dpkg does not own it; remove it here, after
+# stopping the daemon that runs from it. An upgrade keeps both: postinst
+# rebuilds the venv and restarts the daemon.
+set -e
+prefix=/data/data/com.termux/files/usr
+case "$1" in
+remove|deconfigure)
+	"$prefix/bin/miadi-tide-service" stop >/dev/null 2>&1 || true
+	rm -rf "$prefix/lib/miadi-tide/tide-runtime"
+	;;
+esac
+exit 0

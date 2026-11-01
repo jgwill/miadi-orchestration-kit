@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# The tide CLI, from the runtime venv miadi-tide builds at install.
+venv=/usr/lib/miadi-tide/tide-runtime
+if [ -x "$venv/bin/tide" ]; then exec "$venv/bin/tide" "$@"; fi
+echo "tide: $venv is missing; rebuild it with: apt install --reinstall miadi-tide" >&2
+exit 69

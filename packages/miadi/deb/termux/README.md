@@ -7,8 +7,9 @@ variant of each package that has a directory here, from the same tree:
 | file | holds |
 |---|---|
 | `<package>/control` | the Termux `DEBIAN/control`; `@VERSION@` takes the Ubuntu package's version |
-| `<package>/postinst` | the Termux maintainer script, if any |
+| `<package>/postinst`, `<package>/prerm` | the Termux maintainer scripts, if any |
 | `<package>/include` | the paths of the Ubuntu tree the Termux build carries |
+| `<package>/prefix/` | files only the Termux build has, laid out as under the prefix (`prefix/bin/x` is `$PREFIX/bin/x`) |
 
 A directory here with no Ubuntu package beside it is a Termux-only package:
 its `control` carries its own `Version:` and it needs no `include`.
@@ -17,6 +18,9 @@ phone runs, plus `miadi-terminal`.
 
 Every carried text file has `/usr/` and `/etc/miadi` rewritten under the
 Termux prefix, shebangs included. The result is `dist/termux/<package>_<version>_all.deb`.
+
+`bash build.sh termux/<package>` builds only the Termux build. Use it on the
+phone for a package whose Ubuntu build needs a prep step, such as `miadi-tide`.
 
 On the phone, from the Miadi Termux repository below (or `apt install ./<file>.deb`):
 
@@ -50,3 +54,20 @@ owner. A repository served to other phones needs a signed `Release`.
 Finishing a Termux package: bump `Version:`, commit and push, build, run
 `apt-repo.sh` with the new `.deb`, `apt upgrade` on the phone, and say what
 was published.
+
+## miadi-tide
+
+Termux has no systemd, so the Termux `miadi-tide` keeps the tide daemon in
+tmux (jgwill/miadi-orchestration-kit#118):
+
+| part | what it does |
+|---|---|
+| `$PREFIX/bin/tide` | runs tide from the venv `postinst` builds in `$PREFIX/lib/miadi-tide/tide-runtime`, from `share/miadi-tide/requirements.txt` on PyPI |
+| `miadi-tide-service ensure` | starts the tmux session `tide-runtime` (`tide daemon --interval 60`, nice 10) and `tide-runtime-watchdog`, which starts the daemon again within a minute and prunes its store once a day |
+| `miadi-tide-service status`, `restart`, `stop`, `prune` | what they say. Logs in `~/.cache/miadi-tide/` |
+| `$PREFIX/share/miadi/termux-boot/50-miadi-tide.sh` | for a phone's Termux:Boot script, which runs every file in that folder |
+
+The review loop (`tan`, `plannotator-tui`) is not in the Termux build. After
+Termux's Python moves to a new minor version, rebuild the venv with
+`apt install --reinstall miadi-tide`. When the Ubuntu build moves to a new
+ironsilk, change `requirements.txt` with it.
