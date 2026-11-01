@@ -6,12 +6,13 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { diary, doneLineOf, keyOf, ledgerPath, main, personEntryOf, post, Refusal, rootCeremonyOf, turnOf } from "./circle-feed.mjs";
+import { diary, doneLineOf, keyOf, ledgerPath, main, participantEntryOf, post, Refusal, rootCeremonyOf, tokenNameFor, turnOf } from "./circle-feed.mjs";
 
 const EP = "2026-10-26-episode-564-jev-decides-with-the-factory";
 const MINO = { id: "node:agent:1", name: "Mino-Bimaadizi-Daa", role: "participant", being: "agent" };
 const CIRCLE = "circle:main-564";
 const GUILLAUME = { id: "node:human:9", name: "Guillaume", role: "admin", being: "human" };
+const MIETTE = { id: "node:agent:7", name: "Miette", role: "participant", being: "agent" };
 
 function viewWith({ circle = CIRCLE, ceremonies = [] } = {}) {
   return {
@@ -42,8 +43,8 @@ function deps({ world, env = {} } = {}) {
       const body = init.body ? JSON.parse(init.body) : null;
       calls.push({ method, path, auth: init.headers?.Authorization, body });
       if (path === "/api/identity/me") {
-        if (init.headers?.Authorization === "Bearer person-token") return reply(200, { person: world.person ?? GUILLAUME });
-        return reply(200, { person: world.me ?? MINO });
+        const who = { "Bearer person-token": world.person ?? GUILLAUME, "Bearer miette-token": MIETTE, "Bearer guillaume-token": GUILLAUME }[init.headers?.Authorization];
+        return reply(200, { person: who ?? world.me ?? MINO });
       }
       if (path.endsWith("/diary") && method === "POST") return reply(201, { ok: true, entry: { id: `diary-${calls.length}` } });
       if (path.endsWith("/wheel")) return reply(200, world.view());
@@ -142,38 +143,43 @@ test("the command line prints the dry run and refuses a line that is not DONE", 
   assert.equal(turnOf({ done: LINE, seatName: "Mino" }).said, `${LINE}\nRelayed by Mino.`);
 });
 
-test("diary routes a seat's entry with the seat's token and a person's with theirs, marked as written by the seat", async () => {
+test("diary writes the seat's entry with the seat's token, and a participant's with theirs, saying who wrote it", async () => {
   const world = { view: () => viewWith({ ceremonies: [talking("cer-root")] }) };
-  const d = deps({ world });
-  const own = await diary(d, { episode: "564", as: "seat", entryType: "learning", content: "the seat learned this" });
+  const d = deps({ world, env: { MIADI_PERSON_TOKEN_GUILLAUME: "guillaume-token", MIADI_PERSON_TOKEN_MIETTE: "miette-token" } });
+  const own = await diary(d, { episode: "564", entryType: "learning", content: "the seat learned this" });
   assert.equal(own.state, "written");
   assert.equal(own.ceremony, "cer-root");
-  const seatPost = d.calls.find((c) => c.method === "POST" && c.path === "/api/ceremony/cer-root/diary");
-  assert.equal(seatPost.auth, "Bearer mino-token");
-  assert.deepEqual(seatPost.body, { content: "the seat learned this", entryType: "learning" });
+  const posts = () => d.calls.filter((c) => c.method === "POST" && c.path === "/api/ceremony/cer-root/diary");
+  assert.equal(posts()[0].auth, "Bearer mino-token");
+  assert.deepEqual(posts()[0].body, { content: "the seat learned this", entryType: "learning" });
 
-  const theirs = await diary(d, { ceremony: "cer-root", as: "person", person: "Guillaume", entryType: "reflection", phase: "ningwaab", content: '"I did not know" he said' });
-  assert.equal(theirs.by_name, "Guillaume");
-  const personPost = d.calls.filter((c) => c.method === "POST" && c.path.endsWith("/diary")).at(-1);
-  assert.equal(personPost.auth, "Bearer person-token");
-  assert.match(personPost.body.content, /^Written by Mino-Bimaadizi-Daa from Guillaume's words in this session\./);
-  assert.equal(personPost.body.phase, "ningwaab");
+  await diary(d, { ceremony: "cer-root", for: "Guillaume", entryType: "reflection", phase: "ningwaab", content: '"I did not know" he said' });
+  assert.equal(posts()[1].auth, "Bearer guillaume-token", "the participant's own variable comes first");
+  assert.match(posts()[1].body.content, /^Written by Mino-Bimaadizi-Daa for Guillaume, from Guillaume's words in this session; the words in quotation marks are Guillaume's\./);
+  assert.equal(posts()[1].body.phase, "ningwaab");
 
-  assert.equal((await diary(d, { ceremony: "cer-root", as: "person", person: "Guillaume", entryType: "reflection", phase: "ningwaab", content: '"I did not know" he said' })).state, "already-written");
+  await diary(d, { ceremony: "cer-root", for: "Miette", how: "in her voice, at Guillaume's request", entryType: "reflection", content: "what this changes" });
+  assert.equal(posts()[2].auth, "Bearer miette-token", "an agent participant writes with her own token");
+  assert.match(posts()[2].body.content, /^Written by Mino-Bimaadizi-Daa for Miette, in her voice, at Guillaume's request\./);
+
+  assert.equal((await diary(d, { ceremony: "cer-root", for: "Guillaume", entryType: "reflection", phase: "ningwaab", content: '"I did not know" he said' })).state, "already-written");
 });
 
-test("diary refuses a person token that is an agent or someone else, and a seat token that is a person", async () => {
-  const world = { view: () => viewWith({ ceremonies: [talking("cer-root")] }), person: { ...GUILLAUME, name: "Ava" } };
+test("diary falls back to MIADI_PERSON_TOKEN only when it answers to the name, and refuses otherwise", async () => {
+  const world = { view: () => viewWith({ ceremonies: [talking("cer-root")] }) };
   const d = deps({ world });
-  await assert.rejects(diary(d, { ceremony: "cer-root", as: "person", person: "Guillaume", content: "x" }), (e) => e instanceof Refusal && /not as Guillaume/.test(e.message));
-  world.person = MINO;
-  await assert.rejects(diary(d, { ceremony: "cer-root", as: "person", content: "x" }), (e) => e instanceof Refusal && /not as a person/.test(e.message));
+  const fallback = await diary(d, { ceremony: "cer-root", for: "Guillaume", content: "x" });
+  assert.equal(fallback.by_name, "Guillaume");
+  assert.equal(d.calls.filter((c) => c.path.endsWith("/diary")).at(-1).auth, "Bearer person-token");
+  await assert.rejects(diary(d, { ceremony: "cer-root", for: "Ava", content: "x" }), (e) => e instanceof Refusal && /no token answers to Ava: set MIADI_PERSON_TOKEN_AVA/.test(e.message));
+  await assert.rejects(diary(d, { ceremony: "cer-root", how: "relayed", content: "x" }), (e) => e.code === 2);
   world.me = GUILLAUME;
-  await assert.rejects(diary(d, { ceremony: "cer-root", as: "seat", content: "x" }), (e) => e instanceof Refusal && /not as an agent/.test(e.message));
-  assert.equal(d.calls.filter((c) => c.path.endsWith("/diary")).length, 0, "nothing is written when a refusal fires");
-  await assert.rejects(diary(d, { ceremony: "cer-root", as: "everyone", content: "x" }), (e) => e.code === 2);
+  await assert.rejects(diary(d, { ceremony: "cer-root", content: "x" }), (e) => e instanceof Refusal && /not as an agent/.test(e.message));
+  assert.equal(d.calls.filter((c) => c.path.endsWith("/diary")).length, 1, "nothing is written when a refusal fires");
 });
 
-test("a person entry already marked as written by the seat is kept as it is", () => {
-  assert.equal(personEntryOf({ content: "Written by Mino from Guillaume's words.\n\nx", seatName: "Mino", personName: "Guillaume" }), "Written by Mino from Guillaume's words.\n\nx");
+test("a participant's token name is their name in capitals, and an entry already marked as written is kept", () => {
+  assert.equal(tokenNameFor("Miette"), "MIADI_PERSON_TOKEN_MIETTE");
+  assert.equal(tokenNameFor("Mino-Bimaadizi-Daa"), "MIADI_PERSON_TOKEN_MINO_BIMAADIZI_DAA");
+  assert.equal(participantEntryOf({ content: "Written by Mino for Guillaume.\n\nx", seatName: "Mino", name: "Guillaume" }), "Written by Mino for Guillaume.\n\nx");
 });

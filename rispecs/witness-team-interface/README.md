@@ -44,6 +44,26 @@ What neither has yet: a seat identity that may read the sessions page, and the c
 session changed, named from the capability registry (Episode 568,
 `miadi-capability://<owner>/<repo>/<kind>/<name>`).
 
+## Writing for a participant (named 2026-11-01)
+
+A facilitator can have the witness write a diary entry for someone in the circle, human or
+agent. Guillaume: a participant may give him their token, and his facilitation is "to voice as
+an input to you what aspect of Diary entry to add to the ceremony for the user after I've listen
+to what he had to share", and "if I would ask you to speak for Miette, MIADI_PERSON_TOKEN_MIETTE
+we would want to represent that". He named the condition too: "it implies some trust that we
+assume is there".
+
+What the witness does today (`circle-feed.mjs diary --for <name>`):
+
+- The entry is written with the participant's own token, so it stands in their name, and only
+  when the identity door answers to that name.
+- It opens with who wrote it and how: from their words, from what the facilitator relayed after
+  listening, or in an agent's voice at someone's request.
+- The seat never writes another's entry with its own token, and never its own with another's.
+
+What the Factory has not defined yet: who may give a token for this, how a participant sees and
+withdraws an entry written for them, and how a facilitator's relay is recorded beside it.
+
 ## Steps for the phase that builds it
 
 1. Mino's identity reads the episode's sessions page (a permission on the Miadi app).
