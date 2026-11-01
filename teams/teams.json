@@ -158,7 +158,9 @@
       "level": "the code base",
       "human_lead": "William",
       "agent_lead": null,
-      "sessions": [],
+      "sessions": [
+        "mw-rwl-repo"
+      ],
       "folders": [],
       "name_patterns": [
         "^t8-"

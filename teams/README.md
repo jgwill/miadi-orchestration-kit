@@ -136,6 +136,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Leads:** William (human). The agent lead is not named.
 - **Uses:** each team's statement of what it needs.
 - **Would hold, from seat proposals in the inventory:** Delivery (`f8a0a2f8`), Host install (apt) (`a6ff6199`), Episode app on eury (`1b66f29e`), Chronicle terminal (`945c6819`), Resource addressing (`8dda48f5`). Each stays a proposal until William places it.
+- **Sessions placed by William:** `mw-rwl-repo` (2026-11-01, "part of T8 software development"), the repository mapper in `jgwill/medicine-wheel`, whose work Episode 568 holds.
 - **Rules:** a tmux session named `t8-…` is on T8 by its name. There is no folder rule for the Miadi checkout: folders are decided before name patterns, so that rule would move every `t2-`, `t4-`, `t6-` and `desk-` session working there onto T8. Held for William.
 
 ## Not named yet
