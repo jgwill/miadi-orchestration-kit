@@ -1,7 +1,9 @@
 // node --test claude/miadi-witness/scripts/inventory.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { createServer } from "node:http";
+import { promisify } from "node:util";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -71,6 +73,25 @@ function run(fx, args) {
     return { code: 0, stdout: execFileSync("node", [SCRIPT, ...args], { encoding: "utf8", env, stdio: ["ignore", "pipe", "pipe"] }) };
   } catch (error) {
     return { code: error.status, stdout: String(error.stdout ?? ""), stderr: String(error.stderr ?? "") };
+  }
+}
+
+// hold talks to a server in this process, so the script must not block the event loop
+async function runAsync(fx, args, extra = {}) {
+  const env = {
+    ...process.env,
+    WITNESS_BINDINGS: fx.bindings,
+    MIADI_SESSIONDATA_ROOT: fx.sessiondata,
+    WITNESS_INVENTORY_DIR: fx.inventory,
+    WITNESS_CLAUDE_PROJECTS_DIR: fx.projects,
+    WITNESS_SEATS_JSON: join(fx.base, "seats.json"),
+    ...extra,
+  };
+  try {
+    const { stdout } = await promisify(execFile)("node", [SCRIPT, ...args], { encoding: "utf8", env });
+    return { code: 0, stdout };
+  } catch (error) {
+    return { code: error.code, stdout: String(error.stdout ?? ""), stderr: String(error.stderr ?? "") };
   }
 }
 
@@ -237,4 +258,43 @@ test("repo keeps owner/repo, and repo_remote keeps the host it lives on", async 
   assert.equal(repoFromRemote("ssh://mia@gaia:/srv/git/jgwill/episodes.git"), "jgwill/episodes");
   assert.equal(repoFromRemote("git@github.com:jgwill/StorytellingPlatformBlueprint2510.git"), "jgwill/StorytellingPlatformBlueprint2510");
   assert.equal(repoFromRemote(null), null);
+});
+
+test("hold puts a session on an episode, its main circle and ceremony, read from the episode door with the seat's token", async () => {
+  const fx = fixture();
+  run(fx, ["write", "--session", NEW]);
+  const seen = [];
+  const server = createServer((req, res) => {
+    seen.push(`${req.url} ${req.headers.authorization ?? "-"}`);
+    if (req.url === "/api/chronicle/episodes/568") {
+      res.end(JSON.stringify({ episode: "2026-11-01-episode-568-what-each", manifest: { episode: 568, title: "What each", status: "vessel" } }));
+    } else if (req.url === "/api/chronicle/episodes/568/circle" && req.headers.authorization === "Bearer seat-token") {
+      res.end(JSON.stringify({ main: { circle: { id: "circle:1:x", name: "Episode 568 Root Circle" }, ceremony: { id: "cer-1" } } }));
+    } else {
+      res.statusCode = req.url.endsWith("/circle") ? 401 : 404;
+      res.end("{}");
+    }
+  });
+  await new Promise((done) => server.listen(0, "127.0.0.1", done));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const held = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568", "--how", "minted here"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "seat-token" });
+    assert.equal(held.code, 0, held.stderr);
+    assert.match(held.stdout, /held .* episode miadi-chronicle:\/\/568, circle circle:1:x, ceremony cer-1/);
+    const record = read(fx, `${NEW}.json`);
+    assert.deepEqual(record.episode, { number: 568, title: "What each", dated_path: "2026-11-01-episode-568-what-each", chronicle_uri: "miadi-chronicle://568", status: "vessel", how: "minted here" });
+    assert.equal(record.circle.id, "circle:1:x");
+    assert.equal(record.ceremony.id, "cer-1");
+    assert.match(record.observations.at(-1).what, /Held by episode miadi-chronicle:\/\/568/);
+
+    const owed = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "", MIADI_MINO_TOKEN: "" });
+    assert.equal(owed.code, 0);
+    assert.match(owed.stdout, /circle owed: no seat token/);
+    assert.ok(!seen.some((line) => line.includes("/circle -")), "no circle read is sent without the seat's token");
+
+    assert.equal((await runAsync(fx, ["hold", "--session", NEW, "--episode", "9"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "seat-token" })).code, 1);
+    assert.equal((await runAsync(fx, ["hold", "--session", OLD, "--episode", "568"], { WITNESS_MIADI_API_URL: url })).code, 2);
+  } finally {
+    server.close();
+  }
 });

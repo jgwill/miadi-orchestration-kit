@@ -54,7 +54,10 @@ set, it is `/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-witness
    `digest gaps:` and go on. Each gap becomes a field of the digest.
 4. **Add the meaning** with Edit, in the record the script wrote or updated. Fill `mission`,
    `work_completed`, `held_decisions` (H1, H2 …), `next_steps`, and the relational anchors
-   the schema makes mandatory when present (episode, circle, ceremony, pde). Append one
+   the schema makes mandatory when present (episode, circle, ceremony, pde). When the session
+   works in an episode, run `node $S hold --session <id> --episode <N>`: it writes episode,
+   circle and ceremony from the episode door with the seat's token, and that record is what
+   lists the session on the episode's sessions page (`episode_source: inventory`). Append one
    `observations[]` line `{at, by: "inventory-keeper", what}` in one plain sentence. Never
    change `binding` or `hook_capture`. The script owns those.
    Then the team fit: run `node ${CLAUDE_PLUGIN_ROOT}/scripts/team-fit.mjs --session <id> --json`

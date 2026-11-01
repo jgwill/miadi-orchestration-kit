@@ -11,6 +11,9 @@
 //                                                      add a reference to one of the five links
 //   inventory.mjs links --session <id>... [--check]    the five links, empty ones included;
 //                                                      --check verifies commits and writes the result
+//   inventory.mjs hold --session <id> --episode <ref> [--how <text>]
+//                                                      put a session on an episode, its main circle
+//                                                      and its main ceremony, read from the episode door
 //
 // The five links (links-lib.mjs): question, trace, evidence, criteria, judgment. The script
 // fills question from the hook capture, and evidence with the Miadi reviews the session is named
@@ -322,6 +325,8 @@ function parseArgs(argv) {
     else if (arg === "--note") args.note = argv[++i];
     else if (arg === "--by") args.by = argv[++i];
     else if (arg === "--check") args.check = true;
+    else if (arg === "--episode") args.episode = argv[++i];
+    else if (arg === "--how") args.how = argv[++i];
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }
@@ -341,16 +346,18 @@ function seatTranscripts(paths, seatId) {
 const USAGE = `usage: inventory.mjs plan [--session <id>]... | write (--session <id>... | --all) | verify-names <name>... [--seat mino] [--json]
        inventory.mjs link --session <id> --kind <${LINK_KINDS.join("|")}|derived_from> --ref <ref> [--note <n>] [--by <who>]
        inventory.mjs links --session <id>... [--check] [--json]
+       inventory.mjs hold --session <id> --episode <number|epNNN|dated path> [--how <text>]
 inventory: ${inventoryDir()} (WITNESS_INVENTORY_DIR overrides)`;
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const command = args._[0] ?? "plan";
-  if (args.help || !["plan", "write", "verify-names", "link", "links"].includes(command)) {
+  if (args.help || !["plan", "write", "verify-names", "link", "links", "hold"].includes(command)) {
     console.log(USAGE);
     return args.help ? 0 : 2;
   }
   if (command === "link" || command === "links") return linksCommand(command, args);
+  if (command === "hold") return holdCommand(args);
   const paths = defaultPaths();
   const { lines } = readBindings(paths.bindings);
   const sessions = sessionsFromBindings(lines);
@@ -402,6 +409,82 @@ function main() {
     for (const finding of inventory.hygiene) console.log(`  ${finding.file}: ${finding.finding}`);
   }
   return 0;
+}
+
+// ---------- hold ----------
+// The episode door's sessions route (GET /api/chronicle/episodes/<ref>/sessions) lists a session
+// whose inventory record names the episode (episode_source: inventory). So writing the schema's
+// episode, circle and ceremony into the record is what puts a session on an episode and on its
+// main ceremony. Earned 2026-11-01: William asked for two sessions to be added to Episode 568 and
+// its ceremony, and the seat first reached for a connector that signs in as him.
+// The episode comes from the public door GET …/episodes/<ref>. The main circle and ceremony come
+// from GET …/episodes/<ref>/circle, which needs a signed-in reader: the seat's own token
+// (WITNESS_MIADI_TOKEN, else MIADI_MINO_TOKEN), never the token of the person it acts for.
+async function holdCommand(args) {
+  const [id] = args.sessions;
+  if (!id || !args.episode) {
+    console.error("inventory: hold needs --session <id> and --episode <ref>");
+    return 2;
+  }
+  const dir = inventoryDir();
+  const existing = readInventory(dir).byId.get(id);
+  if (!existing) {
+    console.error(`inventory: no record for ${id}; run write --session ${id} first`);
+    return 2;
+  }
+  const base = (process.env.WITNESS_MIADI_API_URL ?? process.env.MIADI_API_URL ?? "http://127.0.0.1:3335").replace(/\/$/, "");
+  const token = process.env.WITNESS_MIADI_TOKEN ?? process.env.MIADI_MINO_TOKEN ?? "";
+  const ref = encodeURIComponent(args.episode);
+  let door;
+  try {
+    door = await getJson(`${base}/api/chronicle/episodes/${ref}`);
+  } catch (error) {
+    console.error(`inventory: the episode door: ${error.message}`);
+    return 1;
+  }
+  const dated = typeof door.episode === "string" ? door.episode : door.identity?.name;
+  const manifest = door.manifest ?? {};
+  const number = Number(manifest.episode ?? /-episode-0*(\d+)-/.exec(dated ?? "")?.[1]);
+  if (!dated || !Number.isFinite(number)) {
+    console.error(`inventory: the episode door does not name an episode for ${args.episode}`);
+    return 1;
+  }
+  let main = null;
+  let owed = "";
+  if (!token) owed = "no seat token (WITNESS_MIADI_TOKEN or MIADI_MINO_TOKEN)";
+  else {
+    try {
+      main = (await getJson(`${base}/api/chronicle/episodes/${ref}/circle`, token)).main ?? null;
+    } catch (error) {
+      owed = error.message;
+    }
+  }
+  const record = structuredClone(existing.record);
+  const now = new Date().toISOString();
+  const by = args.by ?? BY;
+  record.episode = {
+    number,
+    title: manifest.title ?? null,
+    dated_path: dated,
+    chronicle_uri: `miadi-chronicle://${number}`,
+    status: manifest.status ?? null,
+    ...(args.how ? { how: args.how } : {}),
+  };
+  if (main?.circle?.id) record.circle = { ...(record.circle ?? {}), id: main.circle.id, title: main.circle.name ?? record.circle?.title ?? null };
+  if (main?.ceremony?.id) record.ceremony = { ...(record.ceremony ?? {}), id: main.ceremony.id };
+  const held = [`episode miadi-chronicle://${number}`, main?.circle?.id && `circle ${main.circle.id}`, main?.ceremony?.id && `ceremony ${main.ceremony.id}`]
+    .filter(Boolean)
+    .join(", ");
+  record.observations = [...(record.observations ?? []), { at: now, by, what: `Held by ${held}${owed ? `; main circle not read: ${owed}` : ""}.` }];
+  writeRecord(dir, { file: existing.file, record });
+  console.log(`held      ${existing.file} · ${held}${owed ? ` · circle owed: ${owed}` : ""}`);
+  return 0;
+}
+
+async function getJson(url, token) {
+  const response = await fetch(url, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+  if (!response.ok) throw new Error(`${url.replace(/^https?:\/\/[^/]+/, "")} answered ${response.status}`);
+  return response.json();
 }
 
 // ---------- links ----------
@@ -498,5 +581,7 @@ function linksCommand(command, args) {
   return failed ? 1 : 0;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === SCRIPT) process.exitCode = main();
+if (process.argv[1] && resolve(process.argv[1]) === SCRIPT) {
+  Promise.resolve(main()).then((code) => { process.exitCode = code; }, (error) => { console.error(`inventory: ${error.message}`); process.exitCode = 1; });
+}
 
