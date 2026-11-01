@@ -4,7 +4,9 @@
   "description": "T1 durable, sanitized Pi session telemetry and T8 dashboard handoff",
   "type": "module",
   "license": "MIT",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": ["pi-package", "miadi", "observability"],
   "files": ["extensions", "lib", "hooks", "scripts", "README.md", "HANDOFF-T8.md"],
   "pi": { "extensions": ["./extensions/event-capture.ts"] },
