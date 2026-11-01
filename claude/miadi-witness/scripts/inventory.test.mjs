@@ -298,3 +298,41 @@ test("hold puts a session on an episode, its main circle and ceremony, read from
     server.close();
   }
 });
+
+test("capabilities holds the record's addressed capabilities in its episode with the writer token, adding the session as evidence", async () => {
+  const fx = fixture();
+  run(fx, ["write", "--session", NEW]);
+  const file = join(fx.inventory, `${NEW}.json`);
+  const record = JSON.parse(readFileSync(file, "utf8"));
+  record.episode = { number: 568, dated_path: "2026-11-01-episode-568-what-each", chronicle_uri: "miadi-chronicle://568" };
+  record.capabilities = [
+    { capability: "miadi-capability:acme/tools/package/@acme/x", relation: "revises", version: "1.2.3", evidence: ["acme/tools#9"] },
+    { capability: "a-deb-the-registry-does-not-read", relation: "revises", version: "0.4.1" },
+  ];
+  writeFileSync(file, JSON.stringify(record));
+  const bodies = [];
+  const server = createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c) => { raw += c; });
+    req.on("end", () => {
+      bodies.push({ url: req.url, auth: req.headers.authorization, body: JSON.parse(raw || "{}") });
+      res.end(JSON.stringify({ ok: true, entry: { capability: "x" } }));
+    });
+  });
+  await new Promise((done) => server.listen(0, "127.0.0.1", done));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const out = await runAsync(fx, ["capabilities", "--session", NEW], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_WRITER_TOKEN: "writer" });
+    assert.equal(out.code, 0, out.stderr);
+    assert.match(out.stdout, /held +miadi-capability:acme\/tools\/package\/@acme\/x revises 1\.2\.3 · episode 568/);
+    assert.match(out.stdout, /skipped +1 capability without a miadi-capability address/);
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0].url, "/api/chronicle/episodes/568/capabilities");
+    assert.equal(bodies[0].auth, "Bearer writer");
+    assert.deepEqual(bodies[0].body.evidence, ["acme/tools#9", `session:${NEW}`]);
+    const none = await runAsync(fx, ["capabilities", "--session", NEW], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_WRITER_TOKEN: "", MIADI_API_TOKEN_WRITER: "" });
+    assert.equal(none.code, 2);
+  } finally {
+    server.close();
+  }
+});

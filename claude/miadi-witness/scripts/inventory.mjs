@@ -14,6 +14,8 @@
 //   inventory.mjs hold --session <id> --episode <ref> [--how <text>]
 //                                                      put a session on an episode, its main circle
 //                                                      and its main ceremony, read from the episode door
+//   inventory.mjs capabilities --session <id> [--dry-run]
+//                                                      hold the record's capabilities in its episode
 //
 // The five links (links-lib.mjs): question, trace, evidence, criteria, judgment. The script
 // fills question from the hook capture, and evidence with the Miadi reviews the session is named
@@ -327,6 +329,7 @@ function parseArgs(argv) {
     else if (arg === "--check") args.check = true;
     else if (arg === "--episode") args.episode = argv[++i];
     else if (arg === "--how") args.how = argv[++i];
+    else if (arg === "--dry-run") args.dryRun = true;
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }
@@ -347,17 +350,19 @@ const USAGE = `usage: inventory.mjs plan [--session <id>]... | write (--session 
        inventory.mjs link --session <id> --kind <${LINK_KINDS.join("|")}|derived_from> --ref <ref> [--note <n>] [--by <who>]
        inventory.mjs links --session <id>... [--check] [--json]
        inventory.mjs hold --session <id> --episode <number|epNNN|dated path> [--how <text>]
+       inventory.mjs capabilities --session <id> [--dry-run]
 inventory: ${inventoryDir()} (WITNESS_INVENTORY_DIR overrides)`;
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const command = args._[0] ?? "plan";
-  if (args.help || !["plan", "write", "verify-names", "link", "links", "hold"].includes(command)) {
+  if (args.help || !["plan", "write", "verify-names", "link", "links", "hold", "capabilities"].includes(command)) {
     console.log(USAGE);
     return args.help ? 0 : 2;
   }
   if (command === "link" || command === "links") return linksCommand(command, args);
   if (command === "hold") return holdCommand(args);
+  if (command === "capabilities") return capabilitiesCommand(args);
   const paths = defaultPaths();
   const { lines } = readBindings(paths.bindings);
   const sessions = sessionsFromBindings(lines);
@@ -409,6 +414,71 @@ function main() {
     for (const finding of inventory.hygiene) console.log(`  ${finding.file}: ${finding.finding}`);
   }
   return 0;
+}
+
+// ---------- capabilities ----------
+// A record's `capabilities` list has the episode door's shape: {capability: "miadi-capability:
+// <owner>/<repo>/<kind>/<name>", relation: uses | revises | brings-into-being, version,
+// evidence: [...]}. This command holds each entry in the record's episode through
+// POST /api/chronicle/episodes/<n>/capabilities, adding `session:<id>` to its evidence. The door
+// keeps one entry per capability and version and only adds evidence it lacks, so a repeat is safe.
+// The seat's identity may lack the episode_hold_capability permission, so it writes with the
+// writer token (WITNESS_MIADI_WRITER_TOKEN, else MIADI_API_TOKEN_WRITER), as the other episode
+// doors accept. Earned 2026-11-01 (Episode 568): William, "this is really something you're going
+// to feed on, and it's going to be part of your team and your responsibility".
+async function capabilitiesCommand(args) {
+  const [id] = args.sessions;
+  if (!id) {
+    console.error("inventory: capabilities needs --session <id>");
+    return 2;
+  }
+  const dir = inventoryDir();
+  const existing = readInventory(dir).byId.get(id);
+  if (!existing) {
+    console.error(`inventory: no record for ${id}; run write --session ${id} first`);
+    return 2;
+  }
+  const record = existing.record;
+  const episode = record.episode?.number ?? record.episode?.dated_path;
+  if (!episode) {
+    console.error(`inventory: ${existing.file} names no episode; run hold --session ${id} --episode <N> first`);
+    return 2;
+  }
+  const entries = (record.capabilities ?? []).filter((c) => /^miadi-capability:(\/\/)?[^/]+\/[^/]+\/[^/]+\/.+/.test(c?.capability ?? ""));
+  const skipped = (record.capabilities ?? []).length - entries.length;
+  if (!entries.length) {
+    console.log(`nothing   ${existing.file} · no capability with a miadi-capability address${skipped ? ` (${skipped} without one)` : ""}`);
+    return 0;
+  }
+  const base = (process.env.WITNESS_MIADI_API_URL ?? process.env.MIADI_API_URL ?? "http://127.0.0.1:3335").replace(/\/$/, "");
+  const token = process.env.WITNESS_MIADI_WRITER_TOKEN ?? process.env.MIADI_API_TOKEN_WRITER ?? "";
+  if (!token) {
+    console.error("inventory: capabilities needs the writer token (WITNESS_MIADI_WRITER_TOKEN or MIADI_API_TOKEN_WRITER)");
+    return 2;
+  }
+  let failed = 0;
+  for (const entry of entries) {
+    const evidence = [...new Set([...(entry.evidence ?? []), `session:${id}`])];
+    const body = { capability: entry.capability, relation: entry.relation ?? "uses", ...(entry.version ? { version: entry.version } : {}), evidence, ...(args.dryRun ? { dryRun: true } : {}) };
+    const response = await fetch(`${base}/api/chronicle/episodes/${encodeURIComponent(episode)}/capabilities`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await response.json().catch(() => ({}));
+    const what = `${entry.capability} ${body.relation}${entry.version ? ` ${entry.version}` : ""}`;
+    if (!response.ok || json.error) {
+      failed += 1;
+      console.log(`refused   ${what} · ${response.status} ${json.message ?? json.error ?? ""}`.trim());
+    } else console.log(`${args.dryRun ? "would hold" : "held     "} ${what} · episode ${episode}`);
+  }
+  if (skipped) console.log(`skipped   ${skipped} capabilit${skipped === 1 ? "y" : "ies"} without a miadi-capability address`);
+  if (!args.dryRun) {
+    const updated = structuredClone(record);
+    updated.observations = [...(updated.observations ?? []), { at: new Date().toISOString(), by: args.by ?? BY, what: `Capabilities held in episode ${episode}: ${entries.length - failed} of ${entries.length}.` }];
+    writeRecord(dir, { file: existing.file, record: updated });
+  }
+  return failed ? 1 : 0;
 }
 
 // ---------- hold ----------
