@@ -32,6 +32,61 @@ The runtime venv
   there. It uses the first Python 3.11+ with venv it finds (python3.13, 3.12,
   3.11, python3). If it goes missing: sudo dpkg-reconfigure miadi-tide
 
+What tide needs to bring an agent back
+  tide records no session itself. After tmux restores its panes (tmux-resurrect,
+  `miadi-terminal enable restore`), `tide agents restore` relaunches the agents tide's
+  last snapshot saw in them, from what other tools wrote. Which agents it sees:
+
+  Claude Code  ~/.claude/sessions/<pid>.json, written by Claude Code itself, for the
+               pane's process or its nearest descendant.
+  Any agent    the last line for the pane in <sessiondata>/data/terminal_bindings.jsonl
+               since the tmux server started: one line per session start, end and
+               rename, written by capture hooks. The agent is running when the line's
+               pid still runs its program, exited after a session.end line, else lost.
+               This is the only way to see a Claude that exited before the save, and
+               how Pi and Hermes are seen.
+  Pi, Hermes   a command line in the pane that names its session, `pi --session <id>`
+               or `hermes --resume <id>`, is seen without any hook.
+
+  <sessiondata> is the first of CLAUDE_SESSIONDATA_ROOT, MIADI_SESSION_DIR,
+  MIADI_SESSIONDATA_ROOT and SESSION_DATA_ROOT that is set, else /src/_sessiondata.
+
+  Where the capture hooks come from:
+    Claude   the miadi-session-observability plugin of this kit:
+             claude plugin install miadi-session-observability@miadi-orchestration-kit
+    Pi       pi_hooks/event_capture.ts, listed under `extensions` in
+             ~/.pi/agent/settings.json
+    Hermes   hermes_hooks/session_start_hook.sh and session_end_hook.sh, listed under
+             `hooks:` in ~/.hermes/config.yaml
+  The Pi and Hermes hooks are in jgwill/binscripts, a private repository. No package
+  installs them. A Pi package is planned (jgwill/miadi-orchestration-kit#99).
+
+  What the restore does with each agent:
+    running   relaunched, a few seconds apart, oldest activity first, with `--resume
+              <id>`. The agents beyond the memory left (16 GiB kept free) get their
+              command typed without Enter.
+    exited or lost
+              nothing is started or typed. The pane keeps a note, `tide agents list`
+              shows it, and `tide agents resume` in that pane brings the agent back
+              when you choose.
+
+  How each kind is resumed:
+    claude   its launch alias, with `--resume <id>`. The alias is MIADI_LAUNCH_ALIAS
+             when the launcher exported it (the aliases in binscripts do). Otherwise
+             tide infers one from your interactive aliases, then falls back to the
+             command line.
+    pi       pi --session <id>
+    hermes   hermes --resume <id>
+    others   no resume rule, so a restore skips them (Codex is one).
+  A Pi or Hermes pane without its capture hooks, and not started with its session on
+  the command line, comes back as an empty shell.
+
+  Check before a reboot: `tide agents list` shows each pane's agent, its state and
+  session id. A pane missing from it will not be relaunched, and a pane marked exited
+  or lost will not start by itself.
+  The kinds are RESUME_RULES in tide_runtime/launchers.py: a kind added there needs a
+  line here.
+
 Replies and delivered reviews are kept in $MIADI_TIDE_DIR/reviews/<user>/
 (PLANNOTATOR_TMUX_REVIEW_DIR), marks in $MIADI_TIDE_DIR/annotations/<user>/
 (PLANNOTATOR_DATA_DIR). MIADI_TIDE_DIR is $MIADI_DATA_DIR/tide (/srv/miadi/tide)
