@@ -46,8 +46,12 @@ Integrations, each enabled per user (`miadi-terminal enable tmux`, …):
               and enables two user units from /usr/lib/systemd/user:
               tmux-server.service starts the tmux server at boot (with linger)
               once the desktop login's environment is there, so continuum
-              restores the last save and tide (miadi-tide) relaunches each
-              agent with its session. tmux-save.timer saves every 15 minutes,
+              restores the last save and tide (miadi-tide) relaunches the
+              agents it saw running, each with its session. Which agents tide
+              sees, and the capture hooks that Pi and Hermes need and no package
+              installs, are in /usr/share/doc/miadi-tide/README ("What tide
+              needs to bring an agent back"); `tide agents list` shows them
+              before a reboot. tmux-save.timer saves every 15 minutes,
               attached client or not. Keep one tmux version on the machine: a
               client of another version cannot attach ("open terminal failed:
               not a terminal").
