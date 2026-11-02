@@ -42,7 +42,12 @@ Reproduce what it describes yourself.
 
 ## Every change is a pull request
 
-Work on a branch, never on main: `git fetch origin && git switch -c feedback/{{NUMBER}}-<slug> origin/main`.
+Work in a worktree of your own, never in the shared checkout you started in: other seats and
+agents commit there, and a `git switch` in it moves them all (2026-11-01). So:
+`git fetch origin && git worktree add /a/ws/{{REPO}}/feedback-{{NUMBER}} -b feedback/{{NUMBER}}-<slug> origin/main`,
+then work and build in that folder. A package version another open pull request already takes
+(`gh pr list --search "<package> in:title"`) or one already published (`apt-cache madison <package>`)
+is not yours: take the next one.
 Commit exact paths with `{{ISSUE}}` in the message, push the branch, and open the pull request with
 `gh pr create --base main --title "<the desired state>" --body "<what, why, how it was tested> Refs {{ISSUE}}"`.
 A jgwill/Miadi change gets its own pull request there. The pull request is where the change is
