@@ -20,6 +20,8 @@ CHOOSE_WORKER=${MIADI_CHOOSE_WORKER:-$KIT/claude/miadi-witness/scripts/choose-wo
 # Seats still holding an undecided issue, past which a poll starts no more (the issues wait).
 MAX_SEATS=${MIADI_FEEDBACK_MAX_SEATS:-4}
 DECISIONS="shipped answered no-change needs-guillaume waiting"
+# The page the Factory's viewer shows (/v/<path>): every feedback issue, its seat and its decision.
+DASHBOARD=${MIADI_FEEDBACK_DASHBOARD:-/workspace/wikis/miadi-feedback/dashboard.md}
 MEMBERS="OWNER MEMBER COLLABORATOR"
 
 usage() {
@@ -37,6 +39,7 @@ usage: miadi-feedback <command>
   release <owner/repo#n> "<why>"
                          give back an issue a seat should not have taken
   channels               the channel files and what each one sets
+  dashboard              rewrite the page the Factory's viewer shows ($MIADI_FEEDBACK_DASHBOARD)
 EOF
 }
 
@@ -288,8 +291,8 @@ $body"
 		gh issue comment "$n" -R "$REPO" --body "Thank you for opening this issue. A seat (an AI agent session on the maintainers' host) is reading it now and will propose what to do. A maintainer, @${NOTIFY:-jgwill}, decides before anything is changed." >/dev/null
 	fi
 	ledger "$(jq -nc --arg at "$(now)" --arg issue "$REPO#$n" --arg key "$key" --arg channel "$CHANNEL" --arg seat "$seat" \
-		--arg trust "$trust" --arg model "$MODEL" --argjson jev "$JEV" \
-		'{at: $at, event: "woke", issue: $issue, key: $key, channel: $channel, seat: $seat, trust: $trust, model: $model, jev: $jev}')"
+		--arg trust "$trust" --arg model "$MODEL" --argjson jev "$JEV" --arg title "$title" \
+		'{at: $at, event: "woke", issue: $issue, key: $key, channel: $channel, seat: $seat, trust: $trust, model: $model, title: $title, jev: $jev}')"
 	echo "woke $seat for $key on $MODEL ($trust)"
 }
 
@@ -341,6 +344,7 @@ poll() {
 		done <<<"$list"
 	done
 	[ "$started" -gt 0 ] || [ "$failed" -gt 0 ] || echo "nothing new"
+	[ "$dry" = yes ] || dashboard
 	[ "$failed" -eq 0 ]
 }
 
@@ -367,6 +371,7 @@ decide() {
 	fi
 	ledger "$(jq -nc --arg at "$(now)" --arg issue "$issue" --arg decision "$decision" --arg line "$line" --arg seat "$seat" --arg by "$(id -un)" --arg pr "$pr" \
 		'{at: $at, event: "decided", issue: $issue, decision: $decision, line: $line, seat: $seat, by: $by} + (if $pr == "" then {} else {pr: $pr} end)')"
+	dashboard
 	echo "$issue: feedback:$decision"
 }
 
@@ -388,7 +393,66 @@ release() {
 	seat=$( [ -s "$LEDGER" ] && jq -r --arg i "$issue" 'select(.event == "woke" and .issue == $i) | .seat' "$LEDGER" | tail -1 || true)
 	ledger "$(jq -nc --arg at "$(now)" --arg issue "$issue" --arg why "$why" --arg seat "$seat" --arg by "$(id -un)" \
 		'{at: $at, event: "released", issue: $issue, line: $why, seat: $seat, by: $by}')"
+	dashboard
 	echo "$issue released${rm:+ (removed $rm)}${seat:+; its seat $seat is still open: /exit it there when you choose}"
+}
+
+# dashboard: the Markdown page at DASHBOARD, rewritten whole. Issues come from the ledger: what
+# needs the maintainer first, then what is in a seat, then what is decided. Nothing secret.
+dashboard() {
+	[ -n "$DASHBOARD" ] || return 0
+	mkdir -p "$(dirname "$DASHBOARD")" 2>/dev/null || return 0
+	local live tmp c
+	live=" $(live_seats | tr '\n' ' ') "
+	tmp=$(mktemp)
+	{
+		echo "# Feedback"
+		echo
+		echo "Written by \`miadi-feedback\` $(dpkg-query -W -f='${Version}' miadi-feedback 2>/dev/null || true) at $(date '+%Y-%m-%d %H:%M %Z') on $(hostname -s), every poll (5 minutes). Tracking: [jgwill/miadi-orchestration-kit#109](https://github.com/jgwill/miadi-orchestration-kit/issues/109). Commands: \`miadi-feedback status\`, \`tmux attach -t <seat>\`."
+		echo
+		if [ -s "$LEDGER" ]; then
+			jq -rs --arg live "$live" '
+				def link: "[\(.)](https://github.com/\(split("#")[0])/issues/\(split("#")[1]))";
+				def prlink: if (. // "") == "" then "" else "[#\(split("/")[-1])](\(.))" end;
+				[group_by(.issue)[] | select(.[0].issue | test("#[0-9]+$"))
+					| (map(select(.event == "woke")) | last) as $w
+					| (map(select(.event == "decided" or .event == "released")) | last) as $d
+					| (map(.title // empty) | last) as $title
+					| {issue: .[0].issue, title: ($title // ""), w: $w, d: $d,
+						live: ($w != null and ($live | contains(" \($w.seat) "))),
+						open: ($w != null and ($d == null or ($d.at < $w.at)))}] as $all
+				| "## Needs you",
+				"",
+				"| issue | why | seat | pull request |", "|---|---|---|---|",
+				($all[] | select((.d.decision == "needs-guillaume" and (.open | not))
+						or (.open and .live and .w.trust == "outside"))
+					| "| \(.issue | link) \(.title) | \(if .open then "a plan waits for your approval in its seat (plan mode)" else .d.line end) | \(if .live then "`\(.w.seat)`" else "closed" end) | \(.d.pr | prlink) |"),
+				"",
+				"## In a seat",
+				"",
+				"| issue | channel | author | model | seat | since |", "|---|---|---|---|---|---|",
+				($all[] | select(.open)
+					| "| \(.issue | link) \(.title) | \(.w.channel) | \(.w.trust) | \(.w.model) | `\(.w.seat)` \(if .live then "(live)" else "(closed before deciding)" end) | \(.w.at) |"),
+				"",
+				"## Decided",
+				"",
+				"| issue | decision | what | pull request | when |", "|---|---|---|---|---|",
+				($all | map(select(.open | not)) | sort_by(.d.at) | reverse[]
+					| "| \(.issue | link) \(.title) | \(.d.decision // .d.event) | \(.d.line // "" | gsub("\\|"; "/")) | \(.d.pr | prlink) | \(.d.at) |")
+			' "$LEDGER"
+		else
+			echo "No feedback issue has reached a seat yet."
+		fi
+		echo
+		echo "## Channels"
+		echo
+		echo "| channel | repository | label | open until | models |"
+		echo "|---|---|---|---|---|"
+		for c in $(channels); do
+			( load "$c"; echo "| $c | $REPO | \`$LABEL\` | $EXPIRES$(expired && echo ' (expired)') | $MODELS |" )
+		done
+	} > "$tmp" 2>/dev/null && mv "$tmp" "$DASHBOARD" && chmod 0644 "$DASHBOARD"
+	rm -f "$tmp"
 }
 
 trust() {
@@ -407,6 +471,7 @@ status() {
 	done
 	echo "timer     $(systemctl --user is-active miadi-feedback.timer 2>/dev/null || true), next $(systemctl --user show miadi-feedback.timer -p NextElapseUSecRealtime --value 2>/dev/null || true)"
 	for s in $(live_seats); do echo "seat      $s"; done
+	echo "page      $DASHBOARD"
 	if [ -s "$LEDGER" ]; then
 		echo "last decisions ($LEDGER):"
 		tail -n 10 "$LEDGER" | jq -r '"  \(.at) \(.issue) \(.event) \(.decision // (.model + " " + .trust)) \(.line // .seat)"'
@@ -457,6 +522,7 @@ case $cmd in
 	enable) enable ;;
 	disable) systemctl --user disable --now miadi-feedback.timer ;;
 	trust) trust "$@" ;;
+	dashboard) dashboard; echo "$DASHBOARD" ;;
 	release) gh_ready || true; release "$@" ;;
 	channels) for c in $(channels); do echo "== $c"; grep -hv '^#' "$ETC/$c.conf" "$USER_ETC/$c.conf" 2>/dev/null | grep . || true; done ;;
 	-h | --help | help | '') usage ;;

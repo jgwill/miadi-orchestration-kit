@@ -103,4 +103,8 @@ expect "the maintainer's merge wakes the ship seat" "jgwill/miadi-orchestration-
 mark_seen "jgwill/miadi-orchestration-kit#8-m130"
 expect "a merge wakes it once" "" "$(wake_key "$(waiting8)")"
 
+DASHBOARD=$tmp/page/dashboard.md dashboard
+expect "the page puts the maintainer's pull request under Needs you" "1" "$(sed -n '/^## Needs you/,/^## In a seat/p' "$tmp/page/dashboard.md" | grep -c 'miadi-orchestration-kit/pull/130')"
+expect "and the shipped issue under Decided" "1" "$(sed -n '/^## Decided/,/^## Channels/p' "$tmp/page/dashboard.md" | grep -c 'o/r#7.*shipped')"
+
 exit $fail

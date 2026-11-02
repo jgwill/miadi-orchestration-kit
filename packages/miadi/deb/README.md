@@ -280,6 +280,7 @@ miadi-feedback release <o/r#n> "<why>"   # give back an issue a seat should not 
 | `/usr/share/miadi-feedback/briefs/` | what a seat does: `install.md` (installation and music), `question.md` |
 | `/usr/lib/systemd/user/miadi-feedback.timer` | every 5 minutes, off until `enable` |
 | `~/.local/state/miadi-feedback/decisions.jsonl` | each seat started and each decision |
+| `/workspace/wikis/miadi-feedback/dashboard.md` | the page the Factory shows at `/v/workspace/wikis/miadi-feedback/dashboard.md` (admins, `miadi_edit_file`): what needs the maintainer, what is in a seat, what is decided, rewritten every poll (0.1.6, `MIADI_FEEDBACK_DASHBOARD`) |
 
 A seat is a tmux session started with `mct new`, so tide and tmux restore
 bring it back after a reboot, and the timer comes back with the user manager
