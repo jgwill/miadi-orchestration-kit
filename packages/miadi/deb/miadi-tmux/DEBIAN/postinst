@@ -1,0 +1,28 @@
+#!/bin/sh
+# miadi-tmux postinst: name each user whose tmux still runs from the binary this package replaced.
+# A client of another version cannot attach to that server ("open terminal failed: not a
+# terminal"). It only reports: those servers may hold running agents, and each user moves them
+# over (jgwill/miadi-orchestration-kit#115). Nothing a user runs is executed here.
+set -e
+if [ "$1" = configure ]; then
+	current=$(/usr/bin/tmux -V)
+	# An upgrade of the same tmux release (3.7c-2 to 3.7c-3) leaves servers a client still attaches to.
+	if [ -n "$2" ] && [ "tmux ${2%%-*}" = "$current" ]; then
+		exit 0
+	fi
+	users=
+	for exe in /proc/[0-9]*/exe; do
+		[ "$(readlink "$exe" 2>/dev/null)" = "/usr/bin/tmux (deleted)" ] || continue
+		user=$(stat -c %U "${exe%/exe}" 2>/dev/null) || continue
+		case " $users " in *" $user "*) continue ;; esac
+		users="$users $user"
+		echo "miadi-tmux: user $user still runs a tmux server from the tmux this package replaced, and $current cannot attach to it"
+	done
+	if [ -n "$users" ]; then
+		echo "miadi-tmux: each of them moves it over from a terminal outside tmux, with miadi-terminal's restore enabled"
+		echo "miadi-tmux: (miadi-terminal enable restore), so the sessions are saved and come back:"
+		echo "miadi-tmux:   systemctl --user start tmux-save.service && tmux kill-server && systemctl --user start tmux-server.service"
+		echo "miadi-tmux: tmux kill-server ends the agents running in that server"
+	fi
+fi
+exit 0

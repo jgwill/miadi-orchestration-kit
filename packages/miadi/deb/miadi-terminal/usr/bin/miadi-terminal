@@ -433,6 +433,23 @@ def tmux_version(path):
     return result.stdout.strip() if result and result.returncode == 0 else ""
 
 
+def replaced_tmux():
+    """The versions this user's tmux processes run from a binary since replaced on disk, as
+    installing miadi-tmux over a running server leaves it (jgwill/miadi-orchestration-kit#115)."""
+    versions = set()
+    for exe in Path("/proc").glob("[0-9]*/exe"):
+        try:
+            if exe.parent.stat().st_uid != os.getuid() or not os.readlink(exe).endswith("/tmux (deleted)"):
+                continue
+        except OSError:
+            continue
+        # Run as /proc/<pid>/exe, tmux 3.2a names itself "exe 3.2a": keep the version.
+        version = tmux_version(str(exe)).split()
+        if version:
+            versions.add(f"tmux {version[-1]}")
+    return versions
+
+
 class Restore:
     name = "restore"
     # Not part of a bare `miadi-terminal enable`: it makes tmux start at every boot.
@@ -479,7 +496,8 @@ class Restore:
                 print(f"  {moved} plugin lines commented out, so the plugins load once and continuum restores once")
         run("systemctl", "--user", "daemon-reload")
         # Enable only: starting tmux-server.service while a tmux server runs adds a session 0.
-        server = run("systemctl", "--user", "enable", "tmux-server.service")
+        # notes() prints how to move a running server over.
+        server =run("systemctl", "--user", "enable", "tmux-server.service")
         timer = run("systemctl", "--user", "enable", "--now", "tmux-save.timer")
         units = [("tmux-server.service", server), ("tmux-save.timer", timer)]
         # tide's daemon takes the snapshots a restore reads: without it the panes come back and
@@ -505,6 +523,30 @@ class Restore:
             print(f"  linger is off: tmux starts at login, not at boot (sudo loginctl enable-linger {HOME.name})")
         if not shutil.which("tide") and not (HOME / ".local/share/tide-runtime/venv/bin/tide").exists():
             print("  tide is not installed: tmux restores the panes, and no agent comes back (sudo apt install miadi-tide)")
+        self.switch_over()
+
+    def switch_over(self):
+        """A tmux server that tmux-server.service did not start has no save at shutdown and no
+        restore at boot: say how to move it over (jgwill/miadi-orchestration-kit#115)."""
+        running = run("tmux", "ls")
+        if running is None or running.returncode != 0:
+            return
+        active = run("systemctl", "--user", "is-active", "tmux-server.service")
+        if active is not None and active.stdout.strip() == "active":
+            return
+        current = tmux_version("tmux")
+        for version in sorted(replaced_tmux() - {current}):
+            print(f"  a {version} server still runs here from a binary since replaced: {current} cannot attach")
+            print("  to it (\"open terminal failed: not a terminal\")")
+        print("  a tmux server runs outside tmux-server.service: nothing saves it at shutdown or restores it.")
+        print("  Move it over from a terminal outside tmux:")
+        print("    systemctl --user start tmux-save.service")
+        print("    tmux kill-server")
+        print("    systemctl --user start tmux-server.service")
+        if shutil.which("tide"):
+            print("    tide agents list")
+        print("  tmux kill-server ends the agents running in it. The restore brings their panes back; resume")
+        print("  by hand any agent tide does not bring back (jgwill/miadi-orchestration-kit#114)")
 
     def disable(self):
         path = tmux_config()
