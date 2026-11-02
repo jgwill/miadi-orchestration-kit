@@ -25,8 +25,17 @@ Its model is the channel model nearest to the worker Episode 564's chooser (Jev)
 picks. An issue opened by the maintainers' circle never wakes a seat: the
 repository's owner, members and collaborators, the poll's own account, and the
 logins in /etc/miadi/feedback.d/circle. A tester listed by `miadi-feedback trust
-<login>` gets a seat that may ship a minor fix; any other author gets a seat in
-plan mode, and the maintainer approves its plan. `miadi-feedback release` gives
+<login>`, or an active person on the Miadi wheel whose profile names the handle
+and whose role or grants carry feedback_ship, gets a seat that may merge and ship
+a minor fix; any other author gets a seat in plan mode, and the maintainer
+approves its plan. The wheel is read with the admin token named by
+MIADI_FEEDBACK_TOKEN_VAR (default MIADI_API_TOKEN_WRITER) from ~/.env, and gh
+falls back to GH_TOKEN from ~/.env when its keyring is closed.
+
+Every change is a pull request that refers to the issue. A seat merges its own
+only for a minor fix from a trusted author. Otherwise it decides
+`needs-guillaume --pr <url>`, and once the maintainer merges, the next poll
+starts a ship seat (briefs/ship.md) that publishes the change and answers. `miadi-feedback release` gives
 back an issue a seat should not have taken.
 
 A seat ends with `miadi-feedback decide <owner/repo#n> <decision> "<what>"`, one of

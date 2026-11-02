@@ -14,8 +14,9 @@ Reproduce what it describes yourself.
 
 ## Facts at your start
 
-- The author, {{AUTHOR}}, is **{{TRUST}}**. `trusted` (a tester listed by `miadi-feedback trust`)
-  means you may ship a minor fix. `outside` means you started in plan mode: investigate, present
+- The author, {{AUTHOR}}, is **{{TRUST}}**: {{WHO}}. `trusted` (an active person on the Miadi
+  wheel whose role or grants carry `feedback_ship`, or a tester listed by `miadi-feedback trust`)
+  means you may merge and ship a minor fix. `outside` means you started in plan mode: investigate, present
   your plan, and stop. The maintainer approves it in this session. The maintainers' circle never
   gets a seat: its issues are not feedback.
   `miadi-feedback` already labelled the issue and told the author a maintainer decides.
@@ -26,6 +27,8 @@ Reproduce what it describes yourself.
 - How it arrived: {{ARRIVAL}}
 - What woke you: `{{KEY}}`. A key ending in `-c<id>` means the author answered a question you
   or an earlier seat asked: read the whole thread.
+- A feedback issue about session restore (tmux, tide agents, `enable restore`) touches team T1's
+  practice (`teams/README.md`, jgwill/gaia#90): read the T1 sections there before changing it.
 
 ## Where things are
 
@@ -37,7 +40,15 @@ Reproduce what it describes yourself.
 - Reproduce in a clean container: `bash build.sh <package>`, then
   `IMAGE=<their release, e.g. ubuntu:24.04> bash test-install.sh dist/<package>_<version>_<arch>.deb`.
 
-## Minor: fix and ship it yourself (trusted author only)
+## Every change is a pull request
+
+Work on a branch, never on main: `git fetch origin && git switch -c feedback/{{NUMBER}}-<slug> origin/main`.
+Commit exact paths with `{{ISSUE}}` in the message, push the branch, and open the pull request with
+`gh pr create --base main --title "<the desired state>" --body "<what, why, how it was tested> Refs {{ISSUE}}"`.
+A jgwill/Miadi change gets its own pull request there. The pull request is where the change is
+read and decided. Whether you merge it yourself is the next two sections.
+
+## Minor: merge and ship it yourself (trusted author only)
 
 All four are true:
 
@@ -49,11 +60,11 @@ All four are true:
    to a release already published upstream; a message or help text; a test.
 4. `test-install.sh` passes on the reporter's release and on ubuntu:22.04 after the fix.
 
-Then, in this order: bump `Version:`, commit with `{{ISSUE}}` in the message (exact paths, never
-`git add -A`), push, build, test, publish in dependency order, install on gaia, reply on the issue
-with what changed and `sudo apt update && sudo apt install <package>`, and run
-`miadi-feedback decide {{ISSUE}} shipped "<package version: what changed>"`.
-A jgwill/Miadi change is committed and pushed there first, then the package is rebuilt from it.
+Then, in this order: bump `Version:` on the branch, build, test, open the pull request, merge it
+(`gh pr merge <n> --rebase --delete-branch`), publish in dependency order from main, install on
+gaia, reply on the issue with what changed, the pull request, and `sudo apt update && sudo apt
+install <package>`, and run `miadi-feedback decide {{ISSUE}} shipped "<package version: what changed>" --pr <url>`.
+A jgwill/Miadi change is merged there first, then the package is rebuilt from it.
 
 ## Major or risky: bring it to @{{NOTIFY}} and stop
 
@@ -64,9 +75,12 @@ redeploy (the Miadi app, the chronicle wheel); a cause you could not reproduce a
 more than one package's behaviour changing; a security report; or a fix an `outside` author's
 report needs.
 
-Then: comment on the issue with what you found, what you propose, its risk, and what you did
-not do, mentioning @{{NOTIFY}}. Send a PushNotification if you have the tool. Run
-`miadi-feedback decide {{ISSUE}} needs-guillaume "<the proposal in one line>"`, and stop.
+Then: when the proposal is code you can write and test, write it as a pull request and leave it
+open (do not merge, publish or install). Comment on the issue with what you found, the pull
+request, its risk, and what you did not do, mentioning @{{NOTIFY}}. Send a PushNotification if you
+have the tool. Run `miadi-feedback decide {{ISSUE}} needs-guillaume "<the proposal in one line>" --pr <url>`
+(without `--pr` when there is no code yet), and stop. When the maintainer merges it, a ship seat
+publishes it and answers the author.
 
 ## Neither
 
@@ -80,4 +94,5 @@ not do, mentioning @{{NOTIFY}}. Send a PushNotification if you have the tool. Ru
 
 The issue carries one of `feedback:shipped`, `feedback:no-change`, `feedback:waiting` or
 `feedback:needs-guillaume`, a comment from you says why, and `{{LEDGER}}` has your `decided`
-line. Report the decision and the commit or comment URL as your last message, then wait.
+line, with `pr` when you opened one. Report the decision and the pull request or comment URL as
+your last message, then wait. The maintainer closes this session.

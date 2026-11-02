@@ -30,8 +30,9 @@ usage: miadi-feedback <command>
   status                 channels, the timer, live seats and the last decisions
   check                  what a poll needs: gh logged in, mct, claude, node, the chooser
   poll [--dry-run]       read every open channel once; --dry-run starts and labels nothing
-  decide <owner/repo#n> <shipped|answered|no-change|needs-guillaume|waiting> "<what>"
-                         a seat's decision: the issue's label and a ledger line
+  decide <owner/repo#n> <shipped|answered|no-change|needs-guillaume|waiting> "<what>" [--pr <url>]
+                         a seat's decision: the issue's label and a ledger line. A pull request
+                         left for the maintainer wakes a ship seat once it is merged
   trust <login>          a tester whose minor reports a seat may fix and ship (this user)
   release <owner/repo#n> "<why>"
                          give back an issue a seat should not have taken
@@ -59,6 +60,45 @@ load() {
 }
 
 expired() { [[ $(date -u +%F) > $EXPIRES ]]; }
+
+# env_value <NAME>: one literal NAME=value line of ~/.env, unquoted, never printed elsewhere
+env_value() { sed -nE "s/^(export )?$1=[\"']?([^\"' ]+)[\"']?.*/\\2/p" "$HOME/.env" 2>/dev/null | head -1; }
+
+# gh_ready: gh answers as the account the poll runs as. Under systemd the keyring can be closed,
+# and an unauthenticated gh gets 60 requests an hour, then 403s that once read as an issue
+# (#null, 2026-10-31): the token in ~/.env is taken instead.
+gh_ready() {
+	gh api user -q .login >/dev/null 2>&1 && return 0
+	local t
+	t=$(env_value GH_TOKEN); [ -n "$t" ] || t=$(env_value GITHUB_TOKEN)
+	[ -n "$t" ] || return 1
+	export GH_TOKEN=$t
+	gh api user -q .login >/dev/null 2>&1
+}
+
+# people: the people on the Miadi wheel that carry a GitHub handle, once per run, as one JSON
+# array of {handle, name, role, status, perms}. Read with an admin token from ~/.env
+# (MIADI_FEEDBACK_TOKEN_VAR, default MIADI_API_TOKEN_WRITER), since handles and grants are the
+# admin's view. Empty when the wheel cannot be read: the TRUSTED list still applies.
+people() {
+	if [ -z "${PEOPLE+x}" ]; then
+		local base t
+		base=${MIADI_URL_BASE:-$(miadi-config get MIADI_URL_BASE 2>/dev/null || true)}
+		t=$(env_value "${MIADI_FEEDBACK_TOKEN_VAR:-MIADI_API_TOKEN_WRITER}")
+		PEOPLE='[]'
+		if [ -n "$base" ] && [ -n "$t" ]; then
+			PEOPLE=$(curl -fsS -m 20 -H "Authorization: Bearer $t" "$base/api/identity/people?limit=1000" 2>/dev/null \
+				| jq -c '[(.people // .)[] | select((.github_handle // "") != "")
+					| {handle: (.github_handle | ascii_downcase), name, role, status,
+						perms: ((.role_permissions // []) + (.grants // []))}]' 2>/dev/null) || PEOPLE='[]'
+			[ -n "$PEOPLE" ] || PEOPLE='[]'
+		fi
+	fi
+	printf '%s\n' "$PEOPLE"
+}
+
+# person <login>: the wheel's person with that GitHub handle, as JSON, or nothing
+person() { people | jq -c --arg h "${1,,}" '.[] | select(.handle == $h)' | head -1; }
 
 # circle: the logins of the maintainers' circle, one per line (the circle files and the poll's
 # own gh account). Owners, members and collaborators are in it by their association.
@@ -98,6 +138,17 @@ wake_key() {
 		if [ -n "$c" ] && ! seen "$REPO#$n-c$c"; then echo "$REPO#$n-c$c"; fi
 		return
 	fi
+	if has "$labels" feedback:needs-guillaume; then
+		has "$labels" "$LABEL" || return 0
+		# The maintainer merged the seat's pull request: a seat publishes it and answers.
+		local pr state
+		pr=$( [ -s "$LEDGER" ] && jq -r --arg i "$REPO#$n" 'select(.event == "decided" and .issue == $i and (.pr // "") != "") | .pr' "$LEDGER" | tail -1 || true)
+		[ -n "$pr" ] || return 0
+		seen "$REPO#$n-m${pr##*/}" && return 0
+		state=$(gh pr view "$pr" --json state -q .state 2>/dev/null || true)
+		[ "$state" = MERGED ] && echo "$REPO#$n-m${pr##*/}"
+		return 0
+	fi
 	local d
 	for d in in-seat $DECISIONS; do has "$labels" "feedback:$d" && return; done
 	seen "$REPO#$n" && return
@@ -107,13 +158,26 @@ wake_key() {
 	fi
 }
 
-# trust_of <issue json>: trusted (a tester listed in TRUSTED) or outside. The circle never
-# reaches here: its issues wake no seat.
+# trust_of <issue json>: trusted or outside. Trusted is a tester listed in TRUSTED, or an active
+# person on the Miadi wheel whose profile names this GitHub handle and whose role or grants carry
+# feedback_ship (an admin's role carries everything). The circle never reaches here.
 trust_of() {
-	local author t
+	local author t p
 	author=$(jq -r .author <<<"$1")
-	for t in $TRUSTED; do [ "$t" = "$author" ] && { echo trusted; return; }; done
+	for t in $TRUSTED; do [ "${t,,}" = "${author,,}" ] && { echo trusted; return; }; done
+	p=$(person "$author")
+	if [ -n "$p" ] && jq -e '.status == "active" and (.role == "admin" or (.perms | index("feedback_ship")) or (.perms | index("*")))' <<<"$p" >/dev/null; then
+		echo trusted; return
+	fi
 	echo outside
+}
+
+# who_of <login>: how the wheel knows this author, for the brief
+who_of() {
+	local p
+	p=$(person "$1")
+	if [ -n "$p" ]; then jq -r '"\(.name) on the Miadi wheel, role \(.role), \(.status)\(if (.perms | index("feedback_ship")) then ", holds feedback_ship" else "" end)"' <<<"$p"
+	else echo "not on the Miadi wheel (no person's profile names this GitHub handle)"; fi
 }
 
 rank() { case $1 in haiku) echo 1 ;; sonnet) echo 2 ;; opus) echo 3 ;; fable) echo 4 ;; *) echo 0 ;; esac; }
@@ -174,6 +238,9 @@ wake() { # wake <issue json> <key> <dry>
 	n=$(jq -r .number <<<"$j"); title=$(jq -r .title <<<"$j"); url=$(jq -r .url <<<"$j"); author=$(jq -r .author <<<"$j")
 	trust=$(trust_of "$j")
 	mode=bypassPermissions; [ "$trust" = trusted ] || mode=plan
+	# A merged pull request is the maintainer's word: its ship seat publishes whoever wrote the issue.
+	local brief_file=$BRIEF
+	if [[ $key == *-m* ]]; then brief_file=$(dirname "$BRIEF")/ship.md; mode=bypassPermissions; fi
 	if [ "$dry" = yes ]; then
 		echo "would wake $key: $CHANNEL, $trust, $mode, models $MODELS (Jev not asked on a dry run)"
 		return
@@ -196,9 +263,10 @@ $body"
 	seat="feedback-$CHANNEL-${REPO#*/}-$n-$(date +%y%m%d%H%M)"
 	mkdir -p "$STATE/briefs"
 	brief=$STATE/briefs/$seat.md
-	render "$BRIEF" ISSUE="$REPO#$n" REPO="$REPO" NUMBER="$n" URL="$url" AUTHOR="$author" TRUST="$trust" \
+	render "$brief_file" ISSUE="$REPO#$n" REPO="$REPO" NUMBER="$n" URL="$url" AUTHOR="$author" TRUST="$trust" \
 		MODE="$mode" CHANNEL="$CHANNEL" MODEL="$MODEL ($(model_id "$MODEL"))" NEEDS="$needs" NOTIFY="${NOTIFY:-jgwill}" \
-		SEAT="$seat" EXPIRES="$EXPIRES" LEDGER="$LEDGER" KEY="$key" ARRIVAL="$arrival" \
+		SEAT="$seat" EXPIRES="$EXPIRES" LEDGER="$LEDGER" KEY="$key" ARRIVAL="$arrival" WHO="$(who_of "$author")" \
+		PR="$( [ -s "$LEDGER" ] && jq -r --arg i "$REPO#$n" 'select(.event == "decided" and .issue == $i and (.pr // "") != "") | .pr' "$LEDGER" | tail -1 || true)" \
 		JEV="$(jq -r 'if .worker then "chose \(.worker) at confidence \(.confidence) (\(if .above_bar then "above" else "below" end) the bar), its model class \(if .pick == "" then "none, so the first model of the channel was taken" else .pick end), decision \(.id)" else "did not answer, so the first model of the channel was taken" end' <<<"$JEV")" \
 		> "$brief"
 	# mct is `miadi-chronicle teams`: `mct new <team> <session>` starts the seat.
@@ -211,10 +279,12 @@ $body"
 	[ "$labelled" = no ] || add="$LABEL,feedback:in-seat"
 	if [[ $key == *-c* ]]; then
 		gh issue edit "$n" -R "$REPO" --add-label "$add" --remove-label feedback:waiting >/dev/null
+	elif [[ $key == *-m* ]]; then
+		gh issue edit "$n" -R "$REPO" --add-label feedback:in-seat --remove-label feedback:needs-guillaume >/dev/null
 	else
 		gh issue edit "$n" -R "$REPO" --add-label "$add" >/dev/null
 	fi
-	if [ "$trust" = outside ] && [[ $key != *-c* ]]; then
+	if [ "$trust" = outside ] && [[ $key != *-[cm]* ]]; then
 		gh issue comment "$n" -R "$REPO" --body "Thank you for opening this issue. A seat (an AI agent session on the maintainers' host) is reading it now and will propose what to do. A maintainer, @${NOTIFY:-jgwill}, decides before anything is changed." >/dev/null
 	fi
 	ledger "$(jq -nc --arg at "$(now)" --arg issue "$REPO#$n" --arg key "$key" --arg channel "$CHANNEL" --arg seat "$seat" \
@@ -248,14 +318,19 @@ poll() {
 	local dry=no c j key started=0 failed=0
 	[ "${1:-}" != --dry-run ] || dry=yes
 	mkdir -p "$STATE"
-	circle >/dev/null   # SELF_LOGIN, once
 	exec 9> "$STATE/poll.lock"
 	flock -n 9 || { echo "another poll is running"; return 0; }
+	gh_ready || { echo "gh is not authenticated and ~/.env has no GH_TOKEN: nothing read" >&2; return 1; }
+	circle >/dev/null   # SELF_LOGIN, once
+	people >/dev/null   # PEOPLE, once
+	local list
 	for c in $(channels); do
 		load "$c"
 		if expired; then [ "$dry" = yes ] && echo "$c: expired on $EXPIRES" || summarize; continue; fi
+		list=$(issues) || { echo "$c: could not read $REPO's issues, skipped" >&2; failed=$((failed + 1)); continue; }
 		while IFS= read -r j; do
 			[ -n "$j" ] || continue
+			jq -e '(.number | type) == "number" and (.author | type) == "string"' <<<"$j" >/dev/null 2>&1 || continue
 			key=$(wake_key "$j")
 			[ -n "$key" ] || continue
 			if [ "$dry" = no ] && [ "$(busy)" -ge "$MAX_SEATS" ]; then
@@ -263,14 +338,16 @@ poll() {
 				continue
 			fi
 			if wake "$j" "$key" "$dry"; then started=$((started + 1)); else failed=$((failed + 1)); fi
-		done < <(issues)
+		done <<<"$list"
 	done
 	[ "$started" -gt 0 ] || [ "$failed" -gt 0 ] || echo "nothing new"
 	[ "$failed" -eq 0 ]
 }
 
 decide() {
-	[ $# -eq 3 ] || die 'usage: miadi-feedback decide <owner/repo#n> <decision> "<what was done or proposed>"'
+	local pr=
+	if [ "${4:-}" = --pr ]; then pr=${5:?--pr <pull request URL>}; set -- "$1" "$2" "$3"; fi
+	[ $# -eq 3 ] || die 'usage: miadi-feedback decide <owner/repo#n> <decision> "<what was done or proposed>" [--pr <url>]'
 	local issue=$1 decision=$2 line=$3 repo n seat= labels rm= d
 	[[ $issue == */*#* ]] || die "the issue is owner/repo#number: $issue"
 	has "$DECISIONS" "$decision" || die "a decision is one of: $DECISIONS"
@@ -288,8 +365,8 @@ decide() {
 		local c
 		for c in $(gh api "repos/$repo/issues/$n/comments" --jq '.[].id'); do mark_seen "$repo#$n-c$c"; done
 	fi
-	ledger "$(jq -nc --arg at "$(now)" --arg issue "$issue" --arg decision "$decision" --arg line "$line" --arg seat "$seat" --arg by "$(id -un)" \
-		'{at: $at, event: "decided", issue: $issue, decision: $decision, line: $line, seat: $seat, by: $by}')"
+	ledger "$(jq -nc --arg at "$(now)" --arg issue "$issue" --arg decision "$decision" --arg line "$line" --arg seat "$seat" --arg by "$(id -un)" --arg pr "$pr" \
+		'{at: $at, event: "decided", issue: $issue, decision: $decision, line: $line, seat: $seat, by: $by} + (if $pr == "" then {} else {pr: $pr} end)')"
 	echo "$issue: feedback:$decision"
 }
 
@@ -374,13 +451,13 @@ cmd=${1:-}
 [ $# -eq 0 ] || shift
 case $cmd in
 	poll) poll "$@" ;;
-	decide) decide "$@" ;;
+	decide) gh_ready || true; decide "$@" ;;
 	status) status ;;
 	check) check ;;
 	enable) enable ;;
 	disable) systemctl --user disable --now miadi-feedback.timer ;;
 	trust) trust "$@" ;;
-	release) release "$@" ;;
+	release) gh_ready || true; release "$@" ;;
 	channels) for c in $(channels); do echo "== $c"; grep -hv '^#' "$ETC/$c.conf" "$USER_ETC/$c.conf" 2>/dev/null | grep . || true; done ;;
 	-h | --help | help | '') usage ;;
 	*) usage >&2; exit 2 ;;

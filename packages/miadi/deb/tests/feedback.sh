@@ -6,7 +6,8 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-export MIADI_FEEDBACK_STATE=$tmp/state XDG_CONFIG_HOME=$tmp/config
+export MIADI_FEEDBACK_STATE=$tmp/state XDG_CONFIG_HOME=$tmp/config HOME=$tmp/home
+mkdir -p "$tmp/home" && printf 'export GH_TOKEN="ghp_test123"\nOTHER=1\n' > "$tmp/home/.env"
 # The functions alone: everything above the command dispatch.
 . <(sed '/^cmd=\${1:-}/,$d' "$here/miadi-feedback/usr/bin/miadi-feedback")
 set +e +u
@@ -22,6 +23,7 @@ gh() {
 		"issue view"*labels*) echo "$LABELS" ;;
 		"issue edit"*) echo "$*" >> "$tmp/edits" ;;
 		"api -X PATCH"*) echo "$*" >> "$tmp/patches" ;;
+		"pr view"*) echo "$PRSTATE" ;;
 		*) echo "unstubbed gh $*" >&2; return 1 ;;
 	esac
 }
@@ -79,5 +81,26 @@ expect "release writes a ledger line" "released" "$(tail -1 "$LEDGER" | jq -r .e
 
 tmux() { printf '%s\n' feedback-install-kit-112-2610300930 feedback-install-kit-112-2610300930-miette-insight other; }
 expect "a seat's neighbours are not seats" "feedback-install-kit-112-2610300930" "$(live_seats)"
+
+expect "a token is read from ~/.env, quotes and export removed" ghp_test123 "$(env_value GH_TOKEN)"
+
+PEOPLE='[{"handle":"jerry1007","name":"Jerry","role":"participant","status":"active","perms":["feedback_ship"]},{"handle":"label1007","name":"label","role":"admin","status":"active","perms":[]},{"handle":"guest","name":"Guest","role":"participant","status":"active","perms":["tide_annotate"]},{"handle":"gone","name":"Gone","role":"admin","status":"deactivated","perms":[]}]'
+load install
+expect "a wheel person holding feedback_ship is trusted, handle without case" trusted "$(trust_of '{"author":"Jerry1007"}')"
+expect "an admin on the wheel is trusted" trusted "$(trust_of '{"author":"label1007"}')"
+expect "a wheel person without feedback_ship is outside" outside "$(trust_of '{"author":"guest"}')"
+expect "a deactivated admin is outside" outside "$(trust_of '{"author":"gone"}')"
+expect "the brief names how the wheel knows the author" "Jerry on the Miadi wheel, role participant, active, holds feedback_ship" "$(who_of jerry1007)"
+
+LABELS="feedback:install feedback:in-seat"; : > "$tmp/edits"
+decide jgwill/miadi-orchestration-kit#8 needs-guillaume "a new package" --pr https://github.com/jgwill/miadi-orchestration-kit/pull/130 >/dev/null
+expect "decide --pr keeps the pull request in the ledger" "https://github.com/jgwill/miadi-orchestration-kit/pull/130" "$(tail -1 "$LEDGER" | jq -r .pr)"
+waiting8() { jq -nc '{number: 8, title: "t", url: "u", author: "tester", assoc: "NONE", labels: ["feedback:install", "feedback:needs-guillaume"]}'; }
+PRSTATE=OPEN
+expect "an open pull request wakes nothing" "" "$(wake_key "$(waiting8)")"
+PRSTATE=MERGED
+expect "the maintainer's merge wakes the ship seat" "jgwill/miadi-orchestration-kit#8-m130" "$(wake_key "$(waiting8)")"
+mark_seen "jgwill/miadi-orchestration-kit#8-m130"
+expect "a merge wakes it once" "" "$(wake_key "$(waiting8)")"
 
 exit $fail

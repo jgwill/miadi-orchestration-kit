@@ -287,8 +287,13 @@ bring it back after a reboot, and the timer comes back with the user manager
 chooser (Jev, `claude/miadi-witness/scripts/choose-worker.mjs`) answers. An issue
 opened by the maintainers' circle (owner, members, collaborators, the poll's own
 account, the logins in `/etc/miadi/feedback.d/circle`) wakes no seat. A tester listed
-by `miadi-feedback trust` gets a seat that may ship a minor fix; any other author gets
-a seat in plan mode, and the maintainer approves its plan. The brief says what is minor and what is a maintainer's. Every
+by `miadi-feedback trust`, or an active person on the Miadi wheel whose profile names
+the GitHub handle and whose role or grants carry `feedback_ship` (0.1.5), gets a seat
+that may merge and ship a minor fix; any other author gets a seat in plan mode, and the
+maintainer approves its plan. Every change a seat makes is a pull request referring to
+the issue. A seat merges it itself only for a minor fix from a trusted author; otherwise
+it leaves it open and decides `needs-guillaume --pr <url>`, and the maintainer's merge
+wakes a ship seat (`briefs/ship.md`) that publishes it and answers the author. The brief says what is minor and what is a maintainer's. Every
 seat ends with `miadi-feedback decide`, which sets one label: `feedback:shipped`,
 `answered`, `no-change`, `waiting` or `needs-guillaume`. After `EXPIRES` a channel
 posts what it handled to its tracking issue and reads nothing more. A new kind of
