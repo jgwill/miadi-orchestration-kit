@@ -16,6 +16,14 @@ sudo apt update && sudo apt install miadi
 `venv`. Ubuntu 24.04 has it. On 22.04, add the deadsnakes PPA before installing
 (see [miadi-tide](#miadi-tide)).
 
+A `miadi` version that adds a package, as 0.5.0 added `miadi-terminal`, is
+kept back by `apt-get upgrade` and unattended upgrades, which install no new
+package. `sudo apt upgrade` or `sudo apt install miadi` takes it, and
+`miadi-config check` names it (0.2.9).
+
+For session restore alone, without the rest of the host, see
+[Session restore](#session-restore).
+
 | package | gives the host | since |
 |---|---|---|
 | `miadi` | its dependencies (through 0.1.x it held the settings itself) | 0.1.0 |
@@ -23,6 +31,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-tmux` | `/usr/bin/tmux` 3.7c built from the upstream release, replacing the distribution's tmux (3.2a on 22.04): one tmux version on a host, since a client cannot attach to a server of another version | 3.7c-1 |
 | `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:`, `miadi-foundation:` (0.2.2), `miadi-notebook:`, `miadi-prototype:`, `miadi-tracing:` and `rise://` (0.4.0), `miadi-capability:` (0.4.1) references, and bare circle ids (0.1.4): desktop, Terminator, tmux; the tmux settings every user starts with, `/etc/miadi/tmux.conf` (0.3.0; `miadi` depends on it since 0.5.0) | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
+| `miadi-restore` | session restore alone: depends on `miadi-config`, `miadi-tmux`, `miadi-tide` and `miadi-terminal`, nothing else | 0.1.0 |
 | `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
 | `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases: `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` | 0.1.0 |
@@ -173,6 +182,23 @@ comments out each line of the user's config that repeats one of
 `/etc/miadi/tmux.conf`, marked `# in /etc/miadi/tmux.conf: `, after a
 `.bak-miadi-terminal` copy; `disable defaults` puts them back. A running
 server reads the settings with `tmux source-file /etc/tmux.conf`.
+
+### Session restore
+
+tmux sessions, and the agents in them, that come back after a reboot, without
+the rest of a Miadi host (jgwill/miadi-orchestration-kit#116):
+
+```bash
+sudo apt update && sudo apt install miadi-restore   # miadi-config, miadi-tmux, miadi-tide, miadi-terminal
+miadi-terminal enable restore                       # per user, once
+sudo loginctl enable-linger <user>                  # so tmux starts at boot, not at login
+```
+
+`miadi-terminal` alone only recommends `miadi-tide` and `miadi-tmux`, so
+`--no-install-recommends` leaves both out. `miadi-restore` depends on them.
+`miadi-tmux` replaces the distribution's tmux: a tmux server already running
+keeps running, and a 3.7c client cannot attach to it until it is moved over
+(jgwill/miadi-orchestration-kit#115).
 
 ## A user on a Miadi host
 
@@ -430,6 +456,7 @@ bash "$publish" dist/miadi-chronicle-server_<version>_all.deb   # before the mia
 bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on, before the miadi that depends on it
 bash "$publish" dist/miadi_<version>_all.deb
 bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it
+bash "$publish" dist/miadi-restore_<version>_all.deb    # after the four it depends on
 bash "$publish" dist/miadi-music-render_<version>_all.deb
 for w in dist/miadi-music-wheels-cp3*_<version>_amd64.deb; do bash "$publish" "$w"; done
 bash "$publish" dist/miadi-music-measure_<version>_all.deb   # after the wheels it depends on

@@ -14,7 +14,7 @@ usage: miadi-config [command]
   get NAME          one resolved value, for scripts
   set NAME VALUE    write this host's value into miadi.env (needs root)
   unset NAME        remove this host's value from miadi.env (needs root)
-  check             what this host is missing
+  check             what this host is missing, and each miadi package apt can upgrade
   settings          every known setting and what it does
   report            what to paste into an issue: versions, sources, check, units
   report --url install|question|music
@@ -134,6 +134,17 @@ check() {
 		if [ -d "${!key}" ]; then echo "ok       $key=${!key}"
 		else miss "$key=${!key} is not a directory"; fi
 	done
+	# A miadi package whose apt candidate is newer: apt-get upgrade keeps one back when its new
+	# version adds a package (miadi 0.5.0, jgwill/miadi-orchestration-kit#116). Not counted as missing.
+	local pkg have want
+	if command -v apt-cache >/dev/null; then
+		while read -r pkg have; do
+			want=$(apt-cache policy "$pkg" 2>/dev/null | sed -n 's/^  Candidate: //p')
+			if [ -n "$want" ] && [ "$want" != "(none)" ] && dpkg --compare-versions "$want" gt "$have"; then
+				echo "upgrade  $pkg $have -> $want: sudo apt install $pkg"
+			fi
+		done < <(dpkg-query -W -f='${db:Status-Abbrev} ${Package} ${Version}\n' 'miadi*' 2>/dev/null | awk '$1 == "ii" {print $2, $3}')
+	fi
 	[ "$missing" -eq 0 ] || { echo "$missing missing"; return 1; }
 }
 
