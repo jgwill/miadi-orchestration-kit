@@ -1,0 +1,53 @@
+{
+  "_comment": "Hermes hook event template. Copy and fill required fields. Optional fields may be omitted.",
+  "event_id": "<UUID>",
+  "event_type": "<prompt|tool_invocation|tool_result|failure|correction|routing|ncp_update|signal>",
+  "source_agent": "<canonical agent or toolchain identifier>",
+  "session_id": "<session UUID or slug>",
+  "timestamp": "<ISO 8601 timestamp>",
+  "payload": {
+    "_comment": "Event-type-specific content. See 03-specify.md for payload contracts.",
+    "prompt": {
+      "content": "<prompt text>",
+      "model": "<model identifier>",
+      "temperature": null
+    },
+    "tool_invocation": {
+      "tool_name": "<tool name>",
+      "input": {}
+    },
+    "tool_result": {
+      "tool_name": "<tool name>",
+      "output": {},
+      "duration_ms": 0
+    },
+    "failure": {
+      "error_type": "<error class>",
+      "message": "<human-readable error>",
+      "recoverable": true
+    },
+    "correction": {
+      "original_event_id": "<UUID of corrected event>",
+      "corrected_by": "<agent or user identifier>",
+      "diff_summary": "<short description of what changed>"
+    },
+    "routing": {
+      "from_agent": "<source agent>",
+      "to_agent": "<destination agent>",
+      "reason": "<routing rationale>"
+    },
+    "ncp_update": {
+      "beat": "<NCP narrative beat name>",
+      "constraint_delta": "<description of constraint change>"
+    },
+    "signal": {
+      "signal_type": "<quality|risk|alignment>",
+      "severity": "<low|medium|high>",
+      "findings_summary": "<short description>"
+    }
+  },
+  "ncp_beat": null,
+  "trace_id": null,
+  "confidence": null,
+  "tags": []
+}
