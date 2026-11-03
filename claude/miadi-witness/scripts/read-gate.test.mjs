@@ -4,9 +4,68 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  ACTIONS, ACTION_BAR, READ_AT, SKIP_AT, buildQuestions, buildState, extractHeadings, isAddress, makeRecord, makeRuling,
-  parseArgs, pruneFiles, readFileState, reviewState, reviewsSince, textState, topProbabilityFor, verdictOf,
+  ACTIONS, ACTION_BAR, READ_AT, SKIP_AT, buildQuestions, buildState, calibrate, defaultPolicy, extractHeadings, filesNeededFromPde,
+  groupByMission, isAddress, knownItems, latestRulings, loadPolicy, makeRecord, makeRuling, parseArgs, pendingDecisions, pruneFiles,
+  readFileState, reviewState, reviewsSince, textState, topProbabilityFor, verdictOf, writePolicy,
 } from "./read-gate.mjs";
+
+const decision = (id, relevant, verdict, extra = {}) => ({ kind: "decision", id, at: `2026-11-03T20:${String(id).slice(-2).padStart(2, "0")}:00.000Z`, mission: "m", path: `/x/${id}.md`, relevant, verdict, action: "read_whole", action_confidence: 0.7, ...extra });
+const ruling = (decisionId, verdict, at = "2026-11-03T21:00:00.000Z") => ({ kind: "ruling", id: `rul-${decisionId}`, decision_id: decisionId, verdict, at });
+
+test("pending decisions are those without a ruling, newest first; the latest ruling is in force", () => {
+  const records = [decision("rg-1-01", 0.9, "read"), decision("rg-1-02", 0.2, "skip"), decision("rg-1-03", 0.5, "skim"), ruling("rg-1-02", "read"), ruling("rg-1-02", "skip")];
+  assert.deepEqual(pendingDecisions(records).map((d) => d.id), ["rg-1-03", "rg-1-01"]);
+  assert.equal(latestRulings(records).get("rg-1-02").verdict, "skip");
+  assert.deepEqual(groupByMission(pendingDecisions(records)).map((g) => [g.mission, g.count]), [["m", 2]]);
+});
+
+test("calibrate suggests nothing under min rulings, and a cut that agreed 95% above it", () => {
+  const records = [];
+  for (let i = 0; i < 25; i += 1) { const id = `rg-2-${String(i).padStart(2, "0")}`; records.push(decision(id, 0.9, "read"), ruling(id, "read")); }
+  for (let i = 0; i < 25; i += 1) { const id = `rg-3-${String(i).padStart(2, "0")}`; records.push(decision(id, 0.1, "skip"), ruling(id, "skip")); }
+  const r = calibrate(records, { cls: "relevant", min: 20 });
+  assert.equal(r.rulings, 50);
+  // read_at is the lowest cut that agrees (0.5); skip_at the mirror of the highest cut whose
+  // lower side agrees (all skips sit at 0.1), as lane-check's act_at and block_at.
+  assert.deepEqual(r.suggested, { read_at: 0.5, skip_at: 0.1 });
+  const few = calibrate(records.slice(0, 10), { cls: "relevant", min: 20 });
+  assert.equal(few.suggested, null);
+  const a = calibrate(records, { cls: "action", min: 20 });
+  assert.equal(a.rulings, 50);
+  assert.equal(a.suggested, null, "half the rulings disagree with read_whole, so no cut reaches 95%");
+  assert.throws(() => calibrate(records, { cls: "taste" }), /relevant or action/);
+});
+
+test("the policy is written only from a suggestion, with a name, and loads back over the defaults", () => {
+  const dir = mkdtempSync(join(tmpdir(), "read-gate-policy-"));
+  const file = join(dir, "read-gate-policy.json");
+  assert.deepEqual(loadPolicy(file), defaultPolicy());
+  assert.throws(() => writePolicy({ class: "relevant", rulings: 3, min: 20, suggested: null }, { by: "william", file }), /nothing to write/);
+  assert.throws(() => writePolicy({ class: "relevant", rulings: 40, min: 20, suggested: { read_at: 0.65, skip_at: 0.25 } }, { by: "", file }), /--by/);
+  const next = writePolicy({ class: "relevant", rulings: 40, min: 20, suggested: { read_at: 0.65, skip_at: 0.25 } }, { by: "william", file, now: "2026-11-04T00:00:00.000Z" });
+  assert.equal(next.read_at, 0.65);
+  assert.equal(loadPolicy(file).skip_at, 0.25);
+  assert.equal(loadPolicy(file).set_by, "william");
+  assert.equal(verdictOf(0.66, "read_whole", loadPolicy(file)), "read");
+  assert.equal(verdictOf(0.66, "read_whole"), "skim");
+});
+
+test("files_needed from a PDE room: entries with a path that exists on this host, the rest reported", () => {
+  const dir = mkdtempSync(join(tmpdir(), "read-gate-pde-"));
+  const here = join(dir, "a.md"); writeFileSync(here, "x");
+  writeFileSync(join(dir, "pde-abc.json"), JSON.stringify({ result: { context: { files_needed: [`${here} (the file)`, "the decision engine source (location unknown)", "$NOPE_VAR/x"] } } }));
+  const r = filesNeededFromPde(dir, { HOME: dir });
+  assert.equal(r.pde, "pde-abc.json");
+  assert.deepEqual(r.found, [here]);
+  assert.equal(r.skipped.length, 2);
+  assert.throws(() => filesNeededFromPde(join(dir, "none")), /no pde-/);
+});
+
+test("known is split into items the question can point at", () => {
+  assert.deepEqual(knownItems("a; b\nc\n\n"), ["a", "b", "c"]);
+  const s = buildState({ mission: "m", known: "a; b", file: { path: "/x", bytes: 1, lines: 1, basis: "content", content: "x", headings: [] } });
+  assert.deepEqual(s.known_items, ["a", "b"]);
+});
 
 const fakeFetch = (body, ok = true, status = 200) => async () => ({ ok, status, text: async () => body });
 
