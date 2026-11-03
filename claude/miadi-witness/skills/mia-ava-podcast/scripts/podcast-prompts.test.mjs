@@ -4,7 +4,7 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { compile, dialogueTurns, parseArgs, SEEDS, DEFAULT_CAST, PERSONA_PREFIX } from "./podcast-prompts.mjs"
+import { compile, dialogueTurns, parseArgs, pins, SEEDS, DEFAULT_CAST, PERSONA_PREFIX } from "./podcast-prompts.mjs"
 
 test("compile fills placeholders and names the ones left", () => {
   assert.deepEqual(compile("Hi {{listener}}, {{ minutes }} min, {{cast}}", { listener: "Guillaume", minutes: 3 }), {
@@ -41,4 +41,15 @@ test("every seed in the manifest exists, and the dialogue prompt names the defau
 test("the dialogue seed has a placeholder for everything compose fills", () => {
   const text = readFileSync(join(SEEDS, "miadi-podcast-dialogue.md"), "utf8")
   for (const v of ["listener", "cast", "minutes", "context", "survey", "source"]) assert.match(text, new RegExp(`\\{\\{${v}\\}\\}`), v)
+})
+
+test("bold speaker labels are read as speakers", () => {
+  const { turns } = dialogueTurns("**Ava:** What changed?\n\n**Mia**: One track.")
+  assert.deepEqual(turns, [{ persona: "ava", text: "What changed?" }, { persona: "mia", text: "One track." }])
+})
+
+test("pins read name@version, repeated, and refuse anything else", () => {
+  assert.deepEqual(parseArgs(["compose", "--pin", "a@2", "--pin", "b-c@10"]).pin, ["a@2", "b-c@10"])
+  assert.deepEqual(pins(["a@2", "b-c@10"]), { a: 2, "b-c": 10 })
+  assert.throws(() => pins(["a"]), /<name>@<version>/)
 })

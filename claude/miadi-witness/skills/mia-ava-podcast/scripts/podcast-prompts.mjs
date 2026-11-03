@@ -11,9 +11,10 @@
 //   node podcast-prompts.mjs get <name> [--version N | --label L] [--var k=v]...
 //   node podcast-prompts.mjs compose --source-file F [--pass survey|dialogue] [--survey-file F]
 //        [--context-file F | --context T] [--cast ava,mia,...] [--listener X] [--minutes N]
-//        [--label L] [--json]
+//        [--label L] [--pin <name>@<version>]... [--json]
 //   node podcast-prompts.mjs turns <dialogue.md> [--cast ava,mia,...]
 //   node podcast-prompts.mjs revise <name> --text-file F [--promote] [--message M]
+//   node podcast-prompts.mjs promote <name> --version N     (also how an earlier version is restored)
 //
 // Keys: CEREMONY_LANGFUSE_* from the environment or $MIADI_SRC/.env, read by
 // miadi-run's domainKeys. No key, prompt body or trace content is printed by
@@ -45,7 +46,8 @@ export function compile(text, vars = {}) {
 /** The labelled turns of a dialogue file, as voice_publish_dialogue takes them. */
 export function dialogueTurns(markdown, cast = DEFAULT_CAST) {
   const labels = new Map(cast.map((id) => [id.charAt(0).toUpperCase() + id.slice(1), id]))
-  const re = new RegExp(`^(${[...labels.keys()].join("|")}): `)
+  // "Mia: ", "**Mia:** " and "**Mia**: " all name the speaker.
+  const re = new RegExp(`^\\*{0,2}(${[...labels.keys()].join("|")})(?::\\*{0,2}|\\*{0,2}:) `)
   const turns = []
   const stray = []
   let started = false
@@ -59,6 +61,17 @@ export function dialogueTurns(markdown, cast = DEFAULT_CAST) {
   return { turns, stray }
 }
 
+/** `--pin name@3` → { name: 3 }. A pinned prompt is read at that version whatever the label. */
+export function pins(list = []) {
+  const out = {}
+  for (const p of list) {
+    const m = /^([A-Za-z0-9._-]+)@(\d+)$/.exec(p)
+    if (!m) throw new Error(`--pin takes <name>@<version>, not ${JSON.stringify(p)}`)
+    out[m[1]] = Number(m[2])
+  }
+  return out
+}
+
 export function parseArgs(argv) {
   const out = { _: [], var: {} }
   for (let i = 0; i < argv.length; i++) {
@@ -69,6 +82,7 @@ export function parseArgs(argv) {
     const val = argv[++i]
     if (val === undefined) throw new Error(`--${key} needs a value`)
     if (key === "var") { const eq = val.indexOf("="); out.var[val.slice(0, eq)] = val.slice(eq + 1); continue }
+    if (key === "pin") { (out.pin ??= []).push(val); continue }
     out[key] = val
   }
   return out
@@ -104,6 +118,11 @@ async function store(env = process.env) {
         if (page >= (r.body?.meta?.totalPages ?? 1)) break
       }
       return rows.map((p) => ({ name: p.name, versions: p.versions ?? [], labels: p.labels ?? [] }))
+    },
+    async label(name, version, labels) {
+      const r = await call("PATCH", `/api/public/v2/prompts/${encodeURIComponent(name)}/versions/${version}`, { newLabels: labels })
+      if (r.status !== 200) throw new Error(`labelling ${name} version ${version} answered HTTP ${r.status}: ${JSON.stringify(r.body).slice(0, 200)}`)
+      return { name, version: r.body.version, labels: r.body.labels ?? [] }
     },
     async create(name, text, { labels = [], config = {}, tags = [], message } = {}) {
       const r = await call("POST", "/api/public/v2/prompts", { name, type: "text", prompt: text, labels, config, tags, ...(message ? { commitMessage: message } : {}) })
@@ -152,11 +171,12 @@ async function compose(opts, out) {
   if (!opts["source-file"]) throw new Error("compose needs --source-file")
   const s = await store()
   const label = opts.label || "production"
+  const pinned = pins(opts.pin)
   const source = readFileSync(opts["source-file"], "utf8")
   const used = []
   const take = async (name) => {
-    const p = await s.get(name, { label })
-    if (!p) throw new Error(`${name} has no version labelled ${label} in ${DOMAIN}`)
+    const p = await s.get(name, pinned[name] ? { version: pinned[name] } : { label })
+    if (!p) throw new Error(pinned[name] ? `${name} has no version ${pinned[name]} in ${DOMAIN}` : `${name} has no version labelled ${label} in ${DOMAIN}`)
     used.push({ name: p.name, version: p.version, reference: p.reference })
     return p
   }
@@ -164,20 +184,28 @@ async function compose(opts, out) {
   let text
   if ((opts.pass || "dialogue") === "survey") {
     const p = await take("miadi-podcast-academic-survey")
-    text = compile(p.text, { source }).text
+    const filled = compile(p.text, { source })
+    if (filled.missing.length) throw new Error(`${p.name}@${p.version} left unfilled: ${filled.missing.join(", ")}`)
+    text = filled.text
   } else {
     const d = await take("miadi-podcast-dialogue")
     const cast = opts.cast ? opts.cast.split(",").map((c) => c.trim()).filter(Boolean) : (d.config.cast ?? DEFAULT_CAST)
     const listener = opts.listener || d.config.listener || "the person"
     const blocks = []
-    for (const id of cast) blocks.push(compile((await take(PERSONA_PREFIX + id)).text, { listener }).text.trim())
+    for (const id of cast) {
+      const p = await take(PERSONA_PREFIX + id)
+      const filled = compile(p.text, { listener })
+      if (filled.missing.length) throw new Error(`${p.name}@${p.version} left unfilled: ${filled.missing.join(", ")}`)
+      blocks.push(filled.text.trim())
+    }
     const context = opts["context-file"] ? readFileSync(opts["context-file"], "utf8") : (opts.context || "(none given)")
     const survey = opts["survey-file"] ? readFileSync(opts["survey-file"], "utf8") : "(none: write the survey first with --pass survey)"
     const filled = compile(d.text, { listener, cast: blocks.join("\n\n"), minutes: opts.minutes || d.config.minutes || 3, context, survey, source })
     if (filled.missing.length) throw new Error(`miadi-podcast-dialogue left unfilled: ${filled.missing.join(", ")}`)
     text = filled.text
   }
-  if (opts.json) out(JSON.stringify({ prompts: used, text }, null, 2))
+  const metadata = { prompts: used.map((u) => `${u.name}@${u.version}`) }
+  if (opts.json) out(JSON.stringify({ prompts: used, metadata, text }, null, 2))
   else { process.stderr.write(`prompts: ${used.map((u) => `${u.name}@${u.version}`).join(", ")}\n`); out(text) }
 }
 
@@ -186,6 +214,7 @@ function turns(opts, out) {
   if (!file) throw new Error("turns needs a dialogue file")
   const cast = opts.cast ? opts.cast.split(",").map((c) => c.trim()) : DEFAULT_CAST
   const { turns: t, stray } = dialogueTurns(readFileSync(file, "utf8"), cast)
+  if (!t.length) throw new Error(`no turn in ${file} starts with a cast member's name (${cast.join(", ")})`)
   if (stray.length) throw new Error(`text after the first turn that no speaker says: ${stray.map((x) => JSON.stringify(x)).join("; ")}`)
   out(JSON.stringify({ turns: t }, null, 2))
 }
@@ -202,11 +231,23 @@ async function revise(opts, out) {
   out(`${name} version ${made.version} [${made.labels.join(",")}]${opts.promote ? "" : " (not production until promoted)"}`)
 }
 
+async function promote(opts, out) {
+  const name = opts._[1]
+  const version = Number(opts.version)
+  if (!name || !version) throw new Error("promote needs a prompt name and --version N")
+  const s = await store()
+  const p = await s.get(name, { version })
+  if (!p) throw new Error(`${name} has no version ${version} in ${DOMAIN}`)
+  const kept = p.labels.filter((l) => l !== "latest" && l !== "production")
+  const made = await s.label(name, version, [...kept, "production"])
+  out(`${name} version ${made.version} is production [${made.labels.join(",")}]`)
+}
+
 export async function main(argv, out = console.log) {
   const opts = parseArgs(argv)
   const cmd = opts._[0]
-  const table = { list, seed, get, compose, turns, revise }
-  if (!table[cmd]) { out("usage: podcast-prompts.mjs list | seed | get | compose | turns | revise (see the header of this file)"); return 2 }
+  const table = { list, seed, get, compose, turns, revise, promote }
+  if (!table[cmd]) { out("usage: podcast-prompts.mjs list | seed | get | compose | turns | revise | promote (see the header of this file)"); return 2 }
   await table[cmd](opts, out)
   return 0
 }

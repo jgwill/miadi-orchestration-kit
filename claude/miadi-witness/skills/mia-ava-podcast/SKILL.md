@@ -17,7 +17,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.7.0
+  version: 0.7.1
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -40,14 +40,16 @@ Guillaume, 2026-11-03: the prompts that write the podcast live in the Factory's 
 P="node scripts/podcast-prompts.mjs"
 $P list                                                         # names, versions, labels
 $P compose --pass survey --source-file <output.md>             # pass one, filled from the production version
-$P compose --source-file <output.md> --survey-file <survey.md> [--cast ava,mia] [--minutes N] [--context T] [--json]
+$P compose --source-file <output.md> --survey-file <survey.md> [--cast ava,mia] [--minutes N] [--context T] [--pin <name>@<n>]... [--json]
 $P turns <dialogue.md> [--cast ...]                             # the turns voice_publish_dialogue takes
 $P revise <name> --text-file F [--promote]                      # a new version; production only with --promote
+$P promote <name> --version N                                   # move production, also to restore an earlier version
 ```
 
-1. Write from what `compose` prints, not from memory of this file. It reads the version labelled `production` and names every version it used (stderr, or `prompts` with `--json`).
-2. Keep that list. It goes into the voice records' `metadata.prompts` and into the episode's status, so a review can name the prompt behind a sentence.
-3. A revision is a new version. `revise` never moves `production` unless asked; moving it back restores the earlier one.
+1. Write from what `compose` prints, not from memory of this file. It reads the version labelled `production`, or the version `--pin` names, and refuses a placeholder left unfilled. It names every version it used (stderr, or `metadata.prompts` with `--json`).
+2. Keep that list. Pass it as `metadata` to `voice_publish_dialogue` and write it in the episode's status, so a review can name the prompt behind a sentence.
+3. A revision is a new version. Try it with `compose --pin <name>@<n>` before promoting it. `revise` never moves `production` unless asked, and `promote` moves it back to restore an earlier version.
+4. After a dialogue, count each voice's share of the words. The dialogue prompt asks that no voice exceed about a third and every voice reach a tenth.
 
 ## When the person sends a dialogue another model made
 
@@ -165,6 +167,7 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 - 2026-10-20, 0.6.0. Guillaume, relayed by mino-261019-inventory: "The agent that was the producer of that discussion would actually reply to the talking circle, which is not the case right now." `circle-dialogue.mjs` gained `pending`, `await` and `reply`. The new section keeps the producing seat listening and replying where he spoke. jgwill/Miadi#841 added the reply kind, so a voice replies under its own turn and a person can relate without judging.
 
 - 2026-11-03, 0.7.0. Guillaume, after the two-voice test in Episode 569: "make sure that the personality of the model matches the persona, so we have something diversified in the output", and "storing these prompts inside of the ceremonial prompt management systems inside of the factory … the actual generative process … will feed on that." The cast became five, each voice written in its persona prompt. The seven prompts are in the ceremonial store and `scripts/podcast-prompts.mjs` composes from them. A dialogue is spoken as one track through `voice_publish_dialogue` (jgwill/Miadi#920).
+- 2026-11-03, 0.7.1. An independent review of 0.7.0 (Episode 569, `review-expectation-261103.md` and its contrast) found the first five-voice dialogue gave Mia 55% of the words and had two turns recite a voice's rules. Version 2 of `miadi-podcast-dialogue` and `miadi-podcast-persona-ava` was promoted; the script gained `--pin`, `promote`, refusal of unfilled placeholders and bold labels; step 4 above counts the shares.
 
 ## Related
 
