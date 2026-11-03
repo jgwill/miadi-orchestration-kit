@@ -4,9 +4,33 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  ACTIONS, ACTION_BAR, READ_AT, SKIP_AT, buildQuestions, buildState, extractHeadings, makeRecord, makeRuling,
-  parseArgs, pruneFiles, readFileState, topProbabilityFor, verdictOf,
+  ACTIONS, ACTION_BAR, READ_AT, SKIP_AT, buildQuestions, buildState, extractHeadings, isAddress, makeRecord, makeRuling,
+  parseArgs, pruneFiles, readFileState, reviewState, reviewsSince, textState, topProbabilityFor, verdictOf,
 } from "./read-gate.mjs";
+
+const fakeFetch = (body, ok = true, status = 200) => async () => ({ ok, status, text: async () => body });
+
+test("a published review becomes a candidate named by its address", async () => {
+  const s = await reviewState("miadi-review://12345678-1234-1234-1234-123456789abc", { fetchImpl: fakeFetch("# A review\n\n## Intent\n\nwords\n") });
+  assert.equal(s.path, "miadi-review:12345678-1234-1234-1234-123456789abc");
+  assert.equal(isAddress(s.path), true);
+  assert.equal(s.basis, "content");
+  assert.deepEqual(s.headings.map((h) => h.text), ["A review", "Intent"]);
+  await assert.rejects(() => reviewState("not-an-id"), /not a review id/);
+  await assert.rejects(() => reviewState("12345678-1234-1234-1234-123456789abc", { fetchImpl: fakeFetch("", false, 404) }), /404/);
+  assert.throws(() => textState("x", "   "), /empty/);
+});
+
+test("reviews since a date come from the feed's items, once each, by their link and pubDate", async () => {
+  const feed = `<rss><channel>
+<item><title>New</title><link>https://miadi-review-service.vercel.app/review/aaaaaaaa-1234-1234-1234-123456789abc</link><pubDate>Mon, 02 Nov 2026 10:00:00 GMT</pubDate></item>
+<item><title>Old</title><link>https://miadi-review-service.vercel.app/review/bbbbbbbb-1234-1234-1234-123456789abc</link><pubDate>Sat, 03 Oct 2026 10:00:00 GMT</pubDate></item>
+<item><title>Dup</title><link>https://miadi-review-service.vercel.app/review/aaaaaaaa-1234-1234-1234-123456789abc?v=2</link><pubDate>Tue, 03 Nov 2026 10:00:00 GMT</pubDate></item>
+</channel></rss>`;
+  assert.deepEqual(await reviewsSince("2026-10-25", { fetchImpl: fakeFetch(feed) }), ["aaaaaaaa-1234-1234-1234-123456789abc"]);
+  assert.deepEqual(await reviewsSince("2026-01-01", { fetchImpl: fakeFetch(feed) }), ["aaaaaaaa-1234-1234-1234-123456789abc", "bbbbbbbb-1234-1234-1234-123456789abc"]);
+  await assert.rejects(() => reviewsSince("yesterday"), /needs a date/);
+});
 
 const readAnswer = (answer) => {
   if (!answer) return { value: null, p: null, read_status: "unknown" };

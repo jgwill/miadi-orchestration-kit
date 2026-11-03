@@ -146,6 +146,26 @@ export async function reviewState(ref, { fetchImpl = globalThis.fetch, version =
   return textState(`miadi-review:${uuid}`, await response.text());
 }
 
+// The reviews published or revised since a date, from the service's public feed, so "which of
+// the new reviews should I read for what I am doing" is one run. The feed is read, never
+// interpreted: only each item's link and pubDate are used.
+export async function reviewsSince(date, { fetchImpl = globalThis.fetch } = {}) {
+  const since = new Date(date);
+  if (Number.isNaN(since.getTime())) throw new Error(`--reviews-since needs a date, got ${date}`);
+  const url = `${REVIEW_BASE}/review/feed.xml`;
+  const response = await fetchImpl(url, { headers: { Accept: "application/rss+xml, application/xml, text/xml" } });
+  if (!response.ok) throw new Error(`${response.status} from ${url}`);
+  const xml = await response.text();
+  const out = [];
+  for (const item of xml.match(/<item>[\s\S]*?<\/item>/g) ?? []) {
+    const link = /<link>\s*([^<\s]+)\s*<\/link>/.exec(item)?.[1] ?? "";
+    const pub = /<pubDate>\s*([^<]+?)\s*<\/pubDate>/.exec(item)?.[1] ?? "";
+    const uuid = REVIEW_RE.exec(link.replace(/^.*\/review\//, "").replace(/[/?#].*$/, ""))?.[1];
+    if (uuid && !Number.isNaN(new Date(pub).getTime()) && new Date(pub) >= since) out.push(uuid.toLowerCase());
+  }
+  return [...new Set(out)];
+}
+
 const GLOB_CHARS = /[*?[\]{}]/;
 
 // Patterns are files, directories or globs. A directory means its files, or everything below
@@ -290,7 +310,7 @@ export async function parallel(items, limit, fn) {
   return out;
 }
 
-const VALUE_FLAGS = new Set(["mission", "mission-file", "known", "known-file", "cwd", "model", "parallel", "ruling", "by", "path", "words", "review"]);
+const VALUE_FLAGS = new Set(["mission", "mission-file", "known", "known-file", "cwd", "model", "parallel", "ruling", "by", "path", "words", "review", "reviews-since"]);
 
 export function parseArgs(argv) {
   const out = { _: [] };
@@ -303,7 +323,7 @@ export function parseArgs(argv) {
   return out;
 }
 
-const USAGE = `usage: read-gate.mjs --mission "<what we are trying to do now>" [--mission-file F] [--known "<what the seat already holds>"] [--known-file F] [--cwd DIR] [--recursive] [--model ${MODEL}] [--parallel 8] [--review <uuid>[,<uuid>…]] [--dry] [--json] [<file|dir|glob>...]
+const USAGE = `usage: read-gate.mjs --mission "<what we are trying to do now>" [--mission-file F] [--known "<what the seat already holds>"] [--known-file F] [--cwd DIR] [--recursive] [--model ${MODEL}] [--parallel 8] [--review <uuid>[,<uuid>…]] [--reviews-since YYYY-MM-DD] [--dry] [--json] [<file|dir|glob>...]
        read-gate.mjs --ruling <read|skip> --by <who> --path <file|miadi-review:uuid> [--words "<verbatim>"]`;
 
 const fmt = (x) => (typeof x === "number" ? x.toFixed(2) : "  ? ");
@@ -337,6 +357,11 @@ async function main() {
 
   const mission = a["mission-file"] ? readFileSync(a["mission-file"], "utf8").trim() : a.mission;
   const reviews = typeof a.review === "string" ? a.review.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  if (typeof a["reviews-since"] === "string") {
+    const recent = await reviewsSince(a["reviews-since"]);
+    console.error(`reviews since ${a["reviews-since"]}: ${recent.length} in the feed`);
+    for (const uuid of recent) if (!reviews.some((r) => r.includes(uuid))) reviews.push(uuid);
+  }
   if (!mission || mission === true || (a._.length === 0 && reviews.length === 0)) { console.error(USAGE); process.exit(2); }
   const known = a["known-file"] ? readFileSync(a["known-file"], "utf8").trim() : (typeof a.known === "string" ? a.known : "");
   const model = typeof a.model === "string" ? a.model : MODEL;
