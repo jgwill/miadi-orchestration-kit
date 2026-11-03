@@ -134,6 +134,21 @@ check() {
 		if [ -d "${!key}" ]; then echo "ok       $key=${!key}"
 		else miss "$key=${!key} is not a directory"; fi
 	done
+	# Session capture for Claude is the miadi-session-observability plugin. Its SessionStart writes
+	# the binding line that mct's primer, tide restore and the session inventory read. Hooks wired
+	# by hand in settings.json (claude_hooks/*.sh) are retired: an old copy writes no binding line,
+	# and beside the plugin they write every event twice (jgwill/miadi-orchestration-kit#126).
+	local settings="$HOME/.claude/settings.json" plugin=0 handwired=0
+	if command -v claude >/dev/null || [ -e "$settings" ]; then
+		if [ -r "$settings" ]; then
+			grep -q '"miadi-session-observability@[^"]*": *true' "$settings" && plugin=1
+			grep -q 'claude_hooks/[a-z_]*_hook\.sh' "$settings" && handwired=1
+		fi
+		if [ $plugin = 1 ] && [ $handwired = 0 ]; then echo "ok       Claude session capture: the miadi-session-observability plugin"
+		elif [ $plugin = 1 ]; then miss "Claude hooks wired by hand in $settings run beside the miadi-session-observability plugin, so every event is captured twice: remove the \"hooks\" entries that run claude_hooks/*_hook.sh"
+		elif [ $handwired = 1 ]; then miss "Claude hooks wired by hand in $settings are retired: claude plugin install miadi-session-observability@miadi-orchestration-kit, then remove the \"hooks\" entries that run claude_hooks/*_hook.sh"
+		else miss "Claude sessions write no binding line, so mct's primer and tide restore wait for nothing: claude plugin install miadi-session-observability@miadi-orchestration-kit"; fi
+	fi
 	[ "$missing" -eq 0 ] || { echo "$missing missing"; return 1; }
 }
 
