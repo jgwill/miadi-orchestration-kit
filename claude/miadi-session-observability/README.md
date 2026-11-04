@@ -47,6 +47,17 @@ jgwill/miadi-orchestration-kit#56.
 - **Skill.** `session-continuity` carries T1's practice: the binding line, tmux save and
   restore, tide, and rebuilding what each pane held after a crash.
 
+## A person's correction, while the agent works
+
+Since 0.1.32 every session has a steering inbox (jgwill/Miadi#930). A person's correction, sent through
+the Miadi connector, waits in `<factory>/steering/<session_id>/pending/`. At the next tool end the hook
+gives it to the model as `additionalContext`, in the same turn. If the turn ends with no further tool,
+`Stop` continues it with the correction. It goes to the main thread only, once, and is checked again
+for its session, hash, expiry and revocation when it is consumed. With nothing pending the hook costs
+one bash `glob` and starts no node. Hooks load at session start, so a session started before 0.1.32
+answers `unsupported`. `MIADI_STEERING_DIR` moves the folder, and a host without the factory folder has
+no inbox and notices nothing.
+
 ## Install
 
 ```bash

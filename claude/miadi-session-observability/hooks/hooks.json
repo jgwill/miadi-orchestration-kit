@@ -10,6 +10,15 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/session_start_hook.sh\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/steering_inbox.sh\" session-start",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -27,6 +36,15 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/accepted_redirection_hook.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/steering_inbox.sh\" user-prompt-submit",
+            "timeout": 10
           }
         ]
       }
@@ -81,6 +99,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/steering_inbox.sh\" post-tool-use",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -90,6 +117,15 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/post_tool_use_failure_hook.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/steering_inbox.sh\" post-tool-use-failure",
+            "timeout": 10
           }
         ]
       }
@@ -158,6 +194,15 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/stop_hook.sh\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/steering_inbox.sh\" stop",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "SessionEnd": [
@@ -167,6 +212,15 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/claude_hooks/session_end_hook.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/steering_inbox.sh\" session-end",
+            "timeout": 10
           }
         ]
       }
