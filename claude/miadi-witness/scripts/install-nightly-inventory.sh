@@ -23,7 +23,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-Environment=PATH=$(dirname "$node_bin"):/usr/local/bin:/usr/bin:/bin
+Environment=PATH=$(dirname "$node_bin"):$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=$here/nightly-inventory.sh
 EOF
 cat >"$units/miadi-inventory-nightly.timer" <<EOF
