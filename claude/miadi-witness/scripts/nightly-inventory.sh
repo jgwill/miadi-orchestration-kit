@@ -15,7 +15,9 @@
 #      --agent miadi-witness:inventory-keeper`), at most --max-read sessions and --budget dollars a night.
 #      William, 2026-11-04: Haiku "is ok", and be economic: one worker, a cap, nobody steering.
 #   4. Commits the records written and read, by path, in the inventory's repository, and pushes.
-#   5. Appends one line to the witness seat's inbox (the seat clock.yml names) with what ran and
+#   5. Lists the mctgo drafts still unsent after 3 days and what landed since each (drafts-witness.mjs,
+#      no model, no words), into ~/.miadi/drafts-witness/<yymmdd>.md and the night's line.
+#   6. Appends one line to the witness seat's inbox (the seat clock.yml names) with what ran and
 #      what is still unread, for the morning.
 #
 # usage: nightly-inventory.sh [--since <date>] [--dry-run] [--no-read] [--max-read N] [--budget USD]
@@ -108,7 +110,18 @@ if [ -n "$repo" ]; then
 	fi
 fi
 
-line="{\"at\":\"$now\",\"event\":\"inventory.nightly\",\"since\":\"$since\",\"commit\":$committed,\"reading\":$reading,\"summary\":$summary}"
+# Drafts that waited (Guillaume, 2026-11-04): what landed since each mctgo draft still unsent after
+# MIADI_DRAFTS_WITNESS_DAYS days (3), without a model and without its words. The facts go to a file for
+# the witness seat; the seat runs skill drafts-witness when it judges the morning's line worth it.
+drafts=null
+days=${MIADI_DRAFTS_WITNESS_DAYS:-3}
+facts=$HOME/.miadi/drafts-witness/$(date +%y%m%d).md
+if command -v "${MIADI_TIDE_BIN:-tide}" >/dev/null 2>&1; then
+	drafts=$(timeout 300 node "$here/drafts-witness.mjs" facts --older-than-days "$days" --summary --out "$facts" 2>/dev/null) || drafts=null
+	[ -n "$drafts" ] || drafts=null
+fi
+
+line="{\"at\":\"$now\",\"event\":\"inventory.nightly\",\"since\":\"$since\",\"commit\":$committed,\"reading\":$reading,\"summary\":$summary,\"drafts\":$drafts}"
 record "$line"
 
 seat=$(sed -n 's/^  seat: *//p' "$clock" 2>/dev/null | head -1)
