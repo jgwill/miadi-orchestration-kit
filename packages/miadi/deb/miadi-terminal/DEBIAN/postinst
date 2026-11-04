@@ -12,6 +12,7 @@ if [ "$1" = configure ]; then
 	fi
 	echo "miadi-terminal: every user's tmux reads /etc/tmux.conf, which reads /etc/miadi/tmux.conf"
 	echo "miadi-terminal: each user runs 'miadi-terminal enable' once (desktop, terminator, tmux, defaults)"
+	echo "miadi-terminal: defaults comments out the lines of the user's tmux config that /etc/miadi/tmux.conf already sets"
 	echo "miadi-terminal: and 'miadi-terminal enable restore' for tmux sessions that come back after a reboot"
 fi
 exit 0
