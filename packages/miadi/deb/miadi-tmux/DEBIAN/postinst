@@ -20,9 +20,14 @@ if [ "$1" = configure ]; then
 		echo "miadi-tmux: user $user still runs a tmux $old server from the tmux this package replaced, and $current cannot attach to it"
 	done
 	if [ -n "$users" ]; then
-		if command -v miadi-terminal >/dev/null; then
+		# enable restore prints the commands from miadi-terminal 0.4.3 on.
+		terminal=$(dpkg-query -W -f='${Version}' miadi-terminal 2>/dev/null || true)
+		if [ -n "$terminal" ] && dpkg --compare-versions "$terminal" ge 0.4.3; then
 			echo "miadi-tmux: each of them runs 'miadi-terminal enable restore' from a terminal outside tmux:"
 			echo "miadi-tmux: it prints the commands that save that server, end it, and start one this tmux restores into"
+		elif [ -n "$terminal" ]; then
+			echo "miadi-tmux: each of them upgrades miadi-terminal (sudo apt install miadi-terminal), then runs"
+			echo "miadi-tmux: 'miadi-terminal enable restore' from a terminal outside tmux: it prints how to move the server over"
 		else
 			echo "miadi-tmux: each of them ends it with 'tmux kill-server' once what it holds is saved, and starts tmux again"
 		fi
