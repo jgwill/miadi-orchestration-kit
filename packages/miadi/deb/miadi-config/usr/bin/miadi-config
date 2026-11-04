@@ -15,6 +15,8 @@ usage: miadi-config [command]
   set NAME VALUE    write this host's value into miadi.env (needs root)
   unset NAME        remove this host's value from miadi.env (needs root)
   check             what this host is missing
+  tailnet [USER]    make USER Tailscale's operator, so phone-capture serves https on the
+                    tailnet (needs root; default MIADI_TAILSCALE_OPERATOR, else who ran sudo)
   settings          every known setting and what it does
   report            what to paste into an issue: versions, sources, check, units
   report --url install|question|music
@@ -95,6 +97,46 @@ set_value() {
 	cat "$tmp" > "$file"
 	rm -f "$tmp"
 	echo "$line"
+	if [ "$name" = MIADI_TAILSCALE_OPERATOR ]; then tailnet "$value"; fi
+}
+
+# Tailscale's operator: the one user who may run `tailscale serve` without root. phone-capture
+# (claude/mia-episode-companion) serves https on the tailnet through it, from the user's sessions.
+tailnet_current() { tailscale debug prefs 2>/dev/null | sed -n 's/.*"OperatorUser": *"\([^"]*\)".*/\1/p' | head -1; }
+
+# tailnet [--postinst] [USER]: make USER Tailscale's operator. USER: the argument, else
+# MIADI_TAILSCALE_OPERATOR, else the person who ran sudo. From the postinst, an operator already
+# set stays unless MIADI_TAILSCALE_OPERATOR names another user, and nothing fails the install.
+tailnet() {
+	local postinst=0 want current configured
+	if [ "${1:-}" = --postinst ]; then postinst=1; shift; fi
+	if ! command -v tailscale >/dev/null; then
+		if [ $postinst = 0 ]; then echo "tailscale is not installed: nothing to do"; fi
+		return 0
+	fi
+	configured=$(get MIADI_TAILSCALE_OPERATOR 2>/dev/null || true)
+	want=${1:-${configured:-${SUDO_USER:-}}}
+	if [ -z "$want" ] || [ "$want" = root ] || ! id -u "$want" >/dev/null 2>&1; then
+		if [ $postinst = 1 ]; then return 0; fi
+		die "usage: sudo miadi-config tailnet USER (a user of this host), or sudo miadi-config set MIADI_TAILSCALE_OPERATOR USER"
+	fi
+	current=$(tailnet_current)
+	if [ "$current" = "$want" ]; then echo "tailscale operator: $want"; return 0; fi
+	if [ $postinst = 1 ] && [ -n "$current" ] && [ -z "$configured" ]; then
+		echo "miadi-config: tailscale operator stays $current (sudo miadi-config tailnet USER changes it)"
+		return 0
+	fi
+	if [ "$(id -u)" != 0 ]; then
+		if [ $postinst = 1 ]; then return 0; fi
+		die "run it with sudo: sudo miadi-config tailnet $want"
+	fi
+	if tailscale set --operator="$want"; then
+		echo "tailscale operator: $want, who can now run tailscale serve without root (phone-capture)"
+	elif [ $postinst = 1 ]; then
+		echo "miadi-config: tailscale set --operator=$want failed: sudo miadi-config tailnet $want once tailscaled runs"
+	else
+		die "tailscale set --operator=$want failed"
+	fi
 }
 
 unset_value() {
@@ -148,6 +190,13 @@ check() {
 		elif [ $plugin = 1 ]; then miss "Claude hooks wired by hand in $settings run beside the miadi-session-observability plugin, so every event is captured twice: remove the \"hooks\" entries that run claude_hooks/*_hook.sh"
 		elif [ $handwired = 1 ]; then miss "Claude hooks wired by hand in $settings are retired: claude plugin install miadi-session-observability@miadi-orchestration-kit, then remove the \"hooks\" entries that run claude_hooks/*_hook.sh"
 		else miss "Claude sessions write no binding line, so mct's primer and tide restore wait for nothing: claude plugin install miadi-session-observability@miadi-orchestration-kit"; fi
+	fi
+	if command -v tailscale >/dev/null; then
+		local op me=${USER:-$(id -un)}
+		op=$(tailnet_current)
+		if [ -n "$op" ] && { [ "$op" = "$me" ] || [ "$me" = root ]; }; then echo "ok       tailscale operator: $op (phone-capture serves https on the tailnet)"
+		elif [ -n "$op" ]; then echo "ok       tailscale operator: $op, not $me: phone-capture serves https on the tailnet from $op's sessions only"
+		else miss "tailscale has no operator, so phone-capture cannot serve https on the tailnet: sudo miadi-config tailnet $me"; fi
 	fi
 	[ "$missing" -eq 0 ] || { echo "$missing missing"; return 1; }
 }
@@ -227,6 +276,7 @@ case $cmd in
 	set) set_value "$@" ;;
 	unset) unset_value "$@" ;;
 	check) check ;;
+	tailnet) tailnet "$@" ;;
 	settings) cat "$SETTINGS" ;;
 	report) report "$@" ;;
 	-h | --help | help) usage ;;

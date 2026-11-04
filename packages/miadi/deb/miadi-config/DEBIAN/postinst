@@ -1,0 +1,10 @@
+#!/bin/sh
+# miadi-config postinst: make the person who installed it Tailscale's operator, so phone-capture
+# (claude/mia-episode-companion) serves https on the tailnet without root. MIADI_TAILSCALE_OPERATOR
+# in /etc/miadi/miadi.env names another user; an operator already set stays unless it does.
+# Nothing here fails the install.
+set -e
+if [ "$1" = configure ]; then
+	miadi-config tailnet --postinst || true
+fi
+exit 0
