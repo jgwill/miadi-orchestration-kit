@@ -1,10 +1,10 @@
 # Memory Resolution
 
 - PDE: fbb6b3f3-b443-4e1e-b683-a9c5fee54710 (subject `pde:fbb6b3f3-b443-4e1e-b683-a9c5fee54710`)
-- Scope: `{"subject_id":["pde:fbb6b3f3-b443-4e1e-b683-a9c5fee54710"],"circle_id":["circle:1789964509905:ab9tnq"],"episode_path":["2026-09-30-episode-549-a-milestone-enters-the-circle","2026-08-25-episode-339-relation-to-mia-on-mobile-devops"]}`
-- Reach: 6 ceremonies, 2 episodes
+- Scope: `{"subject_id":["pde:fbb6b3f3-b443-4e1e-b683-a9c5fee54710"],"circle_id":["circle:1789964509905:ab9tnq"],"episode_path":["2026-09-30-episode-549-a-milestone-enters-the-circle","2026-08-25-episode-339-relation-to-mia-on-mobile-devops","2026-09-27-episode-548-before-choosing-a-broker-preparing-the-question-together"]}`
+- Reach: 11 ceremonies, 3 episodes
 - Engine: claude (sonnet)
-- Generated: 2026-09-30T21:45:41.836Z
+- Generated: 2026-09-30T21:58:19.736Z
 
 ## Answered (0)
 
@@ -14,15 +14,15 @@
 
 > Decompose the milestone scope and record it in a committed .pde folder
 
-The milestone seat applied a change so the milestone description reaches miaco, and the decomposition was running in the background with a pushed commit (988efd61). That points to this step being under way, but no source says the .pde folder is committed.
+The milestone seat applied a change so the milestone description reaches miaco, and the decomposition was running in the background with a pushed commit (988efd61). That points to this step being under way. No record says the .pde folder is committed.
 
-- `c4cb3bcf-d6ba-4ba2-a8e3-f6c8589535a7` (beat, honcho) Mia: "The milestone seat acted on all eight marks. It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
+- `c4cb3bcf-d6ba-4ba2-a8e3-f6c8589535a7` (beat, honcho) Mia: "It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
 
 ### Action · `actionStack[8]`
 
 > Mint the Chronicle episode vessel and commit it
 
-An episode named 2026-09-30-episode-549-a-milestone-enters-the-circle is in scope, so a vessel for the milestone may exist. No source says it is the documentation episode or that it is committed.
+An episode named 2026-09-30-episode-549-a-milestone-enters-the-circle is in scope, so a vessel for the milestone may exist. No record says it is the documentation episode or that it is committed.
 
 - `c4cb3bcf-d6ba-4ba2-a8e3-f6c8589535a7` (beat, honcho) Mia: "The milestone seat acted on all eight marks. It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
 
@@ -30,7 +30,7 @@ An episode named 2026-09-30-episode-549-a-milestone-enters-the-circle is in scop
 
 > Chronicle episode vessel documenting the observability layer
 
-Episode 549, 2026-09-30-episode-549-a-milestone-enters-the-circle, is in the circle's scope and follows the milestone's entry. No source confirms it documents the observability layer.
+Episode 549, 2026-09-30-episode-549-a-milestone-enters-the-circle, is in the circle's scope and follows the milestone's entry. No record confirms it documents the observability layer.
 
 - `c4cb3bcf-d6ba-4ba2-a8e3-f6c8589535a7` (beat, honcho) Mia: "The milestone seat acted on all eight marks. It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
 

@@ -12,11 +12,17 @@
     ],
     "episode_path": [
       "2026-09-30-episode-549-a-milestone-enters-the-circle",
-      "2026-08-25-episode-339-relation-to-mia-on-mobile-devops"
+      "2026-08-25-episode-339-relation-to-mia-on-mobile-devops",
+      "2026-09-27-episode-548-before-choosing-a-broker-preparing-the-question-together"
     ]
   },
   "reach": {
     "ceremonies": [
+      "95788c19-07c8-432b-a413-899e45b251f6",
+      "be4a72dc-6fa8-493c-a5f2-277877472c5b",
+      "c26c9edb-fb4b-4342-80bc-26fd6c36af50",
+      "704ad716-3cbe-4dcd-a423-1666b4ded733",
+      "51f2a8d4-64d1-46b7-a92d-9f87f1f00766",
       "8526eaac-d5dd-4238-8714-6f8532ba929f",
       "2e72f4cd-794f-49ff-83c7-fcfcde805568",
       "002f5118-bac6-47b8-a1ce-55e1a0995eb0",
@@ -26,12 +32,13 @@
     ],
     "episodes": [
       "2026-09-30-episode-549-a-milestone-enters-the-circle",
-      "2026-08-25-episode-339-relation-to-mia-on-mobile-devops"
+      "2026-08-25-episode-339-relation-to-mia-on-mobile-devops",
+      "2026-09-27-episode-548-before-choosing-a-broker-preparing-the-question-together"
     ]
   },
   "engine": "claude",
   "model": "sonnet",
-  "generated_at": "2026-09-30T21:45:41.836Z",
+  "generated_at": "2026-09-30T21:58:19.736Z",
   "items": [
     {
       "ref": "ambiguities[0]",
@@ -100,10 +107,10 @@
           "wheel_kind": "beat",
           "provider": "honcho",
           "speaker_name": "Mia",
-          "excerpt": "The milestone seat acted on all eight marks. It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
+          "excerpt": "It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
         }
       ],
-      "answer": "The milestone seat applied a change so the milestone description reaches miaco, and the decomposition was running in the background with a pushed commit (988efd61). That points to this step being under way, but no source says the .pde folder is committed."
+      "answer": "The milestone seat applied a change so the milestone description reaches miaco, and the decomposition was running in the background with a pushed commit (988efd61). That points to this step being under way. No record says the .pde folder is committed."
     },
     {
       "ref": "actionStack[1]",
@@ -168,7 +175,7 @@
           "excerpt": "The milestone seat acted on all eight marks. It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
         }
       ],
-      "answer": "An episode named 2026-09-30-episode-549-a-milestone-enters-the-circle is in scope, so a vessel for the milestone may exist. No source says it is the documentation episode or that it is committed."
+      "answer": "An episode named 2026-09-30-episode-549-a-milestone-enters-the-circle is in scope, so a vessel for the milestone may exist. No record says it is the documentation episode or that it is committed."
     },
     {
       "ref": "actionStack[9]",
@@ -226,7 +233,7 @@
           "excerpt": "The milestone seat acted on all eight marks. It applied M1, so the milestone description now reaches miaco, and the decomposition runs in the background (commit 988efd61, pushed)."
         }
       ],
-      "answer": "Episode 549, 2026-09-30-episode-549-a-milestone-enters-the-circle, is in the circle's scope and follows the milestone's entry. No source confirms it documents the observability layer."
+      "answer": "Episode 549, 2026-09-30-episode-549-a-milestone-enters-the-circle, is in the circle's scope and follows the milestone's entry. No record confirms it documents the observability layer."
     },
     {
       "ref": "outputs.artifacts[1]",

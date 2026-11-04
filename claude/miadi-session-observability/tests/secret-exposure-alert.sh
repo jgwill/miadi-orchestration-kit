@@ -35,7 +35,9 @@ for quiet in \
     'const fixture = { token: "person-token-admin-0123456789abcdef" }' \
     "sha256 9eb31ffecc41e5e85fcf95e9fad5e49d9ce44ba6a8b0bd8b38191eb3f3c706d7" \
     "foundation route, token=testmwt_Zq***: 403" \
-    'curl -H "authorization: Bearer $MIADI_ACCOUNT_TOKEN"'; do
+    'curl -H "authorization: Bearer $MIADI_ACCOUNT_TOKEN"' \
+    "nepisode-560-the-author-s-desk-data-structure-view-2610231440: 1 windows" \
+    "2026-10-20-episode-560-the-author-s-desk-receives-what-the-ceremonies-made/desk"; do
     expect "quiet: ${quiet:0:40}" "" "$(run "$quiet")"
 done
 expect "nothing more was listed" "1" "$(wc -l < "$ledger" | tr -d ' ')"

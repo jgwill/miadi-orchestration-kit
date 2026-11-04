@@ -9,13 +9,13 @@
       "name": "miadi-chronicle-episode-kit",
       "source": "./claude/miadi-chronicle-episode-kit",
       "description": "Creates, adopts, registers, works in, and closes Miadi Chronicle episodes from one host-neutral skill, and refuses mkdir under the chronicle root with a PreToolUse hook that returns the mkepisode invocation instead.",
-      "version": "0.3.39"
+      "version": "0.3.41"
     },
     {
       "name": "mia-episode-companion",
       "source": "./claude/mia-episode-companion",
       "description": "Mia, William's development companion, in a Claude Code seat: wakes the session when a phone voice take lands in the episode, and answers through draft, a developmental-editor agent, revision, and a Jev check.",
-      "version": "0.5.7"
+      "version": "0.5.8"
     },
     {
       "name": "miette-plan-insight",
@@ -44,8 +44,8 @@
     {
       "name": "miadi-witness",
       "source": "./claude/miadi-witness",
-      "description": "The witness team's practices and loop (T3): a loopback thread service with the asks ledger, a wake loop, an editor pass for replies to William, the inventory keeper, a first impression he can play with revisions held until he answers, and an agent's output as a Mia and Ava podcast dialogue, and a person's draft prompt pre-edited and followed through its run, and the steers held while the fire in the forge was banked, and the read gate: Jev says whether a file or a review bears on the mission before the seat reads it.",
-      "version": "0.7.19"
+      "description": "The witness team's practices and loop (T3): a loopback thread service with the asks ledger, a wake loop, an editor pass for replies to William, the inventory keeper, a first impression he can play with revisions held until he answers, and an agent's output as a Mia and Ava podcast dialogue, and a person's draft prompt pre-edited and followed through its run, and the steers held while the fire in the forge was banked, and the read gate: Jev says whether a file or a review bears on the mission before the seat reads it, including the reviews published since a date.",
+      "version": "0.7.26"
     },
     {
       "name": "miadi-stateloom",

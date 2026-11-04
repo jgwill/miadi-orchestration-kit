@@ -70,6 +70,13 @@
   .entry .steps li.here { background:#2c2a1c; box-shadow:inset 3px 0 0 var(--gold); }
   .entry .steps li.here .n { background:var(--gold); border-color:var(--gold); color:#111; }
   .entry .thumb.on { opacity:1; background:#477b65; }
+  .rulings { margin-top:18px; }
+  .rulings h3 { font-size:14px; margin:8px 0; }
+  .rulings .rg-mission { font-size:12px; opacity:.7; margin:10px 0 4px; }
+  .rulings .rg { padding:8px 0; border-top:1px solid rgba(255,255,255,.12); font-size:13px; }
+  .rulings .rg-path { word-break:break-all; }
+  .rulings .rg-jev { opacity:.75; margin:2px 0 6px; }
+  .rulings .rg-acts button { margin-right:8px; padding:6px 12px; }
   .entry .related { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .entry .related a { font-size:.8rem; padding:6px 10px; border:1px solid var(--line); border-radius:10px; color:var(--ink); text-decoration:none; background:#1d2a25; }
   /* The ways out of this page, and the marks on the episode's drawings (lane U, U1 and U14). */
@@ -125,6 +132,7 @@
     <div id="transcript" class="transcript"></div>
   </section>
   <section id="thread" class="thread" hidden aria-live="polite"></section>
+  <section id="rulings" class="rulings" hidden aria-live="polite"></section>
   <label class="autoplay"><input id="autoplay" type="checkbox"> Play her reply when it arrives</label>
   <small>Recorded on this phone, stored on gaia in the episode's captures, then heard by the session listening there. Your takes, your marks on the episode's drawings and Mia's replies stay here as one conversation, newest first. A reply that arrives while you record waits, silent, until you have sent your take. Keep the screen on while you speak.</small>
 </main>
@@ -188,6 +196,70 @@
       say("Your thumb was not kept: " + error.message, true);
     }
   }
+
+  // The read gate's verdicts waiting for his ruling (Episode 567): what Jev said a seat should
+  // read or skip for a mission. One tap writes a ruling; the gate's bars are set from them.
+  var rulingsBox = document.getElementById("rulings");
+  async function loadRulings() {
+    if (!rulingsBox) return;
+    try {
+      var answer = await (await fetch("api/rulings?limit=40")).json();
+      if (!answer.success) throw new Error(answer.error || "refused");
+      renderRulings(answer);
+    } catch (error) {
+      rulingsBox.hidden = true;
+    }
+  }
+  function renderRulings(answer) {
+    rulingsBox.innerHTML = "";
+    if (!answer.decisions || !answer.decisions.length) { rulingsBox.hidden = true; return; }
+    var head = document.createElement("h3");
+    head.textContent = "Read gate: " + answer.pending + " verdict" + (answer.pending === 1 ? "" : "s") + " waiting for your ruling";
+    rulingsBox.appendChild(head);
+    var lastMission = "";
+    answer.decisions.forEach(function (d) {
+      if (d.mission !== lastMission) {
+        var mission = document.createElement("div");
+        mission.className = "rg-mission";
+        mission.textContent = d.mission;
+        rulingsBox.appendChild(mission);
+        lastMission = d.mission;
+      }
+      var row = document.createElement("div");
+      row.className = "rg";
+      var where = document.createElement("div");
+      where.className = "rg-path";
+      where.textContent = String(d.path || "").replace(/^\/srv\/miadi\/episodes\/miadi-chronicle\//, "") + (d.section ? " · L" + d.section.line + " " + d.section.text : "");
+      var said = document.createElement("div");
+      said.className = "rg-jev";
+      said.textContent = "Jev: " + d.verdict + (typeof d.relevant === "number" ? " (" + d.relevant.toFixed(2) + ")" : "") + (d.lines ? " · " + d.lines + " lines" : "");
+      var acts = document.createElement("div");
+      acts.className = "rg-acts";
+      [["read", "Read it"], ["skip", "Skip it"]].forEach(function (choice) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = choice[1];
+        button.addEventListener("click", function () { rule(d.id, choice[0]); });
+        acts.appendChild(button);
+      });
+      row.appendChild(where); row.appendChild(said); row.appendChild(acts);
+      rulingsBox.appendChild(row);
+    });
+    rulingsBox.hidden = false;
+  }
+  async function rule(id, verdict) {
+    try {
+      var response = await fetch("api/rulings/" + id, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ verdict: verdict }),
+      });
+      var answer = await response.json();
+      if (!answer.success) throw new Error(answer.error || "refused");
+      loadRulings();
+    } catch (error) {
+      say("Your ruling was not kept: " + error.message, true);
+    }
+  }
+  if (rulingsBox) loadRulings();
 
   function speaking() {
     return !replyAudio.paused && !replyAudio.ended && replyAudio.loop !== true
