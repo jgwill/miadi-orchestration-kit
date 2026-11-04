@@ -37,15 +37,20 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     tmux new-session -d -s before -c /tmp
     echo "before: $(tmux -V) from the distribution, its server running session before"
   fi
-  if ls /tmp/debs/miadi-music-wheels-*.deb >/dev/null 2>&1; then
+  if ls /tmp/debs/miadi-music-wheels-*.deb >/dev/null 2>&1 || ls /tmp/debs/miadi-restore_*.deb >/dev/null 2>&1; then
     # Only one wheels set fits a host, and apt picks it. Serve the debs as a local repository and
     # install the packages by name, so apt makes the choice, as on a host.
+    # miadi-restore is installed alone and without recommends: its Depends bring the rest.
     apt-get install -y -qq apt-utils >/dev/null 2>&1
     mkdir /tmp/repo && cp /tmp/debs/*.deb /tmp/repo/ && (cd /tmp/repo && apt-ftparchive packages . > Packages)
     echo "deb [trusted=yes] file:/tmp/repo ./" > /etc/apt/sources.list.d/local-debs.list
     apt-get update -qq >/dev/null
-    names=$(for d in /tmp/repo/*.deb; do dpkg-deb -f "$d" Package; done | grep -v "^miadi-music-wheels-")
-    apt-get install -y -qq $names >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
+    if ls /tmp/debs/miadi-restore_*.deb >/dev/null 2>&1; then
+      apt-get install -y -qq --no-install-recommends miadi-restore >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
+    else
+      names=$(for d in /tmp/repo/*.deb; do dpkg-deb -f "$d" Package; done | grep -v "^miadi-music-wheels-")
+      apt-get install -y -qq $names >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
+    fi
   else
     apt-get install -y -qq /tmp/debs/*.deb >/tmp/install.log 2>&1 || { tail -30 /tmp/install.log; exit 1; }
   fi
@@ -54,6 +59,21 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
 
   if dpkg -s miadi >/dev/null 2>&1; then
     dpkg -s miadi | sed -n "s/^Version: /installed miadi /p"
+  fi
+
+  # miadi-restore, session restore in one install (jgwill/miadi-orchestration-kit#116): the four
+  # packages, tmux 3.7c in place of the distribution tmux, nothing else of a host, and the user units.
+  if dpkg -s miadi-restore >/dev/null 2>&1; then
+    dpkg -s miadi-restore | sed -n "s/^Version: /installed miadi-restore /p"
+    for p in miadi-config miadi-tmux miadi-tide miadi-terminal; do
+      test "$(dpkg-query -W -f="\${Status}" $p)" = "install ok installed" || { echo "miadi-restore: $p is not installed"; exit 1; }
+    done
+    test "$(tmux -V)" = "tmux 3.7c"
+    for p in miadi miadi-perms miadi-chronicle-server miadi-node; do
+      if dpkg -s $p >/dev/null 2>&1; then echo "miadi-restore: $p came with it"; exit 1; fi
+    done
+    for u in tmux-server.service tmux-save.timer tide-runtime.service; do test -f /usr/lib/systemd/user/$u; done
+    echo "miadi-restore: one install without recommends brought the four packages, tmux 3.7c and the three user units, and no other miadi package"
   fi
 
   if dpkg -s miadi-config >/dev/null 2>&1; then
@@ -121,6 +141,13 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
   # A container has no systemd user manager, so the units are checked on a host, not here.
   if [ -f /usr/share/miadi-terminal/session-continuity/session-continuity.conf ] && command -v tmux >/dev/null; then
     apt-get install -y -qq git procps >/dev/null 2>&1
+    # Before a new server: continuum skips its restore when it counts another tmux process, and
+    # the hook of the restore before may still run tide agents restore, which calls tmux.
+    settle() {
+      for i in $(seq 60); do
+        if pgrep -x tmux >/dev/null || pgrep -f "tide-runtime/bin/tid[e] agents restore" >/dev/null; then sleep 0.5; else break; fi
+      done
+    }
     export HOME=/root
     printf "set -g @plugin \x27tmux-plugins/tpm\x27\nrun \x27~/.tmux/plugins/tpm/tpm\x27\n" > ~/.tmux.conf
     miadi-terminal enable restore >/tmp/restore-enable.log 2>&1 || { cat /tmp/restore-enable.log; exit 1; }
@@ -135,10 +162,14 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
       grep -q "^    tmux kill-server$" /tmp/restore-enable.log || { cat /tmp/restore-enable.log; exit 1; }
       tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh quiet"
       tmux kill-server
-      sleep 2
+      # As the printed switch-over does: the replaced server must have exited, or continuum
+      # counts it at the new server start and skips the restore (failed so on ubuntu:22.04).
+      settle
+      # Only the hook log of this restore counts: an earlier one let the wait end before the restore did.
+      rm -rf ~/.miadi/navigator/restore
       tmux new-session -d
       for i in $(seq 30); do ls ~/.miadi/navigator/restore/hook-*.log >/dev/null 2>&1 && break; sleep 1; done
-      sleep 2
+      for i in $(seq 20); do tmux has-session -t before 2>/dev/null && break; sleep 0.5; done
       test "$(tmux list-panes -t before -F "#{pane_current_path}")" = /tmp
       script -qec "TERM=xterm tmux attach -t before \; detach-client" /dev/null </dev/null >/tmp/attach.log 2>&1 || { cat /tmp/attach.log; exit 1; }
       echo "restore: enable printed the switch-over, and after it session before is back in /tmp and tmux attaches"
@@ -155,15 +186,20 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh quiet"
     test -e ~/.local/share/tmux/resurrect/last
     tmux kill-server
-    sleep 2
+    settle
     tmux new-session -d
     for i in $(seq 30); do ls ~/.miadi/navigator/restore/hook-*.log >/dev/null 2>&1 && break; sleep 1; done
-    sleep 2
+    for i in $(seq 20); do tmux has-session -t alpha 2>/dev/null && tmux has-session -t beta 2>/dev/null && break; sleep 0.5; done
     test "$(tmux ls -F "#{session_name}" | sort | tr "\n" " ")" = "alpha beta "
     test "$(tmux list-panes -a -F "#{session_name}:#{pane_current_path}" | sort | tr "\n" " ")" = "alpha:/tmp beta:/etc beta:/var "
     test "$(cat ~/.miadi/navigator/restore/hook-*.log | grep -c "tmux restore finished")" = 1
     echo "restore: after a kill and a new server, alpha and beta came back in /tmp, /etc and /var, restored once"
     grep -h "tide" ~/.miadi/navigator/restore/hook-*.log | head -1 | sed "s/^[^ ]* /restore: hook: /"
+    # Run after the cycle: on ubuntu:24.04, calling it before the cycle left the restore undone (#116).
+    if command -v tide >/dev/null; then
+      tide agents list >/dev/null
+      echo "restore: tide agents list reads the restored server"
+    fi
     tmux kill-server
   fi
 
