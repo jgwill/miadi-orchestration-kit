@@ -7,11 +7,11 @@ Depends: miadi-config (>= 0.2.1), miadi-tmux (>= 3.7c), miadi-tide (>= 0.1.28), 
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
 Description: tmux sessions and their agents that come back after a reboot
- Installs the four packages session restore needs and nothing else:
- miadi-config, the host's MIADI_* settings, miadi-tmux, one tmux (3.7c)
- in place of the distribution's, miadi-tide, the tide runtime whose
- daemon brings the agents back, and miadi-terminal, whose
- `miadi-terminal enable restore` each user runs once.
+ Installs what session restore needs and nothing else: miadi-config,
+ the host's MIADI_* settings, miadi-tmux, one tmux (3.7c) in place of the
+ distribution's, miadi-tide, the tide runtime whose daemon brings the
+ agents back, miadi-terminal, whose `miadi-terminal enable restore` each
+ user runs once, and git, which enable uses to fetch the tmux plugins.
  .
  A tmux server already running keeps running after the distribution's
  tmux is replaced, and a 3.7c client cannot attach to it

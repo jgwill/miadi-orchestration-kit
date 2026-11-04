@@ -31,7 +31,7 @@ For session restore alone, without the rest of the host, see
 | `miadi-tmux` | `/usr/bin/tmux` 3.7c built from the upstream release, replacing the distribution's tmux (3.2a on 22.04): one tmux version on a host, since a client cannot attach to a server of another version | 3.7c-1 |
 | `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:`, `miadi-foundation:` (0.2.2), `miadi-notebook:`, `miadi-prototype:`, `miadi-tracing:` and `rise://` (0.4.0), `miadi-capability:` (0.4.1) references, and bare circle ids (0.1.4): desktop, Terminator, tmux; the tmux settings every user starts with, `/etc/miadi/tmux.conf` (0.3.0; `miadi` depends on it since 0.5.0) | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
-| `miadi-restore` | session restore alone: depends on `miadi-config`, `miadi-tmux`, `miadi-tide` and `miadi-terminal`, nothing else | 0.1.0 |
+| `miadi-restore` | session restore alone: depends on `miadi-config`, `miadi-tmux`, `miadi-tide`, `miadi-terminal` and `git`, nothing else | 0.1.0 |
 | `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
 | `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases: `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` | 0.1.0 |
@@ -186,27 +186,35 @@ server reads the settings with `tmux source-file /etc/tmux.conf`.
 ### Session restore
 
 tmux sessions, and the agents in them, that come back after a reboot, without
-the rest of a Miadi host (jgwill/miadi-orchestration-kit#116):
+the rest of a Miadi host (jgwill/miadi-orchestration-kit#116). In this order:
 
 ```bash
-sudo apt update && sudo apt install miadi-restore   # miadi-config, miadi-tmux, miadi-tide, miadi-terminal
-miadi-terminal enable restore                       # per user, once
-sudo loginctl enable-linger <user>                  # so tmux starts at boot, not at login
+sudo apt update && sudo apt install miadi-restore   # miadi-config, miadi-tmux, miadi-tide, miadi-terminal, git
 claude plugin marketplace add jgwill/miadi-orchestration-kit
 claude plugin install miadi-session-observability@miadi-orchestration-kit   # per user, for Claude
-miadi-config check                                  # says what is still missing
+miadi-terminal enable restore                       # per user, once
+sudo loginctl enable-linger "$USER"                 # so tmux starts at boot, not at login
 ```
 
 tide brings back an agent by the binding line its session writes when it starts.
 For Claude, the `miadi-session-observability` plugin writes it: without the
-plugin the panes come back and no agent does.
+plugin the panes come back and no agent does. A Claude session already running
+was started before the plugin and has no binding line: end it and start it
+again (`claude --resume <id>`) before a tmux server is moved over, or it does
+not come back.
+
+`miadi-config check` says `ok` for Claude session capture once the plugin is
+installed. On a host with session restore alone, its `missing` lines for
+`MIADI_SRC`, `MIADI_DATA_DIR`, `MIADI_CHRONICLE_ROOT`, `MIADI_REPOS_ROOT`,
+`MIADI_ORCHESTRATION_KIT_ROOT` and `MIADI_STORIES_ROOT` are for a full Miadi
+host: restore does not use them.
 
 `miadi-terminal` alone only recommends `miadi-tide` and `miadi-tmux`, so
 `--no-install-recommends` leaves both out. `miadi-restore` depends on them.
 `miadi-tmux` replaces the distribution's tmux: a tmux server already running
 keeps running, and a 3.7c client cannot attach to it until it is moved over
 (jgwill/miadi-orchestration-kit#115). `miadi-terminal enable restore` prints the
-three commands that move it over, from a terminal outside tmux, and that
+commands that move it over, from a terminal outside tmux, and that
 `tmux kill-server` ends the agents running in it.
 
 ## A user on a Miadi host
