@@ -16,6 +16,9 @@ MIADI_WEBHOOK_URL                where repository webhooks are pointed (default 
 # Read by miadi-terminal, on a client
 MIADI_CHRONICLE_OPEN_URL         the Miadi front a clicked miadi-chronicle: reference opens on; unset, miadi-chronicle-open uses MIADI_URL_BASE
 
+# Read by miadi-config, on a host with Tailscale
+MIADI_TAILSCALE_OPERATOR         the user who may run `tailscale serve` without root, so phone-capture (claude/mia-episode-companion) serves https on the tailnet; the postinst and `miadi-config set` apply it (`tailscale set --operator`). Unset, the postinst makes the person who ran `sudo apt install` the operator when Tailscale has none
+
 # Read by miadi-music, on a host that makes music
 MIADI_MUSIC_SOUNDFONT            the General MIDI soundfont fluidsynth renders with; unset, JAMAI_SOUNDFONT, else /usr/share/sounds/sf2/FluidR3_GM.sf2 (fluid-soundfont-gm)
 MIADI_MUSIC_PYTHON               the Python that measures music; unset, /usr/lib/miadi-music/venv/bin/python3 (miadi-music-measure)
