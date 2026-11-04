@@ -497,7 +497,7 @@ class Restore:
         run("systemctl", "--user", "daemon-reload")
         # Enable only: starting tmux-server.service while a tmux server runs adds a session 0.
         # notes() prints how to move a running server over.
-        server =run("systemctl", "--user", "enable", "tmux-server.service")
+        server = run("systemctl", "--user", "enable", "tmux-server.service")
         timer = run("systemctl", "--user", "enable", "--now", "tmux-save.timer")
         units = [("tmux-server.service", server), ("tmux-save.timer", timer)]
         # tide's daemon takes the snapshots a restore reads: without it the panes come back and
