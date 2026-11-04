@@ -24,11 +24,19 @@ jgwill/miadi-orchestration-kit#56.
 - **Secret exposure alert** (0.1.29). The capture under `<root>/<session_id>/` was already
   redacted, but a credential printed in a tool's output reaches the model and Claude Code's
   own transcript before any hook runs, and Claude Code lets a hook replace only an MCP tool's
-  output. When a tool's output matches one of the sanitizer's credential patterns (the ones
-  that recognise a credential by its shape, `HOOK_SECRET_STRONG_ONLY=1`), the person is told
-  on screen and the model is told not to repeat it, both by the redacted prefix only, and
-  the exposure is listed in `_claude_secret_exposures.jsonl` for rotation.
-  `tests/secret-exposure-alert.sh`.
+  output. Since 0.1.31 the alert says only what it knows. When the output holds the value of
+  a credential this host holds (a variable in the session environment named `*TOKEN*`,
+  `*SECRET*`, `*PASSWORD*`, `*API_KEY*` and the like), the person is told the variable's name
+  and to rotate it (`action: "rotate"`). A string shaped like a vendor credential (`ghp_`,
+  `sk-ant-`, `mwt_`, `AKIA`, a JWT, a private key, a password in a URL) that no held
+  credential matches is named by kind and redacted prefix, to check (`action: "check"`).
+  Fixtures stay quiet: values holding test, fake, example, dummy, sample, fixture,
+  placeholder, redacted or changeme, six ascending or equal characters, or under 3 bits of
+  entropy per character. `Bearer <x>` and `token: <x>` count only when `<x>` is a held
+  value. Earned 2026-11-04, when the fixture `Bearer review-token` in Miadi's connector
+  tests was announced as a credential to rotate. Each finding is a line in
+  `_claude_secret_exposures.jsonl` with `held` (variable names) and `shaped` (kind, prefix),
+  never the value. `tests/secret-exposure-alert.sh`, 35 checks.
 - **Session lookup guard** (0.1.28). A Bash `find` from `/`, a recursive search over the
   session capture, and a reader (`cat`, `jq`, `grep`, `tail`…) on a session's raw
   `_claude_*` files are refused, and the refusal names the tools that answer the question:

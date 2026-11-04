@@ -5,31 +5,126 @@
 # What this plugin writes under <root>/<session_id>/ is already redacted
 # (secret_capture_sanitizer.sh).
 #
-# What a hook can still do is say so at once. When a tool's output matches one of the
-# sanitizer's credential patterns (the ones that recognise a credential by its own
-# shape, HOOK_SECRET_STRONG_ONLY), this hook:
-#   - tells the person on screen (systemMessage) and the model (additionalContext),
-#     naming the credential only by its redacted prefix;
-#   - appends one line to <root>/<session_id>/_claude_secret_exposures.jsonl, the
-#     list of what to rotate.
-# It never prints, stores or forwards the value itself. Earned 2026-11-01: a probe
-# command printed a person token into session 201371c1 and nothing said so.
+# What a hook can still do is say so at once, and say only what it knows. It reads the
+# tool's output and reports two findings, told apart in what the person reads:
+#
+#   held   The output contains the value of a credential this host holds: a variable in
+#          the session environment named like one (*TOKEN*, *SECRET*, *PASSWORD*,
+#          *API_KEY*, *ACCESS_KEY*, *PRIVATE_KEY*, *CREDENTIAL*, *AUTH*, *_PAT). That is a
+#          real credential, so the person is told to rotate it, by variable name.
+#   shaped A string shaped like a vendor credential (ghp_, sk-ant-, mwt_, AKIA, a JWT, a
+#          private key block, a password in a URL) that is no value this host holds. It
+#          may be live somewhere else, so the person is told to check it, by kind and
+#          redacted prefix. Fixtures are left out: a value holding test, fake, example,
+#          dummy, sample, fixture, placeholder, redacted or changeme, a run of six
+#          ascending or six equal characters, or under 3 bits of entropy per character.
+#
+# "Bearer <x>" and "token: <x>" count only as held: in code the strings they catch
+# ("Bearer review-token") are fixtures far more often than credentials. Earned
+# 2026-11-04: the test fixture "Bearer review-token" in Miadi's connector tests was
+# announced as a credential to rotate.
+#
+# Each finding is one line in <root>/<session_id>/_claude_secret_exposures.jsonl, with
+# action "rotate" (held) or "check" (shaped only). The value itself is never printed,
+# stored or forwarded. Earned 2026-11-01: a probe command printed a person token into
+# session 201371c1 and nothing said so.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/claude_hooks/lib.sh"
 
 input=$(cat -)
-response=$(printf '%s' "$input" | jq -c '.tool_response // empty' 2>/dev/null)
-[ -n "$response" ] || exit 0
+text=$(printf '%s' "$input" | jq -r '.tool_response // empty | .. | strings' 2>/dev/null)
+[ -n "$text" ] || exit 0
 
-redacted=$(printf '%s' "$response" | HOOK_SECRET_STRONG_ONLY=1 hook_secret_sanitize_stream)
-[ "$redacted" != "$response" ] || exit 0
+findings=$(printf '%s' "$text" | perl -e '
+    use strict; use warnings;
+    local $/; my $text = <STDIN>; $text = "" unless defined $text;
 
-# The redacted prefixes this output now carries and did not carry before.
-prefixes=$(comm -13 \
-    <(printf '%s' "$response" | grep -oE '[A-Za-z0-9_.-]{1,16}\*\*\*' | sort -u) \
-    <(printf '%s' "$redacted" | grep -oE '[A-Za-z0-9_.-]{1,16}\*\*\*' | sort -u) | head -5)
-[ -n "$prefixes" ] || prefixes="(a private key or URL password)"
-list=$(printf '%s\n' "$prefixes" | paste -sd, - | sed 's/,/, /g')
+    sub entropy {
+        my ($v) = @_; my %n; $n{$_}++ for split //, $v;
+        my $h = 0; my $len = length $v;
+        for (values %n) { my $p = $_ / $len; $h -= $p * log($p) / log(2); }
+        return $h;
+    }
+    sub fixture {
+        my ($v) = @_;
+        return 1 if $v =~ /test|fake|example|dummy|sample|fixture|placeholder|redacted|changeme/i;
+        my $lc = lc $v; my ($asc, $same) = (1, 1);
+        for my $i (1 .. length($lc) - 1) {
+            my ($p, $q) = (ord(substr($lc, $i - 1, 1)), ord(substr($lc, $i, 1)));
+            $asc  = $q == $p + 1 ? $asc + 1 : 1;
+            $same = $q == $p     ? $same + 1 : 1;
+            return 1 if $asc >= 6 || $same >= 6;
+        }
+        return entropy($v) < 3.0;
+    }
+    sub prefix { my ($v) = @_; substr($v, 0, length($v) >= 7 ? 6 : 4) . "***" }
+
+    # held: the values of the credentials in this environment.
+    my @held;
+    for my $n (sort keys %ENV) {
+        next unless $n =~ /TOKEN|SECRET|PASSW(?:OR)?D|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIAL|_PAT$|AUTH/i;
+        next if $n =~ /(?:_SOCK|_FILE|_PATH|_DIR|_HOST|_PORT|AUTHORITY|_CHECK)$/i;
+        my $v = $ENV{$n};
+        next if length($v) < 12 || $v =~ m{^[/~.]} || $v =~ /\s/;
+        next if index($text, $v) < 0;
+        push @held, $v;
+        print "held\t$n\n";
+    }
+    my $is_held = sub { my ($v) = @_; for (@held) { return 1 if index($v, $_) >= 0 || index($_, $v) >= 0 } 0 };
+
+    # shaped: the patterns that name a credential by its own shape (the strong ones in
+    # secret_capture_sanitizer.sh), each starting after a non-alphanumeric character.
+    my $lb = qr/(?<![A-Za-z0-9])/;
+    my @shapes = (
+        ["AWS access key",     qr/$lb((?:AKIA|ASIA)[0-9A-Z]{16})(?![A-Za-z0-9])/],
+        ["GitHub token",       qr/$lb(gh[pousr]_[A-Za-z0-9_]{20,})/],
+        ["GitHub token",       qr/$lb(github_pat_[A-Za-z0-9_]{20,})/],
+        ["GitLab token",       qr/$lb(glpat-[A-Za-z0-9_-]{18,})/],
+        ["Anthropic key",      qr/$lb(sk-ant-[A-Za-z0-9_-]{20,})/],
+        ["OpenAI key",         qr/$lb(sk-(?!ant-)[A-Za-z0-9_-]{20,})/],
+        ["Slack token",        qr/$lb(xox[baprs]-[A-Za-z0-9-]{10,})/],
+        ["Google API key",     qr/$lb(AIza[0-9A-Za-z_-]{35})/],
+        ["Google OAuth token", qr/$lb(ya29\.[0-9A-Za-z_-]{20,})/],
+        ["Hugging Face token", qr/$lb(hf_[A-Za-z0-9]{20,})/],
+        ["npm token",          qr/$lb(npm_[A-Za-z0-9]{30,})/],
+        ["Stripe key",         qr/$lb((?:sk|pk|rk)_live_[A-Za-z0-9]{20,})/],
+        ["DigitalOcean token", qr/$lb(dop_v1_[A-Za-z0-9]{32,})/],
+        ["Shopify token",      qr/$lb(shpat_[A-Za-z0-9]{32,})/],
+        ["Miadi person token", qr/$lb(mwt_[A-Za-z0-9_-]{32,})/],
+        ["Miadi reader token", qr/$lb(mr_[A-Za-z0-9]{32,})/],
+        ["JWT",                qr/$lb(eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})/],
+    );
+    my %seen;
+    for my $s (@shapes) {
+        my ($kind, $re) = @$s;
+        while ($text =~ /$re/g) {
+            my $v = $1;
+            next if $seen{$v}++ || $is_held->($v) || fixture($v);
+            print "shaped\t$kind\t" . prefix($v) . "\n";
+        }
+    }
+    # A password in a URL: named by the URL up to its user, never by any of the password.
+    while ($text =~ m{\b([A-Za-z][A-Za-z0-9+.-]*://[^\s/:@"\x27<>]*:)([^\s@/"\x27<>]{3,})@}g) {
+        my ($head, $v) = ($1, $2);
+        next if $seen{$v}++ || length($v) < 10 || $v =~ /[\$\{\}]/ || $is_held->($v) || fixture($v);
+        print "shaped\tURL password\t$head***\n";
+    }
+    # A private key block with a body the length of a real key.
+    while ($text =~ /-----BEGIN ([A-Z ]*)PRIVATE KEY-----(.*?)-----END [A-Z ]*PRIVATE KEY-----/gs) {
+        my ($type, $body) = ($1, $2);
+        (my $b64 = $body) =~ s/[^A-Za-z0-9+\/=]//g;
+        next if length($b64) < 100 || $is_held->($body) || fixture($b64);
+        print "shaped\t${type}private key\t-----BEGIN ${type}PRIVATE KEY-----***\n";
+    }
+    while ($text =~ /(PuTTY-User-Key-File-[0-9])/g) {
+        next if $seen{$1}++;
+        print "shaped\tPuTTY private key\t$1***\n";
+    }
+')
+[ -n "$findings" ] || exit 0
+
+held=$(printf '%s\n' "$findings" | awk -F'\t' '$1 == "held" { print $2 }')
+shaped=$(printf '%s\n' "$findings" | awk -F'\t' '$1 == "shaped" { print $2 "\t" $3 }' | head -5)
 
 session_id=$(printf '%s' "$input" | jq -r '.session_id // "unknown"')
 tool_name=$(printf '%s' "$input" | jq -r '.tool_name // "a tool"')
@@ -39,14 +134,26 @@ claude_write_jsonl "$out/_claude_secret_exposures.jsonl" "$(jq -nc \
     --arg at "$(date -Iseconds)" --arg sid "$session_id" --arg tool "$tool_name" \
     --arg use "$(printf '%s' "$input" | jq -r '.tool_use_id // empty')" \
     --arg transcript "$(printf '%s' "$input" | jq -r '.transcript_path // empty')" \
-    --arg prefixes "$prefixes" \
-    '{at:$at, session_id:$sid, tool_name:$tool, tool_use_id:$use, redacted:($prefixes|split("\n")), transcript_path:$transcript, where:["the model context","Claude Code transcript_path"], action:"rotate"}')"
+    --arg held "$held" --arg shaped "$shaped" \
+    '{at:$at, session_id:$sid, tool_name:$tool, tool_use_id:$use, transcript_path:$transcript,
+      held:($held | split("\n") | map(select(. != ""))),
+      shaped:($shaped | split("\n") | map(select(. != "") | split("\t") | {kind:.[0], prefix:.[1]})),
+      where:["the model context","Claude Code transcript_path"],
+      action:(if $held != "" then "rotate" else "check" end)}')"
 
-jq -nc --arg tool "$tool_name" --arg list "$list" '{
-  systemMessage: ("A credential appeared in the output of " + $tool + " (" + $list + "). It is now in this conversation and in Claude Code'"'"'s transcript: rotate it. Listed in _claude_secret_exposures.jsonl."),
-  hookSpecificOutput: {
-    hookEventName: "PostToolUse",
-    additionalContext: ("The output of this " + $tool + " call contained a credential (" + $list + "). Do not repeat, copy or reuse its value anywhere. Tell the person which credential it was so they can rotate it, and print no more secrets: label values by name, never by expansion.")
-  }
-}'
+jq -nc --arg tool "$tool_name" --arg held "$held" --arg shaped "$shaped" '
+  ($held | split("\n") | map(select(. != "") | "$" + .) | join(", ")) as $names |
+  ($shaped | split("\n") | map(select(. != "") | split("\t") | .[0] + " " + .[1]) | join(", ")) as $shapes |
+  ((if $held != "" then
+     "The value of " + $names + " appeared in the output of " + $tool + ". It is a credential this host holds, now in this conversation and in Claude Code'"'"'s transcript: rotate it."
+     + (if $shaped != "" then " The output also holds a string shaped like a credential that this host does not hold (" + $shapes + "): check it." else "" end)
+   else
+     "The output of " + $tool + " holds a string shaped like a credential (" + $shapes + "). No credential this host holds has that value, so it is a credential from elsewhere or a fixture: check which before rotating."
+   end) + " Listed in _claude_secret_exposures.jsonl.") as $msg |
+  (if $held != "" then
+     "The output of this " + $tool + " call contained the value of " + $names + ", a credential held in this environment. Do not repeat, copy or reuse it. Tell the person to rotate " + $names + ", and print no more secrets: refer to variables by name, never by expansion."
+   else
+     "The output of this " + $tool + " call holds a string shaped like a credential (" + $shapes + "), and no credential held in this environment has that value. Do not repeat or reuse it. Tell the person what it is and where it came from, so they can tell a fixture from a live credential."
+   end) as $ctx |
+  {systemMessage: $msg, hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
 exit 0
