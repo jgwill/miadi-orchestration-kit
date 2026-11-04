@@ -84,6 +84,44 @@ test("truly concurrent hooks of one parallel tool batch deliver once, in order",
   assert.deepEqual(receipts(root).map((r) => r.steer), ["s:1", "s:2"]);
 });
 
+test("an interrupted tool does not consume it: Claude Code drops hook messages there", () => {
+  const root = rootDir();
+  drop(root);
+  assert.equal(hook(root, "post-tool-use-failure", { session_id: SID, tool_name: "Bash", error: "stopped", is_interrupt: true }), null);
+  assert.equal(count(root, "pending"), 1);
+  assert.ok(post(root));
+});
+
+test("a person's decision on this exact steer outlives its grant's revocation, and not its own", () => {
+  const root = rootDir();
+  drop(root, { decided: true });
+  mkdirSync(join(root, SID, "revoked"), { recursive: true });
+  writeFileSync(join(root, SID, "revoked", "run_request-g1"), "");
+  assert.match(post(root).hookSpecificOutput.additionalContext, /Change course/);
+  const own = rootDir();
+  drop(own, { decided: true });
+  mkdirSync(join(own, SID, "revoked"), { recursive: true });
+  writeFileSync(join(own, SID, "revoked", "session_steer_request-aaaaaaaa-1"), "");
+  assert.equal(post(own), null);
+  assert.equal(count(own, "withdrawn"), 1);
+});
+
+test("a tool output of 50 MB costs nothing on the fast path, and arrives whole when something is pending", () => {
+  const big = JSON.stringify({ session_id: SID, tool_name: "Bash", tool_response: "x".repeat(50 * 1024 * 1024) });
+  const empty = rootDir();
+  let start = Date.now();
+  const quiet = spawnSync("bash", [HOOK, "post-tool-use"], { input: big, encoding: "utf8", env: { ...process.env, MIADI_STEERING_DIR: empty }, maxBuffer: 1024 * 1024 });
+  assert.equal(quiet.status, 0);
+  assert.ok(Date.now() - start < 2000, `took ${Date.now() - start} ms`);
+  const root = rootDir();
+  drop(root);
+  start = Date.now();
+  const out = spawnSync("bash", [HOOK, "post-tool-use"], { input: big, encoding: "utf8", env: { ...process.env, MIADI_STEERING_DIR: root }, maxBuffer: 1024 * 1024 });
+  assert.equal(out.status, 0, out.stderr);
+  assert.match(JSON.parse(out.stdout).hookSpecificOutput.additionalContext, /Change course/);
+  assert.ok(Date.now() - start < 10000, `took ${Date.now() - start} ms`);
+});
+
 test("a failed tool is a continuation too", () => {
   const root = rootDir();
   drop(root);

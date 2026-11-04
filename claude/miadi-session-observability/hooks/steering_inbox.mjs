@@ -73,7 +73,8 @@ function refusal(e, sessionId, dir, now) {
   if (e?.protocol !== PROTOCOL || !e.steer || typeof e.instruction !== "string") return { to: "rejected", state: "blocked", reason: "not a steering envelope of this protocol" };
   if (e.session_id !== sessionId) return { to: "rejected", state: "blocked", reason: `addressed to session ${e.session_id}, not this one` };
   if (createHash("sha256").update(e.instruction).digest("hex") !== e.instruction_sha256) return { to: "rejected", state: "blocked", reason: "the instruction does not match its hash" };
-  for (const id of [e.steer, e.grant]) {
+  // A person decided this exact steer after its grant was stopped: only its own marker speaks for it.
+  for (const id of e.decided ? [e.steer] : [e.steer, e.grant]) {
     if (id && statSafe(join(dir, "revoked", safe(id)))) return { to: "withdrawn", state: "revoked", reason: `${id} was revoked before it was consumed` };
   }
   if (e.expires_at && Date.parse(e.expires_at) <= now) return { to: "expired", state: "expired", reason: `it expired at ${e.expires_at}` };
@@ -164,8 +165,9 @@ export function outputFor(event, text) {
 }
 
 export function drain(event, input, env = process.env, write = (s) => writeSync(1, s)) {
-  // Inside a subagent the context would reach that subagent. The main thread owns the correction.
-  if (!EVENTS[event] || !input.session_id || input.agent_id) return;
+  // Inside a subagent the context would reach that subagent, and the main thread owns the correction.
+  // On an interrupted tool Claude Code drops hook messages, so a claim there would be lost.
+  if (!EVENTS[event] || !input.session_id || input.agent_id || input.is_interrupt) return;
   const dir = join(steeringRoot(env), safe(input.session_id));
   if (!statSafe(dir)) return;
   const now = Date.now();
