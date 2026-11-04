@@ -30,10 +30,12 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     mkdir -p /usr/local/bin
     ln -s /opt/gaia/linux_migration/11-plannotator-tmux-review.sh /usr/local/bin/plannotator-tmux-review
   fi
-  # miadi-tmux replaces the distribution tmux: install that first, as a host that has it.
+  # miadi-tmux replaces the distribution tmux: install that first, with a server running, as a
+  # host that uses it (jgwill/miadi-orchestration-kit#115).
   if ls /tmp/debs/miadi-tmux_*.deb >/dev/null 2>&1; then
     apt-get install -y -qq tmux >/dev/null 2>&1
-    echo "before: $(tmux -V) from the distribution"
+    tmux new-session -d -s before -c /tmp
+    echo "before: $(tmux -V) from the distribution, its server running session before"
   fi
   if ls /tmp/debs/miadi-music-wheels-*.deb >/dev/null 2>&1 || ls /tmp/debs/miadi-restore_*.deb >/dev/null 2>&1; then
     # Only one wheels set fits a host, and apt picks it. Serve the debs as a local repository and
@@ -121,6 +123,16 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     test "$(tmux -L colons display -p -t "circle:1791110394383:jj1ql8:0.1" "#{session_name}:#{pane_index}")" = "circle:1791110394383:jj1ql8:1"
     tmux -L colons has-session -t "circle:1791110394383:jj1ql8" && tmux -L colons kill-server
     echo "a session named circle:1791110394383:jj1ql8 is reached by its name, down to its panes"
+    # The distribution server runs on from the replaced binary: the postinst names it, and this
+    # tmux cannot attach to it (jgwill/miadi-orchestration-kit#115).
+    grep -q "^miadi-tmux: user root still runs a tmux 3\\.[0-9a-z]* server from the tmux this package replaced" /tmp/install.log
+    test "$(readlink /proc/$(tmux display -p -t before "#{pid}")/exe)" = "/usr/bin/tmux (deleted)"
+    if script -qec "TERM=xterm tmux attach -t before" /dev/null </dev/null >/tmp/attach.log 2>&1; then
+      echo "tmux attached to the server of the replaced binary" >&2; exit 1
+    fi
+    grep -q "open terminal failed: not a terminal" /tmp/attach.log
+    echo "the server of the replaced tmux: the postinst named it, and tmux cannot attach to it"
+    if [ ! -f /usr/share/miadi-terminal/session-continuity/session-continuity.conf ]; then tmux kill-server; fi
   fi
 
   # miadi-terminal restore, the whole cycle a fresh machine runs (jgwill/gaia#90): enable it over a
@@ -136,6 +148,26 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     grep -qx "source-file /usr/share/miadi-terminal/session-continuity/session-continuity.conf  # miadi-terminal restore" ~/.tmux.conf
     test -d ~/.tmux/plugins/tmux-continuum
     echo "restore: enable commented out the 2 plugin lines, added its source-file line, cloned the plugins"
+    # A server tmux-server.service did not start: enable prints the switch-over, and the
+    # switch-over (by hand here, as the units run it) brings its session back into a server this
+    # tmux attaches to (jgwill/miadi-orchestration-kit#115).
+    if tmux has-session -t before 2>/dev/null; then
+      grep -q "^    tmux kill-server$" /tmp/restore-enable.log || { cat /tmp/restore-enable.log; exit 1; }
+      tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh quiet"
+      tmux kill-server
+      sleep 2
+      tmux new-session -d
+      for i in $(seq 30); do ls ~/.miadi/navigator/restore/hook-*.log >/dev/null 2>&1 && break; sleep 1; done
+      sleep 2
+      test "$(tmux list-panes -t before -F "#{pane_current_path}")" = /tmp
+      script -qec "TERM=xterm tmux attach -t before \; detach-client" /dev/null </dev/null >/tmp/attach.log 2>&1 || { cat /tmp/attach.log; exit 1; }
+      echo "restore: enable printed the switch-over, and after it session before is back in /tmp and tmux attaches"
+      tmux kill-server
+      rm -rf ~/.local/share/tmux/resurrect ~/.miadi/navigator/restore
+      # continuum skips a restore when it counts another tmux process at server start: wait for
+      # every tmux process of this cycle to end, not a fixed time (a run failed so on 2026-11-03).
+      for i in $(seq 40); do pgrep -x tmux >/dev/null || break; sleep 0.5; done
+    fi
     tmux new-session -d -s alpha -c /tmp
     tmux new-session -d -s beta -c /etc
     tmux split-window -t beta -c /var
