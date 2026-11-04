@@ -75,7 +75,8 @@ jgwill/miadi-orchestration-kit#56.
 Since 0.1.34 every session has a steering inbox (jgwill/Miadi#930). A person's correction, sent through
 the Miadi connector, waits in `<factory>/steering/<session_id>/pending/`. At the next tool end the hook
 gives it to the model as `additionalContext`, in the same turn. If the turn ends with no further tool,
-`Stop` continues it with the correction. It goes to the main thread only, once, and is checked again
+`Stop` continues it with the correction. If it lands while the turn is ending, a background watcher
+(`asyncRewake`, 30 seconds after each turn) wakes the model with it. It goes to the main thread only, once, and is checked again
 for its session, hash, expiry and revocation when it is consumed. With nothing pending the hook costs
 one bash `glob` and starts no node. Hooks load at session start, so a session started before 0.1.34
 answers `unsupported`. `MIADI_STEERING_DIR` moves the folder, and a host without the factory folder has
