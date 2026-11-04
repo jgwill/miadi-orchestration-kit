@@ -60,8 +60,13 @@ ceremony (miadi-ceremony://db6120e2-0cb8-42fd-9761-cb664a64fd25).
 7. **Diary.** Write the pass as diary entries in the ceremony where the near-loop work is held
    (`POST /api/ceremony/{id}/diary`, `entryType` observation, data, learning or hypothesis). Say what
    was asked, what was found, what Jev decided, what was held and why, and what the pass taught.
-8. **Return.** Give Guillaume one list of what needs him: his rulings on the cards (lane-check
-   `rule` lines from the scorer), the threads waiting for his go, and the drafts to withdraw or start.
+8. **Settle before returning.** Before anything goes back to Guillaume, settle each open item
+   yourself, in this order: his sent words (this session or memory) answer it, so act and record
+   them as a ruling (lane-check `rule`, his words verbatim); evidence settles it, so measure and act;
+   it is reversible and inside the work, so act and report; a live seat owns it, so brief that seat
+   (dispatch-discipline) and watch its completion mark. Ask him only what names him (money, outside
+   audiences, deletion, naming, another person's repository), once, with your recommendation and
+   what you will do if he does not answer. Guillaume, 2026-11-04: "So you need me for what?"
 
 ## Phases
 
