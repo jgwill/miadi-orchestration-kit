@@ -3,7 +3,7 @@
 secret_print_guard.sh runs this. The rule is one sentence: the guard runs the command's own
 filters over a fake copy of the credentials, and refuses when a fake value comes out.
 
-Earned 2026-11-04. Of 55,051 calls in 30 days of transcripts, 20 printed a credential held on
+Earned 2026-11-04. Of 46,023 calls in 30 days of transcripts, 15 printed a credential held on
 the host, nearly all `env | grep X` or `grep X .env`. `grep MIADI_INQUIRY .env | cut -c1-80`
 printed a whole token. `env | grep ^MIADI_ | sed -E 's/(TOKEN|KEY)=.*/\\1=<set>/'` printed the
 names the agent's mask left out. So no mask is trusted by its look: it is run.

@@ -45,8 +45,8 @@ jgwill/miadi-orchestration-kit#56.
   fake copy of the credentials (the environment's, or the file with each value replaced) and
   refuses when a fake value comes out, so no mask is trusted by its look. Open, because no value
   comes out: `X=$(grep ^X= .env | cut -d= -f2-)`, `cut -d= -f1 .env`, `grep -c`, `grep ^PORT= .env`,
-  `[ -n "$X" ]`, a value handed to another program. Earned 2026-11-04, replayed over 55,123 calls
-  of 30 days: of the 20 that printed a held credential it refuses 17 (the other 3 printed it from
+  `[ -n "$X" ]`, a value handed to another program. Earned 2026-11-04, replayed over 46,023 calls
+  of 30 days: of the 15 that printed a held credential it refuses 12 (the other 3 printed it from
   a script or `curl -w`, and the alert still reports those). It refuses 7 others, one of them for
   a path it could not resolve. A call that names nothing relevant costs 21 ms.
   `MIADI_SECRET_PRINT_GUARD=off` in the session's environment turns it off. `tests/secret-print-guard.sh`,

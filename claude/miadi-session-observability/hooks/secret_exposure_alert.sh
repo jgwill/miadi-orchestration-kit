@@ -31,7 +31,7 @@
 # call. The value itself is never printed, stored or forwarded. Earned 2026-11-01: a probe
 # command printed a person token into session 201371c1 and nothing said so.
 #
-# COST  This runs after every tool call and about 1 call in 2,700 has a finding, so a clean
+# COST  This runs after every tool call and about 1 call in 3,000 has a finding, so a clean
 # call starts only bash and perl. jq and lib.sh load when there is something to report:
 # 267 ms per call came down to 46 ms (0.1.32, measured on gaia).
 
