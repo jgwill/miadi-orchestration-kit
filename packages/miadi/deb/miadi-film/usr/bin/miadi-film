@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# miadi-film: what this host can do to make a film with a Chronicle episode.
+#   miadi-film check   every tool, its version, and the package that brings it
+# Kdenlive edits and Ardour designs the sound: both keep their projects as text an agent can
+# read. Episode 120 (miadi-chronicle://120) holds the film's phases.
+set -euo pipefail
+
+usage() { sed -n '2,3s/^# \{0,1\}//p' "$0"; }
+
+installed() { dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'install ok installed'; }
+version_of() { dpkg-query -W -f='${Version}' "$1" 2>/dev/null || true; }
+
+# Ardour's helpers carry its major version (ardour6-lua on 22.04, ardour8-lua on 24.04).
+ardour_helper() {
+	local f
+	for f in /usr/bin/ardour[0-9]*-"$1"; do
+		[ -x "$f" ] && { basename "$f"; return 0; }
+	done
+	echo "ardourN-$1"
+}
+
+check() {
+	local failed=0 p
+	# tool <part> <command> <package> <without it>
+	tool() {
+		if p=$(command -v "$2" 2>/dev/null); then
+			printf 'ok       %-6s %-15s %s %s %s\n' "$1" "$2" "$p" "$3" "$(version_of "$3")"
+		else
+			printf 'MISSING  %-6s %-15s apt install %s — %s\n' "$1" "$2" "$3" "$4"
+			failed=$((failed + 1))
+		fi
+	}
+	# extra <part> <command> <package> <what it adds>: recommended, never a failure
+	extra() {
+		if p=$(command -v "$2" 2>/dev/null); then
+			printf 'ok       %-6s %-15s %s %s %s\n' "$1" "$2" "$p" "$3" "$(version_of "$3")"
+		else
+			printf 'absent   %-6s %-15s apt install %s — %s (recommended)\n' "$1" "$2" "$3" "$4"
+		fi
+	}
+	tool edit kdenlive kdenlive "no editing"
+	tool edit melt melt "kdenlive cannot render"
+	# frei0r-plugins ships libraries only, no command: ask dpkg.
+	if installed frei0r-plugins; then
+		printf 'ok       %-6s %-15s %s %s\n' edit frei0r frei0r-plugins "$(version_of frei0r-plugins)"
+	else
+		printf 'absent   %-6s %-15s apt install frei0r-plugins — fewer Kdenlive effects (recommended)\n' edit frei0r
+	fi
+	tool sound ardour ardour "no sound design or mix"
+	tool sound "$(ardour_helper lua)" ardour "no scripted session work (headless Lua)"
+	tool sound "$(ardour_helper export)" ardour "no session export from the command line"
+	tool sound sox sox "no command-line audio conversion"
+	tool media ffmpeg ffmpeg "no conversion or proxies"
+	tool media ffprobe ffmpeg "no stream probe"
+	tool media mediainfo mediainfo "no media report"
+	tool media exiftool libimage-exiftool-perl "no camera metadata"
+	tool media v4l2-ctl v4l-utils "no camera control on Video4Linux"
+	extra media mkvmerge mkvtoolnix "no Matroska muxing"
+	extra record obs obs-studio "no screen or camera recording"
+	if installed miadi-music; then
+		printf 'ok       %-6s %-15s %s\n' score miadi-music "$(version_of miadi-music) (miadi-music check reports its parts)"
+	else
+		printf 'absent   %-6s %-15s apt install miadi-music — no score from the episode (recommended)\n' score package
+	fi
+	if [ "$failed" -gt 0 ]; then
+		printf '\n%d missing. Install the package named on each line, or: apt install miadi-film\n' "$failed" >&2
+		return 1
+	fi
+	printf '\nThis host can edit a film and design its sound.\n'
+}
+
+case "${1:-check}" in
+check) check ;;
+-h | --help | help) usage ;;
+*) usage >&2; exit 2 ;;
+esac

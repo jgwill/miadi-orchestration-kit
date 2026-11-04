@@ -289,6 +289,16 @@ PY
     test ! -e $venv && echo "remove takes the venv with it"
   fi
 
+  if dpkg -s miadi-film >/dev/null 2>&1; then
+    dpkg -s miadi-film | sed -n "s/^Version: /installed miadi-film /p"
+    miadi-film check
+    # Kdenlive renders through MLT: a one-second clip from melt, headless, proves the engine runs.
+    melt -quiet color:red out=24 -consumer avformat:/tmp/film-check.mp4 vcodec=libx264 an=1 >/dev/null
+    codec=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 /tmp/film-check.mp4)
+    test "$codec" = h264 || { echo "melt did not render an h264 clip (got: ${codec:-nothing})" >&2; exit 1; }
+    echo "melt renders a clip Kdenlive can use"
+  fi
+
   if dpkg -s miadi-music >/dev/null 2>&1; then
     dpkg -s miadi-music | sed -n "s/^Version: /installed miadi-music /p"
     grep "^miadi-music-measure:" /tmp/install.log
