@@ -27,7 +27,7 @@ jgwill/miadi-orchestration-kit#56.
   output. Since 0.1.31 the alert says only what it knows. When the output holds the value of
   a credential this host holds (a variable in the session environment named `*TOKEN*`,
   `*SECRET*`, `*PASSWORD*`, `*API_KEY*` and the like), the person is told the variable's name
-  and to rotate it (`action: "rotate"`). A string shaped like a vendor credential (`ghp_`,
+  (`action: "rotate"`), and since 0.1.33 to mask the local copies with `miadi-scrub-secrets.py`. A string shaped like a vendor credential (`ghp_`,
   `sk-ant-`, `mwt_`, `AKIA`, a JWT, a private key, a password in a URL) that no held
   credential matches is named by kind and redacted prefix, to check (`action: "check"`).
   Fixtures stay quiet: values holding test, fake, example, dummy, sample, fixture,
@@ -36,7 +36,30 @@ jgwill/miadi-orchestration-kit#56.
   value. Earned 2026-11-04, when the fixture `Bearer review-token` in Miadi's connector
   tests was announced as a credential to rotate. Each finding is a line in
   `_claude_secret_exposures.jsonl` with `held` (variable names) and `shaped` (kind, prefix),
-  never the value. `tests/secret-exposure-alert.sh`, 35 checks.
+  never the value. Since 0.1.32 a session is told once per finding, the message names the word
+  before the value so the claim can be checked at a glance
+  (`$X (X="***)`), variables named like credentials that hold an author, a URL or a name are
+  left out, and a clean call costs 46 ms instead of 267 ms. `tests/secret-exposure-alert.sh`, 41 checks.
+- **Secret print guard** (0.1.32). `hooks/secret_print_guard.sh` refuses a Bash, Read or Grep
+  call that would print a credential, before it runs. It runs the command's own filters over a
+  fake copy of the credentials (the environment's, or the file with each value replaced) and
+  refuses when a fake value comes out, so no mask is trusted by its look. Open, because no value
+  comes out: `X=$(grep ^X= .env | cut -d= -f2-)`, `cut -d= -f1 .env`, `grep -c`, `grep ^PORT= .env`,
+  `[ -n "$X" ]`, a value handed to another program. Earned 2026-11-04, replayed over 46,023 calls
+  of 30 days: of the 15 that printed a held credential it refuses 12 (the other 3 printed it from
+  a script or `curl -w`, and the alert still reports those). It refuses 7 others, one of them for
+  a path it could not resolve. A call that names nothing relevant costs 21 ms.
+  `MIADI_SECRET_PRINT_GUARD=off` in the session's environment turns it off. `tests/secret-print-guard.sh`,
+  87 checks.
+- **Masking script** (0.1.33). `scripts/miadi-scrub-secrets.py` counts the credentials this host
+  holds (environment and `.env` files) wherever a session recorded them, and `--apply` masks them:
+  `~/.claude/projects`, `~/.claude/history.jsonl` and the capture root's session folders. Each value
+  is overwritten in place by as many `*` as it has bytes, so a file keeps its inode, size, offsets
+  and mtime, and a running session can keep appending. Prints names and counts, never a value. No
+  backup and no undo. A config or credential file met there is listed and left alone. It reaches
+  neither the model API nor a git history. On gaia it masked 2,551 occurrences of 65 credentials in
+  336 files, in under 30 s. A running session may write a value again: run it again after it ends.
+  `tests/scrub-secrets.sh`.
 - **Session lookup guard** (0.1.28). A Bash `find` from `/`, a recursive search over the
   session capture, and a reader (`cat`, `jq`, `grep`, `tail`…) on a session's raw
   `_claude_*` files are refused, and the refusal names the tools that answer the question:
@@ -49,12 +72,12 @@ jgwill/miadi-orchestration-kit#56.
 
 ## A person's correction, while the agent works
 
-Since 0.1.32 every session has a steering inbox (jgwill/Miadi#930). A person's correction, sent through
+Since 0.1.34 every session has a steering inbox (jgwill/Miadi#930). A person's correction, sent through
 the Miadi connector, waits in `<factory>/steering/<session_id>/pending/`. At the next tool end the hook
 gives it to the model as `additionalContext`, in the same turn. If the turn ends with no further tool,
 `Stop` continues it with the correction. It goes to the main thread only, once, and is checked again
 for its session, hash, expiry and revocation when it is consumed. With nothing pending the hook costs
-one bash `glob` and starts no node. Hooks load at session start, so a session started before 0.1.32
+one bash `glob` and starts no node. Hooks load at session start, so a session started before 0.1.34
 answers `unsupported`. `MIADI_STEERING_DIR` moves the folder, and a host without the factory folder has
 no inbox and notices nothing.
 

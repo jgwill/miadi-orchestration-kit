@@ -30,8 +30,15 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a
   session, 19 checks.
+- `hooks/secret_print_guard.sh`, `hooks/secret_print_guard.py` and `tests/secret-print-guard.sh`:
+  refuses a call that would print a credential, by running its own filters over fake values
+  (0.1.32), 87 checks. A separate PreToolUse entry in `hooks.json`.
+- `hooks/secret_exposure_alert.sh` and `tests/secret-exposure-alert.sh`: reports a credential
+  that got past the guard (0.1.29), 41 checks.
+- `scripts/miadi-scrub-secrets.py` and `tests/scrub-secrets.sh`: masks credential values in
+  transcripts and the capture, in place and at the same length (0.1.33).
 - `hooks/steering_inbox.sh`, `hooks/steering_inbox.mjs` and `tests/steering-inbox.test.mjs`: the
-  session's steering inbox (0.1.32, jgwill/Miadi#930), 21 checks. `@miadi/connector` drops a person's
+  session's steering inbox (0.1.34, jgwill/Miadi#930), 21 checks. `@miadi/connector` drops a person's
   correction in `<factory>/steering/<session_id>/pending/`, and these hooks present it to the model
   at its next continuation in the same turn. Its own entries in `hooks.json`, so the capture scripts
   stay unchanged. The contract is at the top of the `.mjs`.

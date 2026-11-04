@@ -78,6 +78,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash|Read|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/secret_print_guard.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
