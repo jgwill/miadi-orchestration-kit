@@ -2,7 +2,8 @@
 # The alert says only what it knows. The value of a credential this host holds, in a
 # tool's output, is announced by variable name and listed to rotate. A string shaped like
 # a vendor credential that this host does not hold is announced by kind and redacted
-# prefix and listed to check. Fixtures and ordinary output stay quiet.
+# prefix and listed to check. A session is told once per finding. Fixtures and ordinary
+# output stay quiet.
 # Run: bash tests/secret-exposure-alert.sh
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,8 +19,8 @@ expect() {  # <label> <expected> <actual>
 }
 yes_if() { if [ "$1" = "true" ]; then echo yes; else echo no; fi; }
 
-sid="99999999-7777-3333-4444-555555555555"
-ledger="$CLAUDE_SESSIONDATA_ROOT/$sid/_claude_secret_exposures.jsonl"
+use_session() { sid="$1"; ledger="$CLAUDE_SESSIONDATA_ROOT/$sid/_claude_secret_exposures.jsonl"; }
+use_session "99999999-7777-3333-4444-555555555555"
 lines() { [ -f "$ledger" ] && wc -l < "$ledger" | tr -d ' ' || echo 0; }
 # Random at run time, so this file holds no credential and no two runs share one.
 random() { head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
@@ -34,12 +35,27 @@ edit_out() {  # <the file as it was before an Edit>
 export EXAMPLE_SERVICE_TOKEN="$(random 40)"
 said=$(bash_out "probe answered with $EXAMPLE_SERVICE_TOKEN: 403")
 expect "a held credential is named by its variable" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("\\$EXAMPLE_SERVICE_TOKEN") and test("rotate it")')")"
-expect "and the model is told to have it rotated" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.hookSpecificOutput.additionalContext | test("rotate \\$EXAMPLE_SERVICE_TOKEN")')")"
+expect "and the model is told not to repeat it" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.hookSpecificOutput.additionalContext | test("Do not repeat")')")"
 expect "the announcement never carries the value" "0" "$(printf '%s' "$said" | grep -cF "$EXAMPLE_SERVICE_TOKEN")"
 expect "one line is listed" "1" "$(lines)"
 expect "listed to rotate, by name" "rotate EXAMPLE_SERVICE_TOKEN" "$(jq -r '.action + " " + .held[0]' "$ledger" | tail -1)"
 expect "the list never carries the value" "0" "$(grep -cF "$EXAMPLE_SERVICE_TOKEN" "$ledger")"
 
+before=$(lines)
+expect "the same credential is told once a session" "" "$(bash_out "again: $EXAMPLE_SERVICE_TOKEN")"
+expect "and the list still gets the call" "$((before + 1))" "$(lines)"
+
+said=$(bash_out "EXAMPLE_SERVICE_TOKEN=\"$EXAMPLE_SERVICE_TOKEN\"" )
+expect "a repeat on another line is quiet too" "" "$said"
+
+use_session "99999999-7777-3333-4444-666666666666"
+said=$(bash_out "first line
+EXAMPLE_SERVICE_TOKEN=\"$EXAMPLE_SERVICE_TOKEN\"
+next line")
+expect "the word before the value is shown, to check the claim" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | contains("EXAMPLE_SERVICE_TOKEN=\"***")')")"
+expect "a word never holds another line" "0" "$(printf '%s' "$said" | grep -c "first line")"
+
+use_session "99999999-7777-3333-4444-777777777777"
 said=$(edit_out "const db = \"postgres://app:$EXAMPLE_SERVICE_TOKEN@db.internal/app\";")
 expect "a held credential in a file an Edit read is named too" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("\\$EXAMPLE_SERVICE_TOKEN") and (test("shaped") | not)')")"
 expect "listed to rotate" "rotate" "$(jq -r '.action' "$ledger" | tail -1)"
@@ -54,13 +70,19 @@ expect "listed to check" "check Miadi person token" "$(jq -r '.action + " " + .s
 expect "the list never carries the value" "0" "$(grep -cF "$mwt" "$ledger")"
 
 ghp="ghp_$(random 36)"
-said=$(bash_out "remote: $ghp")
-expect "a GitHub-shaped token is named by kind" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("GitHub token")')")"
+said=$(bash_out "first line
+$ghp")
+expect "a GitHub-shaped token after a newline is named by kind" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("GitHub token")')")"
 
 pw="$(random 18)"
 said=$(bash_out "DATABASE_URL=postgres://neondb_owner:$pw@ep-cool-1.neon.tech/neondb")
 expect "a password in a URL is named by the URL up to its user" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | contains("URL password postgres://neondb_owner:***")')")"
 expect "and by none of the password" "0" "$(printf '%s' "$said" | grep -cF "${pw:0:4}")"
+
+# Variables named like credentials that hold none.
+export GIT_AUTHOR_EMAIL="someone-long-enough@example.org" MIADI_AUTH_URL="https://auth.internal/login" MIADI_TOKEN_NAME="a-long-enough-name"
+expect "quiet: an author, a url and a name in credential-like variables" "" "$(bash_out "$GIT_AUTHOR_EMAIL $MIADI_AUTH_URL $MIADI_TOKEN_NAME")"
+unset GIT_AUTHOR_EMAIL MIADI_AUTH_URL MIADI_TOKEN_NAME
 
 before=$(lines)
 # Fixtures and ordinary output: the 2026-11-04 Edit, the sanitizer's own self-test

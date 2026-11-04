@@ -2,16 +2,17 @@
 # A credential printed in a tool's output reaches the model, and Claude Code's own
 # transcript under ~/.claude/projects, before any hook runs. Claude Code lets a
 # PostToolUse hook replace only an MCP tool's output, so no hook can take it back.
+# secret_print_guard.sh refuses what it can before the call. This reports what got past it.
 # What this plugin writes under <root>/<session_id>/ is already redacted
 # (secret_capture_sanitizer.sh).
 #
-# What a hook can still do is say so at once, and say only what it knows. It reads the
-# tool's output and reports two findings, told apart in what the person reads:
+# It reads the tool's output and reports two findings, told apart in what the person reads:
 #
 #   held   The output contains the value of a credential this host holds: a variable in
 #          the session environment named like one (*TOKEN*, *SECRET*, *PASSWORD*,
 #          *API_KEY*, *ACCESS_KEY*, *PRIVATE_KEY*, *CREDENTIAL*, *AUTH*, *_PAT). That is a
-#          real credential, so the person is told to rotate it, by variable name.
+#          real credential, so the person is told to rotate it, by variable name, with the
+#          word it followed in the output, so the claim can be checked at a glance.
 #   shaped A string shaped like a vendor credential (ghp_, sk-ant-, mwt_, AKIA, a JWT, a
 #          private key block, a password in a URL) that is no value this host holds. It
 #          may be live somewhere else, so the person is told to check it, by kind and
@@ -22,22 +23,32 @@
 # "Bearer <x>" and "token: <x>" count only as held: in code the strings they catch
 # ("Bearer review-token") are fixtures far more often than credentials. Earned
 # 2026-11-04: the test fixture "Bearer review-token" in Miadi's connector tests was
-# announced as a credential to rotate.
+# announced as a credential to rotate. 22 of the 23 alerts up to that day were fixtures.
 #
 # Each finding is one line in <root>/<session_id>/_claude_secret_exposures.jsonl, with
-# action "rotate" (held) or "check" (shaped only). The value itself is never printed,
-# stored or forwarded. Earned 2026-11-01: a probe command printed a person token into
-# session 201371c1 and nothing said so.
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$HERE/claude_hooks/lib.sh"
+# action "rotate" (held) or "check" (shaped only). A session is told once per credential:
+# an Edit of the same file carries the same string each time, and the ledger keeps every
+# call. The value itself is never printed, stored or forwarded. Earned 2026-11-01: a probe
+# command printed a person token into session 201371c1 and nothing said so.
+#
+# COST  This runs after every tool call and about 1 call in 2,700 has a finding, so a clean
+# call starts only bash and perl. jq and lib.sh load when there is something to report:
+# 267 ms per call came down to 46 ms (0.1.32, measured on gaia).
 
 input=$(cat -)
-text=$(printf '%s' "$input" | jq -r '.tool_response // empty | .. | strings' 2>/dev/null)
-[ -n "$text" ] || exit 0
 
-findings=$(printf '%s' "$text" | perl -e '
-    use strict; use warnings;
-    local $/; my $text = <STDIN>; $text = "" unless defined $text;
+findings=$(printf '%s' "$input" | perl -e '
+    use strict; use warnings; no warnings "utf8";
+    local $/; my $raw = <STDIN>; $raw = "" unless defined $raw;
+
+    # The text of .tool_response. Unescaped by hand, because a JSON parser costs more than
+    # the rest of this hook and only the strings matter here.
+    my $start = index($raw, q{"tool_response"});
+    exit 0 if $start < 0;
+    my $text = substr($raw, $start);
+    $text =~ s/^"tool_response"\s*:\s*\{?(?:"[A-Za-z_]+"\s*:\s*")?//;
+    my %esc = (n => "\n", t => "\t", r => "\r", b => "\b", f => "\f");
+    $text =~ s{\\(u[0-9a-fA-F]{4}|.)}{ length($1) > 1 ? chr(hex(substr($1, 1))) : (defined $esc{$1} ? $esc{$1} : $1) }ge;
 
     sub entropy {
         my ($v) = @_; my %n; $n{$_}++ for split //, $v;
@@ -60,15 +71,26 @@ findings=$(printf '%s' "$text" | perl -e '
     sub prefix { my ($v) = @_; substr($v, 0, length($v) >= 7 ? 6 : 4) . "***" }
 
     # held: the values of the credentials in this environment.
-    my @held;
+    my @held; my @found;
     for my $n (sort keys %ENV) {
-        next unless $n =~ /TOKEN|SECRET|PASSW(?:OR)?D|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIAL|_PAT$|AUTH/i;
-        next if $n =~ /(?:_SOCK|_FILE|_PATH|_DIR|_HOST|_PORT|AUTHORITY|_CHECK)$/i;
+        next unless $n =~ /TOKEN|SECRET|PASSW(?:OR)?D|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIAL|_PAT$|AUTH(?!OR)/i;
+        next if $n =~ /(?:_SOCK|_FILE|_PATH|_DIR|_HOST|_PORT|_URL|_URI|_NAME|_USER|_ID|AUTHORITY|_CHECK)$/i;
         my $v = $ENV{$n};
-        next if length($v) < 12 || $v =~ m{^[/~.]} || $v =~ /\s/;
-        next if index($text, $v) < 0;
+        next if length($v) < 12 || $v =~ m{^[/~.]} || $v =~ /\s/ || $v =~ m{^[a-z+]+://}i;
+        my $at = index($text, $v);
+        next if $at < 0;
         push @held, $v;
-        print "held\t$n\n";
+        # The word before the value: enough to check the claim, and none of the value.
+        my $line = rindex($text, "\n", $at) + 1;
+        my ($word) = substr($text, $line, $at - $line) =~ /(\S*)\s*$/;
+        $word =~ s/.*[;,&]//;
+        $word = substr($word, -40) if length($word) > 40;
+        push @found, [$n, $word];
+    }
+    for my $f (@found) {
+        my ($n, $word) = @$f;
+        for my $v (@held) { $word =~ s/\Q$v\E/***/g }
+        print "held\t$n\t$word***\n";
     }
     my $is_held = sub { my ($v) = @_; for (@held) { return 1 if index($v, $_) >= 0 || index($_, $v) >= 0 } 0 };
 
@@ -123,14 +145,20 @@ findings=$(printf '%s' "$text" | perl -e '
 ')
 [ -n "$findings" ] || exit 0
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/claude_hooks/lib.sh"
+
 held=$(printf '%s\n' "$findings" | awk -F'\t' '$1 == "held" { print $2 }')
-shaped=$(printf '%s\n' "$findings" | awk -F'\t' '$1 == "shaped" { print $2 "\t" $3 }' | head -5)
+shaped=$(printf '%s\n' "$findings" | awk -F'\t' '$1 == "shaped" { print $2 "\t" $3 }')
 
 session_id=$(printf '%s' "$input" | jq -r '.session_id // "unknown"')
 tool_name=$(printf '%s' "$input" | jq -r '.tool_name // "a tool"')
 out="$CLAUDE_SESSIONDATA_ROOT/$session_id"
+ledger="$out/_claude_secret_exposures.jsonl"
 mkdir -p "$out"
-claude_write_jsonl "$out/_claude_secret_exposures.jsonl" "$(jq -nc \
+
+told=$(jq -r '.held[]?, (.shaped[]? | .kind + "\t" + .prefix)' "$ledger" 2>/dev/null)
+claude_write_jsonl "$ledger" "$(jq -nc \
     --arg at "$(date -Iseconds)" --arg sid "$session_id" --arg tool "$tool_name" \
     --arg use "$(printf '%s' "$input" | jq -r '.tool_use_id // empty')" \
     --arg transcript "$(printf '%s' "$input" | jq -r '.transcript_path // empty')" \
@@ -141,19 +169,23 @@ claude_write_jsonl "$out/_claude_secret_exposures.jsonl" "$(jq -nc \
       where:["the model context","Claude Code transcript_path"],
       action:(if $held != "" then "rotate" else "check" end)}')"
 
-jq -nc --arg tool "$tool_name" --arg held "$held" --arg shaped "$shaped" '
-  ($held | split("\n") | map(select(. != "") | "$" + .) | join(", ")) as $names |
-  ($shaped | split("\n") | map(select(. != "") | split("\t") | .[0] + " " + .[1]) | join(", ")) as $shapes |
-  ((if $held != "" then
-     "The value of " + $names + " appeared in the output of " + $tool + ". It is a credential this host holds, now in this conversation and in Claude Code'"'"'s transcript: rotate it."
-     + (if $shaped != "" then " The output also holds a string shaped like a credential that this host does not hold (" + $shapes + "): check it." else "" end)
+# Told once per session. The ledger above keeps every call.
+fresh=$(printf '%s\n' "$findings" | TOLD="$told" awk -F'\t' '
+    BEGIN { n = split(ENVIRON["TOLD"], a, "\n"); for (i = 1; i <= n; i++) told[a[i]] = 1 }
+    !(($1 == "held" ? $2 : $2 "\t" $3) in told)')
+[ -n "$fresh" ] || exit 0
+
+names=$(printf '%s\n' "$fresh" | awk -F'\t' '$1 == "held" { printf "%s$%s (%s)", (n++ ? ", " : ""), $2, $3 }')
+shapes=$(printf '%s\n' "$fresh" | awk -F'\t' '$1 == "shaped" && n < 3 { printf "%s%s %s", (n++ ? ", " : ""), $2, $3 }')
+
+jq -nc --arg tool "$tool_name" --arg names "$names" --arg shapes "$shapes" '
+  (if $names != "" then
+     $tool + " printed " + $names + ", held on this host: rotate it."
+     + (if $shapes != "" then " Also a string shaped like a credential (" + $shapes + "): check it." else "" end)
    else
-     "The output of " + $tool + " holds a string shaped like a credential (" + $shapes + "). No credential this host holds has that value, so it is a credential from elsewhere or a fixture: check which before rotating."
-   end) + " Listed in _claude_secret_exposures.jsonl.") as $msg |
-  (if $held != "" then
-     "The output of this " + $tool + " call contained the value of " + $names + ", a credential held in this environment. Do not repeat, copy or reuse it. Tell the person to rotate " + $names + ", and print no more secrets: refer to variables by name, never by expansion."
-   else
-     "The output of this " + $tool + " call holds a string shaped like a credential (" + $shapes + "), and no credential held in this environment has that value. Do not repeat or reuse it. Tell the person what it is and where it came from, so they can tell a fixture from a live credential."
-   end) as $ctx |
-  {systemMessage: $msg, hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
+     $tool + " printed a string shaped like a credential (" + $shapes + ") that this host does not hold: check which before rotating."
+   end) as $msg |
+  {systemMessage: $msg,
+   hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext:
+     ($msg + " The person has seen this. Do not repeat or reuse the value, and print no more secrets: refer to variables by name, never by expansion.")}}'
 exit 0

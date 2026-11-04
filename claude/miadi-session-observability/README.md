@@ -36,7 +36,21 @@ jgwill/miadi-orchestration-kit#56.
   value. Earned 2026-11-04, when the fixture `Bearer review-token` in Miadi's connector
   tests was announced as a credential to rotate. Each finding is a line in
   `_claude_secret_exposures.jsonl` with `held` (variable names) and `shaped` (kind, prefix),
-  never the value. `tests/secret-exposure-alert.sh`, 35 checks.
+  never the value. Since 0.1.32 a session is told once per finding, the message names the word
+  before the value so the claim can be checked at a glance
+  (`$X (X="***)`), variables named like credentials that hold an author, a URL or a name are
+  left out, and a clean call costs 46 ms instead of 267 ms. `tests/secret-exposure-alert.sh`, 41 checks.
+- **Secret print guard** (0.1.32). `hooks/secret_print_guard.sh` refuses a Bash, Read or Grep
+  call that would print a credential, before it runs. It runs the command's own filters over a
+  fake copy of the credentials (the environment's, or the file with each value replaced) and
+  refuses when a fake value comes out, so no mask is trusted by its look. Open, because no value
+  comes out: `X=$(grep ^X= .env | cut -d= -f2-)`, `cut -d= -f1 .env`, `grep -c`, `grep ^PORT= .env`,
+  `[ -n "$X" ]`, a value handed to another program. Earned 2026-11-04, replayed over 55,123 calls
+  of 30 days: of the 20 that printed a held credential it refuses 17 (the other 3 printed it from
+  a script or `curl -w`, and the alert still reports those). It refuses 7 others, one of them for
+  a path it could not resolve. A call that names nothing relevant costs 21 ms.
+  `MIADI_SECRET_PRINT_GUARD=off` in the session's environment turns it off. `tests/secret-print-guard.sh`,
+  87 checks.
 - **Session lookup guard** (0.1.28). A Bash `find` from `/`, a recursive search over the
   session capture, and a reader (`cat`, `jq`, `grep`, `tail`…) on a session's raw
   `_claude_*` files are refused, and the refusal names the tools that answer the question:
