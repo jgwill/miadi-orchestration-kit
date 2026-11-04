@@ -336,3 +336,23 @@ test("capabilities holds the record's addressed capabilities in its episode with
     server.close();
   }
 });
+
+test("a mission handed to a session lands in that session's missions[], once", async () => {
+  const { missionsBySession, fillMissions } = await import("./inventory.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "missions-"));
+  const sid = "11111111-2222-4333-8444-555555555555";
+  mkdirSync(join(dir, "miadiRun-2611030000-seat-a-mission.v1"));
+  writeFileSync(join(dir, "miadiRun-2611030000-seat-a-mission.v1", "mission.json"), JSON.stringify({ id: "miadiRun-2611030000-seat-a-mission.v1", episode: { ref: "044" }, launch: { at: "2026-11-03T00:00:00Z", session: "seat-a", claude_session_id: sid } }));
+  mkdirSync(join(dir, "miadiRun-2611030001-tmux-only.v1"));
+  writeFileSync(join(dir, "miadiRun-2611030001-tmux-only.v1", "mission.json"), JSON.stringify({ id: "miadiRun-2611030001-tmux-only.v1", launch: { session: "seat-a" } }));
+  const index = missionsBySession(dir);
+  assert.equal(index.size, 1);
+  assert.equal(index.get(sid)[0].episode, "miadi-chronicle://44");
+  const record = {};
+  const changes = [];
+  fillMissions(record, { missions: index.get(sid) }, "2026-11-03T01:00:00Z", changes);
+  fillMissions(record, { missions: index.get(sid) }, "2026-11-03T02:00:00Z", changes);
+  assert.equal(record.missions.length, 1);
+  assert.equal(record.missions[0].how, "received");
+  assert.equal(changes.length, 1);
+});

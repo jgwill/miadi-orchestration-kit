@@ -6,6 +6,7 @@
 //
 //   inventory.mjs plan  [--session <id>]...           what it would write (the default; writes nothing)
 //   inventory.mjs write --session <id>... | --all      write those records
+//   inventory.mjs plan|write --all --since <date>      only sessions active at or after <date>
 //   inventory.mjs verify-names <tmux name>...          which session each name held, and on what evidence
 //   inventory.mjs link --session <id> --kind <kind> --ref <ref> [--note <n>] [--by <who>]
 //                                                      add a reference to one of the five links
@@ -193,6 +194,50 @@ function fillEvidence(record, facts, now, changes) {
 
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
+// ---------- missions ----------
+// A miadiRun mission names the Claude session it was handed to in `launch.claude_session_id`
+// (~/.miadi/missions/<id>/mission.json, written by miadi-run launch and given). That id is the
+// only link read here: a tmux name is reused across sessions and cannot tell them apart.
+// SCHEMA.md "Missions (added 2026-10-25)"; /missions on :3335 reads the same records.
+
+export function missionsDir(env = process.env) {
+  return env.MIADI_MISSIONS_DIR || join(homedir(), ".miadi", "missions");
+}
+
+export function missionsBySession(dir = missionsDir()) {
+  const bySession = new Map();
+  if (!existsSync(dir)) return bySession;
+  for (const name of readdirSync(dir)) {
+    const file = join(dir, name, "mission.json");
+    if (!existsSync(file)) continue;
+    let mission;
+    try {
+      mission = JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      continue;
+    }
+    const sessionId = mission?.launch?.claude_session_id;
+    if (!sessionId || !UUID.test(sessionId)) continue;
+    const ref = mission.episode?.ref;
+    const entry = {
+      id: mission.id ?? name,
+      how: "received",
+      given_at: mission.launch.at ?? null,
+      episode: ref ? `miadi-chronicle://${String(ref).replace(/^0+(?=\d)/, "")}` : null,
+    };
+    bySession.set(sessionId, [...(bySession.get(sessionId) ?? []), entry]);
+  }
+  return bySession;
+}
+
+export function fillMissions(record, facts, now, changes) {
+  const known = new Set((record.missions ?? []).map((m) => m.id));
+  const added = (facts.missions ?? []).filter((m) => !known.has(m.id));
+  if (!added.length) return;
+  record.missions = [...(record.missions ?? []), ...added.map((m) => ({ ...m, added_at: now }))];
+  changes.push(`missions[] +${added.length} (${added.map((m) => m.id).join(", ")})`);
+}
+
 export function planFor(facts, existing, now = new Date().toISOString()) {
   if (!existing) {
     const record = {
@@ -214,6 +259,7 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
     };
     fillQuestion(record, facts, now, []);
     fillEvidence(record, facts, now, []);
+    fillMissions(record, facts, now, []);
     return { action: "create", file: `${facts.session_id}.json`, changes: ["new record"], record };
   }
   const record = structuredClone(existing.record);
@@ -232,6 +278,7 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
   }
   fillQuestion(record, facts, now, changes);
   fillEvidence(record, facts, now, changes);
+  fillMissions(record, facts, now, changes);
   if (!changes.length) return { action: "unchanged", file: existing.file, changes, record };
   record.observations = [...(record.observations ?? []), { at: now, by: BY, what: `Facts updated from the binding line and the hook capture: ${changes.join(", ")}.` }];
   return { action: "update", file: existing.file, changes, record };
@@ -320,6 +367,7 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === "--session") args.sessions.push(argv[++i]);
     else if (arg === "--all") args.all = true;
+    else if (arg === "--since") args.since = argv[++i];
     else if (arg === "--json") args.json = true;
     else if (arg === "--seat") args.seat = argv[++i];
     else if (arg === "--kind") args.kind = argv[++i];
@@ -346,7 +394,7 @@ function seatTranscripts(paths, seatId) {
   }
 }
 
-const USAGE = `usage: inventory.mjs plan [--session <id>]... | write (--session <id>... | --all) | verify-names <name>... [--seat mino] [--json]
+const USAGE = `usage: inventory.mjs plan [--session <id>]... | write (--session <id>... | --all [--since <date>]) | verify-names <name>... [--seat mino] [--json]
        inventory.mjs link --session <id> --kind <${LINK_KINDS.join("|")}|derived_from> --ref <ref> [--note <n>] [--by <who>]
        inventory.mjs links --session <id>... [--check] [--json]
        inventory.mjs hold --session <id> --episode <number|epNNN|dated path> [--how <text>]
@@ -385,8 +433,20 @@ function main() {
     console.error("inventory: write needs --session <id> (repeatable) or --all");
     return 2;
   }
-  const wanted = args.sessions.length ? args.sessions : [...sessions.keys()];
+  // --since keeps the sessions whose latest binding line is at or after a date, so a nightly
+  // run records the day's sessions without rereading every session ever bound.
+  const since = args.since ? Date.parse(args.since) : null;
+  if (args.since && Number.isNaN(since)) {
+    console.error(`inventory: --since needs a date, got ${args.since}`);
+    return 2;
+  }
+  // --all leaves out headless children (`claude -p` editor passes, PDE calls): they are not a
+  // pane's occupant and a record for each would bury the sessions a person works with.
+  const wanted = (args.sessions.length ? args.sessions : [...sessions.keys()].filter((id) => !sessions.get(id).headless)).filter(
+    (id) => since === null || Date.parse(sessions.get(id)?.latest?.at ?? "") >= since,
+  );
   const now = new Date().toISOString();
+  const missions = missionsBySession();
   const plans = [];
   for (const id of wanted) {
     const entry = sessions.get(id);
@@ -394,7 +454,7 @@ function main() {
       plans.push({ action: "skip", session_id: id, reason: "no binding line for this session; use the inventory skill's /status or /exit ritual" });
       continue;
     }
-    plans.push({ session_id: id, ...planFor(factsFor(id, entry, paths.sessiondata), inventory.byId.get(id), now) });
+    plans.push({ session_id: id, ...planFor({ ...factsFor(id, entry, paths.sessiondata), missions: missions.get(id) ?? [] }, inventory.byId.get(id), now) });
   }
   const writing = command === "write";
   for (const plan of plans) {
