@@ -230,6 +230,48 @@ export function missionsBySession(dir = missionsDir()) {
   return bySession;
 }
 
+// ---------- factory ----------
+// A session the Miadi factory started: the factory runner (@miadi/factory-runner) delivered a
+// connector brief to it and wrote one ledger line naming the session id, the connector record
+// (run_request:<uuid>, work_proposal:<uuid>), the brief file and the Remote Control URL. Same
+// ledger the runner and the connector read: $MIADI_FACTORY_LEDGER, else <factory>/delivered.jsonl.
+
+export function factoryLedger(env = process.env) {
+  return env.MIADI_FACTORY_LEDGER || join(env.MIADI_FACTORY_DIR || "/srv/miadi/factory", "delivered.jsonl");
+}
+
+export function factoryBySession(file = factoryLedger()) {
+  const bySession = new Map();
+  if (!existsSync(file)) return bySession;
+  for (const raw of readFileSync(file, "utf8").split("\n")) {
+    let line;
+    try {
+      line = raw.trim() ? JSON.parse(raw) : null;
+    } catch {
+      continue;
+    }
+    if (!line?.sent || !line.session_id || !UUID.test(line.session_id) || !line.record) continue;
+    const entry = {
+      record: line.record,
+      type: line.type ?? null,
+      brief: line.brief ?? null,
+      delivered_at: line.at ?? null,
+      to: line.to ?? null,
+      remote_control: line.remote_control?.url ?? null,
+    };
+    bySession.set(line.session_id, [...(bySession.get(line.session_id) ?? []), entry]);
+  }
+  return bySession;
+}
+
+export function fillFactory(record, facts, now, changes) {
+  const known = new Set((record.factory ?? []).map((f) => f.record));
+  const added = (facts.factory ?? []).filter((f) => !known.has(f.record));
+  if (!added.length) return;
+  record.factory = [...(record.factory ?? []), ...added.map((f) => ({ ...f, added_at: now }))];
+  changes.push(`factory[] +${added.length} (${added.map((f) => f.record).join(", ")})`);
+}
+
 export function fillMissions(record, facts, now, changes) {
   const known = new Set((record.missions ?? []).map((m) => m.id));
   const added = (facts.missions ?? []).filter((m) => !known.has(m.id));
@@ -260,6 +302,7 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
     fillQuestion(record, facts, now, []);
     fillEvidence(record, facts, now, []);
     fillMissions(record, facts, now, []);
+    fillFactory(record, facts, now, []);
     return { action: "create", file: `${facts.session_id}.json`, changes: ["new record"], record };
   }
   const record = structuredClone(existing.record);
@@ -279,6 +322,7 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
   fillQuestion(record, facts, now, changes);
   fillEvidence(record, facts, now, changes);
   fillMissions(record, facts, now, changes);
+  fillFactory(record, facts, now, changes);
   if (!changes.length) return { action: "unchanged", file: existing.file, changes, record };
   record.observations = [...(record.observations ?? []), { at: now, by: BY, what: `Facts updated from the binding line and the hook capture: ${changes.join(", ")}.` }];
   return { action: "update", file: existing.file, changes, record };
@@ -447,6 +491,7 @@ function main() {
   );
   const now = new Date().toISOString();
   const missions = missionsBySession();
+  const factory = factoryBySession();
   const plans = [];
   for (const id of wanted) {
     const entry = sessions.get(id);
@@ -454,7 +499,7 @@ function main() {
       plans.push({ action: "skip", session_id: id, reason: "no binding line for this session; use the inventory skill's /status or /exit ritual" });
       continue;
     }
-    plans.push({ session_id: id, ...planFor({ ...factsFor(id, entry, paths.sessiondata), missions: missions.get(id) ?? [] }, inventory.byId.get(id), now) });
+    plans.push({ session_id: id, ...planFor({ ...factsFor(id, entry, paths.sessiondata), missions: missions.get(id) ?? [], factory: factory.get(id) ?? [] }, inventory.byId.get(id), now) });
   }
   const writing = command === "write";
   for (const plan of plans) {

@@ -356,3 +356,24 @@ test("a mission handed to a session lands in that session's missions[], once", a
   assert.equal(record.missions[0].how, "received");
   assert.equal(changes.length, 1);
 });
+
+test("a session the factory runner started carries its connector record, once", async () => {
+  const { factoryBySession, fillFactory } = await import("./inventory.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "factory-"));
+  const sid = "22222222-3333-4444-8555-666666666666";
+  const ledger = join(dir, "delivered.jsonl");
+  writeFileSync(ledger, [
+    JSON.stringify({ at: "2026-11-04T02:24:43Z", sent: true, session_id: sid, record: "run_request:d037a90f", type: "connector-run", brief: "/srv/miadi/factory/briefs/brief-x.md", to: "new:seat-b", remote_control: { url: "https://claude.ai/code/session_x" } }),
+    JSON.stringify({ at: "2026-11-04T03:00:00Z", sent: false, session_id: sid, record: "run_request:held" }),
+    "not json",
+  ].join("\n"));
+  const index = factoryBySession(ledger);
+  assert.equal(index.get(sid).length, 1);
+  const record = {};
+  const changes = [];
+  fillFactory(record, { factory: index.get(sid) }, "2026-11-04T04:00:00Z", changes);
+  fillFactory(record, { factory: index.get(sid) }, "2026-11-04T05:00:00Z", changes);
+  assert.equal(record.factory.length, 1);
+  assert.equal(record.factory[0].remote_control, "https://claude.ai/code/session_x");
+  assert.equal(changes.length, 1);
+});
