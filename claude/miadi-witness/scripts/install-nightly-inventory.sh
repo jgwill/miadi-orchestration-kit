@@ -16,8 +16,6 @@ fi
 [ "${1:-}" = --at ] && at=$2
 mkdir -p "$units"
 node_bin=$(command -v node)
-# tide lives in another account's environment on gaia (jgi's anaconda); the drafts step needs it.
-tide_bin=$(command -v tide || true)
 cat >"$units/miadi-inventory-nightly.service" <<EOF
 [Unit]
 Description=Nightly session inventory (T1): a record for every session of the last day, committed
@@ -25,7 +23,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-Environment=PATH=$(dirname "$node_bin"):${tide_bin:+$(dirname "$tide_bin"):}$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=$(dirname "$node_bin"):$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=$here/nightly-inventory.sh
 EOF
 cat >"$units/miadi-inventory-nightly.timer" <<EOF
