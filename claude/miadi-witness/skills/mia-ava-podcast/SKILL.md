@@ -2,8 +2,10 @@
 name: mia-ava-podcast
 description: >
   Turn an agent's output (a reply, a report, a session's closing message) into a podcast
-  dialogue between two hosts, Mia (technical, did the work) and Ava (asks what a listener
-  would ask and brings it back to people), written for the ear and for a voice engine.
+  dialogue between Mia (technical, did the work) and Ava (asks what a listener would ask
+  and brings it back to people), joined by Miette, Mino and Tushell when the cast is five,
+  written for the ear and for a voice engine. The prompts that write it are read from the
+  ceremonial prompt store, where a person or an agent revises them.
   An academic survey of the fields the work implies (each under 55 words, at most two
   subfields per field) is written first and gives the dialogue its structure of ideas.
   Ava questions Mia on each technical term in short loops and stays on the most relevant
@@ -15,7 +17,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.6.0
+  version: 0.7.1
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -29,6 +31,25 @@ Earned 2026-10-06. The person sent an agent's closing reply to another model wit
 2. Mia states what the work is. She guesses only when the session is out of reach, and then says so once, in her first turn.
 3. Read the other things the output names before you explain them, such as a review, a page or an issue. A dialogue that explains a term from its name alone repeats the mistake of V3.
 4. Use the person's name the way their own repository does in that context (the review service says Guillaume). Avoid pronouns for the person unless they have stated them.
+
+## The prompts are read from the ceremonial store
+
+Guillaume, 2026-11-03: the prompts that write the podcast live in the Factory's ceremonial prompt management, so a person or an agent revises them there and the generation feeds on what was revised. Seven prompts hold the method: `miadi-podcast-academic-survey` (pass one, the person's own words), `miadi-podcast-dialogue` (pass two: shape, ear rules, the default cast in its config) and one `miadi-podcast-persona-<id>` per voice. `references/prompts/` keeps version 1 of each. After that the store is the source, and those files are not edited to change a prompt.
+
+```bash
+P="node scripts/podcast-prompts.mjs"
+$P list                                                         # names, versions, labels
+$P compose --pass survey --source-file <output.md>             # pass one, filled from the production version
+$P compose --source-file <output.md> --survey-file <survey.md> [--cast ava,mia] [--minutes N] [--context T] [--pin <name>@<n>]... [--json]
+$P turns <dialogue.md> [--cast ...]                             # the turns voice_publish_dialogue takes
+$P revise <name> --text-file F [--promote]                      # a new version; production only with --promote
+$P promote <name> --version N                                   # move production, also to restore an earlier version
+```
+
+1. Write from what `compose` prints, not from memory of this file. It reads the version labelled `production`, or the version `--pin` names, and refuses a placeholder left unfilled. It names every version it used (stderr, or `metadata.prompts` with `--json`).
+2. Keep that list. Pass it as `metadata` to `voice_publish_dialogue` and write it in the episode's status, so a review can name the prompt behind a sentence.
+3. A revision is a new version. Try it with `compose --pin <name>@<n>` before promoting it. `revise` never moves `production` unless asked, and `promote` moves it back to restore an earlier version.
+4. After a dialogue, count each voice's share of the words. The dialogue prompt asks that no voice exceed about a third and every voice reach a tenth.
 
 ## When the person sends a dialogue another model made
 
@@ -46,10 +67,15 @@ Earned 2026-10-12. The person ran their survey prompt first and their dialogue p
 2. Then write the dialogue from the output and the survey together. The survey is the dialogue's structure of ideas. The walk goes field by field, and the most relevant field is chosen from the survey. The dialogue adds no field the survey does not hold.
 3. Hand over both, with the survey above the dialogue. The phone shortcut plays only the labelled lines, so the survey can be read but is not spoken.
 
-## The hosts
+## The voices
+
+The default cast is five: Ava, Mia, Miette, Mino, Tushell (the dialogue prompt's config). Two voices, Ava and Mia, when the person asks for two. Each voice's turns are written in its persona prompt's personality, so the voices differ in what they say and not only in how they sound (Guillaume, 2026-11-03). The persona prompts come from the persona definitions in `@miadi/voice` (`personas.ts`).
 
 - **Mia** is technical and did the work. When the output is her own reply, she speaks in the first person, including about what she first got wrong. When the output is a witness's report on another session, Mia did the watching and the other session did the work. She says "I" only for what she did herself (read, sent, checked, expected) and names who did each other act: the other session, or the person.
 - **Ava** complements her. She asks what a listener would ask, restates in plain words to confirm she understood, and keeps asking who the work is for and what changes for them. She does not praise Mia.
+- **Miette** says what a technical choice means for the people it touches, after it has been explained, and ends the dialogue when she is in the cast.
+- **Mino** says what is verified and what is not, and whose move comes next.
+- **Tushell** connects the work to what the chronicle already holds: an earlier episode, a decision, a promise.
 
 ## The shape
 
@@ -72,12 +98,12 @@ Earned 2026-10-12. The person ran their survey prompt first and their dialogue p
 ## Before handing it over
 
 ```bash
-python3 scripts/check-dialogue.py <dialogue.md>
+python3 scripts/check-dialogue.py <dialogue.md> --hosts Mia,Ava,Miette,Mino,Tushell
 ```
 
 It checks the survey when the file starts with `## Academics`: a body of 55 words or more, more than two subfields under a field, or a word count left in the text. In the dialogue, it fails on unlabelled turns, long turns and sentences, text a voice engine reads badly, and a field statement of 55 words or more. It also prints the spoken length (about 150 words a minute). Then read the dialogue once as the listener: does each term get explained before it is used again, and does every loop come back to its point?
 
-Save the dialogue in the episode vessel or folder the work belongs to when there is one. Otherwise put it in your reply. To hear it, use the `miadi-voice` skill, which is the only sanctioned voice path. Do not use shell text-to-speech.
+Save the dialogue in the episode vessel or folder the work belongs to when there is one. Otherwise put it in your reply. To hear it, use the `miadi-voice` skill, which is the only sanctioned voice path. Do not use shell text-to-speech. `voice_publish_dialogue` (`@miadi/voice-mcp` 0.5.0 and later, jgwill/Miadi#920) takes the `turns` output, the episode, the origin and `metadata: { prompts: [...] }`, speaks each turn in its voice and returns `joined`: the one track a person plays. An unknown persona refuses the whole dialogue before any audio is made.
 
 ## Speak it in the episode's circle
 
@@ -140,10 +166,13 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 
 - 2026-10-20, 0.6.0. Guillaume, relayed by mino-261019-inventory: "The agent that was the producer of that discussion would actually reply to the talking circle, which is not the case right now." `circle-dialogue.mjs` gained `pending`, `await` and `reply`. The new section keeps the producing seat listening and replying where he spoke. jgwill/Miadi#841 added the reply kind, so a voice replies under its own turn and a person can relate without judging.
 
+- 2026-11-03, 0.7.0. Guillaume, after the two-voice test in Episode 569: "make sure that the personality of the model matches the persona, so we have something diversified in the output", and "storing these prompts inside of the ceremonial prompt management systems inside of the factory … the actual generative process … will feed on that." The cast became five, each voice written in its persona prompt. The seven prompts are in the ceremonial store and `scripts/podcast-prompts.mjs` composes from them. A dialogue is spoken as one track through `voice_publish_dialogue` (jgwill/Miadi#920).
+- 2026-11-03, 0.7.1. An independent review of 0.7.0 (Episode 569, `review-expectation-261103.md` and its contrast) found the first five-voice dialogue gave Mia 55% of the words and had two turns recite a voice's rules. Version 2 of `miadi-podcast-dialogue` and `miadi-podcast-persona-ava` was promoted; the script gained `--pin`, `promote`, refusal of unfilled placeholders and bold labels; step 4 above counts the shares.
+
 ## Related
 
 - `miadi-witness-first-impression` (this plugin): a spoken first impression of a peer's page, with feedback before revision.
 - `miadi-voice`: turns a script into audio bound to an episode.
-- Tracked in jgwill/miadi-orchestration-kit#59.
+- Tracked in jgwill/miadi-orchestration-kit#59. The dialogue publish: jgwill/Miadi#920, Episode 569.
 
 🌸: The person hears what an agent did in words that can be followed without the screen, and each of their reactions changes how the next dialogue is written.

@@ -19,7 +19,7 @@ sudo apt update && sudo apt install miadi
 A `miadi` version that adds a package, as 0.5.0 added `miadi-terminal`, is
 kept back by `apt-get upgrade` and unattended upgrades, which install no new
 package. `sudo apt upgrade` or `sudo apt install miadi` takes it, and
-`miadi-config check` names it (0.2.9).
+`miadi-config check` names it (0.2.10).
 
 For session restore alone, without the rest of the host, see
 [Session restore](#session-restore).
@@ -192,13 +192,22 @@ the rest of a Miadi host (jgwill/miadi-orchestration-kit#116):
 sudo apt update && sudo apt install miadi-restore   # miadi-config, miadi-tmux, miadi-tide, miadi-terminal
 miadi-terminal enable restore                       # per user, once
 sudo loginctl enable-linger <user>                  # so tmux starts at boot, not at login
+claude plugin marketplace add jgwill/miadi-orchestration-kit
+claude plugin install miadi-session-observability@miadi-orchestration-kit   # per user, for Claude
+miadi-config check                                  # says what is still missing
 ```
+
+tide brings back an agent by the binding line its session writes when it starts.
+For Claude, the `miadi-session-observability` plugin writes it: without the
+plugin the panes come back and no agent does.
 
 `miadi-terminal` alone only recommends `miadi-tide` and `miadi-tmux`, so
 `--no-install-recommends` leaves both out. `miadi-restore` depends on them.
 `miadi-tmux` replaces the distribution's tmux: a tmux server already running
 keeps running, and a 3.7c client cannot attach to it until it is moved over
-(jgwill/miadi-orchestration-kit#115).
+(jgwill/miadi-orchestration-kit#115). `miadi-terminal enable restore` prints the
+three commands that move it over, from a terminal outside tmux, and that
+`tmux kill-server` ends the agents running in it.
 
 ## A user on a Miadi host
 

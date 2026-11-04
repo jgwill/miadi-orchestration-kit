@@ -3,7 +3,7 @@ Version: 0.1.0
 Section: misc
 Priority: optional
 Architecture: all
-Depends: miadi-config (>= 0.2.0), miadi-tmux (>= 3.7c), miadi-tide (>= 0.1.1), miadi-terminal (>= 0.3.0)
+Depends: miadi-config (>= 0.2.1), miadi-tmux (>= 3.7c), miadi-tide (>= 0.1.28), miadi-terminal (>= 0.4.4), git
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
 Description: tmux sessions and their agents that come back after a reboot

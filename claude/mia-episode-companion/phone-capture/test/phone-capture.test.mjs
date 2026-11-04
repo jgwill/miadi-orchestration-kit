@@ -34,11 +34,12 @@ async function bridge({ transcriber, voice = null, language = "fr", locate, link
     registryClient: { register: async (record) => { registrations.push(record); return { success: true, id: record.id ?? "capture:stub" }; } },
   });
   const logged = [];
-  const app = createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate, recoverEveryMs: 0, log: (line) => logged.push(line), decisionsLedger: join(base, "decisions", "mia-return.jsonl"), links });
+  const readGateLedger = join(base, "decisions", "read-gate.jsonl");
+  const app = createApp({ service, chronicleRoot, uploadsDir: join(base, "uploads"), repliesDir: join(base, "replies"), listenerDir: join(base, "listeners"), voice, defaultEpisode: EPISODE, locate, recoverEveryMs: 0, log: (line) => logged.push(line), decisionsLedger: join(base, "decisions", "mia-return.jsonl"), readGateLedger, links });
   const server = createServer(app);
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const url = `http://127.0.0.1:${server.address().port}`;
-  return { base, chronicleRoot, url, registrations, logged, recover: (options) => app.recoverParts(options), close: () => server.close() };
+  return { base, chronicleRoot, url, registrations, logged, readGateLedger, recover: (options) => app.recoverParts(options), close: () => server.close() };
 }
 
 const stubTranscriber = {
@@ -47,6 +48,42 @@ const stubTranscriber = {
     return { transcription: "Mia, je parle depuis le iPhone.", translation: "Mia, I am speaking from the iPhone.", model: "stub", language: "fr" };
   },
 };
+
+test("the read gate's verdicts wait on the page for a ruling, and one tap writes it in the gate's shape", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const empty = await (await fetch(`${b.url}/api/rulings`)).json();
+    assert.deepEqual({ success: empty.success, pending: empty.pending, decisions: empty.decisions }, { success: true, pending: 0, decisions: [] });
+    mkdirSync(join(b.base, "decisions"), { recursive: true });
+    const d1 = { kind: "decision", id: "rg-20261103200000000-0", at: "2026-11-03T20:00:00.000Z", mission: "write the proposal", path: "/srv/miadi/episodes/miadi-chronicle/ep/a.md", lines: 12, basis: "content", verdict: "skim", relevant: 0.5, action: "read_part", section: { key: "h3", line: 3, text: "Intent" } };
+    const d2 = { kind: "decision", id: "rg-20261103200100000-1", at: "2026-11-03T20:01:00.000Z", mission: "write the proposal", path: "miadi-review:12345678-1234-1234-1234-123456789abc", lines: 40, basis: "content", verdict: "read", relevant: 0.9, action: "read_whole", section: null };
+    writeFileSync(b.readGateLedger, `${JSON.stringify(d1)}\n${JSON.stringify(d2)}\n`);
+    const listed = await (await fetch(`${b.url}/api/rulings`)).json();
+    assert.equal(listed.pending, 2);
+    assert.deepEqual(listed.decisions.map((d) => d.id), [d2.id, d1.id], "newest first");
+    assert.equal(listed.decisions[1].section.line, 3);
+
+    const ruled = await (await fetch(`${b.url}/api/rulings/${d1.id}`, { method: "POST", headers: { "content-type": "application/json", "tailscale-user-login": "jgi@example" }, body: JSON.stringify({ verdict: "read", words: "I need the intent" }) })).json();
+    assert.deepEqual(ruled, { success: true, ruling: `rul-${d1.id}`, decision: d1.id, verdict: "read", agrees: true });
+    const lines = readFileSync(b.readGateLedger, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.equal(lines.length, 3);
+    assert.equal(lines[2].kind, "ruling");
+    assert.equal(lines[2].source, "phone");
+    assert.equal(lines[2].decided_by, "jgi@example");
+    assert.equal(lines[2].words, "I need the intent");
+    assert.equal(lines[2].jev_verdict, "skim");
+    const after = await (await fetch(`${b.url}/api/rulings`)).json();
+    assert.deepEqual(after.decisions.map((d) => d.id), [d2.id]);
+    assert.equal(after.ruled, 1);
+
+    const bad = await fetch(`${b.url}/api/rulings/${d2.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ verdict: "maybe" }) });
+    assert.equal(bad.status, 400);
+    const missing = await fetch(`${b.url}/api/rulings/rg-20261103209999999-9`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ verdict: "read" }) });
+    assert.equal(missing.status, 404);
+  } finally {
+    b.close();
+  }
+});
 
 test("an iPhone upload becomes a bundle in the episode that the listener validates", async () => {
   const b = await bridge({ transcriber: stubTranscriber });

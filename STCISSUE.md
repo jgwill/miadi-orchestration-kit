@@ -1741,3 +1741,735 @@ Add skills/production-context-exploration with a supporting academic-interpretat
 
 On 2026-10-19, William named the same noise in reports from two sessions (relayed by the inventory seat mino-261019-inventory). An agent's report lists uncommitted changes that the agent did not make. Shared trees such as `/a/src/Miadi-18` and this kit's checkout carry other writers' dirty files all the time: STC telemetry, `.coaia/` lines, another seat's work in progress. An agent that runs `git status` and reports what it sees hands those files to William as if they were its own lo
 
+
+## issue #94 - The factory's apt packages carry the releases agents run, so a container deploys the factory gaia runs
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-20T09:21:52Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/94
+
+### Current Reality
+## Context
+
+The Miadi swarm container (jgwill/Miadi#626, `runtime/swarmclaw-miadi`) now installs the factory with `apt-get install miadi miadi-chronicle-client` from apt.sanctuaireagentique.com, on Debian 12. The install succeeds. Its check, `miadi-swarm-check`, then found the packages behind what agents run on gaia:
+
+| package | pinned | agents run |
+|---|---|---|
+| miadi-chronicle-client 0.1.0 | @miadi/inquiry-weave 0.16.5, @medicine-wheel/mcp 4.17.5 | 0.17.9 and 4.21.0 (the `miadi-chronicle-e
+
+
+## issue #94 - The factory's apt packages carry the releases agents run, so a container deploys the factory gaia runs
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-20T10:08:30Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/94
+
+### Current Reality
+## Context
+
+The Miadi swarm container (jgwill/Miadi#626, `runtime/swarmclaw-miadi`) now installs the factory with `apt-get install miadi miadi-chronicle-client` from apt.sanctuaireagentique.com, on Debian 12. The install succeeds. Its check, `miadi-swarm-check`, then found the packages behind what agents run on gaia:
+
+| package | pinned | agents run |
+|---|---|---|
+| miadi-chronicle-client 0.1.0 | @miadi/inquiry-weave 0.16.5, @medicine-wheel/mcp 4.17.5 | 0.17.9 and 4.21.0 (the `miadi-chronicle-e
+
+
+## issue #95 - The session folder keeps every /btw question and the story of each fork made from one
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-21T12:06:32Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/95
+
+### Current Reality
+## Context
+
+On 2026-10-21 Guillaume asked a `/btw` question in tmux `episode-120-mia-companion` (session `dabd7cfc-5f09-425c-bb37-74b7a44b5d86`) and pressed `f` to fork it. The fork `awhat-is-the-34e01880ef1a2dc7` answered, then he talked to it twice more and it published a design page.
+
+What `miadi-session-observability` 0.1.16 holds of that, read in `/src/_sessiondata/dabd7cfc-…/`:
+
+- No hook fires for `/btw`. It is a local command: no `UserPromptSubmit`, nothing in `_claude_user_inputs.json
+
+
+## issue #95 - The session folder keeps every /btw question and the story of each fork made from one
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-21T12:18:27Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/95
+
+### Current Reality
+## Context
+
+On 2026-10-21 Guillaume asked a `/btw` question in tmux `episode-120-mia-companion` (session `dabd7cfc-5f09-425c-bb37-74b7a44b5d86`) and pressed `f` to fork it. The fork `awhat-is-the-34e01880ef1a2dc7` answered, then he talked to it twice more and it published a design page.
+
+What `miadi-session-observability` 0.1.16 holds of that, read in `/src/_sessiondata/dabd7cfc-…/`:
+
+- No hook fires for `/btw`. It is a local command: no `UserPromptSubmit`, nothing in `_claude_user_inputs.json
+
+
+## issue #96 - tide's replies and marks live in the Miadi data root, one folder per user, carried by the daily backup
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-21T13:46:59Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/96
+
+### Current Reality
+## Context
+
+On a Miadi host the review loop (`tan` in a terminal, the `/tide` cockpit and `miadi-chronicle` TUI marks through the Miadi app) keeps everything in each OS user's home:
+
+- replies and delivered reviews in `~/.local/state/plannotator-tmux-review/` (`PLANNOTATOR_TMUX_REVIEW_DIR`), 4.2 MB for `mia` on gaia
+- marks in `~/.plannotator/clients/plannotator-tui/annotations/<project>/<slug>/annotations.json` (`PLANNOTATOR_DATA_DIR`), 1.5 MB for `mia`
+
+`miadi-config`'s `env.sh` places every o
+
+
+## issue #96 - tide's replies and marks live in the Miadi data root, one folder per user, carried by the daily backup
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-21T13:58:15Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/96
+
+### Current Reality
+## Context
+
+On a Miadi host the review loop (`tan` in a terminal, the `/tide` cockpit and `miadi-chronicle` TUI marks through the Miadi app) keeps everything in each OS user's home:
+
+- replies and delivered reviews in `~/.local/state/plannotator-tmux-review/` (`PLANNOTATOR_TMUX_REVIEW_DIR`), 4.2 MB for `mia` on gaia
+- marks in `~/.plannotator/clients/plannotator-tui/annotations/<project>/<slug>/annotations.json` (`PLANNOTATOR_DATA_DIR`), 1.5 MB for `mia`
+
+`miadi-config`'s `env.sh` places every o
+
+
+## issue #97 - miadi-tide 0.1.10: the app's review loop runs the script the package installs, and the guard reads narrow panes
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-21T23:41:49Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/97
+
+### Current Reality
+## Context
+
+- `miadi-tide` 0.1.9 installs the review loop as `/usr/lib/miadi-tide/plannotator-tmux-review.sh`, with its pane-write guard beside it. It also installs `/usr/bin/plannotator-tmux-review` and `/usr/bin/tan`.
+- The Miadi app's web leg (`@miadi/tide` `resolveReviewScript`) still defaults to `/opt/gaia/linux_migration/11-plannotator-tmux-review.sh`. That path exists only on gaia, so on a host with only the package installed, fetching and delivering marks from `/tide` fails with a spawn 
+
+
+## issue #98 - Codex session observability plugin parity and legacy hook cutover
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-22T20:45:48Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/98
+
+### Current Reality
+Carry the supported capture from `claude/miadi-session-observability` into `codex/miadi-session-observability`, retaining the shared session-data layout and Codex legacy streams. Include native lifecycle capture, transcript archives, terminal/team/episode/mission binding, file and publication indexes, sanitation, and continuity skills. Verify actual installed Codex hook support and package discovery. Back up `/home/mia/.codex/hooks.json` and referenced scripts, enable and validate the plugin, th
+
+
+## issue #99 - T1: Pi session-observability package, live inspection, and T8 event contract
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-22T20:53:21Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/99
+
+### Current Reality
+Migrate /opt/binscripts/hooks/pi_hooks into pi/miadi-session-observability. Preserve sanitized capture and terminal/team/episode bindings; augment useful Pi-compatible Claude observability for T8 (live turns, tools/results/errors/model changes, usage/reported costs/timing, prompt/context snapshots). First prepare a local observation service for the current T1 Pi session using /workspace/repos/miadisabelle/pi-agent-observability. Handoff to tmux t8-pi-agent-observability-rel2-miadi-review-a66e014
+
+
+## issue #100 - Kherix phone companion: continue one pinned SwarmClaw conversation with voice and receipts
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-22T23:20:53Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/100
+
+### Current Reality
+Intent: Guillaume can leave the desktop, open a private phone URL and continue the existing Kherix conversation without retelling the working context. Mission 1 was explicitly authorized in conversation on 2026-10-22.
+
+Scope: hermes-agent/kherix-episode-companion, modeled on the Mia phone companion contract. Preserve a pinned agent/chat identity; durable takes and editable English transcription; explicit sends with stable IDs and receipts; reply text/audio; reconnect recovery; private installati
+
+
+## issue #100 - Kherix phone companion: continue one pinned SwarmClaw conversation with voice and receipts
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-23T07:22:08Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/100
+
+### Current Reality
+Intent: Guillaume can leave the desktop, open a private phone URL and continue the existing Kherix conversation without retelling the working context. Mission 1 was explicitly authorized in conversation on 2026-10-22.
+
+Scope: hermes-agent/kherix-episode-companion, modeled on the Mia phone companion contract. Preserve a pinned agent/chat identity; durable takes and editable English transcription; explicit sends with stable IDs and receipts; reply text/audio; reconnect recovery; private installati
+
+
+## issue #101 - Ship repeatable Kherix/Laskmi Hermes tailnet provisioning in miadi-config
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-23T14:26:37Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/101
+
+### Current Reality
+Carry the Gaia linux_migration installer and generic tailnet publisher into an opt-in miadi-config command for a replacement system. Provide distinct Kherix/Laskmi API front-door ports while retaining Hermes shared-profile routing and separate bearer keys. No credentials in package or units; no service publication during package installation. Validate script parity, auth/isolation, clean package installation, and publish the package.
+
+
+## issue #102 - Carry reboot-safe, lid-aware X11 monitor mirroring into miadi-config
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-24T22:06:42Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/102
+
+### Current Reality
+Gaia issue jgwill/gaia#71: after reboot, the optional monitor can remain absent beyond the old 180-second KDE autostart wait. Later detection leaves a 1080p external showing only a corner of the 4K laptop desktop. Replace the one-shot autostart with an opt-in, idempotent user timer that keeps reconciling the display, including lid close/open and reconnect. Keep the Gaia script and packaged command/test copies synchronized; build, container-test, publish and install the package. No factory agent/
+
+
+## issue #103 - A reply that names an episode or a circle carries its address, and a Stop hook sends it back once when it does not
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-25T13:57:57Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/103
+
+### Current Reality
+## Context
+
+- `/etc/claude-code/CLAUDE.md` asks every reply to name Miadi things by their `@miadi/reference-ui` address with `//` (`miadi-chronicle://563`, `miadi-circle://circle:<ms>:<id>`, `miadi-ceremony://<uuid>`), because the terminal opens them through `miadi-chronicle-open` (jgwill/etc-claude-code#23, 2026-10-25).
+- On 2026-10-25 a chronicle seat replied "Episode 563" and "the circle" with no address while the rule stood. Guillaume asked for the instructions, skills and plugins to enforce
+
+
+## issue #103 - A reply that names an episode or a circle carries its address, and a Stop hook sends it back once when it does not
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-25T14:03:10Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/103
+
+### Current Reality
+## Context
+
+- `/etc/claude-code/CLAUDE.md` asks every reply to name Miadi things by their `@miadi/reference-ui` address with `//` (`miadi-chronicle://563`, `miadi-circle://circle:<ms>:<id>`, `miadi-ceremony://<uuid>`), because the terminal opens them through `miadi-chronicle-open` (jgwill/etc-claude-code#23, 2026-10-25).
+- On 2026-10-25 a chronicle seat replied "Episode 563" and "the circle" with no address while the rule stood. Guillaume asked for the instructions, skills and plugins to enforce
+
+
+## issue #107 - The kit's plugins say what they hold for Ava and Mia's dialogue, the voice layer and session footprints
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-27T04:46:42Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/107
+
+### Current Reality
+Opened by the Mino witness seat (tmux `mino-261019-inventory`) on 2026-10-27, at William's word in the review miadi-review://2c8c8f1d-43da-49cf-b4ee-a9cf118658e0 (version 17: https://miadi-review-service.vercel.app/review/2c8c8f1d-43da-49cf-b4ee-a9cf118658e0?v=17). He asked for "an issue for the work in each of the repositories". This one is for the items below. The item-to-repository match is the seat's reading and is reviewed under jgwill/Miadi#871.
+
+## Context
+
+Three of the review's items lan
+
+
+## issue #108 - The phone-capture service names an episode's phone page, so a handoff can carry it to a phone
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-28T17:48:31Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/108
+
+### Current Reality
+## Context
+
+- `phone-capture/server.mjs` knows its public base (`MIADI_PHONE_CAPTURE_PUBLIC_URL`). `ensure.sh` sets it to `https://<tailnet name>:8443` when `tailscale serve` maps the port, and to `http://127.0.0.1:8771` otherwise.
+- No route names the phone page for an episode. The Miadi episode room computes that address on its own host (`companionPhonePage` in `app/chronicle/lib/episodeCompanion.ts`, from `tailscale status`).
+- A QR code of a loopback or plain-http address opens nothing on a 
+
+
+### Triage 2026-10-28 (jgwill/miadi-orchestration-kit#108)
+
+- **Comment**: https://github.com/jgwill/miadi-orchestration-kit/issues/108#issuecomment-6476464979
+- **Verdict**: enhancement
+- **Done**: the work is on main at d5ed7ea. npm test: 57 pass.
+- **Held**: the push and the phone-capture restart.
+
+## issue #109 - An installation report reaches a seat that ships the minor fix and brings the rest to William, for two weeks
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T00:03:04Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/109
+
+### Current Reality
+## Context
+
+- A developer outside the team will install the apt packages in `packages/miadi/deb/` (miadi, miadi-tide, miadi-music and the rest). Until now only the people who build them have installed them.
+- On 2026-10-29 the packages were current with jgwill/Miadi HEAD `db37c74c` for tide. `miadi-chronicle-client` 0.1.3 and `miadi-chronicle-server` 0.1.2 were published the same day to match the plugin pins (commit e081d69).
+- The kit had no issue form, no feedback label and no command that col
+
+
+## issue #110 - [question] On Ubuntu 22.04, what do I need before sudo apt install miadi?
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T00:17:04Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/110
+
+### Current Reality
+### About
+
+installing a package
+
+### Your question
+
+I am on Ubuntu 22.04. Is there anything to set up before `sudo apt install miadi`, and how do I know the tide runtime installed correctly afterwards?
+
+### What you already read
+
+The README of packages/miadi/deb.
+
+_This is the first run of the question channel of jgwill/miadi-orchestration-kit#109, opened by the maintainers to check the loop._
+
+
+## issue #109 - An installation report reaches a seat that ships the minor fix and brings the rest to William, for two weeks
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T00:21:06Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/109
+
+### Current Reality
+## Context
+
+- A developer outside the team will install the apt packages in `packages/miadi/deb/` (miadi, miadi-tide, miadi-music and the rest). Until now only the people who build them have installed them.
+- On 2026-10-29 the packages were current with jgwill/Miadi HEAD `db37c74c` for tide. `miadi-chronicle-client` 0.1.3 and `miadi-chronicle-server` 0.1.2 were published the same day to match the plugin pins (commit e081d69).
+- The kit had no issue form, no feedback label and no command that col
+
+
+## issue #109 - An installation report reaches a seat that ships the minor fix and brings the rest to William, for two weeks
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T00:23:40Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/109
+
+### Current Reality
+## Context
+
+- A developer outside the team will install the apt packages in `packages/miadi/deb/` (miadi, miadi-tide, miadi-music and the rest). Until now only the people who build them have installed them.
+- On 2026-10-29 the packages were current with jgwill/Miadi HEAD `db37c74c` for tide. `miadi-chronicle-client` 0.1.3 and `miadi-chronicle-server` 0.1.2 were published the same day to match the plugin pins (commit e081d69).
+- The kit had no issue form, no feedback label and no command that col
+
+
+## issue #111 - Claude's memory writes are indexed as memory in the session capture: _claude_memory.jsonl beside the files-written index
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T12:47:13Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/111
+
+### Current Reality
+## Context
+
+- Session `5961f157-224e-47b0-8cab-16679a883a4f` (Mia, cwd the kit, 2026-10-30) wrote two memory files: a Write of `operator-desk-symlink-temporary.md` and a Bash `echo >>` to `MEMORY.md`. Both have a line in `_claude_files_written.jsonl` and a copy under `written/home/mia/.claude/projects/-workspace-repos-jgwill-miadi-orchestration-kit/memory/` (files-written capture, 0.1.11).
+- The copy holds the frontmatter Claude Code adds after the Write (`node_type: memory`, `originSessionId`, 
+
+
+## issue #111 - Claude's memory writes are indexed as memory in the session capture: _claude_memory.jsonl beside the files-written index
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T12:59:38Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/111
+
+### Current Reality
+## Context
+
+- Session `5961f157-224e-47b0-8cab-16679a883a4f` (Mia, cwd the kit, 2026-10-30) wrote two memory files: a Write of `operator-desk-symlink-temporary.md` and a Bash `echo >>` to `MEMORY.md`. Both have a line in `_claude_files_written.jsonl` and a copy under `written/home/mia/.claude/projects/-workspace-repos-jgwill-miadi-orchestration-kit/memory/` (files-written capture, 0.1.11).
+- The copy holds the frontmatter Claude Code adds after the Write (`node_type: memory`, `originSessionId`, 
+
+
+## issue #112 - glyps board for futurely do things with plugins with glyphs and also make this visually more interesting...
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T13:25:37Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/112
+
+### Current Reality
+User States & Touchpoints
+👤 User Persona / Actor (The primary user in the scenario)
+📱 Mobile Touchpoint (App interactions, notifications)
+💻 Desktop Touchpoint (Web portal, dashboard actions)
+🛍️ E-commerce / Retail (Physical or digital purchasing)
+🏛️ Physical Environment (In-store, branch, or office location)
+Journey Actions & Flow Triggers
+➡️ Next Step / Forward Flow (Standard linear progression)
+↩️ Loop / Return Flow (Error handling or returning to a previous state)
+�
+
+
+## issue #109 - An installation report reaches a seat that ships the minor fix and brings the rest to William, for two weeks
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-30T13:44:44Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/109
+
+### Current Reality
+## Context
+
+- A developer outside the team will install the apt packages in `packages/miadi/deb/` (miadi, miadi-tide, miadi-music and the rest). Until now only the people who build them have installed them.
+- On 2026-10-29 the packages were current with jgwill/Miadi HEAD `db37c74c` for tide. `miadi-chronicle-client` 0.1.3 and `miadi-chronicle-server` 0.1.2 were published the same day to match the plugin pins (commit e081d69).
+- The kit had no issue form, no feedback label and no command that col
+
+
+## issue #113 - Before an agent reads a file for a mission, Jev says whether it bears on it: the read gate
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-31T00:04:40Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/113
+
+### Current Reality
+## Context
+
+- Episode 564's Jev study (miadi-chronicle://564, `jev-study-261026.md`, levels 8 to 10) names the form "a file is the state, and the agent never reads it", and records that the Factory sent no file as state before 2026-10-30.
+- William, 2026-10-30, in the `miawa` seat: "you don't look at the file, but you send into that decision engine with somehow the mission or what we're trying to do, and it gives you a score like, should you read it or should you not read it ... If it's not, you
+
+
+## issue #114 - [install] After a restore, each agent comes back in its recorded folder with the command it was started with
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-31T01:39:19Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/114
+
+### Current Reality
+### Packages
+
+miadi-tide, miadi-terminal
+
+### System
+
+Ubuntu 24.04
+
+### What you ran
+
+```shell
+# 2026-10-30, eury (Ubuntu 24.04.4, 31 GB RAM, 14 GB available). Session 0 held one Claude Code agent,
+# started as plain `claude` in /home/gmusic. `tide agents list`: 0:1.1 claude running adc302f1 miadi-tide
+miadi-terminal enable restore                 # 12:52
+systemctl --user start tmux-save.service      # 13:25
+tmux kill-server
+systemctl --user start tmux-server.service
+```
+
+### What you expected
+
+
+## issue #115 - [install] A host with tmux already running moves to miadi-tmux with one switch-over command, and tmux attaches again
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-31T01:39:30Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/115
+
+### Current Reality
+### Packages
+
+miadi-tmux, miadi-terminal
+
+### System
+
+Ubuntu 24.04
+
+### What you ran
+
+```shell
+# 2026-10-30, eury. A tmux 3.4 server (Ubuntu's package) was running session 0 with a Claude Code agent in it.
+apt-get install -y miadi-tmux                 # 01:29  miadi-tmux 3.7c-2, tmux 3.4 removed
+miadi-terminal enable restore                 # 12:52  tmux-server.service enabled, not started
+tmux                                          # 13:04  fails, see below
+systemctl --user start tmux-save.se
+
+
+## issue #116 - [install] One command installs the four session-restore packages: miadi-config, miadi-tmux, miadi-tide, miadi-terminal
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-31T01:39:41Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/116
+
+### Current Reality
+### Packages
+
+miadi-config, miadi-tmux, miadi-tide, miadi-terminal, miadi
+
+### System
+
+Ubuntu 24.04
+
+### What you ran
+
+```shell
+# 2026-10-30, eury. Goal: tmux sessions and their agents come back after a reboot.
+apt install miadi-tide -y                                         # 00:36  miadi-tide 0.1.12
+apt-get install -y --no-install-recommends miadi-terminal         # 01:11  miadi-terminal 0.4.0, miadi-config 0.2.0 -> 0.2.8
+apt-get install -y miadi-tmux                                     # 01:
+
+
+## issue #117 - [install] The miadi-tide README says which capture hooks each agent needs to come back after a restore, and where they come from
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-31T19:11:37Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/117
+
+### Current Reality
+### Packages
+
+miadi-tide, miadi-terminal
+
+### System
+
+Ubuntu 24.04
+
+### What you ran
+
+```shell
+# 2026-10-31, eury, after the reboot test reported on jgwill/miadi-orchestration-kit#114.
+dpkg -s miadi-tide miadi-terminal | grep -E '^(Depends|Recommends|Suggests):'
+less /usr/share/doc/miadi-tide/README /usr/share/doc/miadi-terminal/README
+less /usr/lib/miadi-tide/tide-runtime/lib/python3.12/site-packages/tide_runtime/pane_agents.py
+grep -n hooks: ~/.hermes/config.yaml
+cat ~/.pi/agent/settings.json
+
+
+## issue #115 - [install] After miadi-tmux replaces a running tmux, one command moves the live sessions to the new tmux
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-10-31T21:32:14Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/115
+
+### Current Reality
+### Packages
+
+miadi-tmux, miadi-terminal
+
+### System
+
+Ubuntu 24.04
+
+### What you ran
+
+```shell
+# 2026-10-30, eury. A tmux 3.4 server (Ubuntu's package) was running session 0 with a Claude Code agent in it.
+apt-get install -y miadi-tmux                 # 01:29  miadi-tmux 3.7c-2, tmux 3.4 removed
+miadi-terminal enable restore                 # 12:52  tmux-server.service enabled, not started
+tmux                                          # 13:04  fails, see below
+systemctl --user start tmux-save.se
+
+
+## issue #118 - A Termux phone installs tide with apt install miadi-tide, and its daemon runs in tmux under a watchdog
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-01T11:36:24Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/118
+
+### Current Reality
+## Context
+
+- `packages/miadi/deb/termux/` builds `miadi-termux` 0.1.0 and `miadi-terminal` 0.4.0 into the Miadi Termux repository (jgwill/miadi-orchestration-kit#90). At `ee6728f` these are the newest Termux builds, and ilex runs both.
+- `miadi-tide` 0.1.27 (tide 0.9.69) is Ubuntu only: `Architecture: amd64`, a venv at `/usr/lib/miadi-tide/tide-runtime` built from pinned wheels in the package, and two systemd user units. `tide-runtime.service` runs `tide daemon --interval 60.0` with `MIADI_HOME
+
+
+## issue #118 - A Termux phone installs tide with apt install miadi-tide, and its daemon runs in tmux under a watchdog
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-01T11:37:02Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/118
+
+### Current Reality
+## Context
+
+- `packages/miadi/deb/termux/` builds `miadi-termux` 0.1.0 and `miadi-terminal` 0.4.0 into the Miadi Termux repository (jgwill/miadi-orchestration-kit#90). At `ee6728f` these are the newest Termux builds, and ilex runs both.
+- `miadi-tide` 0.1.27 (tide 0.9.69) is Ubuntu only: `Architecture: amd64`, a venv at `/usr/lib/miadi-tide/tide-runtime` built from pinned wheels in the package, and two systemd user units. `tide-runtime.service` runs `tide daemon --interval 60.0` with `MIADI_HOME
+
+
+## issue #119 - Annotating agent sessions has an answer for each kind of host: the Factory and a Miadi phone (T8 with T6 or T5)
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-01T13:35:39Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/119
+
+### Current Reality
+## Context
+
+Not to be resolved today. William, 2026-11-01: the software development team (T8, which holds the episode app on eury and the studio) should talk with the production teams (T6, or T5) about what annotation is on a host like ilex, which does not offer what gaia offers.
+
+Annotation today means `tan <tmux-target>`: review an agent's last reply in a tmux pane, annotate it, and deliver the review back to the agent.
+
+- **gaia, the Factory.** The Ubuntu `miadi-tide` (0.1.27) installs `tan`,
+
+
+## issue #119 - Annotating agent sessions has an answer for each kind of host: the Factory and a Miadi phone (T8 with T6 or T5)
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-01T14:05:12Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/119
+
+### Current Reality
+## Context
+
+William, 2026-11-01: T8 (software development, which holds the episode app on eury and the studio) should talk with T6 or T5 (production) about what annotating agent sessions means on a host like ilex, which does not offer what gaia offers. Not to be resolved today.
+
+### Already done or under way elsewhere
+
+- **The tmux review loop on gaia:** `tan`, `plannotator-tmux-review`, `plannotator-tui` from the fork, shipped by the Ubuntu `miadi-tide` (0.1.27). Replies and marks land in `MIAD
+
+
+## issue #120 - A credential printed in a tool's output is announced at once and listed for rotation
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-01T17:06:38Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/120
+
+### Current Reality
+## Context
+On 2026-11-01, in Claude session `201371c1-de07-4a0e-bdc5-8327cde3996c` (jgwill/Miadi#905 work), a probe command printed a Miadi person token into the Bash output. `miadi-session-observability` 0.1.28 redacted every copy it writes: the session's capture under `/src/_sessiondata/<session_id>/` holds no raw copy. The value still reached the model and Claude Code's own transcript (`~/.claude/projects/…/<session_id>.jsonl`, 2 lines), and nothing told the person. Claude Code lets a PostT
+
+
+## issue #121 - An approved Miadi connector run opens a session on any machine the kit installs on (Ubuntu, Termux)
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-01T18:02:57Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/121
+
+### Current Reality
+## Context
+
+Getting an approved connector run (Miadi Chimera Factory) to a live session takes two repositories:
+
+| step | where | repo |
+|---|---|---|
+| names the session `connector-<yymmdd>-<id>` and writes a brief into `~/.miadi/factory/queue/` | `packages/connector/src/approve.ts` (`runBrief`, `queueBrief`) | jgwill/Miadi |
+| reads the queue every 5 minutes, runs `tmux new-session`, types the launcher, hands over the brief | `factory/intake/` (`intake.mjs`, `lib/deliver.mjs`), `systemd/factor
+
+
+## issue #109 - An installation report reaches a seat that ships the minor fix and brings the rest to William, for two weeks
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-02T02:06:55Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/109
+
+### Current Reality
+## Context
+
+- A developer outside the team will install the apt packages in `packages/miadi/deb/` (miadi, miadi-tide, miadi-music and the rest). Until now only the people who build them have installed them.
+- On 2026-10-29 the packages were current with jgwill/Miadi HEAD `db37c74c` for tide. `miadi-chronicle-client` 0.1.3 and `miadi-chronicle-server` 0.1.2 were published the same day to match the plugin pins (commit e081d69).
+- The kit had no issue form, no feedback label and no command that col
+
+
+## issue #109 - An installation report reaches a seat that ships the minor fix and brings the rest to William, for two weeks
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-02T02:54:00Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/109
+
+### Current Reality
+## Context
+
+- A developer outside the team will install the apt packages in `packages/miadi/deb/` (miadi, miadi-tide, miadi-music and the rest). Until now only the people who build them have installed them.
+- On 2026-10-29 the packages were current with jgwill/Miadi HEAD `db37c74c` for tide. `miadi-chronicle-client` 0.1.3 and `miadi-chronicle-server` 0.1.2 were published the same day to match the plugin pins (commit e081d69).
+- The kit had no issue form, no feedback label and no command that col
+

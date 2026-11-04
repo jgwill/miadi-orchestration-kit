@@ -684,6 +684,7 @@ const VOICE_AT_POST_MS = 20_000;
 export function createApp({
   service, chronicleRoot, uploadsDir, repliesDir, listenerDir, voice = null, defaultEpisode = "",
   locate = () => null, log = () => {}, partStaleMs = PART_STALE_MS, recoverEveryMs = RECOVER_EVERY_MS, decisionsLedger = "",
+  readGateLedger = "",
   links = {},
 }) {
   const linkBases = { loom: linkBase(links.loom), room: linkBase(links.room) };
@@ -856,6 +857,55 @@ export function createApp({
       appendFileSync(decisionsLedger, `${JSON.stringify(ruling)}\n`);
     }
     return { success: true, reply: id, value, ...(ruling ? { ruling: ruling.id } : {}) };
+  }
+
+  // ---- The read gate's rulings (Episode 567, fork 01, 2026-11-03). The witness plugin's
+  // read-gate.mjs asks Jev whether a file bears on a seat's mission and keeps each verdict in
+  // ~/.miadi/decisions/read-gate.jsonl. Here William rules on each verdict, one tap: read or
+  // skip. The ruling record keeps read-gate.mjs's shape, so its `rulings` and `calibrate`
+  // read what this page writes. A ruling after a ruling counts; the latest is in force.
+  const READ_GATE_RULINGS = new Set(["read", "skip"]);
+  function readGateRecords() {
+    if (!readGateLedger || !existsSync(readGateLedger)) return [];
+    return readFileSync(readGateLedger, "utf8").split("\n").filter(Boolean)
+      .map((line) => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+  }
+
+  // GET /api/rulings?limit=N — the decisions no ruling answers yet, newest first.
+  function listRulings(url) {
+    const records = readGateRecords();
+    const ruled = new Map(records.filter((r) => r.kind === "ruling" && r.decision_id).map((r) => [r.decision_id, r]));
+    const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit")) || 60));
+    const pending = records.filter((r) => r.kind === "decision" && !ruled.has(r.id)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    return {
+      success: true, pending: pending.length, ruled: ruled.size, ledger: Boolean(readGateLedger),
+      decisions: pending.slice(0, limit).map((d) => ({
+        id: d.id, at: d.at, mission: String(d.mission ?? "").slice(0, 160), path: d.path, lines: d.lines ?? null, basis: d.basis ?? null,
+        verdict: d.verdict, relevant: d.relevant ?? null, action: d.action ?? null, section: d.section ?? null,
+      })),
+    };
+  }
+
+  // POST /api/rulings/<decision id> {verdict: "read" | "skip", words?} — William's ruling on one verdict.
+  async function postRuling(req, id) {
+    const records = readGateRecords();
+    const decision = records.find((r) => r.kind === "decision" && r.id === id);
+    if (!decision) throw new Refusal(404, `no such read-gate decision: ${id}`);
+    const body = await readJson(req);
+    const verdict = String(body.verdict ?? "");
+    if (!READ_GATE_RULINGS.has(verdict)) throw new Refusal(400, 'verdict is "read" or "skip"');
+    const words = typeof body.words === "string" && body.words.trim() ? body.words.trim().slice(0, 500) : null;
+    const ruling = {
+      kind: "ruling", id: `rul-${decision.id}`, decision_id: decision.id, path: decision.path, verdict,
+      decided_by: String(req.headers["tailscale-user-login"] ?? "") || "william",
+      jev_verdict: decision.verdict ?? null, jev_relevant: decision.relevant ?? null,
+      agrees: decision.verdict === verdict || (decision.verdict === "skim" && verdict === "read"),
+      words, source: "phone", at: new Date().toISOString(),
+    };
+    mkdirSync(resolve(readGateLedger, ".."), { recursive: true });
+    appendFileSync(readGateLedger, `${JSON.stringify(ruling)}\n`);
+    log(`read-gate ${decision.id}: ruled ${verdict}${ruling.agrees ? "" : ` against ${decision.verdict}`}`);
+    return { success: true, ruling: ruling.id, decision: decision.id, verdict, agrees: ruling.agrees };
   }
 
   // Mia's voice for one reply, through the Miadi voice layer (persona mia, bound to the
@@ -1148,6 +1198,9 @@ export function createApp({
         if (req.method === "POST") { sendJson(res, 200, await postReply(req)); return; }
         if (req.method === "GET") { sendJson(res, 200, listReplies(url)); return; }
       }
+      if (req.method === "GET" && url.pathname === "/api/rulings") { sendJson(res, 200, listRulings(url)); return; }
+      const rulingRoute = url.pathname.match(/^\/api\/rulings\/(rg-\d{17}-\d+)$/);
+      if (rulingRoute && req.method === "POST") { sendJson(res, 200, await postRuling(req, rulingRoute[1])); return; }
       const stepRoute = url.pathname.match(/^\/api\/replies\/([0-9a-f-]{36})\/steps\/(\d{1,2})\/audio$/);
       if (stepRoute && (req.method === "GET" || req.method === "HEAD")) {
         const [, id, at] = stepRoute;
@@ -1261,6 +1314,7 @@ async function main() {
     }),
     log: (line) => console.log(`[phone-capture] ${line}`),
     decisionsLedger: join(process.env.MIADI_DECISIONS_DIR || join(homedir(), ".miadi", "decisions"), "mia-return.jsonl"),
+    readGateLedger: process.env.READ_GATE_LEDGER || join(process.env.MIADI_DECISIONS_DIR || join(homedir(), ".miadi", "decisions"), "read-gate.jsonl"),
     links: { loom: process.env.MIADI_PHONE_CAPTURE_LOOM_URL, room: process.env.MIADI_PHONE_CAPTURE_ROOM_URL },
   });
   createServer(handle).listen(port, host, () => {

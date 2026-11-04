@@ -37,7 +37,8 @@ where something lives, what a term means. Post the answer with its sources, then
 `miadi-feedback decide {{ISSUE}} answered "<the answer in one line>"`.
 
 When the documentation was the reason for the question (missing, wrong or unclear), correct it
-in the same turn as a pull request: branch `feedback/{{NUMBER}}-<slug>` from origin/main, exact
+in the same turn as a pull request, in a worktree of your own, never by switching the shared
+checkout (`git worktree add /a/ws/{{REPO}}/feedback-{{NUMBER}} -b feedback/{{NUMBER}}-<slug> origin/main`), exact
 paths, `{{ISSUE}}` in the commit, `gh pr create ... --body "... Refs {{ISSUE}}"`. A documentation
 correction is minor: merge it yourself (`gh pr merge <n> --rebase --delete-branch`) when the author
 is trusted, and leave it open for @{{NOTIFY}} otherwise. A package's README change follows
