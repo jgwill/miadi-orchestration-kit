@@ -655,19 +655,53 @@ def disable(names):
     return 0
 
 
+SAMPLE = "miadi-chronicle:126"
+
+
+def opened_by_click(env=None):
+    """What the opener answers for SAMPLE. With no env, as a click runs it: Terminator started
+    from the desktop, the tmux server started by systemd and the desktop handler see miadi.env
+    and the defaults, never what an interactive shell exports (hu, 2026-11-04: MIADI_URL_BASE
+    came from ~/.bashrc only, so status printed a URL and every click opened nothing)."""
+    if env is None:
+        # PATH stays (Termux keeps its commands elsewhere); no MIADI_* but MIADI_ETC comes along.
+        env = {"HOME": str(HOME), "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin")}
+        for name in ("MIADI_ETC", "PREFIX"):
+            if os.environ.get(name):
+                env[name] = os.environ[name]
+    try:
+        return subprocess.run([OPENER, SAMPLE], capture_output=True, text=True, timeout=10, env=env)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def front_of(opened):
+    if opened and opened.returncode == 0:
+        return opened.stdout.strip().split("/api/chronicle/open")[0]
+    return ""
+
+
+def front_missing():
+    """What to tell a person whose clicks have no front, naming the one their shell has."""
+    shell = front_of(opened_by_click(dict(os.environ)))
+    if shell:
+        return (f"no front for a click: {shell} comes from your shell's environment only, which"
+                f" Terminator, the tmux server and the desktop do not read: miadi-terminal front {shell}")
+    return "no Miadi front yet: miadi-terminal front https://<your Miadi>"
+
+
 def front_note():
-    opened = run(OPENER, "miadi-chronicle:126")
-    if not opened or opened.returncode != 0:
-        print("no Miadi front yet: miadi-terminal front https://<your Miadi>")
+    if not front_of(opened_by_click()):
+        print(front_missing())
 
 
 def front(args):
     if not args:
-        opened = run(OPENER, "miadi-chronicle:126")
-        if opened and opened.returncode == 0:
-            print(opened.stdout.strip().split("/api/chronicle/open")[0])
+        url = front_of(opened_by_click())
+        if url:
+            print(url)
             return 0
-        print("no front set: miadi-terminal front https://<your Miadi>")
+        print(front_missing())
         return 1
     url = args[0].rstrip("/")
     if not url.startswith(("https://", "http://")):
@@ -691,13 +725,11 @@ def front(args):
 
 
 def status():
-    sample = "miadi-chronicle:126"
-    opened = run(OPENER, sample)
-    if opened and opened.returncode == 0:
-        print(f"a click on {sample} opens: {opened.stdout.strip()}")
+    opened = opened_by_click()
+    if front_of(opened):
+        print(f"a click on {SAMPLE} opens: {opened.stdout.strip()}")
     else:
-        reason = opened.stderr.strip() if opened else f"{OPENER} did not run"
-        print(f"a click on {sample} opens nothing: {reason}")
+        print(f"a click on {SAMPLE} opens nothing: {front_missing()}")
     for integration in INTEGRATIONS:
         if not integration.installed():
             continue
