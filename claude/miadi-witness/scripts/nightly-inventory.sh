@@ -57,6 +57,9 @@ summary=$(printf '%s' "$json" | node -e '
 		.filter(({ file }) => {
 			try {
 				const r = JSON.parse(fs.readFileSync(file, "utf8"));
+				// Economy (William, 2026-11-04: "You might be overdoing with all these subagents"):
+				// a Miette insight seat, a smoke or probe run keeps its facts and is not queued for reading.
+				if (/-miette-insight$|smoke|probe/.test(r.tmux_session_name ?? "")) return false;
 				return !(r.observations ?? []).some((o) => o.by && !String(o.by).startsWith("inventory-keeper (miadi-witness scripts"));
 			} catch { return false; }
 		}).map(({ id }) => id);
