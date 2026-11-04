@@ -141,6 +141,13 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
   # A container has no systemd user manager, so the units are checked on a host, not here.
   if [ -f /usr/share/miadi-terminal/session-continuity/session-continuity.conf ] && command -v tmux >/dev/null; then
     apt-get install -y -qq git procps >/dev/null 2>&1
+    # Before a new server: continuum skips its restore when it counts another tmux process, and
+    # the hook of the restore before may still run tide agents restore, which calls tmux.
+    settle() {
+      for i in $(seq 60); do
+        if pgrep -x tmux >/dev/null || pgrep -f "tide-runtime/bin/tid[e] agents restore" >/dev/null; then sleep 0.5; else break; fi
+      done
+    }
     export HOME=/root
     printf "set -g @plugin \x27tmux-plugins/tpm\x27\nrun \x27~/.tmux/plugins/tpm/tpm\x27\n" > ~/.tmux.conf
     miadi-terminal enable restore >/tmp/restore-enable.log 2>&1 || { cat /tmp/restore-enable.log; exit 1; }
@@ -155,10 +162,14 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
       grep -q "^    tmux kill-server$" /tmp/restore-enable.log || { cat /tmp/restore-enable.log; exit 1; }
       tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh quiet"
       tmux kill-server
-      sleep 2
+      # As the printed switch-over does: the replaced server must have exited, or continuum
+      # counts it at the new server start and skips the restore (failed so on ubuntu:22.04).
+      settle
+      # Only the hook log of this restore counts: an earlier one let the wait end before the restore did.
+      rm -rf ~/.miadi/navigator/restore
       tmux new-session -d
       for i in $(seq 30); do ls ~/.miadi/navigator/restore/hook-*.log >/dev/null 2>&1 && break; sleep 1; done
-      sleep 2
+      for i in $(seq 20); do tmux has-session -t before 2>/dev/null && break; sleep 0.5; done
       test "$(tmux list-panes -t before -F "#{pane_current_path}")" = /tmp
       script -qec "TERM=xterm tmux attach -t before \; detach-client" /dev/null </dev/null >/tmp/attach.log 2>&1 || { cat /tmp/attach.log; exit 1; }
       echo "restore: enable printed the switch-over, and after it session before is back in /tmp and tmux attaches"
@@ -175,10 +186,10 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     tmux run-shell "$HOME/.tmux/plugins/tmux-resurrect/scripts/save.sh quiet"
     test -e ~/.local/share/tmux/resurrect/last
     tmux kill-server
-    sleep 2
+    settle
     tmux new-session -d
     for i in $(seq 30); do ls ~/.miadi/navigator/restore/hook-*.log >/dev/null 2>&1 && break; sleep 1; done
-    sleep 2
+    for i in $(seq 20); do tmux has-session -t alpha 2>/dev/null && tmux has-session -t beta 2>/dev/null && break; sleep 0.5; done
     test "$(tmux ls -F "#{session_name}" | sort | tr "\n" " ")" = "alpha beta "
     test "$(tmux list-panes -a -F "#{session_name}:#{pane_current_path}" | sort | tr "\n" " ")" = "alpha:/tmp beta:/etc beta:/var "
     test "$(cat ~/.miadi/navigator/restore/hook-*.log | grep -c "tmux restore finished")" = 1
