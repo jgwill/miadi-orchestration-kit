@@ -11,8 +11,10 @@
 #   held   The output contains the value of a credential this host holds: a variable in
 #          the session environment named like one (*TOKEN*, *SECRET*, *PASSWORD*,
 #          *API_KEY*, *ACCESS_KEY*, *PRIVATE_KEY*, *CREDENTIAL*, *AUTH*, *_PAT). That is a
-#          real credential, so the person is told to rotate it, by variable name, with the
-#          word it followed in the output, so the claim can be checked at a glance.
+#          real credential, so the person is told to mask the local copies with
+#          scripts/miadi-scrub-secrets.py, by variable name, with the word it followed in the
+#          output, so the claim can be checked at a glance. Earned 2026-11-04: rotating every
+#          credential printed on a host is not what its owner will do, nor what they asked.
 #   shaped A string shaped like a vendor credential (ghp_, sk-ant-, mwt_, AKIA, a JWT, a
 #          private key block, a password in a URL) that is no value this host holds. It
 #          may be live somewhere else, so the person is told to check it, by kind and
@@ -178,14 +180,14 @@ fresh=$(printf '%s\n' "$findings" | TOLD="$told" awk -F'\t' '
 names=$(printf '%s\n' "$fresh" | awk -F'\t' '$1 == "held" { printf "%s$%s (%s)", (n++ ? ", " : ""), $2, $3 }')
 shapes=$(printf '%s\n' "$fresh" | awk -F'\t' '$1 == "shaped" && n < 3 { printf "%s%s %s", (n++ ? ", " : ""), $2, $3 }')
 
-jq -nc --arg tool "$tool_name" --arg names "$names" --arg shapes "$shapes" '
+jq -nc --arg tool "$tool_name" --arg names "$names" --arg shapes "$shapes" --arg scrub "$HERE/../scripts/miadi-scrub-secrets.py" '
   (if $names != "" then
-     $tool + " printed " + $names + ", held on this host: rotate it."
+     $tool + " printed " + $names + ", held on this host. Mask the local copies: miadi-scrub-secrets.py --apply."
      + (if $shapes != "" then " Also a string shaped like a credential (" + $shapes + "): check it." else "" end)
    else
      $tool + " printed a string shaped like a credential (" + $shapes + ") that this host does not hold: check which before rotating."
    end) as $msg |
   {systemMessage: $msg,
    hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext:
-     ($msg + " The person has seen this. Do not repeat or reuse the value, and print no more secrets: refer to variables by name, never by expansion.")}}'
+     ($msg + " The person has seen this. Do not repeat or reuse the value, and print no more secrets: refer to variables by name, never by expansion. The script is " + $scrub + ".")}}'
 exit 0

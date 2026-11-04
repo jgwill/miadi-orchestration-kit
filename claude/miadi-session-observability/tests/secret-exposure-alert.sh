@@ -34,7 +34,7 @@ edit_out() {  # <the file as it was before an Edit>
 # held: the value of a credential in this environment.
 export EXAMPLE_SERVICE_TOKEN="$(random 40)"
 said=$(bash_out "probe answered with $EXAMPLE_SERVICE_TOKEN: 403")
-expect "a held credential is named by its variable" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("\\$EXAMPLE_SERVICE_TOKEN") and test("rotate it")')")"
+expect "a held credential is named by its variable" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("\\$EXAMPLE_SERVICE_TOKEN") and test("miadi-scrub-secrets")')")"
 expect "and the model is told not to repeat it" "yes" "$(yes_if "$(printf '%s' "$said" | jq '.hookSpecificOutput.additionalContext | test("Do not repeat")')")"
 expect "the announcement never carries the value" "0" "$(printf '%s' "$said" | grep -cF "$EXAMPLE_SERVICE_TOKEN")"
 expect "one line is listed" "1" "$(lines)"
@@ -64,7 +64,7 @@ expect "listed to rotate" "rotate" "$(jq -r '.action' "$ledger" | tail -1)"
 mwt="mwt_$(random 40)"
 said=$(bash_out "foundation route, token=$mwt: 403")
 expect "a shaped string is named by kind and prefix" "yes" "$(yes_if "$(printf '%s' "$said" | jq --arg p "${mwt:0:6}***" '.systemMessage | test("Miadi person token") and contains($p) and test("check which before rotating")')")"
-expect "and is not called a credential to rotate" "no" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("rotate it")')")"
+expect "and is not called a credential held here" "no" "$(yes_if "$(printf '%s' "$said" | jq '.systemMessage | test("held on this host")')")"
 expect "the announcement never carries the value" "0" "$(printf '%s' "$said" | grep -cF "$mwt")"
 expect "listed to check" "check Miadi person token" "$(jq -r '.action + " " + .shaped[0].kind' "$ledger" | tail -1)"
 expect "the list never carries the value" "0" "$(grep -cF "$mwt" "$ledger")"
