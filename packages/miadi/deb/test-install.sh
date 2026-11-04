@@ -144,7 +144,9 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
       echo "restore: enable printed the switch-over, and after it session before is back in /tmp and tmux attaches"
       tmux kill-server
       rm -rf ~/.local/share/tmux/resurrect ~/.miadi/navigator/restore
-      sleep 2
+      # continuum skips a restore when it counts another tmux process at server start: wait for
+      # every tmux process of this cycle to end, not a fixed time (a run failed so on 2026-11-03).
+      for i in $(seq 40); do pgrep -x tmux >/dev/null || break; sleep 0.5; done
     fi
     tmux new-session -d -s alpha -c /tmp
     tmux new-session -d -s beta -c /etc
