@@ -9,16 +9,15 @@ package (3.2a on 22.04). Packages that depend on tmux take this one.
 Why one version: a tmux client cannot attach to a server of another version.
 On gaia, on 2026-10-03, a 3.2a server and a 3.7c client gave "open terminal
 failed: not a terminal" for every session (jgwill/gaia#90). After installing,
-a server that still runs the old version cannot be attached, and the postinst
+a server that still runs another release cannot be attached, and the postinst
 names each user who has one. With miadi-terminal's restore enabled, a server
 that tmux-server.service started moves over with
   systemctl --user restart tmux-server.service
 (it saves first, then restores the sessions, and tide relaunches the agents).
-A server started any other way moves over from a terminal outside tmux with
-  systemctl --user start tmux-save.service
-  tmux kill-server
-  systemctl --user start tmux-server.service
-tmux kill-server ends the agents running in that server
+For a server started any other way, `miadi-terminal enable restore` prints the
+commands to run from a terminal outside tmux: point the server at the save
+folder the restore reads, save, end it, wait for it to exit, start
+tmux-server.service. Ending a server ends the agents running in it
 (jgwill/miadi-orchestration-kit#114, jgwill/miadi-orchestration-kit#115).
 
 The sessions that survive a reboot come from miadi-terminal:

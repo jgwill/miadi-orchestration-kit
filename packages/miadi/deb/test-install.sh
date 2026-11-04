@@ -105,7 +105,7 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     echo "a session named circle:1791110394383:jj1ql8 is reached by its name, down to its panes"
     # The distribution server runs on from the replaced binary: the postinst names it, and this
     # tmux cannot attach to it (jgwill/miadi-orchestration-kit#115).
-    grep -q "^miadi-tmux: user root still runs a tmux server from the tmux this package replaced" /tmp/install.log
+    grep -q "^miadi-tmux: user root still runs a tmux 3\\.[0-9a-z]* server from the tmux this package replaced" /tmp/install.log
     test "$(readlink /proc/$(tmux display -p -t before "#{pid}")/exe)" = "/usr/bin/tmux (deleted)"
     if script -qec "TERM=xterm tmux attach -t before" /dev/null </dev/null >/tmp/attach.log 2>&1; then
       echo "tmux attached to the server of the replaced binary" >&2; exit 1

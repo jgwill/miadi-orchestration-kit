@@ -526,27 +526,38 @@ class Restore:
         self.switch_over()
 
     def switch_over(self):
-        """A tmux server that tmux-server.service did not start has no save at shutdown and no
-        restore at boot: say how to move it over (jgwill/miadi-orchestration-kit#115)."""
+        """How to move a running tmux server under tmux-server.service (jgwill/miadi-orchestration-kit#115).
+        Required when it runs from a tmux since replaced by another release: this tmux cannot attach
+        to it. Otherwise tmux-save.timer saves it every 15 minutes and the next boot restores that
+        save; only the save at shutdown is missing. The commands first point the server at the save
+        folder the restore reads: a server started before enable never read session-continuity.conf,
+        and tmux-resurrect then saves into ~/.tmux/resurrect when that folder exists."""
         running = run("tmux", "ls")
         if running is None or running.returncode != 0:
             return
-        active = run("systemctl", "--user", "is-active", "tmux-server.service")
-        if active is not None and active.stdout.strip() == "active":
-            return
         current = tmux_version("tmux")
-        for version in sorted(replaced_tmux() - {current}):
+        replaced = sorted(replaced_tmux() - {current})
+        active = run("systemctl", "--user", "is-active", "tmux-server.service")
+        if not replaced and active is not None and active.stdout.strip() == "active":
+            return
+        for version in replaced:
             print(f"  a {version} server still runs here from a binary since replaced: {current} cannot attach")
-            print("  to it (\"open terminal failed: not a terminal\")")
-        print("  a tmux server runs outside tmux-server.service: nothing saves it at shutdown or restores it.")
-        print("  Move it over from a terminal outside tmux:")
+            print("  to it (\"open terminal failed: not a terminal\"). Move it over, from a terminal outside tmux:")
+        if not replaced:
+            print("  a tmux server runs outside tmux-server.service: tmux-save.timer saves it every 15 minutes")
+            print("  and the next boot restores that save, but nothing saves it at shutdown. To have that too,")
+            print("  move it over, from a terminal outside tmux:")
+        print('    tmux set-option -g @resurrect-dir "$HOME/.local/share/tmux/resurrect"')
         print("    systemctl --user start tmux-save.service")
         print("    tmux kill-server")
+        print('    for i in $(seq 20); do pgrep -u "$USER" -x tmux >/dev/null || break; sleep 0.5; done')
         print("    systemctl --user start tmux-server.service")
+        print("  tmux kill-server ends the agents running in that server. The restore brings their panes back")
         if shutil.which("tide"):
-            print("    tide agents list")
-        print("  tmux kill-server ends the agents running in it. The restore brings their panes back; resume")
-        print("  by hand any agent tide does not bring back (jgwill/miadi-orchestration-kit#114)")
+            print("  and tide relaunches the agents: once a log appears in ~/.miadi/navigator/restore/,")
+            print("  tide agents list shows which came back. Resume by hand any it did not (#114).")
+        else:
+            print("  (sudo apt install miadi-tide relaunches the agents too).")
 
     def disable(self):
         path = tmux_config()
