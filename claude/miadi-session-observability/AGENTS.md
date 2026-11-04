@@ -37,6 +37,11 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   that got past the guard (0.1.29), 41 checks.
 - `scripts/miadi-scrub-secrets.py` and `tests/scrub-secrets.sh`: masks credential values in
   transcripts and the capture, in place and at the same length (0.1.33).
+- `hooks/steering_inbox.sh`, `hooks/steering_inbox.mjs` and `tests/steering-inbox.test.mjs`: the
+  session's steering inbox (0.1.34, jgwill/Miadi#930), 21 checks. `@miadi/connector` drops a person's
+  correction in `<factory>/steering/<session_id>/pending/`, and these hooks present it to the model
+  at its next continuation in the same turn. Its own entries in `hooks.json`, so the capture scripts
+  stay unchanged. The contract is at the top of the `.mjs`.
 - `hooks/workspace_clone_guard.sh` and `tests/workspace-clone-guard.sh`: the workspace clone
   guard (0.1.13), 21 checks. A separate PreToolUse entry in `hooks.json`, so the capture
   scripts carried to `/opt/binscripts/hooks/claude_hooks` stay unchanged.
