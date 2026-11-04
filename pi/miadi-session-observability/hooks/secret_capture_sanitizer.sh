@@ -23,9 +23,9 @@ hook_secret_sanitize_stream() {
         s{(gh[pousr]_[A-Za-z0-9_]{20,})}{redact($1)}ge;
         s{(github_pat_[A-Za-z0-9_]{20,})}{redact($1)}ge;
         s{(glpat-[A-Za-z0-9_-]{18,})}{redact($1)}ge;
-        s{(sk-ant-[A-Za-z0-9_-]{20,})}{redact($1)}ge;
-        s{(sk-proj-[A-Za-z0-9_-]{20,})}{redact($1)}ge;
-        s{(sk-[A-Za-z0-9_-]{20,})}{redact($1)}ge;
+        s{((?<![A-Za-z0-9])sk-ant-[A-Za-z0-9_-]{20,})}{redact($1)}ge;
+        s{((?<![A-Za-z0-9])sk-proj-[A-Za-z0-9_-]{20,})}{redact($1)}ge;
+        s{((?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,})}{redact($1)}ge;
         s{(xox[baprs]-[A-Za-z0-9-]{10,})}{redact($1)}ge;
         s{(AIza[0-9A-Za-z_-]{35})}{redact($1)}ge;
         s{(ya29\.[0-9A-Za-z_-]{20,})}{redact($1)}ge;

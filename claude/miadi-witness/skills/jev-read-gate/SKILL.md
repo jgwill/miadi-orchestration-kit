@@ -70,6 +70,31 @@ the questions; Jev decides. The form is Episode 564's levels 8 and 9 (miadi-chro
   In the first trial it read 0.73 to 0.93 on every file and separated nothing. Treat it as a
   column to watch, not a cut, until its criteria are rewritten (kit issue, action step 4).
 
+## The rulings loop (added 2026-11-03, Episode 567 fork 01)
+
+The bars become the person's through rulings, never by hand.
+
+1. **What waits.** `node "$G" rulings [--mission <words>] [--json]` lists the decisions no ruling
+   answers yet, newest first, grouped by mission.
+2. **Where the person rules.** The phone page of `mia-episode-companion` (the one that takes his
+   takes, `https://<host>.<tailnet>.ts.net:8443/`) shows the waiting verdicts under his thread,
+   with two buttons per verdict, Read it or Skip it. Each tap appends a ruling to the same ledger
+   (`source: phone`, his login as `decided_by`, his words when he types any). A seat rules from the
+   command line with `--ruling`, as before. The latest ruling on a decision is the one in force.
+3. **What the rulings set.** `node "$G" calibrate --class relevant [--target 0.95] [--min 20]`
+   reports, for each cut from 0.5 to 0.95, how often a `read` ruling sat above it and a `skip`
+   ruling below its mirror, and suggests `read_at` and `skip_at` once a cut has twenty rulings
+   agreeing 95% of the time (lane-check's shape). `--class action` does the same for the action
+   bar. `--write --by <who>` writes the suggestion to `read-gate-policy.json` beside the script,
+   with the name, the count and the date; the gate reads that file on every run and prints whose
+   bars it used. Under twenty rulings nothing is written.
+4. **The PDE room feeds the gate.** `--pde <pde-dir>` reads the decomposition's
+   `context.files_needed`, keeps the entries that name a path existing on this host, and judges
+   them; the entries that are prose or name another host are listed and left.
+5. **`new_to_us`** now asks, against `known_items` (the known text split on lines and semicolons),
+   for one thing the file says that no item covers. Whether it separates is measured on the next
+   runs; until then it is a column, not a cut.
+
 ## What leaves the host, and what it costs
 
 The mission, the known text, and each file's text (or its outline) go to the Jev service the

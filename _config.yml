@@ -1,0 +1,6 @@
+# GitHub Pages (Jekyll) build settings.
+# The stcissue bot's activity logs are not documentation. STCISSUE.md carries
+# bytes that are not UTF-8 and stops the build.
+exclude:
+  - STC.md
+  - STCISSUE.md

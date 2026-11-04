@@ -1,0 +1,13 @@
+{
+  "domain": "ceremony",
+  "note": "Version 1 of each prompt, as seeded on 2026-11-03 (Episode 569, jgwill/Miadi#920). The ceremonial prompt store holds the current versions and is where they are revised. podcast-prompts.mjs reads them from there.",
+  "prompts": [
+    { "name": "miadi-podcast-academic-survey", "file": "miadi-podcast-academic-survey.md", "config": { "pass": 1, "next": "miadi-podcast-dialogue" } },
+    { "name": "miadi-podcast-dialogue", "file": "miadi-podcast-dialogue.md", "config": { "pass": 2, "cast": ["ava", "mia", "miette", "mino", "tushell"], "listener": "Guillaume", "minutes": 3, "persona_prompt_prefix": "miadi-podcast-persona-", "voice_tool": "voice_publish_dialogue" } },
+    { "name": "miadi-podcast-persona-mia", "file": "miadi-podcast-persona-mia.md", "config": { "persona": "mia", "label": "Mia" } },
+    { "name": "miadi-podcast-persona-ava", "file": "miadi-podcast-persona-ava.md", "config": { "persona": "ava", "label": "Ava" } },
+    { "name": "miadi-podcast-persona-miette", "file": "miadi-podcast-persona-miette.md", "config": { "persona": "miette", "label": "Miette" } },
+    { "name": "miadi-podcast-persona-mino", "file": "miadi-podcast-persona-mino.md", "config": { "persona": "mino", "label": "Mino" } },
+    { "name": "miadi-podcast-persona-tushell", "file": "miadi-podcast-persona-tushell.md", "config": { "persona": "tushell", "label": "Tushell" } }
+  ]
+}
