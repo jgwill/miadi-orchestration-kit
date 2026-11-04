@@ -8,6 +8,7 @@
  *
  *   PostToolUse, PostToolUseFailure   additionalContext, at the next continuation in the same turn
  *   Stop                              decision "block": the turn ended with no further tool, so it continues
+ *   stop-watch (asyncRewake)          exit 2: it landed while the turn was ending, after Stop had looked; this wakes the model
  *   UserPromptSubmit                  additionalContext: it reached a seat already idle, or one resumed after a crash
  *
  * Layout under <root>/<session_id>/, all one Unix account's (0700):
@@ -157,7 +158,7 @@ export function claimPending(dir, sessionId, now = Date.now()) {
   return claimed;
 }
 
-const EVENTS = { "post-tool-use": "PostToolUse", "post-tool-use-failure": "PostToolUseFailure", "user-prompt-submit": "UserPromptSubmit", stop: "Stop" };
+const EVENTS = { "post-tool-use": "PostToolUse", "post-tool-use-failure": "PostToolUseFailure", "user-prompt-submit": "UserPromptSubmit", stop: "Stop", "stop-watch": "Stop" };
 
 export function outputFor(event, text) {
   if (event === "stop") return { decision: "block", reason: text };
@@ -167,22 +168,25 @@ export function outputFor(event, text) {
 export function drain(event, input, env = process.env, write = (s) => writeSync(1, s)) {
   // Inside a subagent the context would reach that subagent, and the main thread owns the correction.
   // On an interrupted tool Claude Code drops hook messages, so a claim there would be lost.
-  if (!EVENTS[event] || !input.session_id || input.agent_id || input.is_interrupt) return;
+  if (!EVENTS[event] || !input.session_id || input.agent_id || input.is_interrupt) return false;
   const dir = join(steeringRoot(env), safe(input.session_id));
-  if (!statSafe(dir)) return;
+  if (!statSafe(dir)) return false;
   const now = Date.now();
   const claimed = withLock(dir, now, () => claimPending(dir, input.session_id, now));
-  if (!claimed?.length) return;
-  const output = JSON.stringify(outputFor(event, claimed.map((c) => c.text).join("\n\n")));
+  if (!claimed?.length) return false;
+  const text = claimed.map((c) => c.text).join("\n\n");
+  // The watcher's exit 2 hands its output to the model as written; the others answer in JSON.
+  const output = event === "stop-watch" ? text : JSON.stringify(outputFor(event, text));
   try {
     write(output);
   } catch (error) {
     for (const c of claimed) receipt(dir, { steer: c.envelope.steer, state: "emit_failed", reason: error.message });
-    return;
+    return false;
   }
   for (const c of claimed) {
-    receipt(dir, { steer: c.envelope.steer, state: "emitted", hook_event: EVENTS[event], ...(input.tool_use_id ? { tool_use_id: input.tool_use_id } : {}), ...(input.tool_name ? { tool_name: input.tool_name } : {}) });
+    receipt(dir, { steer: c.envelope.steer, state: "emitted", hook_event: event === "stop-watch" ? "Stop (rewake)" : EVENTS[event], ...(input.tool_use_id ? { tool_use_id: input.tool_use_id } : {}), ...(input.tool_name ? { tool_name: input.tool_name } : {}) });
   }
+  return true;
 }
 
 /** Say that this session's hooks are loaded. A session started before this adapter has no file, and the connector answers unsupported. */
@@ -212,7 +216,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const input = JSON.parse(readFileSync(0, "utf8"));
     if (event === "session-start") announce(input);
     else if (event === "session-end") retire(input);
-    else drain(event, input);
+    else if (event === "stop-watch") {
+      if (drain(event, input, process.env, (s) => writeSync(2, s))) process.exit(2);
+    } else drain(event, input);
   } catch (error) {
     // A broken inbox must not stop the agent's tool call. The envelope stays queued, or its claim reads unknown.
     process.stderr.write(`steering inbox: ${error.message}\n`);

@@ -213,6 +213,17 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/steering_inbox.sh\" stop-watch",
+            "timeout": 45,
+            "asyncRewake": true,
+            "rewakeSummary": "A person's steering correction arrived"
+          }
+        ]
       }
     ],
     "SessionEnd": [

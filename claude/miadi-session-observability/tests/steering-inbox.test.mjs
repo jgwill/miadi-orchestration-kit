@@ -1,7 +1,7 @@
 // The steering inbox of a Claude Code session (jgwill/Miadi#930): the hook script itself, run as Claude Code runs it, on real files.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -144,6 +144,43 @@ test("no further tool: Stop continues the turn with the correction, once", () =>
   assert.equal(out.decision, "block");
   assert.match(out.reason, /Change course\./);
   assert.equal(hook(root, "stop", { session_id: SID, stop_hook_active: true }), null);
+});
+
+test("a correction landing while the turn ends: the watcher finds it, and exit 2 hands it to the model", async () => {
+  const root = rootDir();
+  hook(root, "session-start", { session_id: SID, source: "startup", transcript_path: "/t.jsonl" });
+  const child = spawn("bash", [HOOK, "stop-watch"], { env: { ...process.env, MIADI_STEERING_DIR: root, MIADI_STEERING_WATCH_SECONDS: "10" } });
+  let stderr = "";
+  child.stderr.on("data", (d) => (stderr += d));
+  child.stdin.end(JSON.stringify({ session_id: SID, stop_hook_active: false }));
+  await new Promise((r) => setTimeout(r, 1200));
+  drop(root);
+  const code = await new Promise((r) => child.on("exit", r));
+  assert.equal(code, 2);
+  assert.match(stderr, /<steering_correction>\nChange course\./);
+  const [emitted] = receipts(root);
+  assert.equal(emitted.state, "emitted");
+  assert.equal(emitted.hook_event, "Stop (rewake)");
+  assert.equal(count(root, "claimed"), 1);
+});
+
+test("the watcher gives up quietly, and costs nothing on a session with no adapter", () => {
+  const root = rootDir();
+  hook(root, "session-start", { session_id: SID, source: "startup", transcript_path: "/t.jsonl" });
+  const quiet = spawnSync("bash", [HOOK, "stop-watch"], { input: JSON.stringify({ session_id: SID }), encoding: "utf8", env: { ...process.env, MIADI_STEERING_DIR: root, MIADI_STEERING_WATCH_SECONDS: "1" } });
+  assert.equal(quiet.status, 0);
+  assert.equal(quiet.stderr, "");
+  const start = Date.now();
+  const none = spawnSync("bash", [HOOK, "stop-watch"], { input: JSON.stringify({ session_id: OTHER }), encoding: "utf8", env: { ...process.env, MIADI_STEERING_DIR: root, MIADI_STEERING_WATCH_SECONDS: "30" } });
+  assert.equal(none.status, 0);
+  assert.ok(Date.now() - start < 2000);
+});
+
+test("the Stop entry that watches runs in the background and wakes the model", () => {
+  const hooks = JSON.parse(readFileSync(join(dirname(HOOK), "hooks.json"), "utf8")).hooks.Stop.flatMap((m) => m.hooks);
+  const watcher = hooks.find((h) => h.command?.includes("stop-watch"));
+  assert.equal(watcher.asyncRewake, true);
+  assert.ok(watcher.timeout > 30);
 });
 
 test("expired at consumption: never shown, moved, with its receipt", () => {

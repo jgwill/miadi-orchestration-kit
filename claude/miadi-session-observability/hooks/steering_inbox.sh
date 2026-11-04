@@ -8,6 +8,25 @@ root="${MIADI_STEERING_DIR:-${MIADI_FACTORY_DIR:-/srv/miadi/factory}/steering}"
 IFS= read -r -d '' -n 4096 head || true
 case "$event" in
   session-start | session-end) ;;
+  stop-watch)
+    # The turn is ending. A correction can still land while the other Stop hooks finish, after the
+    # Stop hook below has looked. This runs in the background (asyncRewake): for a short while it
+    # looks again, and exit 2 from steering_inbox.mjs wakes the model with the correction.
+    [[ "$head" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([0-9a-fA-F-]{8,64})\" ]] || exit 0
+    dir="$root/${BASH_REMATCH[1]}"
+    [ -f "$dir/adapter.json" ] || exit 0
+    shopt -s nullglob
+    found=
+    for ((i = 0; i < ${MIADI_STEERING_WATCH_SECONDS:-30}; i++)); do
+      pending=("$dir/pending/"*.json)
+      if ((${#pending[@]})); then
+        found=1
+        break
+      fi
+      sleep 1
+    done
+    [ -n "$found" ] || exit 0
+    ;;
   *)
     # The top-level session_id: inside a nested string its quotes are escaped, so this cannot match there.
     [[ "$head" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([0-9a-fA-F-]{8,64})\" ]] || exit 0
