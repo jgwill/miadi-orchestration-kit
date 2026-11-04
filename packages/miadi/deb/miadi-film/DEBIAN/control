@@ -1,0 +1,21 @@
+Package: miadi-film
+Version: 0.1.0
+Section: video
+Priority: optional
+Architecture: all
+Depends: kdenlive, ardour, ffmpeg, mediainfo, libimage-exiftool-perl, sox, v4l-utils
+Recommends: miadi-music, obs-studio, frei0r-plugins, mkvtoolnix
+Suggests: miadi, audacity
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: Film on a Miadi host: edit, design the sound, inspect the media
+ Installs the tools a Miadi host needs to make a film with a Chronicle
+ episode (Episode 120, relational film production):
+  kdenlive   editing; a .kdenlive project is MLT XML, so an agent can read
+             it and add markers while the editor makes every cut
+  ardour     sound design and mix; a session is XML and runs Lua scripts
+  ffmpeg, mediainfo, exiftool, sox   probe, convert and tag media
+  v4l-utils  cameras on Video4Linux
+ Recommends miadi-music (the score), obs-studio (screen and camera
+ recording), frei0r-plugins (Kdenlive effects) and mkvtoolnix.
+ `miadi-film check` reports each tool, its version and its package.

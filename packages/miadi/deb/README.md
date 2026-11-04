@@ -32,6 +32,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
 | `miadi-music-wheels-cp310`, `-cp311`, `-cp312` | the wheels for that venv, one package per Python (Ubuntu 22.04, Debian 12, Ubuntu 24.04); apt installs the one matching `python3` | 0.1.0 |
 | `miadi-music-video` | score videos for an episode: ImageMagick and ffmpeg beside the two above (recommended by `miadi-music`) | 0.1.0 |
+| `miadi-film` | a film made with an episode: Kdenlive (editing), Ardour (sound design), ffmpeg, mediainfo, exiftool, sox, v4l-utils, and the `miadi-film` command; recommends `miadi-music`, OBS Studio, frei0r, mkvtoolnix | 0.1.0 |
 | `miadi-feedback` | for a maintainer's host: an issue opened with one of the kit's forms wakes a seat that ships a minor fix, answers a question, or brings the rest to a maintainer | 0.1.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
@@ -354,6 +355,19 @@ To move a pin: change `prep/<half>.packages`, bump the half's `Version:`,
 build, test, publish. A Node release is a new `miadi-node` Version
 (`24.21.0-1` names `v24.21.0`); the halves accept any 24.x.
 
+## miadi-film
+
+`miadi-film` installs what a host needs to make a film with a Chronicle episode (Episode 120,
+relational film production, jgwill/miadi-orchestration-kit#130). Kdenlive edits and Ardour
+designs the sound (decided 2026-11-04): a `.kdenlive` project is MLT XML and an Ardour session is
+XML with headless Lua (`ardour6-lua` on 22.04, `ardour8-lua` on 24.04), so an agent can read a project and add markers while the
+editor makes every cut.
+
+```bash
+sudo apt install miadi-film     # Kdenlive, Ardour, media tools; miadi-music, OBS and frei0r recommended
+miadi-film check                # each tool, its version and its package
+```
+
 ## miadi-music
 
 Music on a Miadi host, installed beside the platform. The parts are split by
@@ -435,6 +449,7 @@ for w in dist/miadi-music-wheels-cp3*_<version>_amd64.deb; do bash "$publish" "$
 bash "$publish" dist/miadi-music-measure_<version>_all.deb   # after the wheels it depends on
 bash "$publish" dist/miadi-music-video_<version>_all.deb   # after the two it depends on
 bash "$publish" dist/miadi-music_<version>_all.deb         # last
+bash "$publish" dist/miadi-film_<version>_all.deb         # after the miadi-music it recommends; nothing depends on it
 bash "$publish" dist/miadi-feedback_<version>_all.deb      # after the miadi-config it recommends; nothing depends on it
 ```
 

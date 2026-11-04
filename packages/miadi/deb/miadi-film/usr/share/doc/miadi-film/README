@@ -1,0 +1,20 @@
+miadi-film: what a Miadi host needs to make a film with a Chronicle episode
+============================================================================
+
+    sudo apt install miadi-film
+    miadi-film check
+
+Editing is Kdenlive and sound design is Ardour (decided by Guillaume on 2026-11-04). Both keep their
+projects as text: a .kdenlive project is MLT XML, an Ardour session is XML, and ardourN-lua (ardour6-lua on 22.04, ardour8-lua on 24.04) runs
+Lua against a session without its window. An agent can read a project and add markers to it; the
+editor makes every cut. ffmpeg, mediainfo, exiftool and sox probe, convert and tag the media, and
+v4l-utils controls cameras on Video4Linux.
+
+Recommended: miadi-music (the score, `miadi-music check`), obs-studio (screen and camera
+recording), frei0r-plugins (Kdenlive's effects) and mkvtoolnix.
+
+The film's home is Episode 120 (miadi-chronicle://120). Its film-production-phases document says
+what this package is the first phase of: footage as capture takes, the handoff to the editor,
+Twine passages that point to takes and cues, and consent and trace per take.
+
+Ref: jgwill/miadi-orchestration-kit#130
