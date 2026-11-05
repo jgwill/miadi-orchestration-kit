@@ -5,13 +5,26 @@
 // miadi-circle://circle:<ms>:<id>), so a reply that says "Episode 563" or prints a bare
 // circle:<ms>:<id> gives the reader nothing to open. This hook reads the reply of the turn
 // that is ending (the assistant text after the last prompt, code spans removed) and, when an
-// episode number or a circle id appears without its address, sends the agent back once to add
-// them. With stop_hook_active it lets the turn end, so it never loops.
+// episode number or a circle id appears without its address, sends the agent back to add them.
+//
+// The agent sends the complete reply again, never a line of corrections. A Stop block makes the
+// next message the last one, and the last message is what a person reads and annotates, so a
+// correction there leaves nothing to annotate (Guillaume, 2026-11-05). Claude Code has no event
+// before a reply is shown, so Stop is the only place to catch this. The hook keeps the reply's
+// character count for the session and counts the next message: under REPEAT_SHARE of it, or still
+// without an address, it goes back again. After MAX_SENDS it lets the turn end and says so.
 //
 // Rule: /etc/claude-code/CLAUDE.md "Miadi addresses in every reply" (jgwill/etc-claude-code#23).
 // Exit 0 always; a block is the JSON on stdout.
 
-import { readFileSync } from "node:fs"
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { homedir } from "node:os"
+import { dirname, join } from "node:path"
+
+/** The share of the reply's characters a message must hold to count as the reply. */
+export const REPEAT_SHARE = 0.9
+/** How many times one reply is sent back before the turn may end anyway. */
+export const MAX_SENDS = 3
 
 /** Episode numbers named in the text ("Episode 563", "episode 563", "ep563", "ep 563"). */
 export function episodesNamed(text) {
@@ -73,6 +86,55 @@ export function lastReply(transcriptLines) {
   return parts.join("\n")
 }
 
+/** One "name → address" per thing the text names without its address. */
+export function addressLines(text) {
+  const { episodes, circles } = missingAddresses(text)
+  return [
+    ...episodes.map((n) => `Episode ${n} → miadi-chronicle://${n}`),
+    ...circles.map((id) => `${id} → miadi-circle://${id}`),
+  ]
+}
+
+/** What the agent is told. `got` is the length of a message that came back too short. */
+export function resendReason({ chars, lines, got }) {
+  const head =
+    got === undefined
+      ? "The reply names Miadi things without their address, so nothing opens from the terminal (/etc/claude-code/CLAUDE.md, \"Miadi addresses in every reply\")."
+      : `Your last message has ${got} characters and the reply has ${chars}, so it is not the complete reply.`
+  return (
+    `${head} A person reads and annotates the last message, so it has to be the whole reply. ` +
+    "Send the complete reply again, word for word from its first line to its last, " +
+    `with each address beside the first mention of its name: ${lines.join("; ")}. Change nothing else. ` +
+    `The reply has ${chars} characters and this hook counts them, so a message with only the addresses comes back.`
+  )
+}
+
+function stateFile(sessionId) {
+  const root = process.env.XDG_CACHE_HOME || join(homedir(), ".cache")
+  return join(root, "miadi-address-check", `${sessionId.replace(/[^A-Za-z0-9_.-]/g, "_")}.json`)
+}
+
+function readState(file) {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"))
+  } catch {
+    return null
+  }
+}
+
+function writeState(file, state) {
+  try {
+    mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
+    writeFileSync(file, JSON.stringify(state), { mode: 0o600 })
+  } catch {
+    // Without the count the next stop lets the turn end, which is the old behaviour.
+  }
+}
+
+function clearState(file) {
+  if (file) rmSync(file, { force: true })
+}
+
 function main() {
   let input = {}
   try {
@@ -80,28 +142,50 @@ function main() {
   } catch {
     return
   }
-  if (input.stop_hook_active) return
+  const file = typeof input.session_id === "string" && input.session_id ? stateFile(input.session_id) : null
+  const sent = input.stop_hook_active && file ? readState(file) : null
+  // Another hook continued this turn, and this one has nothing of its own to check.
+  if (input.stop_hook_active && !sent) return
+  // A count left by a turn that was interrupted says nothing about this one.
+  if (!input.stop_hook_active) clearState(file)
+
   let text = typeof input.last_assistant_message === "string" ? input.last_assistant_message : ""
-  if (!text && input.transcript_path) {
+  if (!text && !sent && input.transcript_path) {
     try {
       text = lastReply(readFileSync(input.transcript_path, "utf8").split("\n"))
     } catch {
       return
     }
   }
-  if (!text) return
-  const { episodes, circles } = missingAddresses(text)
-  if (!episodes.length && !circles.length) return
-  const lines = [
-    ...episodes.map((n) => `Episode ${n} → miadi-chronicle://${n}`),
-    ...circles.map((id) => `${id} → miadi-circle://${id}`),
-  ]
+  if (!text) {
+    clearState(file)
+    return
+  }
+
+  const missing = addressLines(text)
+  const short = Boolean(sent) && text.length < sent.chars * REPEAT_SHARE
+  if (!missing.length && !short) {
+    clearState(file)
+    return
+  }
+
+  if (sent && sent.sends >= MAX_SENDS) {
+    clearState(file)
+    process.stdout.write(
+      JSON.stringify({
+        systemMessage: `address-check: asked ${MAX_SENDS} times for the complete reply. The last message has ${text.length} of its ${sent.chars} characters.`,
+      }),
+    )
+    return
+  }
+
+  const chars = sent ? sent.chars : text.length
+  const lines = sent ? [...new Set([...sent.lines, ...missing])] : missing
+  if (file) writeState(file, { chars, lines, sends: (sent ? sent.sends : 0) + 1 })
   process.stdout.write(
     JSON.stringify({
       decision: "block",
-      reason:
-        "The reply names Miadi things without their address, so nothing opens from the terminal (/etc/claude-code/CLAUDE.md, \"Miadi addresses in every reply\"). " +
-        `Send one short line that gives them: ${lines.join("; ")}. Do not repeat the reply.`,
+      reason: resendReason({ chars, lines, got: short ? text.length : undefined }),
     }),
   )
 }
