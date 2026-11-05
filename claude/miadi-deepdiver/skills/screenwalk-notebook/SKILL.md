@@ -12,7 +12,7 @@ It performs two transitions of the screenwalk media cycle (`~/workspace/.mino/st
 | transition | from → to | done here by |
 |---|---|---|
 | NotebookFed | Enriched → Notebooked | `notebook create`, `notebook add-source` |
-| MediaMade | Notebooked → MediaGenerated | `notebook ask`, `studio generate`, `studio report`, `studio download` |
+| MediaMade | Notebooked → MediaGenerated | `notebook ask`, `studio generate`, `studio report`, `studio download`; with a plan first, `--review`, `studio outline`, `studio proceed` (step 4a) |
 | PlayedWhileRecording | MediaGenerated → Watched | the person, with `studio open` putting the media on screen |
 
 What happens after Watched (the person's spoken corrections into the talking circle diary) belongs to `screenwalk-presence` in the `miadi-witness` plugin.
@@ -79,6 +79,26 @@ deepdiver studio report --format document --template "Briefing Doc" -n <id>
 - Audio Overview can take ten minutes or more.
 - Each command exits 1 when nothing was generated. A command that times out may still leave a card; `deepdiver studio list -n <id>` shows what exists.
 
+### 4a. A plan before the render
+
+A Slide Deck or a Video Overview can stop at its plan: an outline for slides, producer notes for video. Nothing is rendered until someone sends it on, so a person or a seat can read the plan, comment on it, or start again from it, with or without ever seeing a render. Measured on 2026-11-05 in notebook `78507190…` (miadi-chronicle://251, `followup/261105-step-by-step-outlines.md`).
+
+```bash
+deepdiver studio slide-deck --review --format presenter --focus "<what it teaches>" -n <id>
+deepdiver studio generate video_overview --review --format explainer --focus "<what it teaches>" -n <id>
+deepdiver studio outline <card id> -n <id> -o <episode>/captures/notebook-<id>         # saves outline-<NN>-<card>.md, prints it; the card stays paused
+deepdiver studio proceed <card id> -n <id> -o <episode>/captures/notebook-<id> [-i feedback.md]   # saves the plan and the feedback, then renders
+deepdiver studio slide-deck --from-outline <dir>/outline-01-<card>.md [--feedback f.md] -n <id>   # the next version: a new run, stopped at its own plan
+```
+
+- **Save before sending.** Studio keeps neither the plan nor the feedback: "Prompt and sources" then shows only the first prompt. `studio outline` and `studio proceed` save first, and each saved plan is listed in `manifest.json`, so the episode room shows it under the notebook.
+- **Sending feedback is proceeding.** Studio takes one round, renders at once with it applied, and shows no second plan. Slides 3 and 4 merged, a slide was added and a phrase was replaced as asked. To read another plan first, use `--from-outline`.
+- **A plan costs no render.** Plans took 49 to 96 s. Producer notes were made after the day's three videos with no refusal. Whether a plan draws on the account's compute budget is not measured.
+- **Read a plan for its shape.** The one set of producer notes read so far names form (The Hook, The Agenda, The Climax) more than claims, and the deck outlines name content. A claim about what was said is still checked in the kept transcript after the render.
+- **Check the words before sending.** The word gate sees what an agent writes, not what DeepDiver saves. Read the plan against `forbidden-words.txt` and put the change in the feedback: this is the one point where a word can be removed before it is spoken.
+- **One item, one explainer.** A plan's item that opens another angle can be its own `--focus`.
+- **A deck's text is its plan.** PDF and PowerPoint hold one image per slide. `--keep` recompresses the PDF into `keep/` (6.8 MB became 770 KB).
+
 ### 5. Keep
 
 ```bash
@@ -130,6 +150,8 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 - **0.2.2, 2026-10-15.** From the first pass started by "Ready for Deep Diver" (review 4346d23a, Episode 552, notebook 3eb56742): a notebook enters its episode through the notebook door (`chronicle_episode_notebook`), which puts its node and edge on the wheel; several episodes can hold one review, and the media goes to the one the review is about; a review with no questions to borrow gets two written by the seat; the saved report never embeds the media (checked in all four runs). DeepDiver now drives a notebook tab or a blank one, never a person's tab on another site (`miadisabelle/deepdiver` 9b40f6f).
 
 - **0.2.3, 2026-10-20.** From Episode 297's notebook 5a00e2d8, made by a fork of the episode's Mia seat: the infographic viewer's button is "Close infographic", which DeepDiver did not close. Left open after a generation, it covered the Studio panel, so the next Video Overview finished unseen and timed out after 1800 s, the next one never started, `studio report` found no Reports tile and `studio list` showed no cards. DeepDiver now closes any open artifact viewer, including on arriving at a notebook already open (`miadisabelle/deepdiver` 2a0e343). When a generation times out, run `studio list` before you regenerate. Also: give each artifact its audience, and record its exact instruction in `perspectives.md` beside `asked.md`, so the instruction can become a versioned prompt (William, take 261020080805).
+
+- **0.5.0, 2026-11-05.** On Guillaume's word, from the banner "You can now create Slides and Videos step-by-step": step 4a, the plan before the render (`miadisabelle/deepdiver` `studio outline`, `studio proceed`, `--review`, `--from-outline`). `/deepdive` keeps rendering by default until the person decides who sends a plan on (DD24 in miadi-chronicle://251). "Try it" on the banner posts "Help me create slides about this" into the notebook's chat, so do not press it in a notebook an episode holds.
 
 ## Related
 
