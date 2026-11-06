@@ -36,6 +36,15 @@ hash-pinned browser archives directly from upstream at first configuration,
 then caches them for offline reinstall. Python wheels are always installed
 offline. Browser binaries and raw fork debug captures are not redistributed
 by the Debian artifacts. Upstream browser terms/notices apply; see copyright.
+First configuration downloads about 328 MB and retains about 1 GB including
+browser files and cached archives. If upstream is unavailable, the package
+fails closed and later APT operations can also report a half-configured state.
+Restore network/CA trust/cache, then run sudo dpkg --configure -a. To abandon
+this install: sudo dpkg --remove deepdiver miadi-deepdiver miadi-deepdiver-chromium.
+User config/profiles remain. A proxy set only in apt.conf does not configure
+this downloader: use the standard https_proxy/http_proxy environment, preserved
+explicitly if needed with sudo --preserve-env=https_proxy,http_proxy,no_proxy
+dpkg --configure -a. Never print proxy credentials in diagnostic logs.
 
 CDP binds 127.0.0.1:9222, with no remote-debugging wildcard. Local users can
 reach CDP: do not expose it, forward it to other hosts or reuse a sensitive

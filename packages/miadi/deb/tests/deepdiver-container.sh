@@ -18,6 +18,7 @@ as_user() { runuser -u diver -- env HOME=/home/diver "$@"; }
 # An old Google profile must not be opened or modified by Chrome for Testing.
 as_user mkdir -m 700 /home/diver/.chrome-deepdiver
 printf 'old-profile-preserved\n' > /home/diver/.chrome-deepdiver/Local\ State
+chown diver:diver /home/diver/.chrome-deepdiver/Local\ State
 old_profile=$(sha256sum /home/diver/.chrome-deepdiver/Local\ State)
 as_user /usr/bin/miadi-deepdiver setup
 cfg=/home/diver/.config/deepdiver/config.yaml
@@ -102,8 +103,29 @@ test -n "$listeners"
 if printf '%s' "$listeners" | grep -E '0\.0\.0\.0:9222|\*:9222|\[::\]:9222'; then echo 'FAIL external CDP'; exit 1; fi
 printf '%s' "$listeners" | grep '127.0.0.1:9222' >/dev/null
 printf 'PASS upstream Chrome launch and loopback CDP (auth exit %s; not E2E)\n' "$chrome_rc"
-# Use only this disposable container's browser, not any host/user session.
-pkill -u diver -f '/usr/lib/miadi-deepdiver/browsers/' || true
+# Exercise all upstream default launch routes, not only plain chrome launch.
+stop_browser() {
+  pkill -u diver -f '/usr/lib/miadi-deepdiver/browsers/' || true
+  for attempt in {1..15}; do
+    curl --noproxy '*' -fsS http://127.0.0.1:9222/json/version >/dev/null 2>&1 || return 0
+    sleep 1
+  done
+  echo 'FAIL fixture browser did not stop'; exit 1
+}
+stop_browser
+(cd /home/diver; printf 'y\n' | as_user env DISPLAY=:98 /usr/bin/deepdiver init) >/tmp/init-route 2>&1
+curl --noproxy '*' -fsS http://127.0.0.1:9222/json/version >/dev/null
+test "$old_profile" = "$(sha256sum /home/diver/.chrome-deepdiver/Local\ State)"
+stop_browser
+set +e
+as_user env DISPLAY=:98 /usr/bin/deepdiver chrome launch --clone-profile Default >/tmp/clone-route 2>&1
+clone_rc=$?
+set -e
+test "$clone_rc" = 2 || test "$clone_rc" = 3
+curl --noproxy '*' -fsS http://127.0.0.1:9222/json/version >/dev/null
+test "$old_profile" = "$(sha256sum /home/diver/.chrome-deepdiver/Local\ State)"
+stop_browser
+printf 'PASS init and clone routes use the APT home and preserve the old profile\n'
 # Cached browser reconfiguration must work even with the network unavailable.
 env https_proxy=http://127.0.0.1:9 http_proxy=http://127.0.0.1:9 /usr/bin/python3 -I /usr/lib/miadi-deepdiver/install-browser.py >/dev/null
 printf 'PASS cached browser offline reinstall\n'

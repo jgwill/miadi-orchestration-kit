@@ -26,19 +26,16 @@ def launch_guard(args):
 
 
 if __name__ == '__main__':
+    os.umask(0o077)
     if sys.argv[1:3] == ['chrome', 'launch']:
         try:
             os.environ['DISPLAY'] = launch_guard(sys.argv[3:])
-            os.umask(0o077)
-            # Chrome for Testing and Google Chrome may use different keyring
-            # names. Never automatically open/rewrite a pre-existing Google
-            # profile with the newly installed browser. Keep an APT-only home.
-            if not any(a == '--user-data-dir' or a.startswith('--user-data-dir=') or a == '--fresh' or a.startswith('--clone-profile') for a in sys.argv[3:]):
-                profile = os.path.expanduser('~/.chrome-deepdiver-apt')
-                sys.argv.extend(['--user-data-dir', profile])
-                print('APT browser profile: '+profile+' (existing Chrome profiles preserved).')
         except RuntimeError as e:
             print(e, file=sys.stderr)
             sys.exit(1)
-    from deepdiver.deepdive import main
-    main()
+    # Cover every upstream route (init, launch, clone and adopt), not only
+    # argv for plain launch. An explicitly named profile stays the user's choice.
+    import deepdiver.notebooklm_automator as automator
+    import deepdiver.deepdive as cli
+    automator.DEFAULT_USER_DATA_DIR = cli.DEFAULT_USER_DATA_DIR = os.path.expanduser('~/.chrome-deepdiver-apt')
+    cli.main()

@@ -505,6 +505,17 @@ no claim for Python 3.13+, arm64, Termux or older Ubuntu. Publish the small
 browser-installer `.deb` first, Python runtime second, `deepdiver` alias last
 with the established publisher. All stay below its direct-upload cap; the
 signed APT index authenticates them. Never overwrite a released version.
+First browser configuration downloads about **328 MB** and retains about
+**1 GB** of extracted browser files plus cached archives.
+
+If upstream is unavailable, configuration fails closed and may leave these
+packages unpacked/half-configured; later APT operations can also report that
+failure. Restore network/CA trust (or the verified archive cache), then run
+`sudo dpkg --configure -a`. To remove this installation instead, run
+`sudo dpkg --remove deepdiver miadi-deepdiver miadi-deepdiver-chromium`.
+Profiles/config are retained. The downloader uses standard `https_proxy`/
+`http_proxy` environment settings, not an APT-only `apt.conf` proxy; when needed
+use `sudo --preserve-env=https_proxy,http_proxy,no_proxy dpkg --configure -a`.
 
 Setup writes config only when absent, mode 600, and preserves all existing
 skills/settings. It calls the **existing** marketplace plugin
@@ -547,8 +558,10 @@ IMAGE=ubuntu:24.04 bash tests/deepdiver.sh
 IMAGE=debian:12 bash tests/deepdiver.sh
 # With an existing Claude Code executable (never copies sign-in/credentials):
 IMAGE=ubuntu:24.04 bash tests/deepdiver-claude.sh
-# After publication, in a clean supported container:
-bash tests/deepdiver-apt-smoke.sh
+# After publication, from this deb/ directory; disposable container only:
+docker run --rm --cap-add=SYS_ADMIN --security-opt apparmor=unconfined \
+  --shm-size=1g -v "$PWD/tests:/tests:ro" ubuntu:24.04 \
+  bash /tests/deepdiver-apt-smoke.sh
 ```
 
 The containers grant SYS_ADMIN and an unconfined **container** AppArmor profile

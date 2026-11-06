@@ -13,7 +13,8 @@ this document records the pre-publication checks, not a claim of publication.
 - Python install is offline and private. Browser first configuration downloads
   the exact hash-checked archives directly from upstream; cached reconfiguration
   works offline. No Chrome/Widevine binaries or upstream debug captures are
-  redistributed in the Debian artifacts.
+  redistributed in the Debian artifacts. First configuration downloads about
+  328 MB directly from upstream and retains about 1 GB including the cache.
 
 ## Tests run, all passed
 
@@ -31,8 +32,12 @@ fallback (`chrome://sandbox`: adequately sandboxed), absent/bad display,
 embedded skill preservation, source `chrome launch` exit 2 and a not-ready
 `chrome status` (2/3) for an anonymous profile, listener **127.0.0.1:9222**, cached browser offline
 reconfiguration, reinstall, upgrade from a generated 0.0.9 fixture, remove/purge,
-and preservation of config, skills, APT profile and an untouched old profile.
+and preservation of config, skills, APT profile and an untouched old profile
+through plain launch, interactive `init`, and `--clone-profile` launch routes.
 The fixture is not represented as a previously published release.
+
+The separate agent-driven README walkthrough has not been run as part of
+these pre-publication scripts; its post-publication receipt will be on #135.
 
 Real Claude Code marketplace tests (no model invocation or Claude sign-in) run
 from a non-home project directory: existing canonical plugin and embedded fork
