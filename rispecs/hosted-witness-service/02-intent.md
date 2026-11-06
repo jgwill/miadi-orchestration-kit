@@ -28,6 +28,7 @@ The relative's sessions produce work and words every day, and today they reach t
 ## Boundaries
 
 - **Consent.** The relative turns the witness on and can turn it off. Enabling it names which of their sessions and folders it reads, and that is all it reads. Turning it off removes its access the same minute.
+- **Say who can read.** Before the relative consents, they are told who can read their capture. On eury that is every account on the host, the words they type included. `enable` shows it, and `check` reports it each time it runs.
 - **Read is not write.** Reading the capture needs group read. Writing to the relative's pane needs a separate, narrow sudo rule, and each delivery needs a person's go: the maintainer's or the relative's.
 - **Their words stay theirs.** Feedback is written verbatim with its date and speaker. The seat never paraphrases it into the record.
 - **No second steerer.** The seat never types while someone is composing in the pane (guard exit 1) or while a turn runs (exit 2).

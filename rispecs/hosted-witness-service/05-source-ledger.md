@@ -16,5 +16,6 @@ Confidence: **observed** (read or run this day by the witness seat), **documente
 | `miadi-feedback` turns an issue into a seat on the maintainer's host | `packages/miadi/deb/README.md`, "miadi-feedback"; jgwill/miadi-orchestration-kit#109 | documented |
 | The factory connector offers `append_observation`, `request_session_steer`, `propose_session_completion`, `show_decisions`, and requests wait in `awaiting_approval` | the connector's tool list and server instructions, read in this session | observed |
 | The factory runs at miadi.sanctuaireagentique.com on gaia | William, 2026-11-04 | documented |
-| `miadi-config check` will name hosts that still wire hooks by hand | jgwill/miadi-orchestration-kit#126 (open) | documented |
+| `miadi-config check` names hosts that still wire hooks by hand, from 0.2.10, which apt offers on eury | jgwill/miadi-orchestration-kit#126; `apt list --upgradable`, 2026-11-06 | observed |
+| The capture is readable by every account on the host (files `-rw-rw-r--`, folders `drwxrwxr-x`), what the relative types included | `stat` of `0666437f…/_claude_user_inputs.jsonl`, 2026-11-06 | observed |
 | The configuration, watcher, `await`, pane bridge, relay and commands | this packet | specified |
