@@ -393,7 +393,7 @@ function main(argv) {
   }
   if (verb === "done") {
     for (const required of ["joined", "audio-file", "turns"]) if (typeof opts[required] !== "string") throw new Error(`done needs --${required}`)
-    const result = { at: new Date().toISOString(), state: "published", joined: opts.joined, audio_file: opts["audio-file"], seconds: typeof opts.seconds === "string" ? Number(opts.seconds) : null, turns: Number(opts.turns), episode_file: typeof opts["episode-file"] === "string" ? opts["episode-file"] : null }
+    const result = { at: new Date().toISOString(), state: "published", joined: opts.joined, audio_file: opts["audio-file"].split(sep).pop(), seconds: typeof opts.seconds === "string" ? Number(opts.seconds) : null, turns: Number(opts.turns), episode_file: typeof opts["episode-file"] === "string" ? opts["episode-file"] : null }
     writeFileSync(join(folder, "result.json"), `${JSON.stringify(result, null, 2)}\n`)
     console.log(`result.json written: ${result.audio_file}`)
     return

@@ -17,7 +17,7 @@ description: >
   (miadi-voice).
 metadata:
   type: skill
-  version: 0.8.0
+  version: 0.8.1
   scope: agent output to a two-host spoken dialogue, academic fields, feedback that changes this skill
 ---
 
@@ -190,6 +190,7 @@ When a dialogue the person liked teaches something new, keep it in `examples/` b
 - 2026-11-03, 0.7.0. Guillaume, after the two-voice test in Episode 569: "make sure that the personality of the model matches the persona, so we have something diversified in the output", and "storing these prompts inside of the ceremonial prompt management systems inside of the factory … the actual generative process … will feed on that." The cast became five, each voice written in its persona prompt. The seven prompts are in the ceremonial store and `scripts/podcast-prompts.mjs` composes from them. A dialogue is spoken as one track through `voice_publish_dialogue` (jgwill/Miadi#920).
 - 2026-11-03, 0.7.1. An independent review of 0.7.0 (Episode 569, `review-expectation-261103.md` and its contrast) found the first five-voice dialogue gave Mia 55% of the words and had two turns recite a voice's rules. Version 2 of `miadi-podcast-dialogue` and `miadi-podcast-persona-ava` was promoted; the script gained `--pin`, `promote`, refusal of unfilled placeholders and bold labels; step 4 above counts the shares.
 - 2026-11-06, 0.8.0. Guillaume, about the Episode 569 session: "next time I will not have to start a session like yours to create that", and "the episode 564 and the fact that this new class of model can help us decide which files we read". `POST /api/voice/podcast` starts a terminal that follows the new section, and `podcast-run.mjs` prepares its reading with Jev. On the first request the gate's bars alone admitted 2,230 of 2,237 lines, so the message goes in as what is known, a file scores relevant times new, and the writer reads the best that fit 500 lines.
+- 2026-11-06, 0.8.1. The first request's dialogue called Guillaume "he" 18 times and gave Mia 75% of the words, because the rule on pronouns was in this file and not in the prompt, and the one-third limit cannot hold for a cast of two. Version 3 of `miadi-podcast-dialogue` carries both, and `done` keeps the audio door's key rather than the store's path.
 
 ## Related
 
