@@ -19,7 +19,7 @@
 // Keys: CEREMONY_LANGFUSE_* from the environment or $MIADI_SRC/.env, read by
 // miadi-run's domainKeys. No key, prompt body or trace content is printed by
 // list, seed or revise.
-import { readFileSync } from "node:fs"
+import { readFileSync, realpathSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
@@ -252,7 +252,8 @@ export async function main(argv, out = console.log) {
   return 0
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+// realpath: the skill is reached through a symlink, and import.meta.url is already real. Without it this exits 0 and prints nothing.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   // exitCode, not exit(): exit() ends the process before a piped stdout has flushed.
   main(process.argv.slice(2)).then((code) => { process.exitCode = code }, (e) => { console.error(e.message); process.exitCode = 1 })
 }

@@ -28,7 +28,7 @@
 // that composed the dialogue, by --composer-var or CIRCLE_DIALOGUE_COMPOSER_VAR (default
 // MIADI_MINO_TOKEN, the witness seat). The API is MIADI_API_URL.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -261,7 +261,8 @@ function args(argv) {
   return o;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// realpath: the skill is reached through a symlink, and import.meta.url is already real.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const o = args(process.argv.slice(2));
   const verb = o._[0];
   const usage = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 12).map((l) => l.replace(/^\/\/ ?/, "")).join("\n");
