@@ -123,7 +123,7 @@ F=<the folder>
 5. **Check.** `python3 $S/check-dialogue.py $F/dialogue.md --hosts <the cast, capitalized>`, and fix what it reports. Then count each voice's share of the words.
 6. **Speak.** `node $S/podcast-prompts.mjs turns $F/dialogue.md --cast <request.cast>` gives the turns for `voice_publish_dialogue`. Pass `episode` when the request names one, `dialogueId` as the request's id, `source: "podcast-request"`, `origin` as this terminal, and `metadata: { prompts, podcast_request: <id>, session: <id>, ceremony: <uuid> }` with what the request holds. When the tool is absent, `POST /api/voice/dialogue` with `$MIADI_API_TOKEN_WRITER` takes the same fields.
 7. **Land.** When the request names an episode, copy `dialogue.md` to `<episode>/podcast-<id>.md`, add one line to its `status.md` naming the joined track, then commit those two paths and push.
-8. **Mark it done.** `node $S/podcast-run.mjs done $F --joined <joined.id> --audio-file <joined.audio_file> --seconds <joined.duration> --turns <n> [--episode-file <path>]`. When something stops you, `node $S/podcast-run.mjs failed $F --reason "<what>"`. `result.json` is what the status door reads, so a request ends with one of them.
+8. **Mark it done.** `node $S/podcast-run.mjs done $F --joined <joined.id> --audio-file <joined.audio_file> --turns <n> [--episode-file <path>]`. When something stops you, `node $S/podcast-run.mjs failed $F --reason "<what>"`. `result.json` is what the status door reads, so a request ends with one of them.
 9. **Reply** with where to listen and which prompts wrote it, and stay open for steering.
 
 ## Speak it in the episode's circle

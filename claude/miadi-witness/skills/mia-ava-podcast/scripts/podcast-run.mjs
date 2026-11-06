@@ -6,8 +6,8 @@
 // judges each file, and the writer starts from the verdicts instead of reading a hundred files.
 //
 //   node podcast-run.mjs handoff <folder> [--dry]
-//   node podcast-run.mjs done <folder> --joined <id> --audio-file <name> --seconds <n> --turns <n>
-//                                      [--episode-file <path>]
+//   node podcast-run.mjs done <folder> --joined <id> --audio-file <name> --turns <n>
+//                                      [--seconds <n>] [--episode-file <path>]
 //   node podcast-run.mjs failed <folder> --reason "<what stopped it>"
 //
 // <folder> holds request.json (written by POST /api/voice/podcast, or by hand for a run with no
@@ -378,7 +378,7 @@ function parse(argv) {
   return opts
 }
 
-const USAGE = "usage: podcast-run.mjs handoff <folder> [--dry] | done <folder> --joined <id> --audio-file <name> --seconds <n> --turns <n> [--episode-file <path>] | failed <folder> --reason <why>"
+const USAGE = "usage: podcast-run.mjs handoff <folder> [--dry] | done <folder> --joined <id> --audio-file <name> --turns <n> [--seconds <n>] [--episode-file <path>] | failed <folder> --reason <why>"
 
 function main(argv) {
   const opts = parse(argv)
@@ -392,8 +392,8 @@ function main(argv) {
     return
   }
   if (verb === "done") {
-    for (const required of ["joined", "audio-file", "seconds", "turns"]) if (typeof opts[required] !== "string") throw new Error(`done needs --${required}`)
-    const result = { at: new Date().toISOString(), state: "published", joined: opts.joined, audio_file: opts["audio-file"], seconds: Number(opts.seconds), turns: Number(opts.turns), episode_file: typeof opts["episode-file"] === "string" ? opts["episode-file"] : null }
+    for (const required of ["joined", "audio-file", "turns"]) if (typeof opts[required] !== "string") throw new Error(`done needs --${required}`)
+    const result = { at: new Date().toISOString(), state: "published", joined: opts.joined, audio_file: opts["audio-file"], seconds: typeof opts.seconds === "string" ? Number(opts.seconds) : null, turns: Number(opts.turns), episode_file: typeof opts["episode-file"] === "string" ? opts["episode-file"] : null }
     writeFileSync(join(folder, "result.json"), `${JSON.stringify(result, null, 2)}\n`)
     console.log(`result.json written: ${result.audio_file}`)
     return
