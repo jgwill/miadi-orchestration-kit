@@ -52,11 +52,24 @@ for control in "$here"/*/DEBIAN/control; do
 		find "$stage" -type d -exec chmod 0755 {} +
 	fi
 	mkdir -p "$stage/usr/share/doc/$package"
-	copyright "$package" > "$stage/usr/share/doc/$package/copyright"
-	chmod 0755 "$stage/usr/share/doc" "$stage/usr/share/doc/$package"
+	# Third-party runtimes carry their own notices, not the kit's MIT claim.
+	if [ ! -f "$stage/usr/share/doc/$package/copyright" ]; then
+		copyright "$package" > "$stage/usr/share/doc/$package/copyright"
+	fi
+	chmod 0755 "$stage/usr" "$stage/usr/share" "$stage/usr/share/doc" "$stage/usr/share/doc/$package"
 	chmod 0644 "$stage/usr/share/doc/$package/copyright"
 	out="$here/dist/${package}_${version}_${arch}.deb"
-	dpkg-deb --root-owner-group --build "$stage" "$out" >/dev/null
+	# Pinned binary bundles may select fast compression and stable timestamps (#135).
+	compression_args=()
+	if [ -f "$here/prep/$package.compression" ]; then
+		read -r compressor level < "$here/prep/$package.compression"
+		compression_args+=("-Z$compressor" "-z${level:-6}")
+	fi
+	if [ -f "$here/prep/$package.epoch" ]; then
+		SOURCE_DATE_EPOCH=$(<"$here/prep/$package.epoch") dpkg-deb "${compression_args[@]}" --root-owner-group --build "$stage" "$out" >/dev/null
+	else
+		dpkg-deb "${compression_args[@]}" --root-owner-group --build "$stage" "$out" >/dev/null
+	fi
 	rm -rf "$stage"
 	echo "$out"
 done

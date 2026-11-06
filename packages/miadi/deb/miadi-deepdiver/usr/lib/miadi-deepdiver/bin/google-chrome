@@ -1,0 +1,14 @@
+#!/usr/bin/python3
+"""Only visible on packaged DeepDiver's PATH; never replaces a user's Chrome."""
+import os
+import sys
+
+if os.geteuid() == 0:
+    sys.exit('ROOT BROWSER REFUSED: use your desktop user.')
+for arg in sys.argv[1:]:
+    if arg.startswith('--remote-debugging-address=') and arg != '--remote-debugging-address=127.0.0.1':
+        sys.exit('Refusing non-loopback CDP.')
+    if arg in ('--no-sandbox', '--disable-setuid-sandbox'):
+        sys.exit('Refusing disabled browser sandbox.')
+browser = '/usr/lib/miadi-deepdiver/browsers/chromium-1248/chrome-linux64/chrome'
+os.execv(browser, [browser, '--remote-debugging-address=127.0.0.1', *sys.argv[1:]])
