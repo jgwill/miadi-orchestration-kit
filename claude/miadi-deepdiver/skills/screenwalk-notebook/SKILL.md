@@ -91,6 +91,7 @@ deepdiver studio proceed <card id> -n <id> -o <episode>/captures/notebook-<id> [
 deepdiver studio slide-deck --from-outline <dir>/outline-01-<card>.md [--feedback f.md] -n <id>   # the next version: a new run, stopped at its own plan
 ```
 
+- **A plan on the wheel.** Holding the notebook through its door also puts each saved plan on the wheel as `media-plan:<card uuid>`, with a `holds-plan` edge from the notebook and a `seeded-from` edge to its seed (`@miadi/inquiry-weave` 0.18.9, jgwill/Miadi#940). So hold the notebook again after saving a plan or sending one on. A ceremony's `subject_id` can then name that one version. Save a seeded run with `studio outline <card> --seeded-from <file>`.
 - **Save before sending.** Studio keeps neither the plan nor the feedback: "Prompt and sources" then shows only the first prompt. `studio outline` and `studio proceed` save first, and each saved plan is listed in `manifest.json`, so the episode room shows it under the notebook.
 - **Sending feedback is proceeding.** Studio takes one round, renders at once with it applied, and shows no second plan. Slides 3 and 4 merged, a slide was added and a phrase was replaced as asked. To read another plan first, use `--from-outline`.
 - **A plan costs no render.** Plans took 49 to 96 s. Producer notes were made after the day's three videos with no refusal. Whether a plan draws on the account's compute budget is not measured.
@@ -155,6 +156,8 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 - **0.5.0, 2026-11-05.** On Guillaume's word, from the banner "You can now create Slides and Videos step-by-step": step 4a, the plan before the render (`miadisabelle/deepdiver` `studio outline`, `studio proceed`, `--review`, `--from-outline`). `/deepdive` keeps rendering by default until the person decides who sends a plan on (DD24 in miadi-chronicle://251). "Try it" on the banner posts "Help me create slides about this" into the notebook's chat, so do not press it in a notebook an episode holds.
 
 - **0.6.0, 2026-11-05.** On Guillaume's "that's good" to this direction, read by Mia as a go on D1 and D2 of jgwill/miadi-orchestration-kit#133: `/deepdive` stops every explainer and deck at its plan, with the seat's own checks (`scripts/plan-read.mjs`). The first trial, on the three plans of notebook `78507190`, sent all three to a person with low confidence, and read the video's producer notes as furthest from their brief. Its readings are in `captures/notebook-78507190-…/jev-trial-261105/` in miadi-chronicle://251.
+
+- **0.6.1, 2026-11-05.** A plan is an element on the wheel, `media-plan:<card uuid>`, on Guillaume's "I think the media plan name makes sense" (take 261105231653), read by Mia as the go.
 
 ## Related
 
