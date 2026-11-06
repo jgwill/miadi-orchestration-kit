@@ -52,11 +52,19 @@ for control in "$here"/*/DEBIAN/control; do
 		find "$stage" -type d -exec chmod 0755 {} +
 	fi
 	mkdir -p "$stage/usr/share/doc/$package"
-	copyright "$package" > "$stage/usr/share/doc/$package/copyright"
+	# Third-party runtimes carry their own notices, not the kit's MIT claim.
+	if [ ! -f "$stage/usr/share/doc/$package/copyright" ]; then
+		copyright "$package" > "$stage/usr/share/doc/$package/copyright"
+	fi
 	chmod 0755 "$stage/usr/share/doc" "$stage/usr/share/doc/$package"
 	chmod 0644 "$stage/usr/share/doc/$package/copyright"
 	out="$here/dist/${package}_${version}_${arch}.deb"
-	dpkg-deb --root-owner-group --build "$stage" "$out" >/dev/null
+	# A source-pinned build can opt into stable archive timestamps (#135).
+	if [ -f "$here/prep/$package.epoch" ]; then
+		SOURCE_DATE_EPOCH=$(<"$here/prep/$package.epoch") dpkg-deb --root-owner-group --build "$stage" "$out" >/dev/null
+	else
+		dpkg-deb --root-owner-group --build "$stage" "$out" >/dev/null
+	fi
 	rm -rf "$stage"
 	echo "$out"
 done

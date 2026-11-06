@@ -464,6 +464,88 @@ wheels package and the venv follows.
 `MIADI_MUSIC_PYTHON` override its defaults. The `atelier-jerry` plugin
 (jgwill/miadi-orchestration-kit#44) tries the venv first for its measurements.
 
+## miadi-deepdiver
+
+A clean amd64 Ubuntu 22.04/24.04 or Debian 12 host with the Sanctuaire source
+above can install the actual `miadisabelle/deepdiver` fork in one APT command:
+
+```bash
+sudo apt install miadi-deepdiver -y     # or: sudo apt install deepdiver
+miadi-deepdiver setup --claude         # desktop user; never sudo
+miadi-deepdiver doctor --offline --claude
+deepdiver chrome launch               # existing fork lifecycle, 127.0.0.1:9222
+# SIGN-IN NEEDED: human signs in once in this persistent user profile.
+deepdiver chrome status
+miadi-deepdiver doctor --claude
+```
+
+`miadi-deepdiver` 0.1.0-1 carries source commit
+`91898f367d519f8468943afcec356b839652a58c`, a normalized reproducible fork wheel,
+and all locked dependencies for Python 3.10/3.11/3.12, in
+`/usr/share/miadi-deepdiver/`. Its upstream Python metadata still says 0.1.1;
+it is **not** the obsolete PyPI artifact. `SOURCE.json` records the source and
+wheel URLs/hashes. Builds use the committed `prep/miadi-deepdiver.lock.json`,
+never a moving branch or another seat's checkout. `postinst` builds only
+`/usr/lib/miadi-deepdiver/venv`, offline with `--no-index --require-hashes`.
+
+`miadi-deepdiver-chromium` 1.64.1-1 carries Playwright 1.64.1's full Chrome
+for Testing 156.0.8078.4 (revision 1248), headless shell and ffmpeg 1013.
+Ubuntu's `chromium-browser` is a snap transition, unsuitable for clean
+container/agent installation, so these pinned binaries are private. The Debian
+runtime dependencies handle Ubuntu 24.04's t64 names. The driver and browser
+are tested on glibc 2.35+; no claim for Python 3.13+, arm64, Termux, or older
+Ubuntu. Browser terms and third-party notices are retained, not relabelled MIT.
+
+The browser `.deb` exceeds the publisher's 100 MB direct-upload cap. Publish
+it as a public kit GitHub release asset, then pass that asset URL as the
+publisher's second argument (its established pool redirect path). Publish
+browser first, runtime second, `deepdiver` alias last. The signed APT index
+still authenticates the exact `.deb` hash. Do not overwrite a released version.
+
+Setup writes config only when absent, mode 600, and preserves all existing
+skills/settings. It calls the **existing** marketplace plugin
+`miadi-deepdiver@miadi-orchestration-kit` and the fork's
+`skills install --agent claude`, without `--force`. An explicitly disabled
+plugin stays disabled; the helper reports the intended enable command instead
+of overriding personal/project policy. Claude Code installation/authentication
+is separate. Restart Claude after installing: hooks are loaded at session
+start. The kit's canonical `screenwalk-notebook` and plan-before-render gate
+are unchanged; the embedded fork manual is read with `deepdiver skills show`.
+
+No root browser, postinst sign-in, automatic account choice, home-directory
+writes or external CDP. A desktop/XWayland display is required for manual
+sign-in; doctor distinguishes absent/unreachable displays. The standard
+Chromium setuid sandbox is retained; hardened hosts that block all sandbox
+mechanisms must fix their scoped policy, not use `--no-sandbox`. CDP is not
+authenticated against other local users: use only a dedicated profile, and
+never expose or tunnel it to untrusted hosts. Removal/purge preserves profiles,
+credentials, config and Claude settings. An offline headless smoke is not
+NotebookLM authorization or end-to-end proof.
+
+```bash
+bash build.sh miadi-deepdiver-chromium
+bash build.sh miadi-deepdiver
+bash build.sh deepdiver
+IMAGE=ubuntu:22.04 bash tests/deepdiver.sh
+IMAGE=ubuntu:24.04 bash tests/deepdiver.sh
+IMAGE=debian:12 bash tests/deepdiver.sh
+```
+
+The containers grant SYS_ADMIN and an unconfined **container** AppArmor profile
+to allow Chromium's sandbox inside Docker. These flags are test-fixture-only;
+the production launcher never disables sandboxing. Fixtures test install,
+reinstall, a generated prior-version upgrade, remove/purge, private config,
+source CLI, embedded skills, sandboxed headless launch and loopback CDP with
+no account credentials. Run a separate signed-repository clean install after
+publication, and test the real Claude marketplace installation in a disposable
+user home. Refresh locks explicitly with `prep/deepdiver-capture-lock.py`
+after resolving supported-ABI wheel sets and downloading browser archives in
+a scratch directory; inspect every version/hash, bump affected Debian versions,
+review/test and publish security updates. Ordinary builds never resolve latest.
+
+Factory home/Wall relative association and permissioned mission interaction
+are a **separate** follow-up, jgwill/Miadi#941, not part of this package release.
+
 ## Build, test, install
 
 ```bash

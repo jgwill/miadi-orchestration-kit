@@ -1,0 +1,26 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Chrome for Testing and Playwright browser tools
+Source: https://playwright.dev/python/docs/browsers
+Comment: Captured upstream binary archives, not a Miadi-authored browser.
+ URLs, versions and sha256: /usr/share/miadi-deepdiver-chromium/SOURCE.json.
+ Chrome's upstream ABOUT and Widevine notices and the headless-shell and ffmpeg
+ licenses remain in /usr/lib/miadi-deepdiver/browsers/.
+ This package does not claim the browser or its codecs are MIT-licensed.
+
+Files: usr/lib/miadi-deepdiver/browsers/chromium-1248/*
+Copyright: 2026 Google LLC and Chromium contributors; respective third-party authors
+License: Chrome-and-third-party
+ Google Chrome for Testing is subject to its upstream Chrome terms.
+ Launch the browser and read chrome://terms and chrome://credits for the terms
+ and complete third-party acknowledgements. ABOUT carries the upstream notice.
+ WidevineCdm/LICENSE carries its additional notice.
+
+Files: usr/lib/miadi-deepdiver/browsers/chromium_headless_shell-1248/*
+Copyright: Chromium contributors and respective third-party authors
+License: Chromium-and-third-party
+ See chrome-headless-shell-linux64/LICENSE.headless_shell in that directory.
+
+Files: usr/lib/miadi-deepdiver/browsers/ffmpeg-1013/*
+Copyright: FFmpeg contributors
+License: LGPL-2.1
+ See ffmpeg-1013/COPYING.LGPLv2.1 in that directory.

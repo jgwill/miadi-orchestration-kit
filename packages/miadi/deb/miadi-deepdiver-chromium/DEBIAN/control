@@ -1,0 +1,12 @@
+Package: miadi-deepdiver-chromium
+Version: 1.64.1-1
+Section: web
+Priority: optional
+Architecture: amd64
+Maintainer: Miadi Factory <miadi@sanctuaireagentique.com>
+Depends: libc6 (>= 2.35), libasound2t64 | libasound2, libatk1.0-0t64 | libatk1.0-0, libatk-bridge2.0-0t64 | libatk-bridge2.0-0, libatspi2.0-0t64 | libatspi2.0-0, libcairo2, libcups2t64 | libcups2, libdbus-1-3, libdrm2, libexpat1, libgbm1, libglib2.0-0t64 | libglib2.0-0, libnspr4, libnss3, libpango-1.0-0, libudev1, libx11-6, libxcb1, libxcomposite1, libxdamage1, libxext6, libxfixes3, libxkbcommon0, libxrandr2, fonts-liberation, fonts-noto-color-emoji, fontconfig
+Homepage: https://playwright.dev/python/docs/browsers
+Description: Pinned Chromium and headless shell for Miadi DeepDiver's Playwright
+ Chrome for Testing, headless shell and ffmpeg from Playwright 1.64.1's
+ browser revisions. Private to DeepDiver: does not replace a system browser.
+ amd64 Ubuntu 22.04/24.04 and Debian 12; no snap or install-time download.

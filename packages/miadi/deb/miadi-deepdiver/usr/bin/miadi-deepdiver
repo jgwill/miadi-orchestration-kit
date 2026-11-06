@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+export PLAYWRIGHT_BROWSERS_PATH=/usr/lib/miadi-deepdiver/browsers
+export CHROME_DEVEL_SANDBOX=$PLAYWRIGHT_BROWSERS_PATH/chromium-1248/chrome-linux64/chrome_sandbox
+exec /usr/lib/miadi-deepdiver/venv/bin/python -I /usr/lib/miadi-deepdiver/setup.py "$@"

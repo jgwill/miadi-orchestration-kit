@@ -1,0 +1,49 @@
+Miadi DeepDiver — user setup
+===========================
+Installed CLI: /usr/bin/deepdiver, private Python venv, pinned fork and wheels.
+Provenance: /usr/share/miadi-deepdiver/SOURCE.json (not PyPI deepdiver 0.1.1).
+
+As the desktop user, not root:
+  miadi-deepdiver setup --claude
+  miadi-deepdiver doctor --offline --claude
+  deepdiver chrome launch
+  # SIGN-IN NEEDED: a human signs in to their own Google account in this window.
+  deepdiver chrome status
+  miadi-deepdiver doctor --claude
+
+Claude Code is installed/authenticated separately. setup --claude installs the
+existing miadi-deepdiver@miadi-orchestration-kit marketplace plugin and the
+fork's embedded skills with deepdiver skills install --agent claude. Existing
+config, disabled plugin settings and differing personal skills are preserved.
+Restart Claude to load plugin hooks. The kit's screenwalk-notebook skill and
+plan-before-render gate stay canonical; read the fork manual with
+  deepdiver skills show notebooklm-automation
+
+setup alone does not launch Chrome or sign in. Config is mode 600 and only
+created if absent; ~/.chrome-deepdiver is persistent. No maintainer script
+writes a user's home. Removal/purge never remove profiles, credentials, skills
+or config. Doctor does not print config values, page URLs or credentials.
+
+Supported: amd64 Ubuntu 22.04 (Python 3.10), Debian 12 (3.11), Ubuntu 24.04
+(3.12). Python 3.13+, arm64 and Termux are not packaged by this release.
+Ubuntu's chromium-browser is a snap transition, so Playwright's exact captured
+Chrome for Testing + headless shell is private under /usr/lib/miadi-deepdiver.
+It does not replace your normal browser or download anything at install time.
+The browser has its own upstream terms; see the browser package copyright.
+
+CDP binds 127.0.0.1:9222, with no remote-debugging wildcard. Local users can
+reach CDP: do not expose it, forward it to other hosts or reuse a sensitive
+personal browsing profile. No --no-sandbox is installed. Chromium's standard
+root-owned setuid sandbox is retained for hosts restricting user namespaces.
+If a hardened kernel/AppArmor/container disallows both sandbox mechanisms,
+report BLOCKED rather than disabling sandboxing. DISPLAY/XAUTHORITY must name
+a reachable X desktop. A Wayland-only session requires XWayland; SSH-only
+machines can run offline headless tests, but a person still needs a desktop
+for sign-in. A headless test is not proof of Google sign-in or NotebookLM E2E.
+
+  miadi-deepdiver doctor --offline --browser-smoke
+
+Browser versions are deliberately pinned, not silently updated. Maintainers
+must refresh source/dependency/browser locks, review security updates, bump
+Debian versions and rebuild/retest/release. Upgrades rebuild only the private
+venv from hash-verified packaged wheels, with --no-index and no system pip.

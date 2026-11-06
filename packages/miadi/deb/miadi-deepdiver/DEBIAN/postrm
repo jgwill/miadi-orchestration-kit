@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+case "$1" in remove|purge)
+    # Only generated package-private runtimes; never touch homes or browser profiles.
+    rm -rf /usr/lib/miadi-deepdiver/venv /usr/lib/miadi-deepdiver/venv.new /usr/lib/miadi-deepdiver/venv.old
+;; esac

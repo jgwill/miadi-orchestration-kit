@@ -1,0 +1,28 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Miadi DeepDiver
+Source: https://github.com/miadisabelle/deepdiver
+Comment: Exact source, wheel URLs and hashes: /usr/share/miadi-deepdiver/SOURCE.json.
+ The source archive and upstream MIT notice are shipped beside it.
+ Each dependency wheel retains its own METADATA and license files; after install
+ these are also in /usr/lib/miadi-deepdiver/venv/lib/python*/site-packages/.
+ No third-party component is relicensed by this packaging.
+
+Files: usr/lib/miadi-deepdiver/entry.py usr/lib/miadi-deepdiver/setup.py usr/bin/*
+Copyright: 2026 Miadi Factory contributors
+License: Expat
+ See /usr/share/common-licenses/Expat where provided, or the MIT LICENSE in
+ https://github.com/jgwill/miadi-orchestration-kit/tree/main/packages/miadi/deb.
+
+Files: usr/share/miadi-deepdiver/source.tar.gz usr/share/miadi-deepdiver/wheels/deepdiver-*
+Copyright: 2025 gerico1007 and contributors
+License: Expat
+ Full notice: /usr/share/miadi-deepdiver/DEEPDIVER-LICENSE.
+
+Files: usr/share/miadi-deepdiver/wheels/*
+Copyright: respective upstream authors, as recorded in each wheel
+License: upstream-notices
+ Python wheels retain their distribution metadata and license notices.
+ Playwright: Apache-2.0; requests: Apache-2.0; PyYAML, BeautifulSoup, Rich,
+ Click, pyperclip, typing-extensions, pyee and markdown tools: MIT/BSD;
+ certifi: MPL-2.0; Pygments and greenlet: BSD/MIT/PSF; urllib3: MIT;
+ exact notices in the captured wheels are authoritative.
