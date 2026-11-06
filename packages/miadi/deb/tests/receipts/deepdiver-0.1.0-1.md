@@ -59,7 +59,7 @@ normalized independently of builder zip metadata.
 
 ```
 02f41ef324fb534db49bf287dbf020a84bb6d5ba4e520c629055f719faccb1aa  deepdiver_0.1.0-1_all.deb
-90e1e8efc8e6f57e597e96bb019dd62f114b77b73bc2b43a7d38bbae02ee60d2  miadi-deepdiver_0.1.0-1_amd64.deb
+38656da3a08e2f4f4936bc4f26941d971cb2944497ba787c5c430bfde4ab19fa  miadi-deepdiver_0.1.0-1_amd64.deb
 e002dfbf5caa017d4f608924c7d7d7e86b8467ed33976cf7e30d2eeb78e0ce04  miadi-deepdiver-chromium_1.64.1-1_amd64.deb
 ```
 
