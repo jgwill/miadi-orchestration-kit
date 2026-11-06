@@ -1,0 +1,49 @@
+{
+  "settings": {
+    "namespace": "Miadi.Teams",
+    "name": "DeskLeavesDevelopment",
+    "description": "This discussion as its first case: the T7 session of 2026-11-06 leaves T8 what it takes to make mctgo show what each team leaves.",
+    "notes": "Written ahead of what exists. offer_id, from_team and to_team are not fields on the connector yet, no T8 seat is named, and mct list does not print offers."
+  },
+  "participants": [
+    { "name": "Guillaume", "actor": "Guillaume" },
+    { "name": "T7 seat", "actor": "T7 seat", "description": "tmux T7-mctgo-team-wrapper-prompt-inspired-parallel-code-2611060710" },
+    { "name": "Kit", "service": "jgwill/miadi-orchestration-kit", "holds": ["Team", "TeamContract", "Offer", "Need"] },
+    { "name": "Connector", "service": "@miadi/connector", "holds": ["Handoff", "Verification", "SessionCompletion"] },
+    { "name": "T8 seat", "actor": "T8 seat", "description": "Not named: T8 has no agent lead" },
+    { "name": "mct", "service": "@miadi/chronicle-tui" }
+  ],
+  "messages": [
+    { "from": "Guillaume", "to": "T7 seat", "label": "asks what a team leaves for another, and what this discussion leaves" },
+    { "from": "T7 seat", "to": "Kit", "label": "reads the teams, their Makes and Uses lines", "carries": "Team" },
+    { "from": "T7 seat", "to": "Kit", "label": "commits this system and one desk ledger line", "carries": "Carrier" },
+    { "from": "T7 seat", "to": "Connector", "label": "records the handoff from T7 to T8, this system as its carrier", "carries": "Handoff" },
+    { "from": "T7 seat", "to": "Connector", "label": "records check_system and the replay", "event": "CarrierLanded", "state": "Ready", "carries": "Verification" },
+    { "from": "T7 seat", "to": "Guillaume", "label": "says what was left, and for whom" },
+    { "from": "T8 seat", "to": "Connector", "label": "reads the system, runs the acceptance, claims", "event": "Claim", "state": "InProgress" },
+    { "from": "T8 seat", "to": "Kit", "label": "adds offers to teams.json, with the README in step", "carries": "Offer" },
+    { "from": "T8 seat", "to": "mct", "label": "mct list prints each team's offers, and a new session's primer names them" },
+    { "from": "T8 seat", "to": "Connector", "label": "completes with a receipt: commits, version, hosts", "event": "Complete", "state": "Completed" }
+  ],
+  "fragments": [
+    {
+      "kind": "alt",
+      "label": "what was left needs a person's decision first",
+      "after": 4,
+      "messages": [
+        { "from": "T7 seat", "to": "Connector", "label": "marks it blocked, and names the decision", "event": "NeedsAPerson", "state": "Blocked" },
+        { "from": "Guillaume", "to": "Connector", "label": "decides", "event": "PersonDecided", "state": "Ready" }
+      ]
+    },
+    {
+      "kind": "alt",
+      "label": "T8 finds the acceptance is not met",
+      "after": 6,
+      "messages": [
+        { "from": "T8 seat", "to": "Connector", "label": "sends it back, and says what is missing", "event": "SendBack", "state": "Returned" },
+        { "from": "T7 seat", "to": "Kit", "label": "revises the drawings", "carries": "Carrier" },
+        { "from": "T7 seat", "to": "Connector", "label": "records the revision", "event": "Revise", "state": "Pending" }
+      ]
+    }
+  ]
+}

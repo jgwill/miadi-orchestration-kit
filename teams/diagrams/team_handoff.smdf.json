@@ -1,0 +1,113 @@
+{
+  "settings": {
+    "namespace": "Miadi.Teams",
+    "name": "TeamHandoff",
+    "asynchronous": true,
+    "objects": [{ "instance": "handoff", "class": "Handoff" }],
+    "notes": [
+      "The lifecycle of one thing one team leaves for another. The connector's record_handoff already holds pending, blocked, ready, in_progress, completed and withdrawn. Staged and Returned are new, and today each could only be written as blocked with a note.",
+      "A receiving team that can only take what it is given has no contract. Returned is what makes this a service interface: the receiver can answer that the acceptance was not met."
+    ]
+  },
+  "events": [
+    {
+      "name": "LeavingTeam",
+      "feeder": "the session that leaves it",
+      "events": [
+        { "id": "CarrierLanded" },
+        { "id": "NoEpisodeYet" },
+        { "id": "NeedsAPerson" },
+        { "id": "Revise" },
+        { "id": "Withdraw" }
+      ]
+    },
+    {
+      "name": "ReceivingTeam",
+      "feeder": "a session of the team it is left for",
+      "events": [
+        { "id": "Claim" },
+        { "id": "SendBack" },
+        { "id": "Complete" }
+      ]
+    },
+    {
+      "name": "Person",
+      "feeder": "the person who decides",
+      "events": [
+        { "id": "EpisodeMinted" },
+        { "id": "PersonDecided" }
+      ]
+    }
+  ],
+  "state": {
+    "name": "Root",
+    "states": [
+      {
+        "name": "Pending",
+        "description": "Store state: pending. The handoff is recorded with its receiving team and its offer. The carrier may not have landed yet.",
+        "prompt": "Name the receiving team, the offer this delivers, and the record that will carry it. Choose the episode for this work: do not copy it from the binding line. Land the carrier, run the offer's checks and record each result.",
+        "transitions": [
+          { "event": "CarrierLanded", "nextState": "Ready" },
+          { "event": "NoEpisodeYet", "nextState": "Staged" },
+          { "event": "NeedsAPerson", "nextState": "Blocked" },
+          { "event": "Withdraw", "nextState": "Withdrawn" }
+        ]
+      },
+      {
+        "name": "Staged",
+        "description": "New state; today it could only be written as blocked. No episode holds this yet. The concept waits in _staging_for_new_episodes with T5, for its foundation and a person's choice of birth.",
+        "prompt": "T5: feed the concept and build its foundations packet. Leave the birth of the episode to a person.",
+        "transitions": [
+          { "event": "EpisodeMinted", "nextState": "Pending" },
+          { "event": "Withdraw", "nextState": "Withdrawn" }
+        ]
+      },
+      {
+        "name": "Blocked",
+        "description": "Store state: blocked. It waits for a person's decision or for another handoff. The note names which.",
+        "transitions": [
+          { "event": "PersonDecided", "nextState": "Ready" },
+          { "event": "Withdraw", "nextState": "Withdrawn" }
+        ]
+      },
+      {
+        "name": "Ready",
+        "description": "Store state: ready. The carrier exists at its address and its checks are recorded. A session of the receiving team can claim it. A team with no agent lead has nobody who will.",
+        "prompt": "Receiving seat: read the carrier at its address and run the offer's acceptance. Claim it if the acceptance holds. Send it back with what is missing if it does not.",
+        "transitions": [
+          { "event": "Claim", "nextState": "InProgress" },
+          { "event": "SendBack", "nextState": "Returned" },
+          { "event": "Withdraw", "nextState": "Withdrawn" }
+        ]
+      },
+      {
+        "name": "InProgress",
+        "description": "Store state: in_progress. A named session of the receiving team holds it.",
+        "prompt": "Do the work this asks for. Complete it with a receipt: what was delivered and where.",
+        "transitions": [
+          { "event": "Complete", "nextState": "Completed" },
+          { "event": "SendBack", "nextState": "Returned" }
+        ]
+      },
+      {
+        "name": "Returned",
+        "description": "New state; today it could only be written as blocked. The receiving team says what was left does not meet the acceptance, and says what is missing.",
+        "prompt": "Leaving team: read what the receiver found missing. Revise the carrier and record it again, or withdraw it with the reason.",
+        "transitions": [
+          { "event": "Revise", "nextState": "Pending" },
+          { "event": "Withdraw", "nextState": "Withdrawn" }
+        ]
+      },
+      {
+        "name": "Completed",
+        "kind": "final",
+        "description": "Store state: completed. Its receipt says what the receiving team made from it and where."
+      },
+      {
+        "name": "Withdrawn",
+        "kind": "final",
+        "description": "Store state: withdrawn. Its note says why."
+      }
+    ]
+  }
+}
