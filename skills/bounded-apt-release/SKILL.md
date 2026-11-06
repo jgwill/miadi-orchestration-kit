@@ -22,15 +22,20 @@ matrix already passed; Guillaume had to ask whether the mission was finished.
    blocker list within five minutes. Budget each additional probe. Do not
    silently launch another broad container fleet or repeat an already-passing
    matrix without a finding that calls for it.
-4. At the budget boundary, collect the report. A measured blocker is fixed and
+4. Launch long tests in a separate tmux session or process session, then verify
+   fresh completion markers. Do not put a `nohup` launch and a timeout-prone
+   foreground build in the same tool call: a timeout can terminate their process
+   group together. After any timeout, check actual worker liveness; a stale
+   `running` file is not a running test and an old exit 0 is not a new pass.
+5. At the budget boundary, collect the report. A measured blocker is fixed and
    regression-tested; silence is not approval. If the reviewer gives an exact
    conditional approval, satisfy those conditions instead of commissioning
    another general review. Missing real-host/account instruments are labelled,
    never represented by Docker or anonymous sign-in tests.
-5. Separate scripted checks from an agent-operated clean-host walkthrough.
+6. Separate scripted checks from an agent-operated clean-host walkthrough.
    Prove pinned artifacts, old-version cleanup, preserved data, signed APT
    metadata and a real install. Keep account sign-in manual.
-6. Finish the authorized sequence: commit → PR → merge → build/verify artifact
+7. Finish the authorized sequence: commit → PR → merge → build/verify artifact
    identity → publish in dependency order → signed-index/install readback →
    canonical checkout on main → issue/connector receipt. Test success alone is
    not shipment. Keep the user informed during a long-running step; never say
