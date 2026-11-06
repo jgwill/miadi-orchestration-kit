@@ -152,6 +152,28 @@ unset_value() {
 	echo "$1 removed from $file"
 }
 
+# identity <token name>: who the Miadi app says that token names, as "<state>\t<detail>".
+# state: person, refused, unanswered, unchecked. The token goes only to https or to this
+# machine, through curl's stdin so ps cannot show it, and is never printed.
+identity() {
+	local token=${!1:-} base answer code name
+	command -v curl >/dev/null && command -v jq >/dev/null || { printf 'unchecked\tcurl and jq are needed to ask the app\n'; return; }
+	for base in "${MIADI_WEB_URL:-http://127.0.0.1:3335}" "${MIADI_URL_BASE_INTERNAL:-}"; do
+		base=${base%/}
+		case $base in https://* | http://127.0.0.1 | http://127.0.0.1:* | http://localhost | http://localhost:*) ;; *) continue ;; esac
+		answer=$(printf 'header = "Authorization: Bearer %s"\n' "$token" | curl -sS -m 4 -K - -w '\n%{http_code}' "$base/api/identity/me" 2>/dev/null || true)
+		code=${answer##*$'\n'}
+		case $code in
+			200)
+				name=$(jq -r '.person.name // empty' <<<"${answer%$'\n'*}" 2>/dev/null || true)
+				if [ -n "$name" ]; then printf 'person\t%s, checked at %s\n' "$name" "$base"; else printf 'refused\t%s named no person\n' "$base"; fi
+				return ;;
+			401 | 403) printf 'refused\t%s refused it\n' "$base"; return ;;
+		esac
+	done
+	printf 'unanswered\tno Miadi app answered\n'
+}
+
 check() {
 	local missing=0 n=0 line key
 	miss() { echo "missing  $*"; missing=$((missing + 1)); }
@@ -197,6 +219,35 @@ check() {
 		if [ -n "$op" ] && { [ "$op" = "$me" ] || [ "$me" = root ]; }; then echo "ok       tailscale operator: $op (phone-capture serves https on the tailnet)"
 		elif [ -n "$op" ]; then echo "ok       tailscale operator: $op, not $me: phone-capture serves https on the tailnet from $op's sessions only"
 		else miss "tailscale has no operator, so phone-capture cannot serve https on the tailnet: sudo miadi-config tailnet $me"; fi
+	fi
+	# Who a person at this account's terminal is: the rule tan and miadi-chronicle apply.
+	# An account with no person is normal for a service, so it is a note, not a miss.
+	local state detail
+	if [ -n "${MIADI_PERSON_TOKEN:-}" ]; then
+		IFS=$'\t' read -r state detail < <(identity MIADI_PERSON_TOKEN)
+		case $state in
+			person) echo "ok       a person at this terminal is $detail (MIADI_PERSON_TOKEN)" ;;
+			refused) miss "MIADI_PERSON_TOKEN: $detail: make a new token on the app's /me page" ;;
+			*) echo "note     MIADI_PERSON_TOKEN is set and unchecked: $detail" ;;
+		esac
+	fi
+	if [ -n "${MIADI_ACCOUNT_TOKEN:-}" ]; then
+		IFS=$'\t' read -r state detail < <(identity MIADI_ACCOUNT_TOKEN)
+		case $state in
+			person) echo "ok       this Unix account acts for $detail (MIADI_ACCOUNT_TOKEN)" ;;
+			refused) miss "MIADI_ACCOUNT_TOKEN: $detail: make a new token on the app's /me page and write it to ~/.miadi/person.env" ;;
+			*) echo "note     MIADI_ACCOUNT_TOKEN is set and unchecked: $detail" ;;
+		esac
+	fi
+	if [ -z "${MIADI_PERSON_TOKEN:-}${MIADI_ACCOUNT_TOKEN:-}" ]; then
+		echo "note     no person on this account: marks made with tan are unsigned, miadi-chronicle reads as a visitor. miadi-config settings names MIADI_ACCOUNT_TOKEN, /usr/share/doc/miadi-tide/README has the steps"
+	fi
+	# A copy earlier on PATH runs instead of the package and keeps none of its fixes.
+	if [ -e /usr/bin/plannotator-tui ]; then
+		local tui
+		tui=$(command -v plannotator-tui || true)
+		if [ "$(readlink -f "$tui")" = "$(readlink -f /usr/bin/plannotator-tui)" ]; then echo "ok       plannotator-tui is the packaged one"
+		else miss "$tui comes before the packaged plannotator-tui on PATH, so what miadi-tide installs does not run: remove that copy"; fi
 	fi
 	[ "$missing" -eq 0 ] || { echo "$missing missing"; return 1; }
 }

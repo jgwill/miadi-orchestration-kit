@@ -144,6 +144,15 @@ export MIADI_PI_EXTENSIONS_ROOT="${MIADI_PI_EXTENSIONS_ROOT:-$MIADI_REPOS_ROOT/m
 export MIADI_MCP_SERVER_CURRENT_VERSION="${MIADI_MCP_SERVER_CURRENT_VERSION:-@miadi/mcp@1.4.13}" # miadi-mcp-server@* is deprecated
 export MIADI_TOOLS_ENABLED="${MIADI_TOOLS_ENABLED:-miadi-get-memory,miadi-store-memory,miadi-scan-keys}"
 
+# Who this user is on the Miadi wheel. `miadi-local-account bind` writes this file, or the
+# person does by hand; a value the shell already has wins. Plain KEY=VALUE, nothing expanded.
+if [ -z "${MIADI_ACCOUNT_TOKEN:-}" ] && [ -r "${HOME:-}/.miadi/person.env" ]; then
+	while IFS= read -r _miadi_line || [ -n "$_miadi_line" ]; do
+		case $_miadi_line in MIADI_ACCOUNT_PERSON=* | MIADI_ACCOUNT_TOKEN=*) export "$_miadi_line" ;; esac
+	done <"$HOME/.miadi/person.env"
+fi
+export MIADI_PERSON_TOKEN MIADI_ACCOUNT_PERSON MIADI_ACCOUNT_TOKEN
+
 # Names only. Values come from the user's ~/.env or the service's env file.
 export MIADI_API_TOKEN_WRITER MIADI_API_TOKEN_READER
 export MIADI_API_KEY="${MIADI_API_KEY:-${MIADI_API_TOKEN_WRITER:-}}" # older name of MIADI_API_TOKEN_WRITER
@@ -155,7 +164,7 @@ export MIADI_EH_API_URL MIADI_REVIEW_URL
 # What this run filled in, for the next run in this shell. Not exported.
 _miadi_filled=
 for _miadi_key in $(compgen -e); do
-	case $_miadi_key in MIADI_* | PLANNOTATOR_TMUX_REVIEW_DIR | PLANNOTATOR_DATA_DIR) ;; *) continue ;; esac
+	case $_miadi_key in MIADI_ACCOUNT_*) continue ;; MIADI_* | PLANNOTATOR_TMUX_REVIEW_DIR | PLANNOTATOR_DATA_DIR) ;; *) continue ;; esac
 	case $_miadi_before in *" $_miadi_key "*) continue ;; esac
 	_miadi_filled+="$_miadi_key=${!_miadi_key}"$'\n'
 done

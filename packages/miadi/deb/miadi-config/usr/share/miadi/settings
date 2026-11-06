@@ -46,5 +46,8 @@ MIADI_FLOWISE_ENABLED            1 re-enables the Flowise proxy; off when unset
 MIADI_STEER_DEV_BYPASS           1 lets /api/tide/steer run without a writer token outside production; off when unset
 MIADI_MAIL_FROM                  the sender of the mail Miadi sends, e.g. Miadi <miadi@your-domain>; with MIADI_SMTP_URL unset, no mail leaves
 MIADI_SMTP_URL                   secret, the SMTP relay with its credential (smtps://user:password@host:465); kept in the service's env file, never in miadi.env
+MIADI_PERSON_TOKEN               secret, the person this shell acts for: a person at a terminal is this token, else MIADI_ACCOUNT_TOKEN; tan and miadi-chronicle apply that rule; set it in a file your shell reads, never in miadi.env; miadi-config check says who it names
+MIADI_ACCOUNT_TOKEN              secret, the person this Unix account acts for; kept in ~/.miadi/person.env, mode 600, which env.sh loads; never in miadi.env
+MIADI_ACCOUNT_PERSON             the wheel id of the person this Unix account acts for, beside MIADI_ACCOUNT_TOKEN in ~/.miadi/person.env; session binding lines record it
 MIADI_API_TOKEN_WRITER           secret, read and write; kept in ~/.env or the service's env file, never in miadi.env
 MIADI_API_TOKEN_READER           secret, read only; kept in ~/.env or the service's env file, never in miadi.env

@@ -1,9 +1,9 @@
 Package: miadi-tide
-Version: 0.1.30
+Version: 0.1.31
 Section: misc
 Priority: optional
 Architecture: amd64
-Depends: libc6 (>= 2.35), tmux, jq, python3-venv (>= 3.11) | python3.12-venv | python3.11-venv
+Depends: libc6 (>= 2.35), tmux, jq, curl, python3-venv (>= 3.11) | python3.12-venv | python3.11-venv
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
 Description: The tide review loop and runtime on a Miadi host

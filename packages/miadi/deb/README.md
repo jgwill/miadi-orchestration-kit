@@ -54,7 +54,7 @@ installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
 
 A value in the environment wins over `miadi.env`, which wins over the defaults.
 `env.sh` prints nothing and loads under `set -u`. Sourced a second time in the
-same shell, as binscripts `load.sh` does after `~/.env`, it rebuilds the values
+same shell, as a loader may after reading `~/.env`, it rebuilds the values
 it filled in the first time from the new inputs and keeps any value changed in
 between. Because `miadi.env` is plain
 `KEY=VALUE`, systemd `EnvironmentFile=` and docker compose `env_file` read it
@@ -182,6 +182,48 @@ The steps an administrator runs for one more account (group, linger,
 `/usr/share/doc/miadi/README`. Creating the accounts `mia`, `ava` and
 `tushell` on a new host, each for its own purpose, is
 jgwill/miadi-orchestration-kit#79.
+
+### Who you are on this host
+
+A person's acts from a terminal carry one person, and `tan` and `miadi-chronicle`
+choose that person by one rule:
+
+1. `MIADI_PERSON_TOKEN`, when the shell has it: who this shell acts for.
+2. `MIADI_ACCOUNT_TOKEN`: who this Unix account acts for, kept in
+   `~/.miadi/person.env`.
+
+An account approved in the app's `/admin` is bound when it is approved. To bind your
+own, make a token on the app's `/me` page and write the file, plain `KEY=VALUE` with no
+quotes, mode 600:
+
+```bash
+install -d -m 700 ~/.miadi
+install -m 600 /dev/null ~/.miadi/person.env
+printf 'MIADI_ACCOUNT_PERSON=%s\nMIADI_ACCOUNT_TOKEN=%s\n' '<person id>' '<token>' > ~/.miadi/person.env
+```
+
+`env.sh` loads that file in every login shell, and the review loop reads it when the
+shell has no token. Log in again, then:
+
+```console
+$ miadi-config check
+ok       this Unix account acts for Ada, checked at http://127.0.0.1:3335 (MIADI_ACCOUNT_TOKEN)
+```
+
+A person and an agent sharing one Unix account stay two people. `person.env` names the
+account's own person, the agent, which signs with that token over the API. The person at
+the keyboard exports `MIADI_PERSON_TOKEN` in a file their shell reads. Nothing the kit
+installs reads `~/.env`: a developer workstation's own shell files may, and a bare host's
+do not. On gaia, `mia` holds both, and `miadi-config check` prints one line for each.
+
+With no token, a refused one or no app answering, `tan` still opens and says why its
+marks are unsigned, before the TUI opens and again after. A mark made unsigned stays that
+way.
+
+A workstation's own shell files and older copies can hide what is installed:
+`type -a tan plannotator-tui` should list `/usr/bin` first. `miadi-config check` reports a
+`plannotator-tui` that comes first on `PATH`. It cannot see a shell function, so
+`type -a` is the check for `tan`. Ref: jgwill/miadi-orchestration-kit#134.
 
 ## miadi-tide
 

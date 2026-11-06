@@ -69,6 +69,20 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
       echo \"env ok: \$(env | grep -c ^MIADI_) MIADI_* variables, silent under set -u\""
     test "$(bash -lc "echo \$MIADI_DATA_DIR")" = /srv/miadi && echo "a login shell loads it"
     test "$(miadi-config get MIADI_WEBHOOK_URL)" = https://example.test/api/workflow/webhook && echo "miadi-config get resolves"
+    miadi-config settings | grep -q "^MIADI_ACCOUNT_TOKEN "
+    miadi-config settings | grep -q "^MIADI_PERSON_TOKEN "
+    echo "miadi-config knows the identity names"
+    { miadi-config check 2>/dev/null || true; } | grep -q "^note     no person on this account"
+    echo "miadi-config check says when no person is bound"
+    who=$(mktemp -d); install -d -m 700 "$who/.miadi"
+    printf "MIADI_ACCOUNT_PERSON=node:human:1:a\nMIADI_ACCOUNT_TOKEN=t-1\nPATH=/nowhere\n" > "$who/.miadi/person.env"
+    test "$(env -i HOME="$who" PATH="$PATH" bash -uc ". /usr/share/miadi/env.sh; echo \$MIADI_ACCOUNT_PERSON \$MIADI_ACCOUNT_TOKEN \$PATH")" = "node:human:1:a t-1 $PATH"
+    echo "env.sh loads the two identity names from person.env and nothing else"
+    test "$(env -i HOME="$who" PATH="$PATH" MIADI_ACCOUNT_TOKEN=shell bash -uc ". /usr/share/miadi/env.sh; echo \$MIADI_ACCOUNT_TOKEN")" = shell
+    echo "a token the shell has wins over person.env"
+    test -z "$(env -i HOME="$who" PATH="$PATH" bash -uc ". /usr/share/miadi/env.sh; echo \"\${_miadi_filled:-}\" | grep MIADI_ACCOUNT_ || true")"
+    echo "the token stays out of env.sh bookkeeping"
+    rm -rf "$who"
     miadi-config settings | grep -q "^MIADI_CHRONICLE_OPEN_URL " && echo "miadi-config knows MIADI_CHRONICLE_OPEN_URL"
     miadi-config settings | grep -q "^MIADI_MUSIC_SOUNDFONT " && echo "miadi-config knows the miadi-music settings"
     miadi-hermes-tailnet --help >/dev/null
@@ -274,6 +288,10 @@ PY
     grep -q "^ExecStart=/usr/bin/tide daemon" /usr/lib/systemd/user/tide-runtime.service && echo "the server half ships as user units"
     code() { set +e; "$@" >/dev/null 2>&1; echo $?; set -e; }
     test "$(code tan)" = 64 && echo "tan without a target: 64"
+    grep -q PLANNOTATOR_TUI_AUTHOR /usr/bin/plannotator-tui
+    echo "the packaged plannotator-tui can write an author"
+    grep -q "marks will be unsigned" /usr/lib/miadi-tide/plannotator-tmux-review.sh
+    echo "the packaged review loop resolves its person"
     test -x /usr/lib/miadi-tide/plannotator-agent-session.py
     test "$(readlink /usr/local/bin/plannotator-tmux-review)" = /usr/bin/plannotator-tmux-review
     test -f /usr/share/miadi-tide/node/@miadi/tide/scripts/plannotator-agent-session.py

@@ -1,9 +1,10 @@
 Package: miadi-config
-Version: 0.2.10
+Version: 0.2.11
 Section: misc
 Priority: optional
 Architecture: all
 Depends: bash
+Recommends: curl, jq
 Suggests: x11-xserver-utils, systemd
 Replaces: miadi (<< 0.2.0)
 Breaks: miadi (<< 0.2.0)

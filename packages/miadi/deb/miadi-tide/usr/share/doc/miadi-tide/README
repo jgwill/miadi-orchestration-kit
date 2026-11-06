@@ -17,6 +17,26 @@ Client
   /usr/share/miadi-tide/node/@miadi/tide, @miadi/tide-contract
                               the Node client of the runtime, as it would be published
 
+Who your marks are by
+  tan asks the Miadi app whose token this user holds and writes that person on each
+  mark as it is saved. The token is MIADI_PERSON_TOKEN (who this shell acts for), else
+  MIADI_ACCOUNT_TOKEN (who this Unix account acts for). miadi-chronicle uses the same
+  rule. An account approved in the app's /admin is already bound. To bind your own, make
+  a token on the app's /me page, then:
+
+      install -d -m 700 ~/.miadi
+      install -m 600 /dev/null ~/.miadi/person.env
+      printf 'MIADI_ACCOUNT_PERSON=%s\nMIADI_ACCOUNT_TOKEN=%s\n' '<person id>' '<token>' > ~/.miadi/person.env
+
+  Plain KEY=VALUE, no quotes. Log in again, then miadi-config check says who you are.
+  With no token, a refused one or no app answering, tan still opens and says why its
+  marks are unsigned. A mark made unsigned stays that way: nothing assigns an author
+  after the fact.
+
+  A person and an agent sharing one Unix account stay two people: person.env names the
+  account's own person, the agent, and the person at the keyboard exports
+  MIADI_PERSON_TOKEN in a file their shell reads.
+
 Server
   tide-runtime.service        the context daemon (tide daemon --interval 60), one per
                               user, off until that user enables it:
