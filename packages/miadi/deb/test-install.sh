@@ -103,6 +103,18 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     test "$(tmux -L colons display -p -t "circle:1791110394383:jj1ql8:0.1" "#{session_name}:#{pane_index}")" = "circle:1791110394383:jj1ql8:1"
     tmux -L colons has-session -t "circle:1791110394383:jj1ql8" && tmux -L colons kill-server
     echo "a session named circle:1791110394383:jj1ql8 is reached by its name, down to its panes"
+    # kill-server from inside a pane of the server it would end is refused (prep/patches/tmux-3.7c).
+    tmux -L own -f /dev/null new-session -d -s own
+    own="$(tmux -L own display -p "#{socket_path},#{pid},0")"
+    if TMUX="$own" TMUX_TMPDIR=/tmp/nowhere tmux kill-server 2>/tmp/own.log; then echo "kill-server from its own pane was not refused" >&2; exit 1; fi
+    grep -q "kill-server refused" /tmp/own.log
+    tmux -L own has-session -t own
+    tmux -L elsewhere -f /dev/null new-session -d -s elsewhere
+    TMUX="$own" tmux -L elsewhere kill-server
+    tmux -L own has-session -t own
+    if tmux -L elsewhere has-session 2>/dev/null; then echo "a client in a pane could not end another server" >&2; exit 1; fi
+    tmux -L own kill-server
+    echo "kill-server: refused from a pane of that server, TMUX_TMPDIR or not, and it still ends another server"
     # The distribution server runs on from the replaced binary: the postinst names it, and this
     # tmux cannot attach to it (jgwill/miadi-orchestration-kit#115).
     grep -q "^miadi-tmux: user root still runs a tmux 3\\.[0-9a-z]* server from the tmux this package replaced" /tmp/install.log
@@ -128,6 +140,10 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     grep -qx "source-file /usr/share/miadi-terminal/session-continuity/session-continuity.conf  # miadi-terminal restore" ~/.tmux.conf
     test -d ~/.tmux/plugins/tmux-continuum
     echo "restore: enable commented out the 2 plugin lines, added its source-file line, cloned the plugins"
+    test -x /usr/share/miadi-terminal/session-continuity/server-watch.sh
+    test -f /usr/lib/systemd/user/tmux-server-watch.service
+    grep -q "^PartOf=tmux-server.service" /usr/lib/systemd/user/tmux-server-watch.timer
+    grep -q "^Wants=tmux-server-watch.timer" /usr/lib/systemd/user/tmux-server.service
     # A server tmux-server.service did not start: enable prints the switch-over, and the
     # switch-over (by hand here, as the units run it) brings its session back into a server this
     # tmux attaches to (jgwill/miadi-orchestration-kit#115).

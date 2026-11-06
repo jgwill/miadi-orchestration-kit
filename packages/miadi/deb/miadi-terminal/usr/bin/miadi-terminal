@@ -420,7 +420,7 @@ PLUGINS = {
     "tmux-resurrect": "https://github.com/tmux-plugins/tmux-resurrect",
     "tmux-continuum": "https://github.com/tmux-plugins/tmux-continuum",
 }
-UNITS = ("tmux-server.service", "tmux-save.timer")
+UNITS = ("tmux-server.service", "tmux-save.timer", "tmux-server-watch.timer")
 # A second load of the plugins makes continuum restore once more when the server starts: on gaia,
 # 2026-10-03, four restores split 32 empty panes into 19 sessions.
 LOADS = re.compile(r"""^\s*(set(-option)?\s+-g\s+@(plugin\s+['"]tmux-plugins/(tpm|tmux-resurrect|tmux-continuum)['"]"""
@@ -499,7 +499,8 @@ class Restore:
         # notes() prints how to move a running server over.
         server = run("systemctl", "--user", "enable", "tmux-server.service")
         timer = run("systemctl", "--user", "enable", "--now", "tmux-save.timer")
-        units = [("tmux-server.service", server), ("tmux-save.timer", timer)]
+        watch = run("systemctl", "--user", "enable", "--now", "tmux-server-watch.timer")
+        units = [("tmux-server.service", server), ("tmux-save.timer", timer), ("tmux-server-watch.timer", watch)]
         # tide's daemon takes the snapshots a restore reads: without it the panes come back and
         # no agent does (tushell on gaia, 2026-10-07).
         if shutil.which("tide"):
@@ -568,7 +569,8 @@ class Restore:
             print(f"restore: removed from {path}")
         run("systemctl", "--user", "disable", "tmux-server.service")
         run("systemctl", "--user", "disable", "--now", "tmux-save.timer")
-        print("restore: tmux-server.service and tmux-save.timer are disabled; a running tmux server keeps running")
+        run("systemctl", "--user", "disable", "--now", "tmux-server-watch.timer")
+        print("restore: tmux-server.service, tmux-save.timer and tmux-server-watch.timer are disabled; a running tmux server keeps running")
 
     def describe(self):
         return f"tmux starts at boot, restores its last save, and tide brings the agents back; {CONTINUITY_CONF}"

@@ -1,0 +1,12 @@
+[Unit]
+Description=Every minute, check that the tmux server has not ended while the machine stayed up
+# `systemctl --user stop tmux-server.service` stops this timer. A server that ends by itself does not.
+PartOf=tmux-server.service
+
+[Timer]
+OnActiveSec=3min
+OnUnitActiveSec=1min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

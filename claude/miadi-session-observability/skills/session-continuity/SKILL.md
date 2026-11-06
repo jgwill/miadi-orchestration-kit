@@ -32,7 +32,7 @@ computer rebooted."
 | part | what it keeps | where |
 |---|---|---|
 | binding line | each Claude session's id, tmux `session:window.pane`, pane id, command line, name history, team, chronicle episode | this plugin's `hooks/claude_hooks/terminal_binding.sh`, written to `<root>/data/terminal_bindings.jsonl` |
-| tmux save and restore | layout, folders, visible screens, saved every 15 minutes by `tmux-save.timer`; the server started at boot by `tmux-server.service` | `jgwill/gaia` `linux_migration/14-tmux-resurrect.sh` and its two hooks; on a new machine `miadi-terminal enable restore` (apt) |
+| tmux save and restore | layout, folders, visible screens, saved every 15 minutes by `tmux-save.timer`; the server started at boot by `tmux-server.service`, and within two minutes by `tmux-server-watch.timer` when it ended with the machine up | `jgwill/gaia` `linux_migration/14-tmux-resurrect.sh` and its two hooks; on a new machine `miadi-terminal enable restore` (apt) |
 | tide | the agent in each pane, every 60 s, and the relaunch after a restore | `ironsilk` 0.9.40 and later (claude, hermes, pi), `tide agents list`, `tide agents restore`; apt `miadi-tide` |
 | one tmux | 3.7c everywhere: a client of another version cannot attach | apt `miadi-tmux` |
 | recovery list | what each pane probably held, when the three above had nothing | built by hand as in "After a crash" below |
@@ -123,19 +123,22 @@ When the server ended and the machine stayed up (2026-11-05). Attaching answers 
 and `tmux ls` answers `server exited unexpectedly`. A process `tmux: server` can still be there,
 with no panes and no children. It has shut down, and it waits for a client it cannot reach: on
 2026-11-05 a phone's stalled SSH connection, with its bytes queued in `ss -tn`. No coredump and no
-OOM line means something sent `kill-server` or SIGTERM. Nothing starts a server here by itself.
+OOM line means something sent `kill-server` or SIGTERM.
 
-1. Find what ended it before starting anything, because a resumed agent repeats what it was doing.
-   The last snapshot with panes bounds the time. Read the tool calls that have no result in the
-   transcripts changed since then, and read what those calls ran.
-2. Copy the save `last` names somewhere else. End the `tmux attach` that holds the server (`kill`,
-   then `kill -KILL`: it can sit in a blocked write). The server then exits by itself.
-3. `tmux-server.service` stays active while anything a pane started survives in its cgroup, such as
-   a browser. There `start` does nothing and `restart` kills them. Start the same command from the
-   user manager, which hands the panes its own environment, not an agent's:
-   `systemd-run --user --unit=tmux-server-recover-<yymmdd> --collect --service-type=forking --working-directory=$HOME /usr/bin/tmux new-session -d -c $HOME`
-4. Continue at step 3 of the list above. tide treats this server like one started at boot: it reads
-   the last snapshot with panes from before this server started.
+`tmux-server-watch.timer` handles this by itself within two minutes: it kills a server that cannot
+finish, ends the clients left behind, starts a server, and tide treats that server like one started
+at boot. Its log is `~/.miadi/navigator/restore/server-watch.log`. It stops after 3 starts in an
+hour, because something keeps ending the server and each start resumes whatever may be doing it.
+
+1. Find what ended it, above all when the watch has stopped. A resumed agent repeats what it was
+   doing. The last snapshot with panes bounds the time. Read the tool calls that have no result in
+   the transcripts changed since then, and read what those calls ran.
+2. To start one by hand: `tmux-server.service` stays active while anything a pane started survives
+   in its cgroup, such as a browser. There `start` does nothing and `restart` kills them. Start the
+   same command from the user manager, which hands the panes its own environment, not an agent's:
+   `systemd-run --user --unit=tmux-server-recover-<yymmdd> --collect --service-type=forking --working-directory=$HOME /usr/bin/env tmux new-session -d -c $HOME`
+3. Continue at step 3 of the list above. An agent the memory floor kept from starting has its
+   command typed in its pane, without Enter.
 
 ## Checks that proved each part
 
@@ -193,6 +196,13 @@ its `run-shell` jobs get `TMUX` for that server, so they stay on it.
   and 69 running agents. A server of its own takes `-L` or `-S`, or a tool's environment without
   `TMUX` and `TMUX_PANE`. Since 0.1.36 `hooks/tmux_server_guard.sh` refuses such a command when an
   agent types it. It reads command text, so it does not see a program that calls tmux itself.
+  `miadi-tmux` 3.7c-4 refuses `kill-server` from inside a pane of the server it would end, which
+  covers those programs. A person keeps the command prompt and `env -u TMUX tmux kill-server`.
+- continuum restores into a private server when the main one does not count (2026-11-05). It counts
+  processes whose command begins with `tmux`, and a unit starting `/usr/bin/tmux` does not: a test's
+  private server that loaded `~/.tmux.conf` restored sessions into itself. Start the main server
+  through `env`, and give a private server `-f /dev/null`. A leftover client counts too: more than
+  one and continuum skips the real restore.
 
 Earned 2026-10-03 (jgwill/gaia#90):
 

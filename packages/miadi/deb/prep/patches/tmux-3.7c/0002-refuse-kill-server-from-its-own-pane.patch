@@ -1,0 +1,66 @@
+kill-server from inside a pane of the server it would end is refused.
+2026-11-05 20:49: a test run by an agent set TMUX_TMPDIR and kept $TMUX, and $TMUX wins, so its
+cleanup ended the live server: 120 panes, 69 running agents.
+
+--- a/client.c
++++ b/client.c
+@@ -32,6 +32,8 @@
+ 
+ #include "tmux.h"
+ 
++extern const struct cmd_entry	 cmd_kill_server_entry;
++
+ static struct tmuxproc	*client_proc;
+ static struct tmuxpeer	*client_peer;
+ static uint64_t		 client_flags;
+@@ -227,6 +229,33 @@
+ 		proc_exit(client_proc);
+ }
+ 
++/*
++ * A program inside a pane inherits $TMUX, and $TMUX wins over TMUX_TMPDIR, so a test that
++ * believes it made a server of its own ends the server it runs in, with every session on the
++ * machine. Refuse kill-server from a client whose $TMUX names the server this client reaches.
++ * The test is made here, not in the server, so a running server is covered from the moment this
++ * tmux is installed. -L, -S or an empty $TMUX reach another server. A person keeps the command
++ * prompt, env -u TMUX and systemctl --user stop tmux-server.
++ */
++static int
++client_ends_own_server(struct cmd_list *cmdlist)
++{
++	const char	*s = getenv("TMUX");
++	size_t		 len;
++	struct cmd	*cmd;
++
++	if (s == NULL || *s == '\0' || *s == ',')
++		return (0);
++	len = strcspn(s, ",");
++	if (strlen(socket_path) != len || strncmp(s, socket_path, len) != 0)
++		return (0);
++	for (cmd = cmd_list_first(cmdlist); cmd != NULL; cmd = cmd_list_next(cmd)) {
++		if (cmd_get_entry(cmd) == &cmd_kill_server_entry)
++			return (1);
++	}
++	return (0);
++}
++
+ /* Client main loop. */
+ int
+ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
+@@ -265,6 +294,16 @@
+ 		if (pr->status == CMD_PARSE_SUCCESS) {
+ 			if (cmd_list_any_have(pr->cmdlist, CMD_STARTSERVER))
+ 				flags |= CLIENT_STARTSERVER;
++			if (client_ends_own_server(pr->cmdlist)) {
++				fprintf(stderr, "tmux: kill-server refused: this runs inside a pane of "
++				    "the server it would end (TMUX=%s), and that server holds "
++				    "every session in it.\n"
++				    "A server of your own: tmux -L <name>, or remove TMUX and "
++				    "TMUX_PANE from the environment.\n"
++				    "To end this one on purpose: env -u TMUX tmux kill-server\n",
++				    getenv("TMUX"));
++				return (1);
++			}
+ 			cmd_list_free(pr->cmdlist);
+ 		} else
+ 			free(pr->error);

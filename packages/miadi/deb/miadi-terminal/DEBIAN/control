@@ -1,9 +1,9 @@
 Package: miadi-terminal
-Version: 0.4.5
+Version: 0.4.6
 Section: misc
 Priority: optional
 Architecture: all
-Depends: python3, xdg-utils, miadi-config (>= 0.2.1)
+Depends: python3, xdg-utils, procps, iproute2, miadi-config (>= 0.2.1)
 Recommends: libnotify-bin, git, miadi-tide, miadi-tmux
 Suggests: terminator, tmux
 Maintainer: Miadi <mia@jgwill.com>

@@ -18,11 +18,12 @@ check() {  # <label> <command...>
 }
 check "repair-save.sh = gaia tmux-resurrect-repair-save.sh" cmp "$share/repair-save.sh" "$gaia/tmux-resurrect-repair-save.sh"
 check "restore-agents.sh = gaia tmux-restore-agents.sh" cmp "$share/restore-agents.sh" "$gaia/tmux-restore-agents.sh"
+check "server-watch.sh = gaia tmux-server-watch.sh" cmp "$share/server-watch.sh" "$gaia/tmux-server-watch.sh"
 # The units: gaia's installer writes them from heredocs with the resolved tmux and the user name.
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 awk '/<<.?EOF_UNIT.?$/{n++; on=1; next} /^EOF_UNIT$/{on=0} on{print > ("'"$work"'/unit" n)}' "$gaia/14-tmux-resurrect.sh"
-norm() { sed -E 's#/usr/(local/)?bin/tmux #tmux #g; s#/usr/bin/env tmux #tmux #g; s#^Description=.*##; s#^Documentation=.*##; s#\$\{SAVE_INTERVAL\}#15#g; /^#/d; /^$/d' "$1"; }
-for pair in "1 tmux-server.service" "2 tmux-save.service" "3 tmux-save.timer"; do
+norm() { sed -E 's#/usr/(local/)?bin/tmux #tmux #g; s#/usr/bin/env tmux #tmux #g; s#^Description=.*##; s#^Documentation=.*##; s#\$\{SAVE_INTERVAL\}#15#g; s#^ExecStart=.*server-watch[.]sh#ExecStart=WATCH#; /^#/d; /^$/d' "$1"; }
+for pair in "1 tmux-server.service" "2 tmux-save.service" "3 tmux-save.timer" "4 tmux-server-watch.service" "5 tmux-server-watch.timer"; do
     set -- $pair
     check "$2 = gaia's $2" diff <(norm "$work/unit$1") <(norm "$units/$2")
 done

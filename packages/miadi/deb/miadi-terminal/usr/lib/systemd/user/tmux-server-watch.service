@@ -1,0 +1,7 @@
+[Unit]
+Description=A tmux server that ended while the machine stayed up comes back
+Documentation=file:///usr/share/doc/miadi-terminal/README
+
+[Service]
+Type=oneshot
+ExecStart=/usr/share/miadi-terminal/session-continuity/server-watch.sh

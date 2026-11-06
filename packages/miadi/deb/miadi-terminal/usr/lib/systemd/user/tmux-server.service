@@ -2,6 +2,8 @@
 Description=tmux server: tmux-continuum restores the last save, then tide brings the agents back
 Documentation=file:///usr/share/doc/miadi-terminal/README
 After=tide-runtime.service
+# A person's `systemctl --user stop` stops the watch too (its PartOf), and `start` brings it back.
+Wants=tmux-server-watch.timer
 
 [Service]
 Type=forking

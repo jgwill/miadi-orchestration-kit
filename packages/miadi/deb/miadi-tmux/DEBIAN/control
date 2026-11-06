@@ -1,5 +1,5 @@
 Package: miadi-tmux
-Version: 3.7c-3
+Version: 3.7c-4
 Section: admin
 Priority: optional
 Architecture: amd64
