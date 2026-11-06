@@ -56,7 +56,7 @@ for control in "$here"/*/DEBIAN/control; do
 	if [ ! -f "$stage/usr/share/doc/$package/copyright" ]; then
 		copyright "$package" > "$stage/usr/share/doc/$package/copyright"
 	fi
-	chmod 0755 "$stage/usr/share/doc" "$stage/usr/share/doc/$package"
+	chmod 0755 "$stage/usr" "$stage/usr/share" "$stage/usr/share/doc" "$stage/usr/share/doc/$package"
 	chmod 0644 "$stage/usr/share/doc/$package/copyright"
 	out="$here/dist/${package}_${version}_${arch}.deb"
 	# Pinned binary bundles may select fast compression and stable timestamps (#135).
