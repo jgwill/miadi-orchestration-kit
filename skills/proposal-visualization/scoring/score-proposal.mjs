@@ -27,7 +27,7 @@
 // Thresholds come from policy.json and say who set them. A choice's confidence is
 // (p_max - 1/n) / (1 - 1/n), so each record keeps top_probability beside it.
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -294,6 +294,7 @@ async function main() {
   console.log(summary(scored));
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// realpath: reached through a symlink (~/.claude/skills), the plain compare was false and the script exited 0 having done nothing.
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url))) {
   main().catch((error) => { console.error(`score-proposal: ${error.message}`); process.exit(1); });
 }

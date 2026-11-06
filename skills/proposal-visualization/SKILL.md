@@ -9,6 +9,9 @@ description: >
   agent that writes HTML can follow it. Triggers on "visualize the proposal",
   "make an artifact so we can comment", "diagram the architecture", "wireframe
   it", "show what we will do", "give us something to approve", "present the plan".
+  Also holds the commands for attaching that page to a GitHub issue as an HTML artifact.
+  Triggers also on "add the HTML as an artefact on the issue", "a visual artifact on the issue",
+  "issue artifact", "questions I can look at and comment on".
 ---
 
 # Proposal visualization
@@ -227,6 +230,37 @@ When the owner comments:
 3. Mark decided cards as decided and say who decided. Leave only open items in
    the Decide section.
 4. Republish to the same address, so the comments stay attached.
+
+## A visual page on a GitHub issue
+
+Asked for "a visual artefact on the issue", or for questions a person can look at and comment on? This section is enough: do not read GitHub's documentation again. Earned 2026-11-05 on jgwill/miadi-orchestration-kit#133, when a session spent its budget finding all of this out.
+
+1. **Copy the template.** `reference/card-page-template.html` holds the tokens, the icons, a card of each kind and a figure. Keep only the parts your page needs, and put real content in. Write it in the work's vessel.
+2. **Score it.** "Certain and uncertain" explains the bands. Write the person's words in `request.md` and the paths and numbers the cards rest on in `facts.md`. It costs about 2,200 paid Jev tokens per card, and each card's text goes to Jev:
+   ```bash
+   node scoring/score-proposal.mjs page.src.html --request request.md --facts facts.md --only A,D,Q --out scores.json
+   python3 scripts/inject-scores.py page.src.html scores.json page.html
+   ```
+3. **Shoot it**, and read the shots once. It starts its own headless browser, so it raises nothing on the screen a person is using:
+   ```bash
+   python3 scripts/page-shots.py page.html <folder>
+   ```
+4. **Send the shots to the `miadi-ui-critic` agent** when the page belongs to the Miadi ecosystem, and fix what it rates `breaks`.
+5. **File the issue** with the `structural-issue-authoring` skill, and put every question in its body too, since a person may read only the issue. Filing it needs the person's word, and asking for it counts. Link the page to the issue.
+6. **Attach the page.** A second run updates the same artifact and keeps its version history:
+   ```bash
+   python3 scripts/issue-artifact.py <owner/repo> <issue number> page.html
+   ```
+7. **Publish the same file to claude.ai** with the artifact publisher, where a person can comment on a card directly. Add its link to the issue.
+8. **Answers come back in two places:** `gh issue view <n> -R <owner/repo> --comments`, and the artifact tools' `read_comments`. Then follow "Revisions after comments", and run step 6 again.
+
+What GitHub's issue artifacts do, as of 2026-11-05 (public preview, so check when something fails):
+
+- The type is `embedded_html`. REST: `POST /repos/{owner}/{repo}/issues/{n}/artifacts` with `{type, name, body}`, `PATCH .../artifacts/{number}`, API version `2026-03-10`. A personal token works, and a GitHub App token was reported to get 404. `gh issue artifact create <n> page.html` needs gh 2.103, and gaia has 2.83.
+- A person opens it under the issue's Artifacts, in Source view, and chooses Preview. **The panel is at most 768 px wide,** so use one column of at most 720 px. A wide figure gets `overflow-x: auto`.
+- **There is no anchored comment on it.** So each card shows its code, and the page says how to answer: comment on the issue and start with the code.
+- The preview's sandbox is not documented. Make the page complete with no script and no outside request: inline CSS and SVG only, a switch as a CSS checkbox. How a page looks inside the sandbox has not been seen by an agent: a signed-out browser shows the issue with no Artifacts section at all, so ask the person to confirm the first time.
+- Say in your report what you could not see.
 
 ## Publishing
 

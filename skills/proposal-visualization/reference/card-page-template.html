@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TWO TO FOUR WORD NAME</title>
+<style>
+/* Miadi's dark ground, one gold accent for what a person acts on. One reading column that fits GitHub's 768 px artifact panel. No script and no outside request. */
+:root {
+  color-scheme: dark;
+  --ground: #151515; --panel: #1c1c1c; --card: #242424; --row: #202020;
+  --border: #404040; --border-subtle: #2a2a2a;
+  --text: #f9f9f9; --dim: #d0d0d0; --faint: #959595;
+  --gold: #d4a843; --gold-hover: #e8c471; --red: #ff7b72;
+  --sans: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: var(--ground); color: var(--text); font: 15px/1.55 var(--sans); }
+.page { max-width: 720px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 28px; }
+h1, h2, h3 { line-height: 1.25; text-wrap: balance; margin: 0; }
+h1 { font-size: 26px; }
+h2 { font-size: 18px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+h3 { font-size: 15.5px; }
+p { margin: 0; }
+a { color: var(--gold); text-underline-offset: 2px; }
+a:hover { color: var(--gold-hover); }
+a.out .ico { width: 13px; height: 13px; margin-left: 2px; vertical-align: -1px; }
+a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+pre { margin: 0; font: 12.5px/1.6 var(--mono); color: var(--dim); background: var(--panel); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+section { display: grid; gap: 12px; }
+.lede { color: var(--dim); }
+.ico { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; color: var(--dim); }
+.chip.open { border-color: var(--gold); color: var(--text); }
+.chip.open .ico { color: var(--gold); }
+.how { display: flex; gap: 10px; align-items: flex-start; background: var(--panel); border: 1px solid var(--gold); border-radius: 10px; padding: 12px 14px; }
+.how .ico { color: var(--gold); margin-top: 3px; }
+.index { display: grid; gap: 6px; }
+.index-row { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: baseline; }
+.index-row > span { color: var(--faint); font-size: 13px; }
+.codes { display: flex; flex-wrap: wrap; gap: 6px; }
+.codes a { font: 12.5px var(--mono); text-decoration: none; padding: 1px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.codes a:hover, .codes a.now { border-color: var(--gold); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; scroll-margin-top: 12px; }
+.card.decide { border-color: var(--gold); }
+.card:target { outline: 2px solid var(--gold); outline-offset: 2px; }
+.head { display: flex; gap: 8px; align-items: flex-start; }
+.head .ico { margin-top: 3px; }
+.code { font: 600 12.5px/1.7 var(--mono); color: var(--text); background: var(--ground); border: 1px solid var(--border); border-radius: 6px; padding: 0 7px; flex: 0 0 auto; }
+.st-open { color: var(--gold); } .st-read { color: var(--dim); } .st-await { color: var(--faint); } .st-warn { color: var(--red); }
+.said { color: var(--dim); border-left: 2px solid var(--border); padding-left: 10px; font-style: italic; }
+.line { display: grid; grid-template-columns: 84px 1fr; gap: 8px; }
+.line > b { font-weight: 600; color: var(--faint); font-size: 13px; line-height: 23px; }
+.answer { color: var(--dim); font-size: 13.5px; display: flex; gap: 8px; align-items: flex-start; }
+.answer .ico { color: var(--gold); margin-top: 3px; }
+.state { color: var(--dim); font-size: 13px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--dim); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.addr { color: var(--dim); }
+.answer code { color: var(--dim); }
+.jev { display: inline-flex; flex-wrap: wrap; gap: 4px; font: 11.5px/1.5 var(--mono); color: var(--faint); }
+ul.plain { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+figure { margin: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
+figcaption { color: var(--dim); font-size: 13.5px; }
+.scroll { overflow-x: auto; }
+.scroll svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.scroll svg { fill: var(--text); }
+svg text { font-family: var(--sans); }
+.flow-phone { display: none; gap: 8px; }
+.flow-phone ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.flow-t { font-weight: 600; font-size: 13.5px; }
+.node { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13.5px; }
+.node.new { border-color: var(--gold); }
+.arr { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12.5px; padding-left: 8px; }
+.arr .ico { width: 15px; height: 15px; color: var(--faint); }
+@media (max-width: 560px) { .flow-wide { display: none; } .flow-phone { display: grid; } }
+.life { display: grid; gap: 4px; }
+.track { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; align-items: center; min-height: 20px; }
+.head5 { color: var(--dim); font-size: 12px; line-height: 1.25; }
+.lane { font-size: 13px; margin-top: 8px; }
+.bar { display: block; height: 16px; border-radius: 4px; }
+.bar.studio { background: var(--panel); border: 1px dashed var(--faint); }
+.bar.kept { background: var(--dim); }
+.note { color: var(--dim); font-size: 12px; padding-left: 6px; }
+.note.end { text-align: right; padding: 0 6px 0 0; }
+.today { color: var(--faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 8px; }
+.bands { display: grid; gap: 10px; }
+.band { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: baseline; }
+.band > b { font-weight: 600; font-size: 13px; color: var(--dim); }
+footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--border); padding-top: 12px; display: grid; gap: 6px; }
+/* Wireframe: the episode room's notebook card, with plan versions as rows. */
+.wire { background: var(--ground); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
+.crumb { font: 12px var(--mono); color: var(--faint); }
+.wire-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; gap: 8px; position: relative; }
+.wire-title { font-weight: 600; }
+.facts { font: 12px var(--mono); color: var(--faint); display: flex; flex-wrap: wrap; gap: 0 8px; }
+.facts span + span::before { content: "·"; margin-right: 8px; }
+.row { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center; min-height: 40px; background: var(--row); border: 1px solid var(--border); border-radius: 10px; padding: 3px 3px 3px 10px; }
+.row .who { display: block; font-size: 13.5px; }
+.row .sub { display: block; font: 11.5px var(--mono); color: var(--faint); overflow-wrap: anywhere; }
+.row .act { width: 34px; height: 34px; display: grid; place-items: center; color: var(--faint); border-radius: 8px; }
+.row .act.none { color: transparent; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; font-size: 13px; color: var(--dim); cursor: pointer; justify-self: start; }
+.toggle .on, #own:checked ~ .toggle .off { display: none; }
+#own:checked ~ .toggle .on { display: inline-block; }
+#own:focus-visible ~ .toggle { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+.toggle .ico { color: var(--gold); width: 17px; height: 17px; }
+.owner { display: none; font: 11px var(--mono); color: var(--text); background: var(--ground); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; justify-self: start; }
+#own:checked ~ .wire .owner { display: inline-block; }
+#own:checked ~ .wire .by-manifest { outline: 1px dashed var(--dim); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+@media (max-width: 460px) { .codes a { min-width: 34px; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; }  .line { grid-template-columns: 1fr; gap: 0; } .index-row, .band { grid-template-columns: 1fr; gap: 2px; } h1 { font-size: 23px; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-dashed" viewBox="0 0 24 24"><path d="M10.1 2.182a10 10 0 0 1 3.8 0"/><path d="M13.9 21.818a10 10 0 0 1-3.8 0"/><path d="M17.609 3.721a10 10 0 0 1 2.69 2.7"/><path d="M2.182 13.9a10 10 0 0 1 0-3.8"/><path d="M20.279 17.609a10 10 0 0 1-2.7 2.69"/><path d="M21.818 10.1a10 10 0 0 1 0 3.8"/><path d="M3.721 6.391a10 10 0 0 1 2.7-2.69"/><path d="M6.391 20.279a10 10 0 0 1-2.69-2.7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></symbol>
+  <symbol id="i-on" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="6" ry="6"/><circle cx="16" cy="12" r="2"/></symbol>
+  <symbol id="i-off" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="6" ry="6"/><circle cx="8" cy="12" r="2"/></symbol>
+</defs></svg>
+
+<main class="page">
+<!-- Template: proposal-visualization, "A visual page on a GitHub issue". Keep the parts this page needs, and write real content.
+     Each coded card has id="<code>", so a comment and a link can reach it. Keep the jev marks marks for inject-scores.py (without the quotes). -->
+<header style="display:grid;gap:14px">
+  <h1>NAME</h1>
+  <p class="lede">One sentence saying what will exist, or what this page asks. Addresses go in <code class="addr">miadi-chronicle://N</code>.</p>
+  <div class="chips">
+    <a class="chip open" href="#D1"><svg class="ico" aria-hidden="true"><use href="#i-dashed"/></svg>1 decision open: D1</a>
+    <span class="chip"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>What is already built</span>
+  </div>
+  <div class="how">
+    <svg class="ico" aria-hidden="true"><use href="#i-msg"/></svg>
+    <p>Comment on <a class="out" href="https://github.com/OWNER/REPO/issues/N" target="_blank" rel="noopener">OWNER/REPO#N<svg class="ico" aria-hidden="true"><use href="#i-out"/></svg></a> and start with a card's code, such as <code>D1: yes</code>.</p>
+  </div>
+  <div class="index" role="group" aria-label="Every card on this page">
+    <div class="index-row"><span>Decide</span><div class="codes"><a class="now" href="#D1">D1</a></div></div>
+    <div class="index-row"><span>Questions</span><div class="codes"><a href="#Q1">Q1</a></div></div>
+    <div class="index-row"><span>Risks</span><div class="codes"><a href="#R1">R1</a></div></div>
+    <div class="index-row"><span>Glyphs</span><div class="legend"><span><svg class="ico st-open" aria-hidden="true"><use href="#i-dashed"/></svg>open, for you to answer</span><span><svg class="ico st-await" aria-hidden="true"><use href="#i-dashed"/></svg>open or not built</span><span><svg class="ico st-read" aria-hidden="true"><use href="#i-check"/></svg>answered</span><span><svg class="ico st-open" aria-hidden="true"><use href="#i-pause"/></svg>paused</span></div></div>
+  </div>
+</header>
+
+<section aria-labelledby="s-decide">
+  <h2 id="s-decide">Decide</h2>
+  <article id="D1" class="card decide">
+    <div class="head"><svg class="ico st-open" aria-hidden="true"><use href="#i-dashed"/></svg><span class="code">D1</span><h3>The decision, as a question</h3></div>
+    <div class="line"><b>Today</b><p>What is true now, with a path.</p></div>
+    <div class="line"><b>Suggested</b><p>The recommendation.</p></div>
+    <div class="line"><b>Effect</b><p>What it changes and what it costs.</p></div>
+    <p class="answer"><svg class="ico" aria-hidden="true"><use href="#i-msg"/></svg><span>Answer with <code>D1: yes</code> or <code>D1: no</code>.</span></p>
+    <!--jev:D1-->
+  </article>
+</section>
+
+<section aria-labelledby="s-change">
+  <h2 id="s-change">What changes</h2>
+  <figure>
+    <div class="scroll flow-wide">
+    <svg viewBox="0 0 700 100" role="img" aria-label="The one claim of this figure.">
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#d4a843"/></marker></defs>
+      <g fill="#242424" stroke="#404040"><rect x="10" y="28" width="110" height="46" rx="8"/></g>
+      <g fill="#242424" stroke="#d4a843" stroke-width="1.5"><rect x="190" y="28" width="110" height="46" rx="8"/></g>
+      <g font-size="12.5" text-anchor="middle"><text x="65" y="55">Exists now</text><text x="245" y="55">New</text></g>
+      <path d="M120 51H188" stroke="#d4a843" stroke-width="1.5" fill="none" marker-end="url(#a1)"/>
+      <text x="154" y="44" font-size="11" text-anchor="middle" fill="#d0d0d0">what moves</text>
+    </svg>
+    </div>
+    <div class="flow-phone" role="img" aria-label="The one claim of this figure.">
+      <ol><li class="node">Exists now</li><li class="arr"><svg class="ico" aria-hidden="true"><use href="#i-down"/></svg>what moves</li><li class="node new">New</li></ol>
+    </div>
+    <figcaption>Figure 1. The one change this figure draws. Say what gold means here. Marker ids are unique across the page. The phone form replaces the drawing below 560 px.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="s-open">
+  <h2 id="s-open">Questions</h2>
+  <article id="Q1" class="card">
+    <div class="head"><svg class="ico st-await" aria-hidden="true"><use href="#i-dashed"/></svg><span class="code">Q1</span><h3>The question</h3></div>
+    <p class="said">"The person's own words, when they asked it."</p>
+    <div class="line"><b>Today</b><p>What exists, with a path.</p></div>
+    <div class="line"><b>Suggested</b><p>The answer you would give.</p></div>
+    <!--jev:Q1-->
+  </article>
+</section>
+
+<section aria-labelledby="s-risk">
+  <h2 id="s-risk">Risks</h2>
+  <article id="R1" class="card"><div class="head"><svg class="ico st-warn" aria-hidden="true"><use href="#i-alert"/></svg><span class="code">R1</span><h3>The risk</h3></div><p>What could happen, and what was seen or only read.</p></article>
+</section>
+
+<!--jev:lists-->
+
+<footer>
+  <p>Checked DATE. Sources by path. Drafted by the model and seat.</p>
+</footer>
+</main>
+</body>
+</html>
