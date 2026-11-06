@@ -119,3 +119,7 @@ OBS_TOKEN_FILE=<private-token-file> node pi/miadi-session-observability/tests/da
 ```
 
 `hooks/secret_capture_sanitizer.sh` is byte-for-byte from `claude/miadi-session-observability/hooks/`; propagate fixes from that canonical sanitizer. `hooks/terminal_binding.sh` is the shared non-Claude writer, migrated byte-for-byte from `/opt/binscripts/hooks/terminal_binding.sh`; this is its kit home. Keep binscripts' live copy and other capture packages aligned when changing shared rules. Do not replace it with Claude's agent-specific writer.
+
+## Steering
+
+`extensions/steering-inbox.ts` is the session's steering inbox (jgwill/Miadi#942). A person's correction reaches the running agent through Pi's own steering queue, `pi.sendUserMessage(text, { deliverAs: "steer" })`: after the current assistant turn has run its tool calls, before the next model request. An idle session starts a run by itself. Nothing is typed, and no running tool is touched. `lib/steering_inbox.mjs` is the file every provider's adapter carries, copied by `scripts/sync-steering-inbox.sh`. The contract is `miadi.steering/1`, in `@miadi/connector`'s `STEERING.md`. A session started before this package loaded answers `unsupported`.
