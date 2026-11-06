@@ -4,4 +4,4 @@ Documentation=file:///usr/share/doc/miadi-terminal/README
 
 [Service]
 Type=oneshot
-ExecStart=/usr/share/miadi-terminal/session-continuity/server-watch.sh
+ExecStart=/bin/bash /usr/share/miadi-terminal/session-continuity/server-watch.sh

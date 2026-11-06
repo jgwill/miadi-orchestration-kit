@@ -140,7 +140,8 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     grep -qx "source-file /usr/share/miadi-terminal/session-continuity/session-continuity.conf  # miadi-terminal restore" ~/.tmux.conf
     test -d ~/.tmux/plugins/tmux-continuum
     echo "restore: enable commented out the 2 plugin lines, added its source-file line, cloned the plugins"
-    test -x /usr/share/miadi-terminal/session-continuity/server-watch.sh
+    test -f /usr/share/miadi-terminal/session-continuity/server-watch.sh
+    grep -q "^ExecStart=/bin/bash /usr/share/miadi-terminal/session-continuity/server-watch.sh" /usr/lib/systemd/user/tmux-server-watch.service
     test -f /usr/lib/systemd/user/tmux-server-watch.service
     grep -q "^PartOf=tmux-server.service" /usr/lib/systemd/user/tmux-server-watch.timer
     grep -q "^Wants=tmux-server-watch.timer" /usr/lib/systemd/user/tmux-server.service
