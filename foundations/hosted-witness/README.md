@@ -25,6 +25,22 @@ Research is accountable to the relationships it is part of: consent, respect, re
 ### Packaging as distribution of a practice
 A Debian package carries configuration as conffiles. dpkg keeps the user's edits through upgrades and must not have maintainer scripts rewrite them (Debian Policy 4.7.2.0, §10.7 and chapter 6). The witness's per-relative configuration is a conffile for that reason. Consent and scope live where the relative can read them.
 
+### Privacy as contextual integrity
+A flow of information is appropriate when it keeps the norms of the context it came from (Nissenbaum 2004). Jerry typed to his agent; the same words reach the witness and every account on the host. Whether that flow is appropriate is a question about contexts, not about secrecy.
+
+### Data sovereignty
+OCAP (ownership, control, access, possession) names who governs data about a community (First Nations Information Governance Centre). Asked of one relative's sessions: who owns the capture, who controls what is read, who may access it, where it is kept.
+
+## Research questions this run raises
+
+- **RQ1.** Jerry's "I don't get it" was answered in 45 words, in the session where he asked. How does a person come to understand an agent system when the explanation arrives in the conversation where they ask, compared with a prepared page?
+- **RQ2.** Jerry learned that his sessions were already recorded and readable after the recording began. What does consent mean when the observation started before the person knew of it?
+- **RQ3.** "This is a plugin that running here who analyze all Claude instance.?" Which flows from a relative's sessions to a maintainer are appropriate, and who decides them: the relative, the maintainer, or a decision model such as Jev (Episode 564, miadi-chronicle://564)?
+- **RQ4.** How does relational accountability become design in a witnessing agent: words kept verbatim, consent that can be withdrawn, and what the relative receives back?
+- **RQ5.** Did the witness's presence change what Jerry did? He opened a session of his own, named it after the handle and went to his music.
+
+Pages from Wilson (2008) around chapter 5 are to come from William. What they say goes here once read, in their own words.
+
 ## Related packets the Miadi app already serves
 
 `delegation-and-adjustable-autonomy`, `learning-sciences-cognitive-apprenticeship`, `software-supply-chain-and-release-engineering` (listed by `GET /api/foundations`). Episode 1000 (miadi-chronicle://1000) holds the last of these.
@@ -37,4 +53,6 @@ A Debian package carries configuration as conffiles. dpkg keeps the user's edits
 - Collins, A., Brown, J. S., Newman, S. E. (1989). Cognitive apprenticeship: teaching the craft of reading, writing, and mathematics. In L. B. Resnick (Ed.), Knowing, Learning, and Instruction. Erlbaum. Method list read from secondary summaries, not the chapter.
 - Lave, J., Wenger, E. (1991). Situated Learning: Legitimate Peripheral Participation. Cambridge University Press. From model knowledge, not searched.
 - Wilson, S. (2008). Research Is Ceremony: Indigenous Research Methods. Fernwood. From model knowledge, not searched.
+- Nissenbaum, H. (2004). Privacy as contextual integrity. Washington Law Review, 79(1), 119–157. From model knowledge, not searched.
+- First Nations Information Governance Centre. The First Nations Principles of OCAP®. From model knowledge, not searched.
 - Debian Policy Manual 4.7.2.0 (2025-02-27), §10.7 Configuration files, chapter 6 Maintainer scripts. https://www.debian.org/doc/debian-policy/

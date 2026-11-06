@@ -35,6 +35,11 @@ The relative's sessions produce work and words every day, and today they reach t
 - **Decisions wait.** A proposed steer or completion goes to the factory as a request in `awaiting_approval`. The seat delivers it only after the decision.
 - **No public act unasked.** The seat commits and pushes to the repositories its configuration names. It opens an issue only through a script the folder already uses, and it mints no episode.
 
+## Open topics
+
+- **Who reads the capture.** Today every account on the host can read it, including what the relative types. It could be limited to a group of readers the relative names. That is a host-wide change to what `miadi-perms` sets, held for a discussion with William.
+- **Watching every session.** Jerry asked whether something analyses all his Claude instances. If the witness watches every session of a relative, from a chosen date onward, something has to decide which wakes reach a person. Episode 564 (miadi-chronicle://564) studies Jev for decisions of that kind (lane-check reads a session's inputs, commits and last messages). Each watched period could be held as a ceremony in the episode it belongs to.
+
 ## Who is touched
 
 | person | what changes for them |
