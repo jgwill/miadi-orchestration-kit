@@ -1,0 +1,69 @@
+{
+  "about": "What Jev is asked about a saved plan (an outline or producer notes) before a video slot is spent. Each question is a correction a person has already made: 'from' names it, so the set grows from what Guillaume corrects and shrinks where his rulings and Jev's numbers part. Jev reads and scores. It writes nothing: when it says revise, the seat writes the proposed feedback from the questions that fired, and a person can read both. First used 2026-11-05 (D2 of jgwill/miadi-orchestration-kit#133).",
+  "version": "0.1.0",
+  "model": "jev-1.14.0",
+  "must_be_false": ["creating_language", "software_as_conscious", "audience_as_subject", "claim_without_a_source", "form_without_content"],
+  "must_be_true": ["stays_with_the_brief"],
+  "questions": {
+    "stays_with_the_brief": {
+      "from": "Episode 565: the pass followed a field map and missed the lesson the person asked for at 05:08.",
+      "type": "noul",
+      "instructions": "Read `plan` against `brief`. Does this plan teach what the brief asks it to teach?",
+      "criteria": { "true": "The items, taken together, teach what the brief names.", "false": "The items teach something else, or leave out what the brief names first." }
+    },
+    "creating_language": {
+      "from": "Episode 558: the first video framed the work as an absence to be filled, twice, and a person found it after the render.",
+      "type": "noul",
+      "instructions": "Does any item in `plan` describe the work as filling an absence, removing a fault or fixing what is lacking, rather than as something being created?",
+      "criteria": { "true": "At least one item frames the work by what is missing or wrong.", "false": "Every item says what is made or what exists." }
+    },
+    "software_as_conscious": {
+      "from": "Episode 565's proposal, step 3: a video must not present software as conscious.",
+      "type": "noul",
+      "instructions": "Does any item in `plan` present software or an agent as conscious, as believing, or as wanting, when it could describe what the software does?",
+      "criteria": { "true": "At least one item attributes a mind to software.", "false": "No item does." }
+    },
+    "audience_as_subject": {
+      "from": "Episode 566: an instruction opened 'For Guillaume and the Factory's seats', and Gemini Notebook made that its subject.",
+      "type": "noul",
+      "instructions": "Does any item in `plan` make the people the explainer is made for into its subject, instead of what it teaches?",
+      "criteria": { "true": "An item is about its audience.", "false": "No item is." }
+    },
+    "claim_without_a_source": {
+      "from": "Episode 565: both lessons rested on 'the agent believed the intake was complete', which the recording does not show.",
+      "type": "noul",
+      "instructions": "Does any item in `plan` state what a person said, discovered or meant, or what an agent believed, without pointing at where that is recorded?",
+      "criteria": { "true": "An item makes such a claim with no source named.", "false": "No item makes such a claim, or each one names its source." }
+    },
+    "form_without_content": {
+      "from": "Episode 251's first producer notes named The Hook, The Agenda and The Climax, which say how a video is shaped and little of what it teaches.",
+      "type": "noul",
+      "instructions": "Do most items in `plan` name a presentation device rather than what the viewer will learn?",
+      "criteria": { "true": "Most items describe form.", "false": "Most items describe content." }
+    },
+    "a_person_would_change_it": {
+      "from": "Guillaume, 2026-11-05: how an agent can keep a human near the loop by using Jev itself.",
+      "type": "noul",
+      "instructions": "Would a person who knows this work and wrote this brief want to change this plan before it is rendered?",
+      "criteria": { "true": "They would likely change it.", "false": "They would likely let it go on as it is." }
+    },
+    "what_a_revision_would_change": {
+      "from": "Guillaume, 2026-11-05: Jev proposing to revise an expensive render before it happens.",
+      "type": "score",
+      "instructions": "If this plan were revised against its brief before rendering, how much would what a viewer learns change?",
+      "criteria": ["nothing a viewer would notice", "the wording and the order", "one part of what is taught", "most of what is taught"]
+    },
+    "next": {
+      "from": "D1 of jgwill/miadi-orchestration-kit#133: the decision moves before the render.",
+      "type": "choice",
+      "instructions": "A render of this plan spends one of the account's few video slots and cannot be taken back. What should happen next?",
+      "criteria": {
+        "render_now": "The plan serves the brief and is safe to send on as it is.",
+        "revise_with_feedback": "The plan is close, and a seat can write the change itself and send it on.",
+        "ask_a_person": "A person should read it first, because it turns on a judgment about what the brief means.",
+        "hold_for_circle": "It raises something a talking circle should discuss before it goes further.",
+        "other": "None of these fits."
+      }
+    }
+  }
+}

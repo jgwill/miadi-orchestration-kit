@@ -81,7 +81,7 @@ deepdiver studio report --format document --template "Briefing Doc" -n <id>
 
 ### 4a. A plan before the render
 
-A Slide Deck or a Video Overview can stop at its plan: an outline for slides, producer notes for video. Nothing is rendered until someone sends it on, so a person or a seat can read the plan, comment on it, or start again from it, with or without ever seeing a render. Measured on 2026-11-05 in notebook `78507190…` (miadi-chronicle://251, `followup/261105-step-by-step-outlines.md`).
+A Slide Deck or a Video Overview stops at its plan by default: an outline for slides, producer notes for video. `/deepdive` does this for every one it makes, and says when a seat sends it on. Nothing is rendered until someone sends it on, so a person or a seat can read the plan, comment on it, or start again from it, with or without ever seeing a render. Measured on 2026-11-05 in notebook `78507190…` (miadi-chronicle://251, `followup/261105-step-by-step-outlines.md`).
 
 ```bash
 deepdiver studio slide-deck --review --format presenter --focus "<what it teaches>" -n <id>
@@ -95,7 +95,8 @@ deepdiver studio slide-deck --from-outline <dir>/outline-01-<card>.md [--feedbac
 - **Sending feedback is proceeding.** Studio takes one round, renders at once with it applied, and shows no second plan. Slides 3 and 4 merged, a slide was added and a phrase was replaced as asked. To read another plan first, use `--from-outline`.
 - **A plan costs no render.** Plans took 49 to 96 s. Producer notes were made after the day's three videos with no refusal. Whether a plan draws on the account's compute budget is not measured.
 - **Read a plan for its shape.** The one set of producer notes read so far names form (The Hook, The Agenda, The Climax) more than claims, and the deck outlines name content. A claim about what was said is still checked in the kept transcript after the render.
-- **Check the words before sending.** The word gate sees what an agent writes, not what DeepDiver saves. Read the plan against `forbidden-words.txt` and put the change in the feedback: this is the one point where a word can be removed before it is spoken.
+- **Check the words before sending.** The word gate sees what an agent writes, not what DeepDiver saves. `scripts/plan-read.mjs words <plan>` reads the plan against `forbidden-words.txt`. Put the change in the feedback: this is the one point where a word can be removed before it is spoken.
+- **Ask Jev before spending a slot.** `scripts/plan-read.mjs jev <plan> --brief "<instruction>"` asks `scripts/plan-questions.json` and prints who the plan goes to: `send`, `revise` or `person`. Any reading that fired or reads uncertain goes to a person, which is how Jev keeps a person near the loop. Each question names the correction it came from, so a new correction by a person becomes a new question. About 1,400 paid tokens per plan.
 - **One item, one explainer.** A plan's item that opens another angle can be its own `--focus`.
 - **A deck's text is its plan.** PDF and PowerPoint hold one image per slide. `--keep` recompresses the PDF into `keep/` (6.8 MB became 770 KB).
 
@@ -152,6 +153,8 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 - **0.2.3, 2026-10-20.** From Episode 297's notebook 5a00e2d8, made by a fork of the episode's Mia seat: the infographic viewer's button is "Close infographic", which DeepDiver did not close. Left open after a generation, it covered the Studio panel, so the next Video Overview finished unseen and timed out after 1800 s, the next one never started, `studio report` found no Reports tile and `studio list` showed no cards. DeepDiver now closes any open artifact viewer, including on arriving at a notebook already open (`miadisabelle/deepdiver` 2a0e343). When a generation times out, run `studio list` before you regenerate. Also: give each artifact its audience, and record its exact instruction in `perspectives.md` beside `asked.md`, so the instruction can become a versioned prompt (William, take 261020080805).
 
 - **0.5.0, 2026-11-05.** On Guillaume's word, from the banner "You can now create Slides and Videos step-by-step": step 4a, the plan before the render (`miadisabelle/deepdiver` `studio outline`, `studio proceed`, `--review`, `--from-outline`). `/deepdive` keeps rendering by default until the person decides who sends a plan on (DD24 in miadi-chronicle://251). "Try it" on the banner posts "Help me create slides about this" into the notebook's chat, so do not press it in a notebook an episode holds.
+
+- **0.6.0, 2026-11-05.** On Guillaume's "that's good" to this direction, read by Mia as a go on D1 and D2 of jgwill/miadi-orchestration-kit#133: `/deepdive` stops every explainer and deck at its plan, with the seat's own checks (`scripts/plan-read.mjs`). The first trial, on the three plans of notebook `78507190`, sent all three to a person with low confidence, and read the video's producer notes as furthest from their brief. Its readings are in `captures/notebook-78507190-…/jev-trial-261105/` in miadi-chronicle://251.
 
 ## Related
 

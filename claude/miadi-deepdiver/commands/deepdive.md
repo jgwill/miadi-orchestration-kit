@@ -57,7 +57,20 @@ An infographic focused on what the Deep Diver line asks for (for "an image of th
 
 Video Overview and Infographic share one daily limit per Google account (Episode 565 got two videos before "You have reached your daily Video Overview and Infographic limit"). Make the explainer the person asked for first, other explainers next, the infographic last, and the report after them, since reports are not limited. DeepDiver 9683d8f ends a generation that never started after 120 s, and one refused by the limit at once, each with its reason; run `studio list` before generating again. What was not made goes in the README, under "Owed" in `perspectives.md` with its exact instruction, and on the open list in miadi-chronicle://251. Then date it on the chart the tide clock reads, so it comes back by itself, reboot included (Episode 251's `rispecs/deepdiver-continuity/`): `cnarrative -M <Episode 251>/stc/deepdiver-delays.jsonl delay <step> <24 hours after the refusal>`, with the refusal's words as the reason. Each owed batch is its own step on the seat's session (tide-runtime from ironsilk 0.9.52 reads every step of one session as its own delay); a step that waits on a person carries no session. When the batch is made and landed, `cnarrative -M … complete <step> --by <seat>`.
 
-**A plan first**, when the brief or the person asks for one, or asks for a deck: `--review` stops a Video Overview or a Slide Deck at its plan, and `studio outline` keeps it in the notebook's folder. The skill's step 4a has the commands. Stop there and name the plan's file when the person asked to read it. A plan is sent on only by `studio proceed`, which saves it first; feedback sent there is the only round. A plan left paused goes in `perspectives.md` under "Owed", with its card id.
+**A plan first, by default** (D1 of jgwill/miadi-orchestration-kit#133). Every Video Overview and Slide Deck a pass makes stops at its plan with `--review`, and `studio outline` keeps the plan in the notebook's folder. An infographic and a report have no plan and go as before. The skill's step 4a has the commands. Then run the seat's own checks, from this plugin's `scripts/`:
+
+```bash
+node plan-read.mjs words <folder>/outline-<NN>-<card>.md
+node plan-read.mjs jev <folder>/outline-<NN>-<card>.md --brief "<the instruction>" --videos-today <n> --out <folder>/jev-<NN>.json
+```
+
+The second prints a `route`, and Jev's reading is advice until the person's rulings calibrate it:
+
+- `send`: the words are clean and nothing fired. Send it on with `studio proceed`, which saves the plan first.
+- `revise`: write the change in a feedback file from the checks that fired, and send it with `studio proceed -i`. It is the only round, so to read another plan first, start a new run with `--from-outline`.
+- `person`: stop. Name the plan's file and its card id in your report, and say which checks fired. The same goes when the brief or the person asks to read the plan.
+
+A plan left paused goes in `perspectives.md` under "Owed", marked "plan waiting", with its card id, its file and Jev's reading. Date it as an owed batch (above). The person's answer on a plan is a ruling: write it beside Jev's numbers in the plan's reading file.
 
 ```bash
 deepdiver studio download -n <id> -o <episode>/captures/notebook-<id> --keep
