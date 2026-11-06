@@ -6,13 +6,17 @@
 # stayed empty until a person noticed.
 #
 # `tmux has-session` says what state the server is in:
-#   no server running   it is gone.
+#   no server running   it is gone: an ended server leaves its socket behind.
+#   error connecting, No such file   no socket: no server ran here since /tmp was last cleaned, and
+#                       starting the first one is the unit's work at boot. Nothing to do.
 #   server exited       it shut down and cannot finish: a client it cannot reach holds it, such as a
 #                       phone on a stalled SSH connection. It has no panes left, so it is killed.
 #   anything else       left alone and printed: this script cannot tell what it means.
 # It asks twice, MIADI_TMUX_WATCH_CONFIRM_SECONDS apart (default 15).
 #
 # It does nothing when
+#   - tide's last snapshot with panes names no running agent, or there is no such snapshot: nothing
+#     has work to go back to, and a person who closes their last shell does not want tmux back.
 #   - a person stopped the server: `systemctl --user stop tmux-server.service` stops this timer too
 #     (PartOf), and `start` brings the timer back (Wants). A server that ended any other way counts
 #     as unplanned, and `env -u TMUX tmux kill-server` comes back within two minutes.
@@ -56,6 +60,7 @@ server_state() {
     answer="$(tmux -S "$socket" has-session 2>&1)" && { echo running; return; }
     case "$answer" in
         "no server running"*) echo gone ;;
+        "error connecting to"*"No such file or directory"*) echo absent ;;
         "server exited"*) echo ending ;;
         *) echo "unknown: $answer" ;;
     esac
@@ -70,6 +75,18 @@ not_now() {
         activating | deactivating) return 0 ;;
     esac
     return 1
+}
+
+agents_were_running() {
+    python3 - "${MIADI_HOME:-$HOME/.miadi/navigator}/context/snapshots.sqlite3" 2> /dev/null <<'PY_SNAPSHOT'
+import json, sqlite3, sys
+conn = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True, timeout=5)
+for (payload,) in conn.execute("SELECT payload FROM context_snapshots ORDER BY timestamp_epoch DESC LIMIT 3000"):
+    terminals = json.loads(payload).get("terminals")
+    if terminals:
+        sys.exit(0 if any((t.get("agent") or {}).get("state") == "running" for t in terminals) else 1)
+sys.exit(1)
+PY_SNAPSHOT
 }
 
 # A client of this server: named by -S, or through $TMUX, or by default. A client that names another
@@ -108,14 +125,17 @@ end_clients_left_behind() {
 }
 
 now_state="$(server_state)"
-[ "$now_state" = running ] && exit 0
+case "$now_state" in
+    running | absent) exit 0 ;;
+esac
 not_now && exit 0
+agents_were_running || exit 0
 
 sleep "$confirm"
 now_state="$(server_state)"
 not_now && exit 0
 case "$now_state" in
-    running) exit 0 ;;
+    running | absent) exit 0 ;;
     gone | ending) ;;
     *)
         echo "$now_state"

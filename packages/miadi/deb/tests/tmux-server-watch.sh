@@ -41,6 +41,26 @@ tmux -S "$sock" -f /dev/null new-session -d -s restored "sleep 120"
 EOF
 chmod +x "$work/bin/systemctl" "$work/bin/systemd-run"
 
+# tide's snapshots: <running|idle|empty|none>, the last one with panes, newest last.
+snapshots() {
+    rm -f "$work/home/state/context/snapshots.sqlite3"
+    [ "$1" = none ] && return 0
+    mkdir -p "$work/home/state/context"
+    python3 - "$work/home/state/context/snapshots.sqlite3" "$1" <<'PY_DB'
+import json, sqlite3, sys
+db = sqlite3.connect(sys.argv[1])
+db.execute("create table context_snapshots (timestamp_epoch real, payload text)")
+shell, agent = {"session_name": "a"}, {"session_name": "b", "agent": {"state": "running"}}
+last = {"running": [shell, agent], "idle": [shell], "empty": []}[sys.argv[2]]
+for epoch, terminals in ((1, [agent]), (2, last), (3, []), (4, [])):
+    if sys.argv[2] == "empty" and epoch == 1:
+        terminals = []
+    db.execute("insert into context_snapshots values (?, ?)", (epoch, json.dumps({"terminals": terminals})))
+db.commit()
+PY_DB
+}
+snapshots running
+
 set_states() { echo "$1" > "$work/timer"; echo "$2" > "$work/manager"; echo "$3" > "$work/unit"; : > "$work/calls"; }
 run_watch() {
     PATH="$work/bin:$PATH" HOME="$work/home" MIADI_HOME="$work/home/state" MIADI_TMUX_WATCH_SOCKET="$sock" \
@@ -103,6 +123,24 @@ wait
 check "back before the second question: nothing starts" not_started
 down
 
+snapshots idle
+set_states active degraded inactive
+run_watch
+check "gone, and the last snapshot with panes has no running agent: a person closed it, stays down" not_started
+snapshots empty
+run_watch
+check "gone, and no snapshot has panes: stays down" not_started
+snapshots none
+run_watch
+check "gone, and no tide here: stays down" not_started
+snapshots running
+
+rm -f "$sock"
+set_states active degraded inactive
+run_watch
+check "no socket: no server ran here, nothing starts" not_started
+check "  and it prints nothing, every minute" test ! -s "$work/out"
+
 mkdir -p "$work/stub"
 cat > "$work/stub/tmux" <<'EOF'
 #!/usr/bin/env bash
@@ -117,6 +155,7 @@ check "  and it prints the answer" grep -q "unknown: error connecting" "$work/ou
 
 rm -f "$work/home/state/restore/server-watch."*
 set_states active degraded inactive
+up; down
 for i in 1 2; do MAX=2 run_watch; down; done
 : > "$work/calls"
 MAX=2 run_watch
@@ -138,6 +177,7 @@ if pid == 0:
 print(pid, flush=True)
 time.sleep(300)
 EOF
+snapshots running
 tmux -S "$other" -f /dev/null new-session -d -s x "sleep 300"
 python3 "$work/hold.py" "$other" > "$work/other-client" &
 held_pids+=("$!")

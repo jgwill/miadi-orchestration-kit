@@ -129,7 +129,8 @@ with no panes and no children. It has shut down, and it waits for a client it ca
 2026-11-05 a phone's stalled SSH connection, with its bytes queued in `ss -tn`. No coredump and no
 OOM line means something sent `kill-server` or SIGTERM.
 
-`tmux-server-watch.timer` handles this by itself within two minutes: it kills a server that cannot
+`tmux-server-watch.timer` handles this by itself within two minutes when tide's last snapshot with
+panes names a running agent (with none, a person closed their last shell, and tmux stays down): it kills a server that cannot
 finish, ends the clients left behind, starts a server, and tide treats that server like one started
 at boot. Its log is `~/.miadi/navigator/restore/server-watch.log`. It stops after 3 starts in an
 hour, because something keeps ending the server and each start resumes whatever may be doing it.
