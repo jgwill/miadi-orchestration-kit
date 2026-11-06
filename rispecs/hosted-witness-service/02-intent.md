@@ -27,7 +27,8 @@ The relative's sessions produce work and words every day, and today they reach t
 
 ## Boundaries
 
-- **Consent.** The relative turns the witness on and can turn it off. Enabling it names which of their sessions and folders it reads, and that is all it reads. Turning it off removes its access the same minute.
+- **Consent has two layers.** The first is the relative's invitation. Jerry asked William for this work, through his PR reports and through the handle he expected William to make, so he consented to being brought into the narrative. The second is consent to each flow: what is read, who reads it, what is decided for him. That layer is asked, and the relative is surveyed on it (William, 2026-11-06). It could be held for him by a decision layer he builds himself, one that decides, informs and discusses (Episode 564). He is told about Episode 564 before it decides anything.
+- **Turning it on and off.** The relative turns the witness on and can turn it off. Enabling it names which of their sessions and folders it reads, and that is all it reads. Turning it off removes its access the same minute.
 - **Say who can read.** Before the relative consents, they are told who can read their capture. On eury that is every account on the host, the words they type included. `enable` shows it, and `check` reports it each time it runs.
 - **Read is not write.** Reading the capture needs group read. Writing to the relative's pane needs a separate, narrow sudo rule, and each delivery needs a person's go: the maintainer's or the relative's.
 - **Their words stay theirs.** Feedback is written verbatim with its date and speaker. The seat never paraphrases it into the record.

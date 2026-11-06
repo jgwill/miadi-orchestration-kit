@@ -31,6 +31,9 @@ A flow of information is appropriate when it keeps the norms of the context it c
 ### Data sovereignty
 OCAP (ownership, control, access, possession) names who governs data about a community (First Nations Information Governance Centre). Asked of one relative's sessions: who owns the capture, who controls what is read, who may access it, where it is kept.
 
+### Research-creation in music for the screen
+Research-creation treats making a work as a way of producing knowledge, with the work and the writing about it held together (Chapman and Sawchuk 2012). William's interest, composition in relation to film and the artefacts it makes, sits here. Jerry's atelier is that kind of making, measured and written down.
+
 ## Research questions this run raises
 
 - **RQ1.** Jerry's "I don't get it" was answered in 45 words, in the session where he asked. How does a person come to understand an agent system when the explanation arrives in the conversation where they ask, compared with a prepared page?
@@ -39,7 +42,23 @@ OCAP (ownership, control, access, possession) names who governs data about a com
 - **RQ4.** How does relational accountability become design in a witnessing agent: words kept verbatim, consent that can be withdrawn, and what the relative receives back?
 - **RQ5.** Did the witness's presence change what Jerry did? He opened a session of his own, named it after the handle and went to his music.
 
-Pages from Wilson (2008) around chapter 5 are to come from William. What they say goes here once read, in their own words.
+- **RQ6.** Consent could be held by a decision layer the relative builds for himself, one that decides, informs and discusses. Which of Jerry's agents can learn such a decision engine (Episode 564), and how does it change the way musical work is judged?
+
+## Wilson (2008), pages 78 to 81, collected for William to choose
+
+William photographed these pages on 2026-11-06. The passages are quoted as printed. Each is set beside the question it speaks to. Which of them are kept is William's choice.
+
+| | page | Wilson's words | speaks to |
+|---|---|---|---|
+| W1 | 78 | "She could have merely stayed in the university library and re-translated the text, but that would not have accomplished her purpose. That may have helped to correct the misinformation, but it would not have restored the relationship." | RQ1: two rewritten pages did not reach Jerry; a conversation in his own session did |
+| W2 | 78 | "the language was taken out of its context of relationality. In the translation given, relationships were broken." | RQ3: words captured in one context and read in another |
+| W3 | 79 | "So the methodology is simply the building of more relations." | the run itself: a circle, two sessions, Episodes 250 to 259 |
+| W4 | 79 | "We must ensure that both sides in the relationship are sharing the power going into these new connections. Without this reciprocity, one side of the relationship may gain power and substance at the expense of the other." | RQ2 and RQ4: the witness reads Jerry's sessions; what Jerry receives back |
+| W5 | 79 | "Our axiology demands that we be accountable to these relations that we form." | RQ4 |
+| W6 | 80 | "Rather than viewing ourselves as being in relationship with other people or things, we are the relationships that we hold and are part of." | RQ5 |
+| W7 | 81 | "In healthy Indigenous communities though, the strength of already established bonds between people can be used to help uplift others to bring them into the circle." | Jerry entering the circle through his bond with William; Episode 253 |
+
+William, 2026-11-06, in his own words and not Wilson's: "yes, we are our relationship, but the more relationship we have, the more we are something that you will have to study." It joins W3 and W6.
 
 ## Related packets the Miadi app already serves
 
@@ -55,4 +74,6 @@ Pages from Wilson (2008) around chapter 5 are to come from William. What they sa
 - Wilson, S. (2008). Research Is Ceremony: Indigenous Research Methods. Fernwood. From model knowledge, not searched.
 - Nissenbaum, H. (2004). Privacy as contextual integrity. Washington Law Review, 79(1), 119–157. From model knowledge, not searched.
 - First Nations Information Governance Centre. The First Nations Principles of OCAP®. From model knowledge, not searched.
+- Chapman, O., Sawchuk, K. (2012). Research-creation: intervention, analysis and "family resemblances". Canadian Journal of Communication, 37(1), 5–26. From model knowledge, not searched.
+- Wilson, S. (2008). Research Is Ceremony, pages 78 to 81, read from William's photographs of 2026-11-06.
 - Debian Policy Manual 4.7.2.0 (2025-02-27), §10.7 Configuration files, chapter 6 Maintainer scripts. https://www.debian.org/doc/debian-policy/
