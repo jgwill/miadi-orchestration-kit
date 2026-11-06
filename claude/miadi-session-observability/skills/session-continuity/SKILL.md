@@ -119,6 +119,24 @@ When tmux did not come back by itself (2026-10-03, jgwill/gaia#90):
 4. Compare the pane addresses with the snapshot's. The agents that were not running are noted,
    not started. Give the human the session list to confirm.
 
+When the server ended and the machine stayed up (2026-11-05). Attaching answers `[server exited]`
+and `tmux ls` answers `server exited unexpectedly`. A process `tmux: server` can still be there,
+with no panes and no children. It has shut down, and it waits for a client it cannot reach: on
+2026-11-05 a phone's stalled SSH connection, with its bytes queued in `ss -tn`. No coredump and no
+OOM line means something sent `kill-server` or SIGTERM. Nothing starts a server here by itself.
+
+1. Find what ended it before starting anything, because a resumed agent repeats what it was doing.
+   The last snapshot with panes bounds the time. Read the tool calls that have no result in the
+   transcripts changed since then, and read what those calls ran.
+2. Copy the save `last` names somewhere else. End the `tmux attach` that holds the server (`kill`,
+   then `kill -KILL`: it can sit in a blocked write). The server then exits by itself.
+3. `tmux-server.service` stays active while anything a pane started survives in its cgroup, such as
+   a browser. There `start` does nothing and `restart` kills them. Start the same command from the
+   user manager, which hands the panes its own environment, not an agent's:
+   `systemd-run --user --unit=tmux-server-recover-<yymmdd> --collect --service-type=forking --working-directory=$HOME /usr/bin/tmux new-session -d -c $HOME`
+4. Continue at step 3 of the list above. tide treats this server like one started at boot: it reads
+   the last snapshot with panes from before this server started.
+
 ## Checks that proved each part
 
 - Binding line: in one pane of a private tmux server (`tmux -L <name> -f /dev/null`), running
@@ -169,6 +187,12 @@ its `run-shell` jobs get `TMUX` for that server, so they stay on it.
   instead held its shell for 120 s. Since 0.1.28 `hooks/session_lookup_guard.sh` refuses a
   `find` from `/`, a recursive search over the capture and a hand read of the raw `_claude_*`
   files, and names these doors in its refusal.
+
+- `$TMUX` wins over `TMUX_TMPDIR` (2026-11-05). A test run by an agent inside a pane, with
+  `TMUX_TMPDIR=<dir>` and `$TMUX` still set, reached the live server with `kill-server`: 120 panes
+  and 69 running agents. A server of its own takes `-L` or `-S`, or a tool's environment without
+  `TMUX` and `TMUX_PANE`. Since 0.1.36 `hooks/tmux_server_guard.sh` refuses such a command when an
+  agent types it. It reads command text, so it does not see a program that calls tmux itself.
 
 Earned 2026-10-03 (jgwill/gaia#90):
 

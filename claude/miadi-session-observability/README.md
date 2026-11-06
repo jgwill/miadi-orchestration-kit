@@ -67,6 +67,14 @@ jgwill/miadi-orchestration-kit#56.
   The binding line stays readable. `MIADI_SESSION_LOOKUP_GUARD=off` in the session's
   environment turns it off for work on the capture itself. Earned 2026-11-01, when a seat
   ran `find / -name terminal_bindings.jsonl` for 120 s instead of `tide agents list`.
+- **tmux server guard** (0.1.36). A Bash command that ends the shared tmux server is refused:
+  `tmux kill-server` and `tmux kill-session -a` without `-L` or `-S`, `pkill` or `killall` on
+  tmux, `kill` of the server's pid, `systemctl stop` or `restart` of `tmux-server`. `TMUX_TMPDIR`
+  alone does not count as a server of its own, because `$TMUX` wins over it. It reads the command
+  text, so a program that calls tmux itself, such as `node --test`, is not seen.
+  `MIADI_TMUX_SERVER_GUARD=off` in the session's environment turns it off. Earned 2026-11-05, when
+  a test reached the live server with `kill-server` and 69 running agents stopped.
+  `tests/tmux-server-guard.sh`, 48 checks.
 - **Skill.** `session-continuity` carries T1's practice: the binding line, tmux save and
   restore, tide, and rebuilding what each pane held after a crash.
 

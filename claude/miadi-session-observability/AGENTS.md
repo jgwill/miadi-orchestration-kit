@@ -35,6 +35,8 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   (0.1.32), 87 checks. A separate PreToolUse entry in `hooks.json`.
 - `hooks/secret_exposure_alert.sh` and `tests/secret-exposure-alert.sh`: reports a credential
   that got past the guard (0.1.29), 41 checks.
+- `hooks/tmux_server_guard.sh` and `tests/tmux-server-guard.sh`: a Bash command that ends the
+  shared tmux server is refused (0.1.36), 48 checks. It reads command text only.
 - `scripts/miadi-scrub-secrets.py` and `tests/scrub-secrets.sh`: masks credential values in
   transcripts and the capture, in place and at the same length (0.1.33).
 - `hooks/steering_inbox.sh`, `hooks/steering_inbox.mjs` and `tests/steering-inbox.test.mjs`: the
