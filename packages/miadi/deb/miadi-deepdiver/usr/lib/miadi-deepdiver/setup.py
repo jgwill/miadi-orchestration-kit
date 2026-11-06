@@ -1,6 +1,7 @@
 """Idempotent user setup and doctor; never copy the kit plugin or edit settings JSON."""
 import argparse
-import hashlib
+import csv
+from email.parser import Parser
 import importlib.metadata
 import json
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 from urllib.parse import urlparse
 
 import yaml
@@ -44,8 +46,9 @@ def plugin_check():
     rows = plugin_rows()
     if not rows:
         raise RuntimeError('PLUGIN MISSING: miadi-deepdiver setup --claude')
-    # A disabled project override must not be silently overridden by user install.
-    if any(not r.get('enabled', False) or r.get('projectEnabled') is False for r in rows):
+    # enabled is the installed scope's setting. projectEnabled can be false
+    # merely because the cwd is outside a trusted project, not a disabled user plugin.
+    if any(not r.get('enabled', False) for r in rows):
         raise RuntimeError('PLUGIN DISABLED: preserved personal/project settings; explicitly enable the intended scope with claude plugin enable '+PLUGIN)
     for row in rows:
         root = Path(row.get('installPath', '/nonexistent'))
@@ -78,13 +81,85 @@ def install_claude():
     print('OK embedded skills: fork operating manual; kit skill remains canonical for the media workflow.')
 
 
+def legacy_installations():
+    """Inspect PATH launchers without executing old DeepDiver code or scanning homes."""
+    found, seen = [], set()
+    for folder in os.environ.get('PATH', '').split(os.pathsep):
+        candidate = Path(folder or '.')/'deepdiver'
+        if not candidate.is_file() or not os.access(candidate, os.X_OK):
+            continue
+        real = candidate.resolve()
+        if real == Path('/usr/bin/deepdiver').resolve() or real in seen:
+            continue
+        seen.add(real)
+        item = dict(path=str(candidate), removable=False)
+        try:
+            text = candidate.read_text()[:16384]
+            first = text.splitlines()[0]
+            py = first[2:].strip() if first.startswith('#!/') else ''
+            if 'deepdiver.deepdive' not in text or not Path(py).is_file() or ' ' in py:
+                raise ValueError('not a verified pip launcher')
+            # Static metadata only: a plain doctor must never execute an old
+            # PATH interpreter, its sitecustomize or a user's .pth files.
+            prefix = Path(py).parent.parent.resolve()
+            if not (prefix/'pyvenv.cfg').is_file():
+                raise ValueError('not a dedicated venv')
+            metas = list(prefix.glob('lib/python*/site-packages/deepdiver-*.dist-info/METADATA'))
+            if len(metas) != 1:
+                raise ValueError('ambiguous metadata')
+            meta_file = metas[0]
+            meta = Parser().parsestr(meta_file.read_text())
+            if meta['Name'].lower() != 'deepdiver':
+                raise ValueError('different distribution')
+            site = meta_file.parent.parent
+            with (meta_file.parent/'RECORD').open() as record:
+                records = [(site/row[0]).resolve() for row in csv.reader(record) if row]
+            # Shared/system Python and pipx installs use their own uninstaller.
+            allowed = prefix.is_relative_to(Path.home().resolve()) and prefix.stat().st_uid == os.getuid() and not (prefix/'pipx_metadata.json').exists()
+            safe_records = records and all(p.is_relative_to(prefix) for p in records) and real in records
+            item.update(version=meta['Version'], python=py, prefix=str(prefix), files=[str(p) for p in records], removable=bool(allowed and safe_records))
+        except Exception:
+            pass
+        found.append(item)
+    return found
+
+
+def check_legacy(remove=False):
+    old = legacy_installations()
+    for item in old:
+        print('LEGACY CLI: '+item['path']+' version='+item.get('version', 'unknown'))
+        if remove:
+            if not item['removable']:
+                raise RuntimeError('LEGACY PRESERVED: not a verified caller-owned venv. Remove this CLI with its original installer; never delete its profile/config.')
+            # pip can remove an edited template living inside site-packages.
+            # Keep a private, non-executable recovery copy of every recorded file
+            # first; no profile/config/content is silently discarded by migration.
+            state = Path.home()/'.local/state/miadi-deepdiver/legacy'
+            state.mkdir(parents=True, exist_ok=True, mode=0o700)
+            backup = Path(tempfile.mkdtemp(prefix='removed-', dir=state))
+            for name in item['files']:
+                old_file = Path(name)
+                if old_file.is_file():
+                    dest = backup/old_file.relative_to(item['prefix'])
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(old_file, dest)
+                    dest.chmod(0o600)
+            print('OK private legacy recovery copy: '+str(backup))
+            run([item['python'], '-I', '-m', 'pip', 'uninstall', '--yes', 'deepdiver'])
+            if Path(item['path']).exists():
+                raise RuntimeError('LEGACY CLEANUP INCOMPLETE: old launcher still exists.')
+            print('OK removed old venv DeepDiver distribution/launcher; venv, dependencies, config and browser profiles retained.')
+    if old and not remove:
+        raise RuntimeError('LEGACY CLI DETECTED: run miadi-deepdiver setup --remove-legacy for verified user venv copies; other installers must remove their own copy. Then hash -r and type -a deepdiver.')
+
+
 def setup():
     os.umask(0o077)
     CONFIG.parent.mkdir(parents=True, exist_ok=True)
     data = Path.home()/'.local/share/deepdiver'
     defaults = dict(BASE_PATH=str(data/'output'),
         BROWSER_SETTINGS=dict(headless=False, cdp_url='http://127.0.0.1:9222',
-                              user_data_dir=str(Path.home()/'.chrome-deepdiver'), timeout=60),
+                              user_data_dir=str(Path.home()/'.chrome-deepdiver-apt'), timeout=60),
         SESSION_TRACKING=dict(enabled=True, metadata_format='yaml', session_dir=str(data/'sessions')),
         NOTEBOOKLM_SETTINGS=dict(base_url='https://notebooklm.google.com', upload_timeout=120, generation_timeout=300))
     try:
@@ -99,6 +174,7 @@ def setup():
 
 
 def doctor(args):
+    check_legacy()
     lock = json.loads((SHARE/'SOURCE.json').read_text())
     print('SOURCE '+lock['source']['repository']+'@'+lock['source']['commit'])
     abi = f'cp{sys.version_info.major}{sys.version_info.minor}'
@@ -107,12 +183,14 @@ def doctor(args):
             raise RuntimeError('RUNTIME VERSION MISMATCH: '+item['name'])
     print('OK private Python '+sys.executable+'; locked dependencies match.')
     if CONFIG.exists():
-        cfg = yaml.safe_load(CONFIG.read_text()) or {}
-        url = (cfg.get('BROWSER_SETTINGS') or {}).get('cdp_url', 'http://127.0.0.1:9222')
-        parsed = urlparse(os.environ.get('DEEPDIVER_CDP_URL', url))
-        if parsed.scheme != 'http' or parsed.hostname not in ('localhost', '127.0.0.1', '::1') or parsed.username or parsed.password:
-            raise RuntimeError('UNSAFE CDP CONFIG: use loopback only; config preserved, value not printed.')
-        print('OK user config (values not logged).')
+        from deepdiver.notebooklm_automator import find_config_file, get_cdp_url
+        effective = find_config_file()
+        # Reuse the fork's actual cwd/user/package discovery and env precedence.
+        # Reading only CONFIG would miss a project override and give false readiness.
+        parsed = urlparse(get_cdp_url(config_path=effective))
+        if parsed.scheme != 'http' or parsed.hostname not in ('localhost', '127.0.0.1', '::1') or parsed.port != 9222 or parsed.username or parsed.password or parsed.path not in ('', '/') or parsed.query or parsed.fragment:
+            raise RuntimeError('UNSAFE CDP CONFIG: use loopback port 9222 only; config preserved, value not printed.')
+        print('OK effective fork config and CDP override (values not logged).')
     else:
         raise RuntimeError('CONFIG MISSING: miadi-deepdiver setup')
     from playwright.sync_api import sync_playwright
@@ -156,6 +234,7 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     s = sub.add_parser('setup', help='Create config only if absent; optional existing Claude marketplace plugin')
     s.add_argument('--claude', action='store_true')
+    s.add_argument('--remove-legacy', action='store_true', help='Uninstall verified caller-owned PATH venv DeepDiver copies, never configs/profiles or shared Python')
     s.add_argument('--launch', action='store_true', help='Launch the upstream desktop browser; human sign-in only')
     d = sub.add_parser('doctor', help='Verify runtime; exit 0 ready/offline-ok, 1 blocked, 2 sign-in, 3 attach blocked')
     d.add_argument('--claude', action='store_true')
@@ -167,6 +246,7 @@ def main():
     try:
         if args.command == 'setup':
             setup()
+            check_legacy(remove=args.remove_legacy)
             if args.claude:
                 install_claude()
             if args.launch:

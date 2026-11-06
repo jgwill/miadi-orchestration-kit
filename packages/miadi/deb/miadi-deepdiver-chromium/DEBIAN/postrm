@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+case "$1" in remove|purge)
+    rm -rf /usr/lib/miadi-deepdiver/browsers /usr/lib/miadi-deepdiver/browsers.previous
+;; esac
+case "$1" in purge)
+    rm -rf /var/cache/miadi-deepdiver/browser-archives
+;; esac

@@ -4,7 +4,7 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: Miadi Factory <miadi@sanctuaireagentique.com>
-Depends: python3 (>= 3.10), python3 (<< 3.13), python3-venv, ca-certificates, x11-utils, miadi-deepdiver-chromium (= 1.64.1-1)
+Depends: python3 (>= 3.10), python3 (<< 3.13), python3-venv, ca-certificates, git, x11-utils, miadi-deepdiver-chromium (= 1.64.1-1)
 Recommends: ffmpeg
 Homepage: https://github.com/jgwill/miadi-orchestration-kit/issues/135
 Description: Miadi's pinned DeepDiver fork and private offline Python runtime

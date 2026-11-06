@@ -52,6 +52,7 @@ def copy(src, dest):
 share = stage / 'usr/share' / ('miadi-deepdiver' if sys.argv[1] == 'runtime' else 'miadi-deepdiver-chromium')
 share.mkdir(parents=True, exist_ok=True)
 copy(LOCK, share/'SOURCE.json')
+copy(HERE.parent/'LICENSE', share/'PACKAGING-LICENSE')
 if sys.argv[1] == 'runtime':
     src = fetch(lock['source'], 'source-'+lock['source']['commit']+'.tar.gz')
     wheels = share/'wheels'
@@ -91,29 +92,16 @@ if sys.argv[1] == 'runtime':
             raise RuntimeError('Built fork wheel differs from committed reproducible hash')
         copy(wheel, wheels/wheel.name)
         copy(source/'LICENSE', share/'DEEPDIVER-LICENSE')
-    # Source archive also allows an offline source audit and rebuild.
-    copy(src, share/'source.tar.gz')
+    # Do not ship the whole upstream archive: non-runtime diagnostics can
+    # contain captured account pages. SOURCE.json retains its verifiable pin.
     for req in share.glob('cp*.txt'):
         req.chmod(0o644)
     (stage/'usr/lib/miadi-deepdiver/bin/google-chrome').chmod(0o755)
 else:
-    browsers = stage/'usr/lib/miadi-deepdiver/browsers'
+    # Verify the pinned browser inputs at build time, but do NOT redistribute
+    # them. The installed manifest/installer fetches directly from upstream.
     for item in lock['browsers']:
-        archive = fetch(item)
-        dest = browsers/item['directory']
-        dest.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(archive) as z:
-            for member in z.infolist():
-                if member.filename.startswith('/') or '..' in Path(member.filename).parts:
-                    raise RuntimeError('Unsafe browser archive member')
-                target = Path(z.extract(member, dest))
-                if not target.is_dir():
-                    target.chmod(0o755 if (member.external_attr >> 16) & 0o111 else 0o644)
-        (dest/'INSTALLATION_COMPLETE').touch()
-    # Standard Chromium fallback sandbox. Never disable sandboxing globally or
-    # pass --no-sandbox. A container may still disallow the required namespaces.
-    sandbox = browsers/'chromium-1248/chrome-linux64/chrome_sandbox'
-    sandbox.chmod(0o4755)
+        fetch(item)
 # Normalize input and generated timestamps; dpkg-deb also consumes SOURCE_DATE_EPOCH.
 for root, dirs, files in os.walk(stage):
     for name in dirs+files:

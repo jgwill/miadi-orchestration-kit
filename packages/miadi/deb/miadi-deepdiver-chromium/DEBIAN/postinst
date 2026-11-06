@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+case "$1" in configure)
+    /usr/bin/python3 -I /usr/lib/miadi-deepdiver/install-browser.py
+;; esac

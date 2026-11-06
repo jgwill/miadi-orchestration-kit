@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-case "$1" in configure)
+case "$1" in configure|triggered)
     base=/usr/lib/miadi-deepdiver
     abi=$(/usr/bin/python3 -c 'import sys; print("cp%d%d" % sys.version_info[:2])')
     share=/usr/share/miadi-deepdiver
@@ -12,6 +12,12 @@ case "$1" in configure)
       "$base/venv.new/bin/python" -m pip install --no-index --no-deps --no-compile --require-hashes \
       --find-links "$share/wheels" -r "$share/$abi.txt"
     "$base/venv.new/bin/python" -I -c 'import deepdiver.deepdive, playwright, yaml'
+    # venv scripts embed the build path. Relocate their shebangs before the
+    # atomic rename; never sed through the interpreter symlinks themselves.
+    for script in "$base/venv.new/bin/"*; do
+        [ -f "$script" ] && [ ! -L "$script" ] || continue
+        sed -i "1s|^#!$base/venv.new/|#!$base/venv/|" "$script"
+    done
     rm -rf "$base/venv.old"
     if [ -d "$base/venv" ]; then mv "$base/venv" "$base/venv.old"; fi
     mv "$base/venv.new" "$base/venv"

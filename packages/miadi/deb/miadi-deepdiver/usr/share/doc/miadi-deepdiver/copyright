@@ -2,7 +2,8 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Miadi DeepDiver
 Source: https://github.com/miadisabelle/deepdiver
 Comment: Exact source, wheel URLs and hashes: /usr/share/miadi-deepdiver/SOURCE.json.
- The source archive and upstream MIT notice are shipped beside it.
+ The upstream MIT notice is shipped beside it. The raw source archive is
+ deliberately not redistributed: it includes non-runtime diagnostics.
  Each dependency wheel retains its own METADATA and license files; after install
  these are also in /usr/lib/miadi-deepdiver/venv/lib/python*/site-packages/.
  No third-party component is relicensed by this packaging.
@@ -10,10 +11,9 @@ Comment: Exact source, wheel URLs and hashes: /usr/share/miadi-deepdiver/SOURCE.
 Files: usr/lib/miadi-deepdiver/entry.py usr/lib/miadi-deepdiver/setup.py usr/bin/*
 Copyright: 2026 Miadi Factory contributors
 License: Expat
- See /usr/share/common-licenses/Expat where provided, or the MIT LICENSE in
- https://github.com/jgwill/miadi-orchestration-kit/tree/main/packages/miadi/deb.
+ Full text: /usr/share/miadi-deepdiver/PACKAGING-LICENSE.
 
-Files: usr/share/miadi-deepdiver/source.tar.gz usr/share/miadi-deepdiver/wheels/deepdiver-*
+Files: usr/share/miadi-deepdiver/wheels/deepdiver-*
 Copyright: 2025 gerico1007 and contributors
 License: Expat
  Full notice: /usr/share/miadi-deepdiver/DEEPDIVER-LICENSE.

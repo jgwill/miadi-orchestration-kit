@@ -59,11 +59,16 @@ for control in "$here"/*/DEBIAN/control; do
 	chmod 0755 "$stage/usr/share/doc" "$stage/usr/share/doc/$package"
 	chmod 0644 "$stage/usr/share/doc/$package/copyright"
 	out="$here/dist/${package}_${version}_${arch}.deb"
-	# A source-pinned build can opt into stable archive timestamps (#135).
+	# Pinned binary bundles may select fast compression and stable timestamps (#135).
+	compression_args=()
+	if [ -f "$here/prep/$package.compression" ]; then
+		read -r compressor level < "$here/prep/$package.compression"
+		compression_args+=("-Z$compressor" "-z${level:-6}")
+	fi
 	if [ -f "$here/prep/$package.epoch" ]; then
-		SOURCE_DATE_EPOCH=$(<"$here/prep/$package.epoch") dpkg-deb --root-owner-group --build "$stage" "$out" >/dev/null
+		SOURCE_DATE_EPOCH=$(<"$here/prep/$package.epoch") dpkg-deb "${compression_args[@]}" --root-owner-group --build "$stage" "$out" >/dev/null
 	else
-		dpkg-deb --root-owner-group --build "$stage" "$out" >/dev/null
+		dpkg-deb "${compression_args[@]}" --root-owner-group --build "$stage" "$out" >/dev/null
 	fi
 	rm -rf "$stage"
 	echo "$out"

@@ -30,6 +30,13 @@ if __name__ == '__main__':
         try:
             os.environ['DISPLAY'] = launch_guard(sys.argv[3:])
             os.umask(0o077)
+            # Chrome for Testing and Google Chrome may use different keyring
+            # names. Never automatically open/rewrite a pre-existing Google
+            # profile with the newly installed browser. Keep an APT-only home.
+            if not any(a == '--user-data-dir' or a.startswith('--user-data-dir=') or a == '--fresh' or a.startswith('--clone-profile') for a in sys.argv[3:]):
+                profile = os.path.expanduser('~/.chrome-deepdiver-apt')
+                sys.argv.extend(['--user-data-dir', profile])
+                print('APT browser profile: '+profile+' (existing Chrome profiles preserved).')
         except RuntimeError as e:
             print(e, file=sys.stderr)
             sys.exit(1)

@@ -488,19 +488,23 @@ wheel URLs/hashes. Builds use the committed `prep/miadi-deepdiver.lock.json`,
 never a moving branch or another seat's checkout. `postinst` builds only
 `/usr/lib/miadi-deepdiver/venv`, offline with `--no-index --require-hashes`.
 
-`miadi-deepdiver-chromium` 1.64.1-1 carries Playwright 1.64.1's full Chrome
-for Testing 156.0.8078.4 (revision 1248), headless shell and ffmpeg 1013.
-Ubuntu's `chromium-browser` is a snap transition, unsuitable for clean
-container/agent installation, so these pinned binaries are private. The Debian
-runtime dependencies handle Ubuntu 24.04's t64 names. The driver and browser
-are tested on glibc 2.35+; no claim for Python 3.13+, arm64, Termux, or older
-Ubuntu. Browser terms and third-party notices are retained, not relabelled MIT.
+`miadi-deepdiver-chromium` 1.64.1-1 contains a small installer and manifest,
+NOT redistributed browser binaries. At APT configuration the host fetches
+Playwright 1.64.1's full Chrome for Testing 156.0.8078.4 (revision 1248),
+headless shell and ffmpeg 1013 **directly from upstream**, checking committed
+SHA256 before extraction and staging before a swap. First installation needs
+network/CA trust; `/var/cache/miadi-deepdiver/browser-archives` permits offline
+reinstall. No install-time pip/network Python package resolution occurs.
+The upstream browser terms apply; no redistribution of restricted components
+is attempted. Raw fork debug captures/source archives are not shipped either.
 
-The browser `.deb` exceeds the publisher's 100 MB direct-upload cap. Publish
-it as a public kit GitHub release asset, then pass that asset URL as the
-publisher's second argument (its established pool redirect path). Publish
-browser first, runtime second, `deepdiver` alias last. The signed APT index
-still authenticates the exact `.deb` hash. Do not overwrite a released version.
+Ubuntu's `chromium-browser` is a snap transition, unsuitable for clean
+container/agent installation. The private browser and Debian runtime deps
+handle Ubuntu 24.04's t64 names. The driver/browser work on glibc 2.35+;
+no claim for Python 3.13+, arm64, Termux or older Ubuntu. Publish the small
+browser-installer `.deb` first, Python runtime second, `deepdiver` alias last
+with the established publisher. All stay below its direct-upload cap; the
+signed APT index authenticates them. Never overwrite a released version.
 
 Setup writes config only when absent, mode 600, and preserves all existing
 skills/settings. It calls the **existing** marketplace plugin
@@ -512,13 +516,25 @@ is separate. Restart Claude after installing: hooks are loaded at session
 start. The kit's canonical `screenwalk-notebook` and plan-before-render gate
 are unchanged; the embedded fork manual is read with `deepdiver skills show`.
 
-No root browser, postinst sign-in, automatic account choice, home-directory
+APT upgrades replace the old package files and private venv. Setup/doctor
+also detect legacy PATH launchers so an old manual copy cannot silently shadow
+`/usr/bin/deepdiver`. `miadi-deepdiver setup --remove-legacy`, run by the user,
+uninstalls only a verified caller-owned venv DeepDiver distribution, preserving
+the venv, other dependencies and all config/profile/output data. Unknown,
+shared/system and other-manager copies stay blocked with a diagnostic for
+their own uninstaller. Run `hash -r; type -a deepdiver` afterwards.
+
+No root browser, postinst sign-in, automatic account choice, maintainer home-directory
 writes or external CDP. A desktop/XWayland display is required for manual
 sign-in; doctor distinguishes absent/unreachable displays. The standard
 Chromium setuid sandbox is retained; hardened hosts that block all sandbox
 mechanisms must fix their scoped policy, not use `--no-sandbox`. CDP is not
 authenticated against other local users: use only a dedicated profile, and
-never expose or tunnel it to untrusted hosts. Removal/purge preserves profiles,
+never expose or tunnel it to untrusted hosts. The APT default profile is
+`~/.chrome-deepdiver-apt`, separate from the fork's old `~/.chrome-deepdiver`:
+Chrome for Testing and Google Chrome can use different keyring names. No old
+profile is opened or migrated automatically, and sign-in compatibility with
+old profiles is not claimed. Removal/purge preserves profiles,
 credentials, config and Claude settings. An offline headless smoke is not
 NotebookLM authorization or end-to-end proof.
 
@@ -529,6 +545,10 @@ bash build.sh deepdiver
 IMAGE=ubuntu:22.04 bash tests/deepdiver.sh
 IMAGE=ubuntu:24.04 bash tests/deepdiver.sh
 IMAGE=debian:12 bash tests/deepdiver.sh
+# With an existing Claude Code executable (never copies sign-in/credentials):
+IMAGE=ubuntu:24.04 bash tests/deepdiver-claude.sh
+# After publication, in a clean supported container:
+bash tests/deepdiver-apt-smoke.sh
 ```
 
 The containers grant SYS_ADMIN and an unconfined **container** AppArmor profile

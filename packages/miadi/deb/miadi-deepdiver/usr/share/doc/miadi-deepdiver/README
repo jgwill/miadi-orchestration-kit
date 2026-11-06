@@ -20,7 +20,10 @@ plan-before-render gate stay canonical; read the fork manual with
   deepdiver skills show notebooklm-automation
 
 setup alone does not launch Chrome or sign in. Config is mode 600 and only
-created if absent; ~/.chrome-deepdiver is persistent. No maintainer script
+created if absent; ~/.chrome-deepdiver-apt is the persistent APT profile.
+Existing ~/.chrome-deepdiver or personal Chrome profiles are not opened or
+migrated automatically: Google Chrome and Chrome for Testing can use different
+keyring names, so compatibility with old sign-ins is not claimed. No maintainer script
 writes a user's home. Removal/purge never remove profiles, credentials, skills
 or config. Doctor does not print config values, page URLs or credentials.
 
@@ -28,8 +31,11 @@ Supported: amd64 Ubuntu 22.04 (Python 3.10), Debian 12 (3.11), Ubuntu 24.04
 (3.12). Python 3.13+, arm64 and Termux are not packaged by this release.
 Ubuntu's chromium-browser is a snap transition, so Playwright's exact captured
 Chrome for Testing + headless shell is private under /usr/lib/miadi-deepdiver.
-It does not replace your normal browser or download anything at install time.
-The browser has its own upstream terms; see the browser package copyright.
+It does not replace your normal browser. The browser-installer package fetches
+hash-pinned browser archives directly from upstream at first configuration,
+then caches them for offline reinstall. Python wheels are always installed
+offline. Browser binaries and raw fork debug captures are not redistributed
+by the Debian artifacts. Upstream browser terms/notices apply; see copyright.
 
 CDP binds 127.0.0.1:9222, with no remote-debugging wildcard. Local users can
 reach CDP: do not expose it, forward it to other hosts or reuse a sensitive
@@ -47,3 +53,19 @@ Browser versions are deliberately pinned, not silently updated. Maintainers
 must refresh source/dependency/browser locks, review security updates, bump
 Debian versions and rebuild/retest/release. Upgrades rebuild only the private
 venv from hash-verified packaged wheels, with --no-index and no system pip.
+
+Old versions and manual installations
+------------------------------------
+APT replaces old package files and rebuilds/removes the old private runtime.
+setup/doctor also detect other deepdiver launchers on PATH, refusing false
+readiness when an old manual copy may shadow /usr/bin/deepdiver. As the user:
+  miadi-deepdiver setup --remove-legacy
+  hash -r
+  type -a deepdiver
+The explicit cleanup uninstalls only a verified DeepDiver pip distribution in
+a caller-owned home venv. It does not remove that venv, its other dependencies,
+config, output or profiles. Recorded legacy files are privately backed up to
+~/.local/state/miadi-deepdiver/legacy before uninstall, including edited package
+templates. Unknown wrappers, shared/system Python and other
+install managers are preserved and BLOCKED with a diagnostic: use their own
+uninstaller. No root maintainer script scans or edits home directories.
