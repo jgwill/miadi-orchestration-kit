@@ -60,10 +60,14 @@ session name changes with `/rename`, and every change is a `session.rename` line
 2. The `post-restore-all` hook (`tmux-restore-agents.sh`) starts `tide agents restore`.
 3. tide reads its last snapshot with panes from before this tmux server started. It relaunches
    the agents that were running, with their launch alias and `--resume <id>`, 10 seconds apart.
-   The most recently active ones that fit above 16 GiB of available memory (512 MiB counted
+   The most recently active ones that fit above 16 GiB of available memory (384 MiB counted
    each, `--agent-memory-mb`) start, oldest of them first, so the last one resumed is the one
    that was active last and the session list on William's phone keeps its order (ironsilk
-   0.9.40, 2026-10-07). The others get their command typed without Enter. An agent that had
+   0.9.40, 2026-10-07). The others get their command typed without Enter, and at the end of the
+   pass they start while available memory, measured then, stays above the floor (0.9.73). A
+   session cut off mid-reply starts first, with one line as its first prompt: its request, and to
+   check the live state and continue until it is finished. The line does not say why the work
+   stopped, because the next step is the same after a reboot, a crash or a kill-server. An agent that had
    exited starts nothing and gets nothing typed: its pane keeps a note (the pane option
    `@miadi-resume`), `tide agents list` shows it `exited`, and `tide agents resume [pane]`
    brings it back when the human chooses (William, 2026-10-07).
@@ -137,8 +141,7 @@ hour, because something keeps ending the server and each start resumes whatever 
    in its cgroup, such as a browser. There `start` does nothing and `restart` kills them. Start the
    same command from the user manager, which hands the panes its own environment, not an agent's:
    `systemd-run --user --unit=tmux-server-recover-<yymmdd> --collect --service-type=forking --working-directory=$HOME /usr/bin/env tmux new-session -d -c $HOME`
-3. Continue at step 3 of the list above. An agent the memory floor kept from starting has its
-   command typed in its pane, without Enter.
+3. Continue at step 3 of the list above.
 
 ## Checks that proved each part
 
