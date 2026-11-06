@@ -1,5 +1,5 @@
 Package: miadi-chronicle-server
-Version: 0.1.2
+Version: 0.1.3
 Section: utils
 Priority: optional
 Architecture: all
@@ -17,4 +17,6 @@ Description: The Miadi chronicle's host services: capture, hooks, plan insight
   miadi-hooks              @miadi/hooks-core (agent hook events)
   miadi-hooks-interpret    @miadi/hooks-interpreter (reading a session)
   plan-insight-register    @miadi/plan-insight
+ miadi-chart-pulse keeps a seat's chart moving with its commits: a hook a
+ session opts into with MIADI_CHART_PULSE_STORE.
  /usr/share/miadi-chronicle-server/SOURCE lists every version installed.

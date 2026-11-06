@@ -369,6 +369,9 @@ PY
     for cmd in miadi-hooks-interpret plan-insight-register miadi-transcription miadi-episode-capture; do "$cmd" --help >/dev/null; done
     { miadi-hooks --help 2>&1 || true; } | grep -q "usage: miadi-hooks"
     grep -q "^ExecStart=/bin/bash -c .*/usr/bin/miadi-capture-service" /usr/lib/systemd/user/miadi-capture-service.service
+    test -z "$(printf "{}" | miadi-chart-pulse stop)" || { echo "miadi-chart-pulse checked a session with no store"; exit 1; }
+    printf "%s" "{\"session_id\":\"install\",\"cwd\":\"/tmp\",\"tool_input\":{\"command\":\"git status\"}}" | MIADI_CHART_PULSE_STORE=/tmp/store miadi-chart-pulse record
+    echo "miadi-chart-pulse runs on miadi-node with its module, and checks nothing without a store"
     inbox=$(mktemp -d)
     MIADI_CAPTURE_HOST=127.0.0.1 MIADI_CAPTURE_PORT=8799 MIADI_CAPTURE_INBOX=$inbox miadi-capture-service >/tmp/capture.log 2>&1 &
     capture=$!

@@ -1,5 +1,5 @@
 {
-  "description": "Episode vessels are born by mkepisode, never mkdir. A PreToolUse hook on Bash refuses a command that would create a new directory directly under $MIADI_CHRONICLE_ROOT and returns the mkepisode invocation — with the --adopt repair for a directory that already holds work. Creating directories inside an episode that already exists is not blocked, and a host with no MIADI_CHRONICLE_ROOT is not guarded at all. Hooks load at session start and do not hot-swap: restart Claude Code after changing this file. A Stop hook (address-check.mjs) sends the agent back when its reply names an episode or prints a circle id without its @miadi/reference-ui address (miadi-chronicle://563, miadi-circle://circle:…), to send the complete reply again with the addresses in it, and counts the characters of what comes back so the last message stays the reply a person annotates, jgwill/miadi-orchestration-kit#103.",
+  "description": "Episode vessels are born by mkepisode, never mkdir. A PreToolUse hook on Bash refuses a command that would create a new directory directly under $MIADI_CHRONICLE_ROOT and returns the mkepisode invocation — with the --adopt repair for a directory that already holds work. Creating directories inside an episode that already exists is not blocked, and a host with no MIADI_CHRONICLE_ROOT is not guarded at all. Hooks load at session start and do not hot-swap: restart Claude Code after changing this file. A Stop hook (address-check.mjs) sends the agent back when its reply names an episode or prints a circle id without its @miadi/reference-ui address (miadi-chronicle://563, miadi-circle://circle:…), to send the complete reply again with the addresses in it, and counts the characters of what comes back so the last message stays the reply a person annotates, jgwill/miadi-orchestration-kit#103. Two hooks (chart-pulse.sh) call miadi-chart-pulse from the miadi-chronicle-server package for a session that sets MIADI_CHART_PULSE_STORE: a commit with no chart move stops the turn, and the agent moves the chart and sends its complete reply again.",
   "hooks": {
     "PreToolUse": [
       {
@@ -20,6 +20,24 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/address-check.mjs\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/chart-pulse.sh\" stop",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/chart-pulse.sh\" record",
+            "if": "Bash(*commit*)",
+            "timeout": 15
           }
         ]
       }

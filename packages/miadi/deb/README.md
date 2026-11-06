@@ -26,7 +26,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
 | `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases: `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` | 0.1.0 |
-| `miadi-chronicle-server` | the chronicle's host services: `miadi-capture-service` (a per-user unit, not started), `miadi-episode-capture`, `miadi-transcription`, `miadi-hooks`, `miadi-hooks-interpret`, `plan-insight-register` (`miadi` depends on it since 0.4.0) | 0.1.0 |
+| `miadi-chronicle-server` | the chronicle's host services: `miadi-capture-service` (a per-user unit, not started), `miadi-episode-capture`, `miadi-transcription`, `miadi-hooks`, `miadi-hooks-interpret`, `miadi-chart-pulse` (0.1.3), `plan-insight-register` (`miadi` depends on it since 0.4.0) | 0.1.0 |
 | `miadi-music` | music on the host, for an album or an episode's score: brings the three below and the `miadi-music` command | 0.1.0 |
 | `miadi-music-render` | ABC to MIDI, audio and the engraved page: abcmidi, abcm2ps, fluidsynth with the FluidR3 soundfont, ffmpeg | 0.1.0 |
 | `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
@@ -351,6 +351,20 @@ pinned at the versions the `miadi-chronicle-episode-kit` plugin runs with
 npm cache and no network at session start. A user's own npm install, earlier
 on `PATH`, still wins.
 
+### miadi-chart-pulse (miadi-chronicle-server 0.1.3)
+
+A seat's chart moves with its commits. A session that sets
+`MIADI_CHART_PULSE_STORE` to its chart store file is stopped at the end of a
+turn when it committed and the store did not move, once per commit. A session
+without the setting is not checked. The `miadi-chronicle-episode-kit` plugin
+(0.3.43) wires both hooks, so a seat only sets the variable, in its launch
+shell or in the `env` of its `settings.json`.
+
+A Stop block makes the next message the last one, and that is the message `tan`
+annotates. So the agent moves the chart and sends its complete reply again. The
+hook counts that message's characters and sends back anything under 90% of the
+reply, up to three times, then lets the turn end and says so.
+
 To move a pin: change `prep/<half>.packages`, bump the half's `Version:`,
 build, test, publish. A Node release is a new `miadi-node` Version
 (`24.21.0-1` names `v24.21.0`); the halves accept any 24.x.
@@ -420,6 +434,7 @@ bash tests/session-continuity-sync.sh   # restore's copies against jgwill/gaia's
 bash tests/hermes-tailnet-sync.sh        # tailnet installer/publisher/proxy tests against Gaia
 bash tests/mirror-monitor-sync.sh        # lid/hotplug/reboot mirror tests against Gaia
 bash tests/feedback.sh                   # which issue wakes a feedback seat, its trust, model and labels
+node --test tests/chart-pulse.mjs        # the commit check, and that its block leaves the complete reply last
 sudo apt install ./dist/*_<version>_all.deb
 ```
 

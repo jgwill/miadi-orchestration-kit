@@ -1,0 +1,3 @@
+#!/bin/sh
+# miadi-chart-pulse, run by the Node.js miadi-node carries. Installed by miadi-chronicle-server.
+exec /usr/lib/miadi-node/bin/node /usr/lib/miadi-chronicle-server/chart-pulse/chart-pulse.mjs "$@"
