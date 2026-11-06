@@ -49,8 +49,10 @@ request failed: an answer to one request is not a fact about the platform.
 - **She can mark beside him.** `POST /api/tide/annotate/mark` with `{doc, quote, text}` signs
   the mark with her name. A mark is hers and says so. Delivering to the seat stays with the
   person unless he asks: she holds `tide_deliver`, and holding it is not his word.
-- **A real limit, as of 2026-11-05:** `/api/tide/peek` refuses her role (403, "no API
-  access"). On this host she reads a pane with `tmux capture-pane`.
+- **A grant she may not hold:** `/api/tide/peek` needs `tide_peek` ("Read a pane's screen"), which
+  an admin gives in /admin → Additional permissions (jgwill/Miadi#938). Ask `GET
+  /api/identity/me` whether she holds it. Without it, on this host she reads a pane with
+  `tmux capture-pane`. She never grants herself anything with William's token.
 
 ## Where her voice is, and where it is not
 
