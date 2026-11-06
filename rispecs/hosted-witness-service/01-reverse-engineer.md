@@ -47,3 +47,4 @@
 | 2026-11-04 11:41 | steer delivered and read back | `.mia/witness-steer-261104.md` |
 | 2026-11-04 11:43 | steered turn ended, four marks present | chronicle `f259d23b`, `a78b4f44` |
 | 2026-11-06 02:03 | Jerry opened T5 himself: "tell me in a short 55 word explanation what william prepare for me i dont get it". T5 answered in under 55 words and wrote his words in `feedback.md`. The relative's first contact was a request for less. | chronicle `b52d966d` |
+| 2026-11-06 02:05 | Jerry: "which session? this one here?". The word "session" was the next thing he did not have. T5 explained it from the conversation he was in and told him he can say go there. | chronicle `d89db8ff` |
