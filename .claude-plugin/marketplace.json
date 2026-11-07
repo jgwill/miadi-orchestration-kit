@@ -62,8 +62,8 @@
     {
       "name": "miadi-operator-desk",
       "source": "./claude/miadi-operator-desk",
-      "description": "The operator desk (T7): William's questions about how the factory works answered from the owning team's text and checked against the tool, kept in a ledger, an unanswered one sent to the team that owns the tool, and a question that comes back turned into a pointer in the skill.",
-      "version": "0.1.0"
+      "description": "The operator desk (T7): William's questions about how the factory works answered from the owning team's text and checked against the tool, kept in a ledger, an unanswered one sent to the team that owns the tool, and a question that comes back turned into a pointer in the skill. Teaches how a cycle closes: what needs the person comes back as an explainer and as circle turns they answer, and the agents act on each answer.",
+      "version": "0.2.0"
     },
     {
       "name": "tushell-keeper",

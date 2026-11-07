@@ -14,6 +14,7 @@ claude plugin install miadi-operator-desk@miadi-orchestration-kit
 | part | what it does |
 |---|---|
 | skill `operator-desk` | Answers a question from the owning team's text, checks it against the tool and records it. Sends a question the docs or tools could not answer to the team that owns them, and turns a question that comes back into a pointer in the skill. |
+| skill `closing-a-cycle` | How a cycle of work closes, for the person and the agent: the explainer, one circle turn per item answered makes sense or does not, and the agents acting on each answer, including starting or resuming sessions. Points to the skills that do each step. Its case is Episode 573 (miadi-chronicle://573). |
 | command `/desk-record` | Writes the conversation's questions to the ledger, makes the handoffs, grows the skill, commits and pushes. |
 | `desk/ledger.jsonl` | One line per question: William's words, the answer, its sources, the owning team, whether it was a gap, and the handoff. |
 
