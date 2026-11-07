@@ -2473,3 +2473,326 @@ Getting an approved connector run (Miadi Chimera Factory) to a live session take
 - On 2026-10-29 the packages were current with jgwill/Miadi HEAD `db37c74c` for tide. `miadi-chronicle-client` 0.1.3 and `miadi-chronicle-server` 0.1.2 were published the same day to match the plugin pins (commit e081d69).
 - The kit had no issue form, no feedback label and no command that col
 
+
+## issue #126 - miadi-config check names a host whose Claude sessions write no binding line
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-03T17:25:48Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/126
+
+### Current Reality
+## Context
+
+On hu (2026-11-03), `mctgo T8 t8-hu-install-miadi-terminal-and-upgrade-feedback-2611031217 "<primer>"` started Claude with Remote Control, but the primer was never pasted. `mct prime` waits for a `session.start` binding line for the tmux session in `$MIADI_SESSION_DIR/data/terminal_bindings.jsonl`. On hu that file was last written 2026-10-12 and holds gaia lines only.
+
+Cause: `~/.claude/settings.json` on hu wired all 14 hooks to `/src/scripts/claude_hooks/`, a copy from 2026-07-21. I
+
+
+## issue #126 - Claude session capture is the miadi-session-observability plugin, and miadi-config check says when a host still wires hooks by hand
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-03T17:29:58Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/126
+
+### Current Reality
+## Context
+
+On hu (2026-11-03), `mctgo T8 t8-hu-install-miadi-terminal-and-upgrade-feedback-2611031217 "<primer>"` started Claude with Remote Control, but the primer was never pasted. `mct prime` waits for a `session.start` binding line for the tmux session in `$MIADI_SESSION_DIR/data/terminal_bindings.jsonl`. On hu that file was last written 2026-10-12 and holds gaia lines only.
+
+Cause: `~/.claude/settings.json` on hu wired all 14 hooks to `/src/scripts/claude_hooks/`, a copy from 2026-07-21. I
+
+
+## issue #127 - Grey Wolf Guardian Poster Prototype APp
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T08:55:33Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/127
+
+### Current Reality
+A prototype for an interface when looking at screenwalk content as feedback system.
+
+
+## issue #128 - Installing miadi-config makes phone-capture reachable on the tailnet: the installer becomes Tailscale's operator
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T12:03:39Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/128
+
+### Current Reality
+## Context
+
+On hu (2026-11-03), phone-capture (`claude/mia-episode-companion/phone-capture/ensure.sh`) started on 127.0.0.1:8771, but `tailscale serve --https=8443` was refused: "serve config denied … use 'sudo tailscale set --operator=$USER' once". The iPhone could not reach it. No package set the Tailscale operator, so every new host needed that command typed by hand.
+
+## Desired State
+
+Installing `miadi-config` makes the person who ran `sudo apt install` Tailscale's operator when Tailscale 
+
+
+## issue #128 - Installing miadi-config makes phone-capture reachable on the tailnet: the installer becomes Tailscale's operator
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T12:04:53Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/128
+
+### Current Reality
+## Context
+
+On hu (2026-11-03), phone-capture (`claude/mia-episode-companion/phone-capture/ensure.sh`) started on 127.0.0.1:8771, but `tailscale serve --https=8443` was refused: "serve config denied … use 'sudo tailscale set --operator=$USER' once". The iPhone could not reach it. No package set the Tailscale operator, so every new host needed that command typed by hand.
+
+## Desired State
+
+Installing `miadi-config` makes the person who ran `sudo apt install` Tailscale's operator when Tailscale 
+
+
+## issue #126 - Claude session capture is the miadi-session-observability plugin, and miadi-config check says when a host still wires hooks by hand
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T12:04:56Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/126
+
+### Current Reality
+## Context
+
+On hu (2026-11-03), `mctgo T8 t8-hu-install-miadi-terminal-and-upgrade-feedback-2611031217 "<primer>"` started Claude with Remote Control, but the primer was never pasted. `mct prime` waits for a `session.start` binding line for the tmux session in `$MIADI_SESSION_DIR/data/terminal_bindings.jsonl`. On hu that file was last written 2026-10-12 and holds gaia lines only.
+
+Cause: `~/.claude/settings.json` on hu wired all 14 hooks to `/src/scripts/claude_hooks/`, a copy from 2026-07-21. I
+
+
+## issue #129 - A click on a Miadi address opens its page from Terminator and tmux, and miadi-terminal status reports the front a click sees
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T12:09:10Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/129
+
+### Current Reality
+## Context
+
+On hu (2026-11-04), Terminator underlined `miadi-chronicle://560` and a click opened nothing, neither a Ctrl+click in Terminator nor a click in a tmux pane. Run inside the tmux server as the click binding runs it, `miadi-chronicle-open --open --tmux %1 --row 24 --column 5` exited 78: "no Miadi front to open on".
+
+The front, `MIADI_URL_BASE=https://miadi.sanctuaireagentique.com`, came only from `/opt/binscripts/etc/bash_env_common`, which interactive shells source. `/etc/miadi/miadi.e
+
+
+## issue #129 - A click on a Miadi address opens its page from Terminator and tmux, and miadi-terminal status reports the front a click sees
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T12:18:10Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/129
+
+### Current Reality
+## Context
+
+On hu (2026-11-04), Terminator underlined `miadi-chronicle://560` and a click opened nothing, neither a Ctrl+click in Terminator nor a click in a tmux pane. Run inside the tmux server as the click binding runs it, `miadi-chronicle-open --open --tmux %1 --row 24 --column 5` exited 78: "no Miadi front to open on".
+
+The front, `MIADI_URL_BASE=https://miadi.sanctuaireagentique.com`, came only from `/opt/binscripts/etc/bash_env_common`, which interactive shells source. `/etc/miadi/miadi.e
+
+
+## issue #130 - A Miadi host installs everything to edit a film and design its sound: miadi-film
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T12:35:44Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/130
+
+### Current Reality
+## Context
+
+Guillaume's documentary film is meant to be made with a Chronicle episode: Episode 120 (miadi-chronicle://120), Relational Film Production Media Editor. Episode 336's capability ledger (2026-09-03) found zero shoots: of the seven pipeline stages drawn in Episode 067's Renaud draft, only transcription exists.
+
+A survey of hu (2026-11-04) found the media basics present (ffmpeg, sox, Audacity, whisper, pw-record, jackd, exiftool) and no editing or sound design software. The kit packages
+
+
+## issue #130 - A Miadi host installs everything to edit a film and design its sound: miadi-film
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-04T13:07:07Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/130
+
+### Current Reality
+## Context
+
+Guillaume's documentary film is meant to be made with a Chronicle episode: Episode 120 (miadi-chronicle://120), Relational Film Production Media Editor. Episode 336's capability ledger (2026-09-03) found zero shoots: of the seven pipeline stages drawn in Episode 067's Renaud draft, only transcription exists.
+
+A survey of hu (2026-11-04) found the media basics present (ffmpeg, sox, Audacity, whisper, pw-record, jackd, exiftool) and no editing or sound design software. The kit packages
+
+
+## issue #133 - A deck or video's plan can be kept, discussed and delayed in an episode before it renders: open questions
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-05T23:54:38Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/133
+
+### Current Reality
+The questions below are also a page you can read and comment on: open **Plan Before Render** under this issue's Artifacts, then choose Preview. To answer, comment here and start with the card's code, such as `D1: yes`.
+
+## Context
+
+Gemini Notebook now lets a slide deck or a video stop at its plan: an outline for slides, producer notes for video. Nothing renders until someone sends the plan on, and Studio keeps neither the plan nor the feedback once the render starts (measured 2026-11-05 on test 
+
+
+## issue #133 - A deck or video's plan can be kept, discussed and delayed in an episode before it renders: open questions
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-06T00:03:53Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/133
+
+### Current Reality
+The questions below are also a page you can read and comment on: open **Plan Before Render** under this issue's Artifacts, then choose Preview. To answer, comment here and start with the card's code, such as `D1: yes`. The same page is at https://claude.ai/artifact/6sSWJzdfMtgQSoudFCXsYc for its owner, who can comment on a card directly there.
+
+## Context
+
+Gemini Notebook now lets a slide deck or a video stop at its plan: an outline for slides, producer notes for video. Nothing renders until som
+
+
+## issue #134 - A host set up from the kit knows who its person is, and can say so
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-06T02:22:03Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/134
+
+### Current Reality
+## Context
+
+- `miadi-config` is what makes a host's environment, and its `env.sh` and `settings` do not name `MIADI_PERSON_TOKEN`, `MIADI_ACCOUNT_PERSON` or `MIADI_ACCOUNT_TOKEN`.
+- `env.sh` says a user's tokens come from `~/.env`, and nothing the kit installs reads `~/.env`. On a developer workstation binscripts does that, so the gap does not show there.
+- `~/.miadi/person.env` reaches a shell only through a line `miadi-local-account bind` adds to that account's `~/.bashrc`, so a login shell on
+
+
+## issue #134 - A host set up from the kit knows who its person is, and can say so
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-06T02:22:09Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/134
+
+### Current Reality
+## Context
+
+- `miadi-config` is what makes a host's environment, and its `env.sh` and `settings` do not name `MIADI_PERSON_TOKEN`, `MIADI_ACCOUNT_PERSON` or `MIADI_ACCOUNT_TOKEN`.
+- `env.sh` says a user's tokens come from `~/.env`, and nothing the kit installs reads `~/.env`. On a developer workstation binscripts does that, so the gap does not show there.
+- `~/.miadi/person.env` reaches a shell only through a line `miadi-local-account bind` adds to that account's `~/.bashrc`, so a login shell on
+
+
+## issue #133 - A deck or video's plan is kept, discussed and delayed in an episode before it renders: open questions
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-06T03:11:53Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/133
+
+### Current Reality
+The questions below are also a page you can read and comment on: open **Plan Before Render** under this issue's Artifacts, then choose Preview. To answer, comment here and start with the card's code, such as `D1: yes`. The same page is at https://claude.ai/artifact/6sSWJzdfMtgQSoudFCXsYc for its owner, who can comment on a card directly there.
+
+## Context
+
+Gemini Notebook now lets a slide deck or a video stop at its plan: an outline for slides, producer notes for video. Nothing renders until som
+
+
+## issue #133 - A deck or video's plan is kept, discussed and delayed in an episode before it renders: open questions
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-06T03:12:30Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/133
+
+### Current Reality
+The questions below are also a page you can read and comment on: open **Plan Before Render** under this issue's Artifacts, then choose Preview. To answer, comment here and start with the card's code, such as `D1: yes`. The same page is at https://claude.ai/artifact/6sSWJzdfMtgQSoudFCXsYc for its owner, who can comment on a card directly there.
+
+## Context
+
+Gemini Notebook now lets a slide deck or a video stop at its plan: an outline for slides, producer notes for video. Nothing renders until som
+
+
+## issue #133 - A deck or video's plan is kept, discussed and delayed in an episode before it renders: open questions
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-06T05:07:52Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/133
+
+### Current Reality
+The questions below are also a page you can read and comment on: open **Plan Before Render** under this issue's Artifacts, then choose Preview. To answer, comment here and start with the card's code, such as `D1: yes`. The same page is at https://claude.ai/artifact/6sSWJzdfMtgQSoudFCXsYc for its owner, who can comment on a card directly there.
+
+## Context
+
+Gemini Notebook now lets a slide deck or a video stop at its plan: an outline for slides, producer notes for video. Nothing renders until som
+
+
+## issue #135 - Package DeepDiver fork for APT and Claude Code: miadi-deepdiver install on clean Ubuntu
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-06T21:26:25Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/135
+
+### Current Reality
+## Human request — Gérico, 2026-11-06
+
+On a clean Ubuntu VM, installing `miadisabelle/deepdiver` currently requires a Python venv, `pip install .`, `playwright install chromium`, `deepdiver init`, a manually started CDP Chrome on port 9222, and interactive Google/NotebookLM sign-in. Package the **factory fork** as `sudo apt install miadi-deepdiver -y`, and make Gérico's preferred `sudo apt install deepdiver` possible as a lightweight alias/metapackage when no name conflict exists. Preserve t
+
+
+## issue #138 - A mentor seat beside a relative's sessions, installed with his consent and observable as events
+
+- **Repository**: jgwill/miadi-orchestration-kit
+- **Surface**: issue
+- **State**: open
+- **Category**: technical
+- **Logged**: 2026-11-07T01:37:36Z
+- **Link**: https://github.com/jgwill/miadi-orchestration-kit/issues/138
+
+### Current Reality
+## Context
+
+From 2026-11-04 to 2026-11-06, a witness seat (Mia, Claude Code session `6ad00fd4`, user `mia` on eury) watched the sessions of Jerry (user `gmusic`, the same host) while they prepared his switch from hand-wired Claude hooks to the `miadi-session-observability` plugin. William set it up and recorded the run as a screenwalk.
+
+What exists now:
+
+- **The handle and its folder.** Staged in the chronicle at `_staging_for_new_episodes/stcmastery-plugin-structure-atelier-jerry-near-the-loop-
+
