@@ -34,6 +34,8 @@ OCAP (ownership, control, access, possession) names who governs data about a com
 ### Research-creation in music for the screen
 Research-creation treats making a work as a way of producing knowledge, with the work and the writing about it held together (Chapman and Sawchuk 2012). William's interest, composition in relation to film and the artefacts it makes, sits here. Jerry's atelier is that kind of making, measured and written down.
 
+Where it could sit: William's outreach (miadisabelle/Etuaptmumk-RSM, `app/outreach/`) already describes his project to Concordia as a short research-creation film "in which image, movement, and musical composition develop through one process" (`n-renaud-concordia`). His map of the Mel Hoppenheim School of Cinema names Luigi Allemano (Film Animation: visual music, film scores, sound design) for the music and sound field (`mel-hoppenheim-fields`, jgwill/Miadi#612). Jerry's place in an academic path is not decided.
+
 ## Research questions this run raises
 
 - **RQ1.** Jerry's "I don't get it" was answered in 45 words, in the session where he asked. How does a person come to understand an agent system when the explanation arrives in the conversation where they ask, compared with a prepared page?
