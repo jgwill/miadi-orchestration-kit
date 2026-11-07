@@ -9,7 +9,7 @@ A screenwalk is a recording of a person working with agent sessions, with their 
 
 | name | what it is | form |
 |---|---|---|
-| **safe title** | the file-safe name, used for the video file, for search and in intake | `screenwalk-<stamp>-<topic>`, with `-part-NNN` for a part |
+| **safe title** | the file-safe name, used for the video file, for search and in intake | `screenwalk-<stamp>-<relation to the tmux session>[-<topic>][-part-NNN]` |
 | **title** | what a viewer reads on YouTube | `screenwalk-<stamp> \| Human Title`, 100 characters at most |
 | **description** | what a viewer reads under the video | three or four short paragraphs |
 
@@ -25,16 +25,30 @@ The stamp is the minute the person named when they pressed record, as `yymmddHHM
 
 ## Safe title
 
-Keep the start the person gave, then add topics. Use ASCII letters, digits and hyphens, with no spaces and no colons. Name the work and not the people. Sessions of one tree share a topic word taken from the root's name, so both recordings below carry `film-apt`.
+Something always follows the stamp, and it relates the recording to the tmux session it shows. A bare `screenwalk-<stamp>` is the record's id and folder, so never give it as the name.
 
-Real ones:
+The script builds it from the session and checks it:
 
-- `screenwalk-2611071342-film-apt-fork-words-as-script-film-room`
-- `screenwalk-2611071211-film-apt-fork-witness-story-team-part-001`
+```bash
+S=$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-chronicle-episode-kit/skills/screenwalk-names/scripts/screenwalk-name.mjs
+node $S --tmux <recorded session> [--stamp yymmddHHMM] [--part 1] [--topic "words as script"]
+node $S --stamp 2611071342 --tail film-apt-fork1-t5        # keeps a start the person gave
+node $S --check "<safe title>" --title "<title>"           # run this before giving the names
+```
+
+- **The relation:** the words of the tmux session's name, with its time stamps removed. Shorten it to the words that tell the session apart, and keep the start the person gave if they gave one.
+- **The topic:** optional words after it for search. Name the work and not the people.
+- **The characters:** ASCII letters, digits and hyphens, with no spaces and no colons.
+- **A tree:** sessions of one tree share words from the root's name, so both recordings below carry `film-apt`.
+
+Real ones, newest form first:
+
+- `screenwalk-2611071211-mino-t3-fork1-t5-miadi-film-apt-part-001`, from tmux `mino-t3-2611071211-fork1-t5-miadi-film-apt-2611071058`
+- `screenwalk-2611071342-film-apt-fork1-t5-words-as-script`, from tmux `fork1-t5-miadi-film-apt-what-can-I-do-2611071058`, keeping William's start `screenwalk-2611071342-film-apt`
+- `screenwalk-2611060853-001-t3-t7-on-teams`, naming the two teams' sessions
 - `screenwalk-2610271518-my-research-ui-and-inquiry-weave`
-- `screenwalk-2611060853-001-t3-t7-on-teams`
-- `screenwalk-26102211-Session-Continuity-Rehydration-and-Three-Independent-Lineages-part-001`
-- `screenwalk-261015-from-review-to-action-epistemic-handoff-semantic-delegation-miadirun`
+- `screenwalk-26102211-Session-Continuity-Rehydration-and-Three-Independent-Lineages-part-001`, an older shorter stamp
+- `screenwalk-261015-from-review-to-action-epistemic-handoff-semantic-delegation-miadirun`, an older shorter stamp
 
 ## Title
 
@@ -43,7 +57,7 @@ Real ones:
 - `screenwalk-261015 | From Research to Action: Epistemic Handoff, Deep Diver & MiadiRun`
 - `screenwalk-2611071342 | Writing with the Voice: A Fork Keeps the Words and Proposes a Film Room`
 
-Count the characters with a script. YouTube stops at 100.
+`--check` counts the characters. YouTube stops at 100.
 
 ## Description
 
@@ -71,4 +85,4 @@ Give the person the three names first, labelled, ready to paste. The closing's s
 
 `python3 <miadi-review skill>/scripts/miadi_review.py search screenwalk --limit 40` lists reviews, many of them titled by their safe title. `captures/*/screenwalk.json` holds the rest.
 
-Earned 2026-11-07. A seat read "safe title" as "safe to publish" and gave one human title and a slug `ep120-screenwalk-261107-…`. William: "There is a Screenwalk title, which you produced, and a safe-title which looks like more 'screenwalk-2611071342-film-apt' … any fucking agent that have to generate their screenwalk safetitle, title and description will know how in the future".
+Earned 2026-11-07. A seat read "safe title" as "safe to publish" and gave one human title and a slug `ep120-screenwalk-261107-…`, and then called a bare `screenwalk-<stamp>` a corrected name. William: "There is a Screenwalk title, which you produced, and a safe-title which looks like more 'screenwalk-2611071342-film-apt' … any fucking agent that have to generate their screenwalk safetitle, title and description will know how in the future". Then: "A safe title has to have something after screenwalk-<timestamp>-<here to relate to the tux session or something>".
