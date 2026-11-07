@@ -33,6 +33,7 @@ The foundation it rests on is `foundations/hosted-witness/README.md` in this kit
 ## Related
 
 - `rispecs/witness-team-interface/`: the MCP the witness would offer other teams. This package is the host side of that interface.
+- `claude/miadi-mentorship/` (draft 0.0.1): the events of this relationship as CloudEvents (`miadi.mentee.said`, `miadi.mentee.turn_ended`, `miadi.mentor.steer_sent`, …), kept locally and posted to a webhook the maintainer names. Jerry asked to observe events, and named the seat's work mentorship (2026-11-06).
 - `packages/miadi/deb/miadi-feedback`: on the maintainer's host, an issue wakes a seat. Here, on the relative's host, a turn end or a feedback line wakes one.
 - Episode 1000 (miadi-chronicle://1000): factory machines that install themselves from apt.
 - Episodes 250 to 259 (miadi-chronicle://250 to miadi-chronicle://259): the work with Jerry. 259 is the reserved first chapter of the handle.

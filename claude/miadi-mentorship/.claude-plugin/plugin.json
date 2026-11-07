@@ -1,0 +1,16 @@
+{
+  "name": "miadi-mentorship",
+  "description": "Draft. A seat that mentors another user's session on the same host: it reads the mentee's hook capture, supplies what is useful to the relationship, steers only after a person's go and a clear pane guard, and keeps the mentee's words verbatim. Each step is a CloudEvents 1.0 event appended to a local log and, when MIADI_MENTORSHIP_WEBHOOK_URL is set, POSTed to that webhook. mentee-watch turns the mentee's capture into mentee.said and mentee.turn_ended with ids, counts and times only, never the mentee's words unless --with-text is given. The mentorship skill says what the seat does at each step and which event it emits.",
+  "version": "0.0.1",
+  "author": {
+    "name": "jgwill"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/claude/miadi-mentorship",
+  "keywords": [
+    "miadi",
+    "mentorship",
+    "witness",
+    "cloudevents",
+    "webhook"
+  ]
+}
