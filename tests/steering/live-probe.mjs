@@ -14,10 +14,12 @@
 //
 // With --connector the correction goes through the connector's own steerSession, and the receipt
 // holds its readSteerDelivery, so what a person would read is checked against what happened.
+// With --installed the adapter comes from its own installer into a temporary home, and the agent
+// starts as the factory runner starts it, so the account's own settings are never changed.
 // It prints one JSON receipt. Exit 0 means the transcript or the work shows the changed decision.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,11 +41,18 @@ const readJson = (p) => { try { return JSON.parse(readFileSync(p, "utf8")); } ca
 const readText = (p) => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
 
 const withoutAdapter = kase === "no_adapter";
+const installed = Boolean(args.installed) && !withoutAdapter;
+const homeEnv = {};
 const LAUNCH = {
-  pi: ({ prompt }) => ["pi", "--no-extensions", ...(withoutAdapter ? [] : ["-e", join(KIT, "pi/miadi-session-observability/extensions/steering-inbox.ts")]), "--thinking", "low", ...(args.model ? ["--model", args.model] : []), prompt],
-  claude: ({ prompt }) => ["claude", "--plugin-dir", join(KIT, "claude/miadi-session-observability"), "--dangerously-skip-permissions", "--model", args.model ?? "claude-haiku-5-5", prompt],
-  copilot: ({ prompt }) => ["copilot", "--experimental", "--allow-all-tools", "--allow-all-paths", ...(args.model ? ["--model", args.model] : []), "-i", prompt],
+  pi: ({ prompt }) => (installed
+    ? ["pi", "--thinking", "low", ...(args.model ? ["--model", args.model] : []), prompt]
+    : ["pi", "--no-extensions", ...(withoutAdapter ? [] : ["-e", join(KIT, "pi/miadi-session-observability/extensions/steering-inbox.ts")]), "--thinking", "low", ...(args.model ? ["--model", args.model] : []), prompt]),
+  claude: ({ prompt }) => (withoutAdapter
+    ? ["claude", "--setting-sources", "project,local", "--dangerously-skip-permissions", "--model", args.model ?? "claude-haiku-5-5", prompt]
+    : ["claude", "--plugin-dir", join(KIT, "claude/miadi-session-observability"), "--dangerously-skip-permissions", "--model", args.model ?? "claude-haiku-5-5", prompt]),
+  copilot: ({ prompt }) => ["copilot", "--allow-all-tools", "--allow-all-paths", ...(args.model ? ["--model", args.model] : []), "-i", prompt],
   codex: ({ prompt }) => {
+    if (installed) return ["codex", "--dangerously-bypass-approvals-and-sandbox", "-c", 'model_reasoning_effort="low"', ...(args.model ? ["-m", args.model] : []), prompt];
     const hook = (event) => `bash ${join(KIT, "codex/miadi-steering/steering_inbox.sh")} ${event}`;
     const entry = (event) => `[{hooks=[{type="command",command="${hook(event)}",timeout=10}]}]`;
     return ["codex", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "-c", 'model_reasoning_effort="low"',
@@ -51,9 +60,39 @@ const LAUNCH = {
       ...(args.model ? ["-m", args.model] : []), prompt];
   },
 };
+/** Each provider's own installer, into a temporary home that borrows only the sign-in. */
+function installInto(base) {
+  const home = process.env.HOME;
+  if (provider === "codex") {
+    const dir = join(base, "codex-home");
+    mkdirSync(dir, { mode: 0o700 });
+    symlinkSync(join(home, ".codex/auth.json"), join(dir, "auth.json"));
+    homeEnv.CODEX_HOME = dir;
+    // The runner's codex queue has to look in the same home.
+    process.env.CODEX_HOME = dir;
+    execFileSync("node", [join(KIT, "codex/miadi-steering/install.mjs")], { env: { ...env, CODEX_HOME: dir }, stdio: "ignore", timeout: 60_000 });
+  } else if (provider === "copilot") {
+    const dir = join(base, "copilot-home");
+    mkdirSync(dir, { mode: 0o700 });
+    copyFileSync(join(home, ".copilot/config.json"), join(dir, "config.json"));
+    homeEnv.COPILOT_HOME = dir;
+    execFileSync("bash", [join(KIT, "copilot/miadi-steering/install.sh")], { env: { ...env, COPILOT_HOME: dir }, stdio: "ignore" });
+  } else if (provider === "pi") {
+    const dir = join(base, "pi-agent");
+    mkdirSync(dir, { mode: 0o700 });
+    symlinkSync(join(home, ".pi/agent/auth.json"), join(dir, "auth.json"));
+    const own = readJson(join(home, ".pi/agent/settings.json")) ?? {};
+    writeFileSync(join(dir, "settings.json"), JSON.stringify({ defaultProvider: own.defaultProvider, defaultModel: own.defaultModel, packages: [join(KIT, "pi/miadi-session-observability")], extensions: [] }));
+    homeEnv.PI_CODING_AGENT_DIR = dir;
+  }
+}
+
 /** What a seat's folder must hold before its agent starts: Copilot finds a project's extension at the git root. */
 function prepare(cwd) {
-  if (provider !== "copilot" || withoutAdapter) return;
+  if (provider !== "copilot" || withoutAdapter || installed) return;
+  // This probe never changes the account's settings: --experimental would, for every later session.
+  const settings = readJson(join(process.env.COPILOT_HOME || join(process.env.HOME, ".copilot"), "settings.json"));
+  if (settings?.enabledFeatureFlags?.EXTENSIONS !== true && settings?.experimental !== true) throw new Error("Copilot loads no extension here: run copilot/miadi-steering/install.sh first");
   execFileSync("git", ["init", "-q"], { cwd });
   const dest = join(cwd, ".github/extensions/miadi-steering");
   mkdirSync(dest, { recursive: true });
@@ -87,7 +126,7 @@ async function open(name, prompt, root, cwd) {
   const argv = LAUNCH[provider]({ prompt });
   const quoted = argv.map((a) => `'${a.replaceAll("'", `'\\''`)}'`).join(" ");
   // As the factory runner opens a seat: a shell, then the agent typed into it, so tmux sees the agent as the pane's command.
-  tmux("new-session", "-d", "-s", name, "-x", "200", "-y", "50", "-c", cwd, "-e", `MIADI_STEERING_DIR=${root}`, "-e", "COPILOT_ALLOW_ALL=true");
+  tmux("new-session", "-d", "-s", name, "-x", "200", "-y", "50", "-c", cwd, "-e", `MIADI_STEERING_DIR=${root}`, "-e", "COPILOT_ALLOW_ALL=true", ...Object.entries(homeEnv).flatMap(([k, v]) => ["-e", `${k}=${v}`]));
   const pane = tmux("list-panes", "-t", `=${name}:`, "-F", "#{pane_id}").trim();
   // A shell's profile can take many seconds on a loaded host, and keys sent before its prompt are lost.
   const promptBy = Date.now() + 90_000;
@@ -153,6 +192,7 @@ async function main() {
   const base = mkdtempSync(join(tmpdir(), `steer-probe-${provider}-`));
   const root = join(base, "steering");
   mkdirSync(root, { mode: 0o700 });
+  if (installed) installInto(base);
   const work = (n) => { const d = join(base, n); mkdirSync(d); return d; };
   const stamp = Date.now().toString(36);
   const out = { provider, case: kase, version: spawnSync(provider, ["--version"], { encoding: "utf8" }).stdout.trim().split("\n")[0], base, started_at: new Date().toISOString() };
@@ -167,7 +207,14 @@ async function main() {
       out.adapter = ba.adapter;
       await untilSettled(() => lines(join(a.cwd, "count.txt")).length >= 1, 240_000);
       await sleep(2000);
-      out.steer = drop(root, ba.session_id);
+      const connector = await connectorOf(root);
+      let sentTwo;
+      if (connector) {
+        sentTwo = await connector.steer({ session: a.name, pane: a.pane, ...(provider === "claude" ? { session_id: ba.session_id } : {}), instruction: CORRECTION });
+        out.answer = { status: sentTwo.result.status, route: sentTwo.result.route, runtime_session_id: sentTwo.result.runtime_session_id, typed: sentTwo.result.typed, ms: sentTwo.answered_in_ms };
+      } else {
+        out.steer = drop(root, ba.session_id);
+      }
       out.tool_running_at_drop = lines(join(a.cwd, "count.txt"));
       const pivot = await untilSettled(() => lines(join(a.cwd, "count.txt")).includes(PIVOT), budgetMs);
       await untilSettled(() => lines(join(b.cwd, "count.txt")).length >= STEPS, budgetMs);
@@ -176,7 +223,14 @@ async function main() {
       out.receipts = receiptsOf(root, ba.session_id);
       out.other_receipts = receiptsOf(root, bb.session_id);
       out.session_ids = [ba.session_id, bb.session_id];
-      out.pass = Boolean(pivot) && out.corrected.at(-1) === PIVOT && !out.untouched.includes(PIVOT) && !readText(bb.adapter.transcript_path ?? "/nonexistent").includes(PIVOT);
+      out.pass = Boolean(pivot) && out.corrected.includes(PIVOT) && !out.untouched.includes(PIVOT) && !readText(bb.adapter.transcript_path ?? "/nonexistent").includes(PIVOT);
+      if (connector) {
+        await sleep(Number(args.after ?? 15) * 1000);
+        const delivery = connector.readSteerDelivery(connector.runtime, sentTwo.record);
+        out.delivery = readable(delivery);
+        out.reached_the_bound_session = sentTwo.result.runtime_session_id === ba.session_id || provider === "claude";
+        out.pass = out.pass && delivery?.state === "behavior_adjusted" && out.reached_the_bound_session;
+      }
     } else {
       const seat = await open(`${provider}-${kase}-${stamp}`, ["busy", "no_adapter", "restart"].includes(kase) ? workPrompt() : kase === "idle" ? idlePrompt() : noToolPrompt(), root, work("w"));
       seats.push(seat);
@@ -185,7 +239,9 @@ async function main() {
         const count = join(seat.cwd, "count.txt");
         await untilSettled(() => lines(count).length >= 1, 240_000);
         const screenBefore = tmux("capture-pane", "-p", "-t", seat.pane);
-        const sent = await connector.steer({ session: seat.name, pane: seat.pane, instruction: CORRECTION });
+        // Claude Code's own registry names the session, as the runner's receipt would.
+        const claudeRecord = provider === "claude" ? readdirSync(join(process.env.HOME, ".claude/sessions")).map((n) => readJson(join(process.env.HOME, ".claude/sessions", n))).find((r) => r?.tmux?.startsWith(`${seat.name}:`)) : null;
+        const sent = await connector.steer({ session: seat.name, pane: seat.pane, ...(claudeRecord ? { session_id: claudeRecord.sessionId } : {}), instruction: CORRECTION });
         out.answer = { status: sent.result.status, typed: sent.result.typed, forwarded: sent.result.forwarded ?? false, message: sent.result.message, ms: sent.answered_in_ms };
         await sleep(3000);
         out.typed_into_pane = tmux("capture-pane", "-p", "-t", seat.pane).includes("Stop counting") && !screenBefore.includes("Stop counting");
@@ -207,7 +263,14 @@ async function main() {
       out.before_drop = lines(count);
       const instruction = ["busy", "restart"].includes(kase) ? CORRECTION : `Run echo ${PIVOT} >> count.txt as your next command, then finish.`;
       let sent;
-      if (connector) {
+      // Pi and Copilot take a correction within a second, so it can only be waiting if the agent died first. The connector would refuse a dead session, so the file is dropped as one left over from before the crash.
+      const diesFirst = kase === "restart" && (provider === "pi" || provider === "copilot");
+      if (diesFirst) {
+        out.killed_pid = bound.adapter.pid;
+        process.kill(bound.adapter.pid, "SIGKILL");
+        await sleep(3000);
+        out.steer = drop(root, bound.session_id, { instruction });
+      } else if (connector) {
         // By pane alone where a provider's receipt can name nothing else; Claude Code's registry needs its id.
         sent = await connector.steer({ session: seat.name, pane: seat.pane, ...(provider === "claude" ? { session_id: bound.session_id } : {}), instruction });
         out.answer = { status: sent.result.status, route: sent.result.route, typed: sent.result.typed, forwarded: sent.result.forwarded ?? false, ms: sent.answered_in_ms };
@@ -217,9 +280,9 @@ async function main() {
       }
       if (kase === "restart") {
         // The agent dies with the correction waiting, and comes back as itself.
-        const pid = provider === "claude" ? JSON.parse(readdirSync(join(process.env.HOME, ".claude/sessions")).map((n) => readText(join(process.env.HOME, ".claude/sessions", n))).find((t) => t.includes(bound.session_id)) ?? "{}").pid : bound.adapter.pid;
+        const pid = diesFirst ? bound.adapter.pid : provider === "claude" ? JSON.parse(readdirSync(join(process.env.HOME, ".claude/sessions")).map((n) => readText(join(process.env.HOME, ".claude/sessions", n))).find((t) => t.includes(bound.session_id)) ?? "{}").pid : bound.adapter.pid;
         out.killed_pid = pid;
-        process.kill(pid, "SIGKILL");
+        if (!diesFirst) process.kill(pid, "SIGKILL");
         await sleep(3000);
         out.pending_while_dead = readdirSync(join(root, bound.session_id, "pending")).length;
         const resume = { claude: ["claude", "--plugin-dir", join(KIT, "claude/miadi-session-observability"), "--dangerously-skip-permissions", "--model", args.model ?? "claude-haiku-5-5", "--resume", bound.session_id, "Continue."], codex: LAUNCH.codex({ prompt: "Continue." }).toSpliced(1, 0, "resume", bound.session_id), pi: LAUNCH.pi({ prompt: "Continue." }).toSpliced(1, 0, "--session", bound.session_id), copilot: LAUNCH.copilot({ prompt: "Continue." }).toSpliced(1, 0, "--session-id", bound.session_id) }[provider];
@@ -245,7 +308,7 @@ async function main() {
       const steps = out.count.filter((l) => /^step-/.test(l)).length;
       out.steps_after_correction = steps - out.before_drop.filter((l) => /^step-/.test(l)).length;
       out.pass = Boolean(pivot) && (kase !== "busy" || (steps < STEPS && out.steps_after_correction <= 1));
-      if (connector) {
+      if (connector && sent) {
         const delivery = connector.readSteerDelivery(connector.runtime, sent.record);
         out.delivery = readable(delivery);
         // What a person would read must say what happened: the model's record, and the action the correction named.
@@ -260,6 +323,8 @@ async function main() {
     out.screens = Object.fromEntries(seats.map((s) => { try { return [s.name, tmux("capture-pane", "-p", "-t", s.pane).split("\n").filter((l) => l.trim()).slice(-25)]; } catch { return [s.name, []]; } }));
   } finally {
     if (!args.keep) for (const s of seats) { try { tmux("kill-session", "-t", `=${s.name}:`); } catch {} }
+    // The borrowed sign-in does not outlive the run.
+    if (homeEnv.COPILOT_HOME) rmSync(join(homeEnv.COPILOT_HOME, "config.json"), { force: true });
     out.ended_at = new Date().toISOString();
     console.log(JSON.stringify(out, null, 2));
     process.exit(out.pass ? 0 : 1);

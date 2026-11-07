@@ -93,7 +93,7 @@ if (mode === "--remove") {
   process.exit(0);
 }
 function rmMarker() {
-  writeFileSync(join(dest, "trusted.json"), "{}\n");
+  if (existsSync(dest)) writeFileSync(join(dest, "trusted.json"), "{}\n");
 }
 
 if (mode !== "--check") {

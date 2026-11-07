@@ -155,9 +155,17 @@ export function claimPending(dir, sessionId, now = Date.now()) {
     if (claimed.length && chars + text.length > MAX_CONTEXT_CHARS) break;
     if (!moveOrSkip(file, join(dir, "claimed"), name)) continue;
     chars += text.length;
-    claimed.push({ envelope, text });
+    claimed.push({ envelope, text, name });
   }
   return claimed;
+}
+
+/**
+ * The provider refused the hand-off, so the model cannot have it: back in the queue, at its old place,
+ * with a receipt. Only for a door that says so. A claim whose fate is unknown is never replayed.
+ */
+export function returnToPending(dir, name, steer, reason) {
+  if (moveOrSkip(join(dir, "claimed", name), join(dir, "pending"), name)) receipt(dir, { steer, state: "emit_failed", reason, returned: true });
 }
 
 const EVENTS = { "post-tool-use": "PostToolUse", "post-tool-use-failure": "PostToolUseFailure", "user-prompt-submit": "UserPromptSubmit", stop: "Stop", "stop-watch": "Stop" };
@@ -278,6 +286,8 @@ export function announce(input, env = process.env, identity = IDENTITIES.claude)
         ready_at: new Date().toISOString(),
         ...(pid ? { pid } : {}),
         ...(env.TMUX_PANE ? { pane: env.TMUX_PANE } : {}),
+        // A pane number is unique per tmux server, and a host runs several: the server is half the address.
+        ...(env.TMUX ? { tmux_socket: env.TMUX.split(",")[0] } : {}),
         ...(guarantee ? { guarantee } : {}),
       })}\n`,
       { mode: 0o600 },
@@ -291,12 +301,21 @@ export function retire(input, env = process.env) {
   if (input.session_id) rmSync(join(steeringRoot(env), safe(input.session_id), "adapter.json"), { force: true });
 }
 
+/** The Claude Code plugin's own version, from the manifest beside this hook. */
+function pluginVersion() {
+  try {
+    return JSON.parse(readFileSync(new URL("../.claude-plugin/plugin.json", import.meta.url), "utf8")).version;
+  } catch {
+    return undefined;
+  }
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const event = process.argv[2];
     const provider = process.argv[3] ?? "claude";
     const input = JSON.parse(readFileSync(0, "utf8"));
-    if (event === "session-start") announce(input, process.env, provider === "claude" ? IDENTITIES.claude : { ...IDENTITIES[provider], adapter_version: process.argv[4], pid: ancestorPid(provider) });
+    if (event === "session-start") announce(input, process.env, { ...IDENTITIES[provider], adapter_version: process.argv[4] ?? pluginVersion(), pid: ancestorPid(provider) });
     else if (event === "session-end") retire(input);
     else if (event === "stop-watch") {
       if (drain(event, input, process.env, (s) => writeSync(2, s))) process.exit(2);

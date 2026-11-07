@@ -10,9 +10,10 @@ import { readFileSync, watch } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { joinSession } from "@github/copilot-sdk/extension";
-import { announce, claimPending, IDENTITIES, receipt, retire, safe, statSafe, steeringRoot, withLock } from "./steering_inbox.mjs";
+import { announce, claimPending, IDENTITIES, receipt, retire, returnToPending, safe, statSafe, steeringRoot, withLock } from "./steering_inbox.mjs";
 
 const POLL_MS = 1000;
+const RETRY_MS = 10_000;
 const VERSION = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
 
 const session = await joinSession({ tools: [] });
@@ -21,10 +22,11 @@ const home = process.env.COPILOT_HOME || join(homedir(), ".copilot");
 const dir = join(steeringRoot(), safe(id));
 const running = new Set();
 let draining = false;
+let holdUntil = 0;
 let watcher;
 
 async function deliver() {
-  if (draining || running.size) return;
+  if (draining || running.size || Date.now() < holdUntil) return;
   draining = true;
   try {
     const now = Date.now();
@@ -34,7 +36,9 @@ async function deliver() {
         await session.send({ prompt: c.text, mode: "immediate" });
         receipt(dir, { steer: c.envelope.steer, state: "emitted", hook_event: "session.send immediate" });
       } catch (error) {
-        receipt(dir, { steer: c.envelope.steer, state: "emit_failed", reason: error?.message ?? String(error) });
+        // Copilot refused it, so its model cannot have it: back in the inbox, and tried again.
+        returnToPending(dir, c.name, c.envelope.steer, error?.message ?? String(error));
+        holdUntil = Date.now() + RETRY_MS;
       }
     }
   } finally {

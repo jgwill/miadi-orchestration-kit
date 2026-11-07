@@ -40,12 +40,19 @@ async function piRig(root, { idle = false } = {}) {
   const { registerSteeringInbox } = await import(join(KIT, "pi/miadi-session-observability/lib/steering.mjs"));
   const handlers = {};
   const sent = [];
-  const pi = { on: (name, fn) => (handlers[name] = fn), sendUserMessage: (text, options) => sent.push({ text, options }) };
-  registerSteeringInbox(pi, { env: { MIADI_STEERING_DIR: root, TMUX_PANE: "%144" } });
+  // As Pi does: its input event fires once it has taken the words, unless it refused them first.
+  const pi = {
+    on: (name, fn) => (handlers[name] = fn),
+    sendUserMessage: (text, options) => {
+      sent.push({ text, options });
+      if (!pi.refuses) handlers.input?.({ text, source: "extension" });
+    },
+  };
+  registerSteeringInbox(pi, { env: { MIADI_STEERING_DIR: root, TMUX_PANE: "%144", TMUX: "/tmp/tmux-1/default,123,0" } });
   const ctx = { isIdle: () => idle, sessionManager: { getSessionId: () => SID, getSessionFile: () => "/tmp/session.jsonl" } };
   const stop = () => handlers.session_shutdown?.({}, ctx);
   void prior;
-  return { handlers, sent, ctx, stop };
+  return { handlers, sent, ctx, stop, pi };
 }
 
 test("Pi: it says who it is at session start, with its pid and pane, and retires at shutdown", async () => {
@@ -57,6 +64,7 @@ test("Pi: it says who it is at session start, with its pid and pane, and retires
   assert.equal(adapter.contract, "miadi.steering/1");
   assert.equal(adapter.pid, process.pid);
   assert.equal(adapter.pane, "%144");
+  assert.equal(adapter.tmux_socket, "/tmp/tmux-1/default", "a pane number means nothing without its server");
   assert.equal(adapter.transcript_path, "/tmp/session.jsonl");
   assert.equal(adapter.guarantee.level, "same_turn");
   r.stop();
@@ -112,24 +120,46 @@ test("Pi: the request that holds the correction leaves its own receipt, once", a
   assert.equal(receipts(root).filter((x) => x.state === "in_model_request").length, 1);
 });
 
-test("Pi: a session reloaded or resumed keeps what waits, and a failed hand-off is said so", async () => {
+test("Pi: a session reloaded or resumed keeps what waits", async () => {
   const root = rootDir();
   const r = await piRig(root);
   drop(root, { steer: "session_steer_request:early" });
   r.handlers.session_start({ reason: "resume" }, r.ctx);
   assert.equal(r.sent.length, 1, "it was waiting before the session came back");
   r.stop();
-  const failing = await piRig(root);
-  failing.handlers.session_start({ reason: "startup" }, failing.ctx);
-  drop(root, { steer: "session_steer_request:later", order: "000000000000009" });
-  const original = failing.sent.push;
-  failing.sent.push = () => {
-    throw new Error("Pi refused");
-  };
+});
+
+test("Pi: a hand-off Pi never took, as during compaction, returns to the inbox and is tried again, once taken once", async () => {
+  const root = rootDir();
+  const r = await piRig(root);
+  r.pi.refuses = true;
+  r.handlers.session_start({ reason: "startup" }, r.ctx);
+  drop(root, { steer: "session_steer_request:later" });
+  await new Promise((res) => setTimeout(res, 4600));
+  assert.equal(count(root, "pending"), 1, "it went back, because Pi did not take it");
+  assert.equal(count(root, "claimed"), 0);
+  assert.ok(receipts(root).some((x) => x.state === "emit_failed" && x.returned === true));
+  assert.equal(receipts(root).filter((x) => x.state === "emitted").length, 0, "no receipt says Pi had it");
+  r.stop();
+  // Compaction is over: the same envelope goes, and only then does a receipt say so.
+  const again = await piRig(root);
+  again.handlers.session_start({ reason: "startup" }, again.ctx);
+  again.stop();
+  assert.equal(count(root, "claimed"), 1);
+  assert.equal(receipts(root).filter((x) => x.state === "emitted").length, 1);
+});
+
+test("Pi: words unread when the run settles say so, and are not sent again", async () => {
+  const root = rootDir();
+  const r = await piRig(root);
+  r.handlers.session_start({ reason: "startup" }, r.ctx);
+  drop(root, { steer: "session_steer_request:abandoned" });
   await new Promise((res) => setTimeout(res, 1300));
-  failing.sent.push = original;
-  failing.stop();
-  assert.ok(receipts(root).some((x) => x.steer === "session_steer_request:later" && x.state === "emit_failed"));
+  r.handlers.agent_settled({}, r.ctx);
+  r.handlers.agent_settled({}, r.ctx);
+  r.stop();
+  assert.equal(receipts(root).filter((x) => x.state === "left_provider_queue").length, 1);
+  assert.equal(r.sent.length, 1);
 });
 
 // ── Codex: the hook script, run as Codex runs it ─────────────────────────────────
@@ -201,8 +231,22 @@ test("Copilot: the extension parses, names its provider and holds a shell's wait
   assert.equal(spawnSync("node", ["--check", file]).status, 0);
   const text = readFileSync(file, "utf8");
   assert.match(text, /mode: "immediate"/);
-  assert.match(text, /if \(draining \|\| running\.size\) return/);
+  assert.match(text, /if \(draining \|\| running\.size \|\| Date\.now\(\) < holdUntil\) return/);
   assert.match(text, /IDENTITIES\.copilot/);
+});
+
+test("Copilot: the installer sets only the flag it needs, keeps every other setting, and takes both out again", () => {
+  const home = rootDir();
+  writeFileSync(join(home, "settings.json"), JSON.stringify({ model: "auto", enabledFeatureFlags: { OTHER: true } }));
+  const run = (...args) => spawnSync("bash", [join(KIT, "copilot/miadi-steering/install.sh"), ...args], { encoding: "utf8", env: { ...process.env, COPILOT_HOME: home } });
+  assert.equal(run().status, 0);
+  assert.ok(existsSync(join(home, "extensions/miadi-steering/extension.mjs")));
+  assert.deepEqual(JSON.parse(readFileSync(join(home, "settings.json"), "utf8")), { model: "auto", enabledFeatureFlags: { OTHER: true, EXTENSIONS: true } });
+  assert.equal(run().status, 0, "a second install changes nothing");
+  assert.deepEqual(JSON.parse(readFileSync(join(home, "settings.json"), "utf8")).enabledFeatureFlags, { OTHER: true, EXTENSIONS: true });
+  assert.equal(run("--remove").status, 0);
+  assert.equal(existsSync(join(home, "extensions/miadi-steering")), false);
+  assert.deepEqual(JSON.parse(readFileSync(join(home, "settings.json"), "utf8")), { model: "auto", enabledFeatureFlags: { OTHER: true } });
 });
 
 test("the Claude Code adapter still announces itself as it did, and now says its pane", () => {
@@ -212,5 +256,6 @@ test("the Claude Code adapter still announces itself as it did, and now says its
   const adapter = JSON.parse(readFileSync(join(root, "11111111-2222-4333-8444-555555555555", "adapter.json"), "utf8"));
   assert.equal(adapter.provider, "claude");
   assert.equal(adapter.pane, "%9");
+  assert.match(adapter.adapter_version, /^\d+\.\d+\.\d+$/, "from the plugin's own manifest");
   chmodSync(root, 0o700);
 });
