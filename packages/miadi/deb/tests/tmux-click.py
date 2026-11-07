@@ -14,8 +14,10 @@ wrap join and the URL.
 import fcntl
 import os
 import pty
+import pwd
 import select
 import shutil
+import socket
 import struct
 import subprocess
 import sys
@@ -267,6 +269,55 @@ def streaming(width, name):
     finally:
         s.close()
 
+
+# A tmux session (jgwill/Miadi#968). Naming this account, this host and a session
+# on this server moves the client and opens no browser; anything else opens the door.
+ME = pwd.getpwuid(os.getuid()).pw_name
+HOST = socket.gethostname().split(".")[0]
+s = Scenario(100, lines_program([f"see miadi-tmux://{ME}@{HOST}:other-seat.",
+                                 f"see miadi-tmux://{ME}@{HOST}.example.net:other-seat here",
+                                 f"gone miadi-tmux://{ME}@{HOST}:no-such-seat here",
+                                 f"pref miadi-tmux://{ME}@{HOST}:other here",
+                                 f"away miadi-tmux://{ME}@{HOST}-elsewhere:other-seat here",
+                                 f"them miadi-tmux://{ME}x@{HOST}:other-seat here",
+                                 f"flag miadi-tmux://{ME}@{HOST}:-other-seat here"]))
+
+
+def on_session(scenario):
+    return subprocess.run(scenario.tmux + ["list-clients", "-F", "#{session_name}"], env=scenario.env,
+                          capture_output=True, text=True).stdout.strip()
+
+
+try:
+    s.run("new-session", "-d", "-s", "other-seat", "sleep 60")
+    typed_before = subprocess.run(s.tmux + ["capture-pane", "-p", "-t", "=other-seat:"], env=s.env,
+                                  capture_output=True, text=True).stdout
+    s.click(20)
+    results.append((f"a click moves the client to the session it names (on {on_session(s)})", on_session(s) == "other-seat"))
+    check("and opens no browser", s.opened_lines(), [])
+    typed_after = subprocess.run(s.tmux + ["capture-pane", "-p", "-t", "=other-seat:"], env=s.env,
+                                 capture_output=True, text=True).stdout
+    # The window takes the client's size, so only the blank rows may differ; a typed key would echo on sleep's terminal.
+    results.append((f"and types nothing into that pane ({typed_after.strip()!r})", typed_before.strip() == typed_after.strip() == ""))
+    s.run("switch-client", "-t", "=click:")
+    s.drain(0.5)
+    s.click(20, row=1)
+    results.append((f"a full host name is this host (on {on_session(s)})", on_session(s) == "other-seat"))
+    s.run("switch-client", "-t", "=click:")
+    s.drain(0.5)
+    for row, name, want in [
+        (2, "a session not on this server opens the door", f"{FRONT}miadi-tmux%3A%2F%2F{ME}%40{HOST}%3Ano-such-seat"),
+        (3, "a name that only prefixes a session is not that session", f"{FRONT}miadi-tmux%3A%2F%2F{ME}%40{HOST}%3Aother"),
+        (4, "another host opens the door", f"{FRONT}miadi-tmux%3A%2F%2F{ME}%40{HOST}-elsewhere%3Aother-seat"),
+        (5, "another account opens the door", f"{FRONT}miadi-tmux%3A%2F%2F{ME}x%40{HOST}%3Aother-seat"),
+        (6, "a name that reads as a flag reaches tmux as no target", f"{FRONT}miadi-tmux%3A%2F%2F{ME}%40{HOST}%3A-other-seat"),
+    ]:
+        before = len(s.opened_lines())
+        s.click(20, row=row)
+        check(name, s.opened_lines()[before:], [want])
+        results.append((f"and the client stays (on {on_session(s)})", on_session(s) == "click"))
+finally:
+    s.close()
 
 streaming(60, "a click in a streaming pane opens the row it landed on")
 streaming(20, "and when every reference wraps into rows that repeat")

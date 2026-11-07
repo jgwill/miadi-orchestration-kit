@@ -15,6 +15,10 @@ miadi-tracing:<domain>/<resource>/<id>[@<v>] with its aliases miadi-trace:
 and miadi-prompt:, and a specification, rise://<owner>/<repo>/<path>[@<commit>].
 A capability, one thing a git repository provides (Episode 568), is
 miadi-capability:<owner>/<repo>/<kind>/<name>; it opens its registry page.
+A tmux session is miadi-tmux:<account>@<host>:<session> (jgwill/Miadi#968). A
+click in tmux on a session of this account on this host moves the clicking
+client there; everywhere else it opens through the door like the rest. A click
+starts no ssh and types into no pane.
 In running text a specification is found only with its //, so the word
 "rise:" stays text.
 
@@ -25,7 +29,10 @@ In running text a specification is found only with its //, so the word
                                                       cell N of TEXT
     miadi-chronicle-open --open --tmux PANE --row Y --column X
                                                       open the reference under
-                                                      a click in a tmux pane
+                                                      a click in a tmux pane;
+                                                      with --client NAME, a tmux
+                                                      session of this account on
+                                                      this host is moved to
 
 The URL is <front>/api/chronicle/open?uri=<reference>. That door on the Miadi
 server resolves the reference and redirects to its page, so this machine needs
@@ -41,7 +48,9 @@ that cell · 78 no front configured
 """
 
 import os
+import pwd
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -50,15 +59,19 @@ from urllib.parse import quote
 
 SCHEMES = ("miadi-chronicle:", "miadi-ceremony:", "miadi-circle:", "miadi-foundation:",
            "miadi-notebook:", "miadi-prototype:", "miadi-tracing:", "miadi-trace:", "miadi-prompt:",
-           "miadi-capability:", "rise:")
+           "miadi-capability:", "miadi-tmux:", "rise:")
 FRONT_SETTINGS = ("MIADI_CHRONICLE_OPEN_URL", "MIADI_URL_BASE")
 ETC_DEFAULT = "/etc/miadi"
 # The same pattern the Terminator plugin matches with. It stops at what ends a
 # URI in running text; trailing sentence punctuation is stripped after. A bare
 # wheel id counts only in the form the wheel mints, a timestamp or ep<N> after
 # its kind, so the word "circle:" in running text is not a reference.
-REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|(?:notebook|prototype|tracing|trace|prompt|capability):(?://)?[A-Za-z0-9._~/:+@\-]+)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\brise://[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9._~/\-]+(?:@[A-Za-z0-9._/\-]+)?(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*''', re.I)
+REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|(?:notebook|prototype|tracing|trace|prompt|capability|tmux):(?://)?[A-Za-z0-9._~/:+@\-]+)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\brise://[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9._~/\-]+(?:@[A-Za-z0-9._/\-]+)?(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*''', re.I)
 BARE_WHEEL_ID = re.compile(r"(circle|ceremony):", re.I)
+# The grammar of jgwill/Miadi#968, packages/inquiry-weave/src/tmux-dsl.ts. The
+# session cannot start as a flag or as tmux's = prefix, and an address with a
+# query or a fragment goes to the door.
+TMUX_ADDRESS = re.compile(r"miadi-tmux:(?://)?([A-Za-z_][A-Za-z0-9_-]{0,31})@([A-Za-z0-9][A-Za-z0-9.-]{0,252}):([A-Za-z0-9_][A-Za-z0-9_+~-]{0,199})", re.I)
 TRAILING = ".,;:!?)]}'\""
 # A double click is two clicks; the second must not open the same page again.
 REPEAT_SECONDS = 1.5
@@ -260,6 +273,24 @@ def tmux_reference(pane, row, column):
     return ""
 
 
+def moved_to_session(ref, client):
+    """True when `ref` names a session of this account on this host, on this
+    tmux server, and the clicking client now shows it. The name reaches tmux as
+    one argument with an exact-match target, and nothing is typed into any pane."""
+    found = TMUX_ADDRESS.fullmatch(ref)
+    if not found or not client:
+        return False
+    account, host, session = found.groups()
+    if account != pwd.getpwuid(os.getuid()).pw_name:
+        return False
+    if host.split(".")[0].lower() != socket.gethostname().split(".")[0].lower():
+        return False
+    target = f"={session}:"
+    if tmux("has-session", "-t", target) is None:
+        return False
+    return tmux("switch-client", "-c", client, "-t", target) is not None
+
+
 def say(message, opening, in_tmux):
     """A click has no terminal to print to: say it where the reader looks."""
     print(message, file=sys.stderr)
@@ -306,7 +337,7 @@ def parse(argv):
     for arg in args:
         if arg == "--open":
             options["open"] = True
-        elif arg in ("--line", "--column", "--tmux", "--row", "--width"):
+        elif arg in ("--line", "--column", "--tmux", "--row", "--width", "--client"):
             options[arg[2:]] = next(args, None)
         else:
             refs.append(arg)
@@ -343,6 +374,7 @@ def main(argv):
         print("usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>] | miadi-circle:<id> | circle:<id>"
               " | miadi-foundation:<slug> | miadi-notebook:<uuid> | miadi-prototype:<slug>"
               " | miadi-tracing:<domain>/<resource>/<id> | miadi-capability:<owner>/<repo>/<kind>/<name>"
+              " | miadi-tmux:<account>@<host>:<session>"
               " | rise://<owner>/<repo>/<path>",
               file=sys.stderr)
         return 64
@@ -351,6 +383,8 @@ def main(argv):
     if not ref.lower().startswith(SCHEMES):
         print(f"not a Miadi reference: {ref}", file=sys.stderr)
         return 65
+    if opening and in_tmux and moved_to_session(ref, options.get("client")):
+        return 0
     base = front()
     if not base:
         say("no Miadi front to open on — set one: miadi-terminal front https://<your Miadi>",
