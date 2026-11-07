@@ -1,7 +1,7 @@
 ---
 name: production-context-exploration
 description: Explore a potential Chronicle before choosing an episode.
-version: 1.0.0
+version: 1.1.0
 author: Kherix / Hermes Agent
 license: MIT
 ---
@@ -16,7 +16,7 @@ Make one potential Chronicle intelligible enough for a person to discuss and cho
 
 Use for a possible episode, germinating concept, production-context inquiry, discovery-to-script request, or Mia–Ava interpretation before an episode is chosen. Read `teams/README.md` T5 and Guillaume's T5 row in `README.md` first. Do not infer birth approval from an attractive script, a review status, or a folder.
 
-T5 explores before a choice. T6 produces resources from episodes or reviews in its own lane; the proposed “Ready for DeepDiver” trigger is not an instruction to mint automatically. T3 witnesses, T7 answers operating questions, and T1/T2 own continuity/event machinery. A practice does not appoint a new lead or rename a team.
+T5 explores before a choice. T6 produces resources from episodes or reviews in its own lane; the proposed “Ready for DeepDiver” trigger is not an instruction to mint automatically. T3 witnesses, T7 answers operating questions, and T1/T2 own continuity/event machinery. T9 reads what this practice leaves for the writers once an episode holds it. A practice does not appoint a new lead or rename a team.
 
 ## Sources and authority
 
@@ -41,6 +41,7 @@ Under `$MIADI_CHRONICLE_ROOT/_staging_for_new_episodes/`, choose one `<slug>-YYM
   script.md             a potential narrative spine, not final media
   source-ledger.md       citations and evidence states
   .mia/                 supplied interpretations, exact prompts, corrections
+  potential-threads.yaml what the writers receive once this is an episode (step 6)
 ```
 
 Add `skill-evolution.md` only when the work actually changes skills. Do not create every possible room artifact. Nothing here gets an episode number, `episode.yaml`, receipt, registered episode node, or episode-lineage edge. Do not test a birth door just to prove that you refrained from birth.
@@ -73,13 +74,24 @@ Give `script.md` an opening question, a concrete encounter with evidence, a chan
 
 Distinguish **documented / implemented / live-read / inferred / proposed / human-chosen** in the ledger, not by drowning the script in qualifiers. Never narrate unperformed experiments, an unopened ceremony, or unminted episode as completed. Produce one script rather than parallel drafts unless the person asks.
 
-### 6. Evolve the practice, not the whole skill library
+### 6. Leave the writers a file
+
+The writer's page reaches only the Author's Desk and sign-in, and the desk reads episodes, not this folder. `script.md`, the ledger and `.mia/` reach no door. Before a concept is offered for a birth, write `potential-threads.yaml` in its folder: its potential plot threads, each with its `domain`, the beats a writer could use, and any groups of beats, for the desk its `for` names. Format, field rules and carrying: `references/potential-threads.md`.
+
+- A beat is what happened or what was said, with a ref the threads door can check. A person's words stay exact. Land the source first, because a beat cannot name the commit that adds the file holding it.
+- `wanted_result`, `current_reality`, and a group's `name` and `why` are the seat's reading, and the file's header says so.
+- An invented scene or line has no field here. The words are the writer's.
+- Name the file in the folder's `AGENTS.md`, so a seat that mints finds it.
+
+This writes no thread and reaches nobody. Do not send a staged concept to a desk as a suggestion, for the reason in the reference.
+
+### 7. Evolve the practice, not the whole skill library
 
 Change only the class-level skills whose trigger/workflow actually lag. Keep episode-specific versions and findings in the exploration ledger; retain portable procedures in skills. State the canonical source versus a host-specific adapter. Prefer updating an existing umbrella or adding one reusable team practice over one skill per topic.
 
 Verify frontmatter, relative references, bounded formatting, scoped diff, and discovery/routing. Shared skills belong in `skills/<name>/`; register them in `README.md`, `llms.txt`, and the owning team section. Keep machine/human team records aligned without inventing members or names. Do not replace another agent's owner tree or edit another Hermes profile without instruction.
 
-### 7. Land the exploration without birthing it
+### 8. Land the exploration without birthing it
 
 Follow staging `AGENTS.md`: its `scripts/new-future-episode-chronicle-session.sh` opens a chronicle-sessions issue and commits but does not push. Inspect the helper before invoking it. If its folder-wide staging conflicts with named-file law or would sweep other writers' files, reproduce only its issue/title/body and scoped-commit actions using explicitly named files. Do not alter the shared helper as a side quest.
 
@@ -91,7 +103,7 @@ Report the useful discoveries, the script's movement, all changed skills and wha
 
 An exploration may stop here, continue, or be set aside. Read the current owning naming sources: production context exploration names the activity, not an approved place/team rename. They distinguish two decisions: **Gate 1**, the authorized choice that births a Chronicle episode; **Gate 2**, the production team's separate approval that admits it to the series. An existing Chronicle is not automatic series approval, and no proposed team/place name becomes official through this skill.
 
-Only after Gate 1 is explicitly authorized load `chronicle-episode`, pass the staged path and any authorized chronicle-sessions issue as provenance, declare earned lineage, dry-run the verified birth door, and prove all five stages. A request for a possible script alone does not authorize an issue, circle, commit, push or birth: check each side effect against the task and inherited law. Do not open a circle solely because the procedure mentions one; participation, identity, and facilitator authority must be verified.
+When asking for Gate 1, say how many threads `potential-threads.yaml` would carry and which desk it names, so the choice covers them. Only after Gate 1 is explicitly authorized load `chronicle-episode`, pass the staged path and any authorized chronicle-sessions issue as provenance, declare earned lineage, dry-run the verified birth door, and prove all five stages. Then carry the file by the steps in `references/potential-threads.md` and read it back. A request for a possible script alone does not authorize an issue, circle, commit, push or birth: check each side effect against the task and inherited law. Do not open a circle solely because the procedure mentions one; participation, identity, and facilitator authority must be verified.
 
 ## Verification
 
@@ -101,5 +113,7 @@ Only after Gate 1 is explicitly authorized load `chronicle-episode`, pass the st
 - [ ] Supplied interpretation and later correction remain distinguishable in `.mia/`.
 - [ ] Academic framing serves the actual artifacts and obeys any bounded format.
 - [ ] Relevant skill changes are executable, routed, and validated.
+- [ ] `potential-threads.yaml` parses, every thread has a `domain`, every beat's ref is a pushed commit or another ref the door checks, and `AGENTS.md` names it.
+- [ ] After a mint, `GET …/episodes/<N>/threads` returns each thread with its `domain`, and the file says `carried_to`.
 - [ ] Named-file commits and remote read-back cover only the work authorized here.
 - [ ] The final choice to create an episode remains the person's.
