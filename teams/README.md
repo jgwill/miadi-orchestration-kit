@@ -140,6 +140,19 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Sessions placed by William:** `mw-rwl-repo` (2026-11-01, "part of T8 software development"), the repository mapper in `jgwill/medicine-wheel`, whose work Episode 568 holds.
 - **Rules:** a tmux session named `t8-…` is on T8 by its name. There is no folder rule for the Miadi checkout: folders are decided before name patterns, so that rule would move every `t2-`, `t4-`, `t6-` and `desk-` session working there onto T8. Held for William.
 
+## T9 · Story (stub, 2026-11-07)
+
+- **Status:** a stub. The witness seat proposed it on jgwill/miadi-orchestration-kit#76, because no team's Makes line held the Author's Desk. William, 2026-11-07, to the seat `mino-t3-2611071211-fork1-t5-miadi-film-apt-2611071058`: "Yes, the story team exists."
+- **Level:** where the author writes, across episodes.
+- **Desired outcome, in William's words (2026-11-06):** "a team that has this primary choice to create fiction and explore plot points in these different elements."
+- **Responsibility (the witness seat's reading, for William to correct):** read what other teams leave as material for fiction and offer it at the desk as creative threads and proposals, which only he accepts. Explore plot points across the elements that hold them. Keep fiction apart from what was observed, and write no words in his place. State what the desk needs from T8 and check that it arrived.
+- **Two narrative engines, in William's words:** "that studio is actually the linear storytelling prototype", and "another aspect that would be important to consider in the construction of that desk is the non-linear storytelling, which is a different narrative engine." The linear one is `@miadi/ncp-story-studio`. The witness seat reads the non-linear one as `packages/passages` and the Twine books under `$MIADI_STORIES_ROOT`, and he has not confirmed that.
+- **Leads:** William (human). The session `miadi-proto-2610150828-writers-authors-desk` (agent), which Episode 567 (miadi-chronicle://567) calls the desk's seat. The witness seat placed it there, and it is his to change.
+- **Makes:** creative plot threads, the Author's Desk (`@miadi/authors-desk`, `app/ncp/desk`), the writing host `https://ecrire.sanctuaireagentique.com`, the story studio (`@miadi/ncp-story-studio`, `app/ncp/studio`), `@miadi/ncp-wampum-bridge`, Twine books.
+- **Uses:** T5's staged concepts, T6's media, T8's builds and releases, T3's inventory, chronicle episodes.
+- **Sessions:** `miadi-proto-2610150828-writers-authors-desk`, `ep560-261020-fork-02-creative-space`, `episode-567-mia-companion`, `ep120-261009-fork-01-plot-threads`, `ep120-261013-pto-codex-author-desk`, `miadi-ncp-permissions-granularity-quickfix`, `miadiRun-2610131406-twinery-passages-episode2books`, `miadi-ncp-story-studio`, `miadi-orchestration-kit-storytelling`.
+- **Rules:** a tmux session named `t9-…` is on T9 by its name. A session named `desk-…` stays on T7, the Operator desk, which is not the Author's Desk. There is no folder rule, so sessions working in the Miadi checkout keep their teams.
+
 ## Not named yet
 
-Other sessions point to teams William has not named: trading (`trading-draw-on-ao-issue-154`, `mia-trading-wave-labeler-blueprint-service`), story (`miadi-ncp-story-studio`, `miadi-orchestration-kit-storytelling`), research (`ep316-concordia-pitch-revising`). Film production (`mw-film-prod-devops-credibility`) moved to the T6 stub on 2026-10-06. Naming them is William's.
+Other sessions point to teams William has not named: trading (`trading-draw-on-ao-issue-154`, `mia-trading-wave-labeler-blueprint-service`), research (`ep316-concordia-pitch-revising`). Film production (`mw-film-prod-devops-credibility`) moved to the T6 stub on 2026-10-06. Naming them is William's.

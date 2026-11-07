@@ -165,6 +165,29 @@
       "name_patterns": [
         "^t8-"
       ]
+    },
+    {
+      "id": "T9",
+      "name": "Story",
+      "stub": "2026-11-07; William: \"the story team exists\"; the agent lead is the witness seat's placement, not his word, and which package is the non-linear engine is not confirmed",
+      "level": "where the author writes, across episodes",
+      "human_lead": "William",
+      "agent_lead": "miadi-proto-2610150828-writers-authors-desk",
+      "sessions": [
+        "miadi-proto-2610150828-writers-authors-desk",
+        "ep560-261020-fork-02-creative-space",
+        "episode-567-mia-companion",
+        "ep120-261009-fork-01-plot-threads",
+        "ep120-261013-pto-codex-author-desk",
+        "miadi-ncp-permissions-granularity-quickfix",
+        "miadiRun-2610131406-twinery-passages-episode2books",
+        "miadi-ncp-story-studio",
+        "miadi-orchestration-kit-storytelling"
+      ],
+      "folders": [],
+      "name_patterns": [
+        "^t9-"
+      ]
     }
   ]
 }
