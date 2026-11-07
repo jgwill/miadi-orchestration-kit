@@ -1,6 +1,6 @@
 ---
 name: screenwalk-notebook
-description: Turn Miadi reviews and their screenwalk videos into a Gemini Notebook, ask it the episode's questions, generate and keep its media (infographic, video and audio overviews, interactive and document reports), and put that media on screen in the next screenwalk. Performs the NotebookFed and MediaMade transitions of the screenwalk media cycle with the DeepDiver CLI. Use when asked to "make a notebook from these reviews", "add the reviews and their videos to NotebookLM", "ask the notebook", "generate an infographic / video overview / report for the episode", "prepare media to play in the next screenwalk", or "deep diver", or "deep dive this episode / this review".
+description: Turn Miadi reviews and their screenwalk videos into a Gemini Notebook, ask it the episode's questions, generate and keep its media (infographic, video and audio overviews, interactive and document reports), put that media on screen in the next screenwalk, and leave a beat on a plot thread for the writers when it lands in an episode. Performs the NotebookFed and MediaMade transitions of the screenwalk media cycle with the DeepDiver CLI. Use when asked to "make a notebook from these reviews", "add the reviews and their videos to NotebookLM", "ask the notebook", "generate an infographic / video overview / report for the episode", "prepare media to play in the next screenwalk", or "deep diver", or "deep dive this episode / this review".
 ---
 
 # Screenwalk notebook
@@ -119,12 +119,54 @@ deepdiver studio open --title "<artifact title>" -n <id>
 deepdiver studio open --family video_overview --play -n <id>   # starts playback; the person pauses and talks over it
 ```
 
+### 7. Leave a beat for the writers
+
+A landing in an episode ends with one beat on a plot thread. The writer's page, `https://ecrire.sanctuaireagentique.com`, reaches only the Author's Desk and sign-in (Episode 567, `rispecs/writing-subdomain/`). The desk's Latest panel reads the beats of every episode's `threads.yaml`, on a thread of any domain, and it reads nothing in `captures/`. So the beat's text is what the writer meets, and nothing is their writing until they cite it on a card.
+
+**Find the thread.** Read the episode's threads and choose one whose `wanted_result` the notebook's brief serves.
+
+```bash
+curl -s "$MIADI_API_URL/api/chronicle/episodes/<episode folder name>/threads" -H "Authorization: Bearer $MIADI_API_TOKEN_WRITER"
+```
+
+When the episode has no thread, or none fits, write no beat and open no thread. A thread is a concern with a keeper, and T9 carries threads to the desk. Report `NO THREAD FOR THE WRITERS: <episode>`, and put that line in the notebook's README so T9 can find it. On 2026-11-07, 8 of the 12 episodes holding a notebook had no `threads.yaml`.
+
+**Write the beat through the door**, the day of the landing and after the kept files are pushed: `dryRun` first, then the same call without it. The door commits and pushes `threads.yaml`, so never edit that file by hand. One beat names everything its commit landed.
+
+```bash
+curl -s -X POST "$MIADI_API_URL/api/chronicle/episodes/<episode folder name>/threads" \
+  -H "Authorization: Bearer $MIADI_API_TOKEN_WRITER" -H 'content-type: application/json' \
+  -d '{"act":"beat","code":"<PTn>","ref":"<commit>","at":"<YYYY-MM-DD>","by":"<this seat>","what":"<text>","dryRun":true}'
+```
+
+| field | write | why |
+|---|---|---|
+| `ref` | The chronicle commit that landed the kept files | The door checks it. A file address, `<card>#<n>`, `miadi-notebook:<uuid>`, `miadi-media-plan:<uuid>` and `jgwill/episodes@<sha>` each answer 422 |
+| `at` | The day of the landing | Latest opens on "Since you last opened" and hides earlier days |
+| `by` | This seat's tmux name | Latest shows it as who recorded the beat |
+| `what` | At most 500 characters: each thing made, by family, title and length, and the folder's address, `miadi-chronicle:<N>/captures/notebook-<id>/` | Latest shows this text, and the commit opens nowhere from the desk (jgwill/Miadi#956), so the text has to stand alone |
+
+A beat says what was made and what a person said, with their name and exact words. A notebook's answer is written as "the notebook answered", and a claim about a recording is checked against its transcript first. It holds no scene and no line of fiction, because those words are the writer's.
+
+The media stays in the folder, and the desk shows the address as plain text. `/api/chronicle/open?uri=<address>` answers 302 to the episode room at the factory, and 307 to the factory from the writing host. The room's file door serves the kept video and the infographic with the writer token, and answers 404 to a visitor. The writing host's sign-in cookie stays on that host, so a person signs in at the factory too.
+
+Episode 297's PT4 holds one written before this step, and its `what` lacks the address: `{ ref: "dfe00a08", at: "2026-10-22", what: "three team videos from pinned ceremony prompts: Session Continuity (5:24, T1), Episode 297 Briefing (4:37, T3), Mastering Delayed Resolution (6:54, T4)" }`.
+
+**Read it back.** The door answers `landing.state` as `landed` with the commit, or `owed` with the reason. `GET …/threads` returns the beat. Report `LEFT FOR THE WRITERS: <episode> <PTn> <landing commit>`, put that line in the notebook's README and commit it by path. A 409 on a thread the read shows means the record is not at two-space indent (`skills/production-context-exploration/references/potential-threads.md` in jgwill/miadi-orchestration-kit): tell its keeper, and report `NO THREAD FOR THE WRITERS: <episode>, 409 on <PTn>`.
+
+**A plan's item, when a person or T9 asks for it.** The same door, with the commit that landed the plan as `ref`, and `what` written as `Plan item 5 of version 3 (<artifact_id>#5), as the plan says it: <the item's words>`. The header of the plan's file holds `artifact_id` and `version`. Episode 567's PT2, "a plan before the render", holds an item from a plan kept in Episode 251. Two beats on one thread with the same `ref` show one text in a group, the last one (`beatTexts` in `app/ncp/desk/lib/proposals.ts`), so a group can name one item per commit on a thread. S7 of Episode 567 and Episode 251's `rispecs/episode-media-plan/` say how an item will be named, and this step does not settle it.
+
+**A group for one desk is T9's offer.** No door writes it: it is a `proposals/*.yaml` in the episode, committed by path, and the desk shows it only where `for` names that desk. A seat writes one only when a person or T9 asks. Two shapes that show at Episode 560's desk: Episode 567's `proposals/plan-to-desk-261105.yaml`, tested on 2026-11-05 with one plan item, and the `notebook` group in Episode 297's `proposals/plot-threads-261026.yaml`, which names media beats. The field rules are in the T5 reference above.
+
+**A suggestion** (`POST /api/ncp/desk/<episode>/suggestions?author=<key>`) lands a commit on one person's desk, so it goes only on that person's word.
+
 ## What to report
 
 1. The notebook URL (`https://notebook.google.com/notebook/<id>`) and its sources: imported, and not imported with the reason.
 2. The questions asked and the file that holds the answers.
 3. Each artifact: family, title, and the path it was kept at.
 4. Everything that failed, with the command's own words.
+5. In an episode, the step 7 line: `LEFT FOR THE WRITERS` or `NO THREAD FOR THE WRITERS`.
 
 ## When DeepDiver breaks
 
@@ -158,6 +200,8 @@ Selectors that broke before, so they are not reintroduced: a bare `button:has-te
 - **0.6.0, 2026-11-05.** On Guillaume's "that's good" to this direction, read by Mia as a go on D1 and D2 of jgwill/miadi-orchestration-kit#133: `/deepdive` stops every explainer and deck at its plan, with the seat's own checks (`scripts/plan-read.mjs`). The first trial, on the three plans of notebook `78507190`, sent all three to a person with low confidence, and read the video's producer notes as furthest from their brief. Its readings are in `captures/notebook-78507190-…/jev-trial-261105/` in miadi-chronicle://251.
 
 - **0.6.1, 2026-11-05.** A plan is an element on the wheel, `media-plan:<card uuid>`, on Guillaume's "I think the media plan name makes sense" (take 261105231653), read by Mia as the go.
+
+- **0.7.0, 2026-11-07.** From the Mino witness seat's brief, at William's request ("there might be nothing inside of a team right away that relate to these practices, and it's going to be really important that we do"): step 7, what a landing leaves the writers. Dry runs on the live door, nothing written: a chronicle commit answered 200 on Episodes 120, 297, 550, 566 and 567; a file address, `<card>#<n>`, `miadi-notebook:<uuid>`, `miadi-media-plan:<uuid>` and `jgwill/episodes@<sha>` answered 422; Episode 251, with no `threads.yaml`, answered 404; 501 characters of `what` answered 400. No seat has run this step yet.
 
 ## Related
 

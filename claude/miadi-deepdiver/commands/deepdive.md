@@ -100,8 +100,12 @@ Then ask a fresh agent to read the kept files against the review and the recordi
 
 The chronicle is main-only and shared by several seats: stage the kept files by name, `git commit -- <paths>`, `git fetch` and integrate before `git push`, never reset, never `git add -f`. Main is never rewound, so every committed byte stays: commit the kept files, never the downloads.
 
-## 7. Report
+## 7. Leave a beat for the writers
 
-The notebook URL, the sources, the questions and their file, each artifact with its path, every failure in the command's own words. End with one line:
+Follow the skill's step 7, after the push above: one beat through the threads door, naming what landed, or `NO THREAD FOR THE WRITERS: <episode>` when no thread fits. This pass opens no thread and writes no proposal unless a person or T9 asks. Put the step's line in the notebook's README and commit it by path.
+
+## 8. Report
+
+The notebook URL, the sources, the questions and their file, each artifact with its path, every failure in the command's own words, and the line from step 7. End with one line:
 
 `DONE <notebook url> <chronicle commit>`
