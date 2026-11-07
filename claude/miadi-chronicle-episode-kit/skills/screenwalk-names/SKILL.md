@@ -66,11 +66,16 @@ Real ones:
 - Relate things with Miadi addresses (`miadi-chronicle://120`, `miadi-ceremony://<uuid>`, `owner/repo#n`). Do not use a full URL.
 - The description goes under the video. It does not go in a review's `## Intent`.
 
-## Safe to publish: a separate check
+## Who is on the record: a separate check
 
-The title and the description name no person except William, and no host, path or permission. Agents and characters may be named.
+Mentioning a person is not putting them on the record.
 
-Then check who the recording itself names. When it names someone who has not consented, say so before upload, and recommend publishing it unlisted and registering it as withheld. Asking them goes through `request_participant_consent` (jgwill/Miadi#925), and the relationship is the person's to open. Precedent: miadi-chronicle://250, `captures/screenwalk-261104-001/closing.md`.
+- **Named in passing:** a person named by the speaker, or named as an example of a kind of user, needs no consent. Nothing is held, and the transcript goes online with the review.
+- **On the record:** a person filmed, or whose own voice, words or screens are shown, needs a release agreed at the start of the production, giving the right to use what was filmed in what is published. It is settled before the recording, not chased after it. If someone is on the record with no release, say so before upload.
+
+Never register a source as withheld only because a name is spoken in it. William, 2026-11-07: "it's not because we're mentioning the name of someone that we can't put the transcript online", and "If I would put him on the record, we would have to have a contract that gives me the right to use what I filmed about him".
+
+The title and description name no host, path or permission.
 
 ## Keep it
 
