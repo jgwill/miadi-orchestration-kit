@@ -3,7 +3,7 @@
     "namespace": "Miadi.Teams",
     "name": "TeamHandoff",
     "description": "What one team leaves for another when a session ends, in an existing episode or a new one, and what mctgo shows before a session starts.",
-    "notes": "The question (Guillaume, 2026-11-06, T7 session T7-mctgo-team-wrapper-prompt-inspired-parallel-code-2611060710): teams imply different results at the end of a session, and a result relates to other teams. Should we design what a team leaves for another, in an existing or a new episode? What would this discussion leave T8 and T6? Is that a service interface between teams? Could T8 get a recommendation for a new stateloom diagram type?\n\nDrawn by the T7 seat as a draft. Nobody has approved it. Nothing here changes teams.json, teams/README.md, the connector or mct.\n\nThe design: a team's contract has two parts. Capabilities are consumed whenever a team wants, and Episode 568 already holds them. A handoff is left once by one session for one team, and it has a lifecycle. The Offer entity joins them, and mctgo shows the offers.\n\nRules the drawing assumes:\n1. Teams say who does it. The five circles say who answers for it. Handoff keeps both.\n2. The episode is chosen for the handoff and never copied from the binding line.\n3. A new episode starts as a staged concept with T5, and a person chooses its birth.\n4. The receiver can send it back.\n\nOpen:\n1. Whether Offer and Need live in teams.json.\n2. Which team carries a plot thread to the Author's Desk. No team's Makes line holds the desk.\n3. Who claims for T8, which has no agent lead.\n4. Whether Episode 568 holds this work.\n5. Whether the contract map becomes a fourth stateloom document (see below).\n\nWhat these drawings could not say, and the reason to recommend a contract map to T8: the ERD draws the Offer type and not T1's offers to T8. A scenario walks one handoff. The system's actors have no provides or needs. So no drawing shows all eight teams at once, and no check can report a need with no offer. The draft offers are in the notes on the Offer entity."
+    "notes": "The question (Guillaume, 2026-11-06, T7 session T7-mctgo-team-wrapper-prompt-inspired-parallel-code-2611060710): teams imply different results at the end of a session, and a result relates to other teams. Should we design what a team leaves for another, in an existing or a new episode? What would this discussion leave T8 and T6? Is that a service interface between teams? Could T8 get a recommendation for a new stateloom diagram type?\n\nDrawn by the T7 seat as a draft. Nobody has approved it. Nothing here changes teams.json, teams/README.md, the connector or mct.\n\nThe design: a team's contract has two parts. Capabilities are consumed whenever a team wants, and Episode 568 already holds them. A handoff is left once by one session for one team, and it has a lifecycle. The Offer entity joins them, and mctgo shows the offers.\n\nRules the drawing assumes:\n1. Teams say who does it. The five circles say who answers for it. Handoff keeps both.\n2. The episode is chosen for the handoff and never copied from the binding line.\n3. A new episode starts as a staged concept with T5, and a person chooses its birth.\n4. The receiver can send it back.\n\nDecided 2026-11-07, reported by the T3 witness seat:\n1. T9 Story carries plot threads to the Author's Desk. Guillaume: \"Yes, the story team exists.\" jgwill/miadi-orchestration-kit@2470eaa.\n2. Episode 568 holds this work, by the seat's ruling. PT2 landed there at chronicle 78202ea1.\n3. The first t8- seat starts with the writing host, by the seat's ruling. The requests to T8 wait for a later T8 session, with this system as their source.\n\nOpen:\n1. Whether Offer and Need live in teams.json.\n2. Who claims for T8 when those requests start. teams.json still has no agent lead for it.\n3. Whether the contract map becomes a fourth stateloom document (see below).\n\nWhat these drawings could not say, and the reason to recommend a contract map to T8: the ERD draws the Offer type and not T1's offers to T8. A scenario walks one handoff. The system's actors have no provides or needs. So no drawing shows all eight teams at once, and no check can report a need with no offer. The draft offers are in the notes on the Offer entity."
   },
   "members": [
     {
@@ -36,14 +36,14 @@
       "description": "A session on T8 Software development. T8 has no agent lead."
     },
     {
-      "name": "T6 seat",
-      "kind": "agent",
-      "description": "A session on T6 Production"
-    },
-    {
       "name": "T5 seat",
       "kind": "agent",
       "description": "A session on T5 Production context exploration, which keeps the staging folder"
+    },
+    {
+      "name": "T9 seat",
+      "kind": "agent",
+      "description": "A session on T9 Story, which carries plot threads to the Author's Desk"
     }
   ]
 }

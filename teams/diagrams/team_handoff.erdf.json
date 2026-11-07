@@ -8,7 +8,7 @@
   "entities": [
     {
       "name": "Team",
-      "description": "One of T1 to T8. Exists: teams/teams.json. Makes and Uses are prose in teams/README.md, and teams.json has no field for them.",
+      "description": "One of T1 to T9. Exists: teams/teams.json. Makes and Uses are prose in teams/README.md, and teams.json has no field for them.",
       "attributes": [
         { "name": "id", "type": "string(8)", "key": "pk" },
         { "name": "name", "type": "string(80)" },
@@ -38,7 +38,7 @@
     {
       "name": "Offer",
       "description": "New. One kind of thing a team's session leaves, and for whom. This is what mctgo shows beside the team. A capability is one kind of offer. A plot thread, an answered question or a video is another kind, and the capability registry cannot hold those.",
-      "notes": "Draft offers read from the Makes and Uses lines of teams/README.md, 2026-11-06. No team has confirmed these.\nT1 -> every team: binding line and restored sessions. Check: a session comes back with its team.\nT2 -> T4 and others: an event with an address. Check: anyone can see it arrived or failed.\nT3 -> building teams: revision messages and the inventory record. Check: the receiving seat read it back.\nT4 -> the people a chart concerns: a chart on Asterion that names its seat. Check: a signed-in writer can steer from it.\nT5 -> a person, then the new episode: a staged folder with a foundations packet. Check: the foundation holds.\nT6 -> the next team and the audience: notebook and media under a manifest, and what the next team can now do. Check: the media is landed in the episode.\nT7 -> the owning team: a question its docs or tools could not answer. Check: the owner answered and the ledger line says so.\nT8 -> every team: a released version on the hosts that run it. Check: tests pass and the version is live.",
+      "notes": "Draft offers read from the Makes and Uses lines of teams/README.md, 2026-11-06. No team has confirmed these.\nT1 -> every team: binding line and restored sessions. Check: a session comes back with its team.\nT2 -> T4 and others: an event with an address. Check: anyone can see it arrived or failed.\nT3 -> building teams: revision messages and the inventory record. Check: the receiving seat read it back.\nT4 -> the people a chart concerns: a chart on Asterion that names its seat. Check: a signed-in writer can steer from it.\nT5 -> a person, then the new episode: a staged folder with a foundations packet. Check: the foundation holds.\nT6 -> the next team and the audience: notebook and media under a manifest, and what the next team can now do. Check: the media is landed in the episode.\nT7 -> the owning team: a question its docs or tools could not answer. Check: the owner answered and the ledger line says so.\nT8 -> every team: a released version on the hosts that run it. Check: tests pass and the version is live.\nT9 -> the author: creative threads and proposals at the Author's Desk. Check: only the author accepts them. Read from T9's README section, 2026-11-07.",
       "attributes": [
         { "name": "id", "type": "string(36)", "key": "pk" },
         { "name": "provider_team", "type": "string(8)", "references": "Team.id" },
@@ -166,7 +166,7 @@
     },
     {
       "name": "DeskProposal",
-      "description": "A group of beats proposed for a writer: <episode>/proposals/*.yaml. Exists. The Author's Desk reads it, and accepting it makes a Creative prompt. No team's Makes line holds the desk.",
+      "description": "A group of beats proposed for a writer: <episode>/proposals/*.yaml. Exists. The Author's Desk reads it, and accepting it makes a Creative prompt. T9 Story makes the desk and carries threads to it.",
       "attributes": [
         { "name": "file", "type": "string(260)", "key": "pk" },
         { "name": "thread_address", "type": "string(200)", "references": "PlotThread.address" },

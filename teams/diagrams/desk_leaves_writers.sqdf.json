@@ -3,7 +3,7 @@
     "namespace": "Miadi.Teams",
     "name": "DeskLeavesWriters",
     "description": "The same discussion, left for the writers as a plot thread. The main path lands in an existing episode. The fragment is the new-episode path.",
-    "notes": "T6 appears here because Guillaume named it. teams/README.md gives T6 Deep Diver's media, and no team's Makes line holds the Author's Desk. Which team carries a thread to the desk is held for him.\n\nThe thread as drafted, not landed: PT2 in Episode 568, domain creative, state emerging, carried_by T6. Thread: what a team leaves for the team that comes after it. Wanted result: a team that finishes its part knows who receives it and what they can now do, and the receiver can say it does not meet what was promised. Current reality: teams name each other only in prose, a handoff has no team on it, and the factory's first team-to-team note was written by hand from T1 to T8. The door's dry run answered 401 from this seat, which holds no token."
+    "notes": "Guillaume named T6 when he asked. He then named T9 Story, 2026-11-07, jgwill/miadi-orchestration-kit@2470eaa, and T9 carries plot threads to the Author's Desk. The thread landed as PT2 in Episode 568 at chronicle 78202ea1, written by the T3 witness seat. The message from T7 to the threads door shows the path the design intends, not who landed this one."
   },
   "participants": [
     { "name": "Guillaume", "actor": "Guillaume" },
@@ -11,16 +11,16 @@
     { "name": "Connector", "service": "@miadi/connector", "holds": ["Handoff"] },
     { "name": "Threads door", "service": "POST /api/chronicle/episodes/{ref}/threads", "holds": ["Episode", "PlotThread"] },
     { "name": "T5 seat", "actor": "T5 seat", "holds": ["StagedConcept"] },
-    { "name": "T6 seat", "actor": "T6 seat" },
+    { "name": "T9 seat", "actor": "T9 seat" },
     { "name": "Author's Desk", "service": "/ncp/desk", "holds": ["DeskProposal"] }
   ],
   "messages": [
-    { "from": "T7 seat", "to": "Connector", "label": "records the handoff from T7 to T6, a plot thread as its carrier", "carries": "Handoff" },
+    { "from": "T7 seat", "to": "Connector", "label": "records the handoff from T7 to T9, a plot thread as its carrier", "carries": "Handoff" },
     { "from": "T7 seat", "to": "Threads door", "label": "opens the thread in the chosen episode, domain creative, each beat's ref checked", "event": "CarrierLanded", "state": "Ready", "carries": "PlotThread" },
-    { "from": "T6 seat", "to": "Connector", "label": "reads the thread, claims", "event": "Claim", "state": "InProgress" },
-    { "from": "T6 seat", "to": "Author's Desk", "label": "proposes a group of beats", "carries": "DeskProposal" },
+    { "from": "T9 seat", "to": "Connector", "label": "reads the thread, claims", "event": "Claim", "state": "InProgress" },
+    { "from": "T9 seat", "to": "Author's Desk", "label": "proposes a group of beats", "carries": "DeskProposal" },
     { "from": "Guillaume", "to": "Author's Desk", "label": "accepts: the beats become a Creative prompt" },
-    { "from": "T6 seat", "to": "Connector", "label": "completes, with the proposal file as its receipt", "event": "Complete", "state": "Completed" }
+    { "from": "T9 seat", "to": "Connector", "label": "completes, with the proposal file as its receipt", "event": "Complete", "state": "Completed" }
   ],
   "fragments": [
     {

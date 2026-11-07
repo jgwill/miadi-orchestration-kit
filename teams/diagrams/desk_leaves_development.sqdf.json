@@ -3,7 +3,7 @@
     "namespace": "Miadi.Teams",
     "name": "DeskLeavesDevelopment",
     "description": "This discussion as its first case: the T7 session of 2026-11-06 leaves T8 what it takes to make mctgo show what each team leaves.",
-    "notes": "Written ahead of what exists. offer_id, from_team and to_team are not fields on the connector yet, no T8 seat is named, and mct list does not print offers."
+    "notes": "Written ahead of what exists. offer_id, from_team and to_team are not fields on the connector yet, T8 has no agent lead, and mct list does not print offers. The T3 witness seat ruled on 2026-11-07 that the first t8- seat starts with the writing host, so these requests wait for a later T8 session, with this commit as their source."
   },
   "participants": [
     { "name": "Guillaume", "actor": "Guillaume" },
