@@ -7,7 +7,7 @@ description: Write what a seat says when it takes part in a screenwalk, the reco
 
 A screenwalk is a recording of a person working with agent sessions, with their voices. Episode 550 holds its definition. When William plays a seat's reply inside one, the reply becomes part of the film. So it is written for the ear, and it can be reused as the episode's script.
 
-Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.3 (2026-10-08). Revise it from William's spoken feedback after each playback.
+Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.4 (2026-11-07). Revise it from William's spoken feedback after each playback.
 
 ## The shape, in order
 
@@ -33,7 +33,7 @@ Added 2026-10-08 (version 0.2), from William at the end of the Episode 140 scree
 
 1. **What this screenwalk is about.** The whole recording in the order it happened, each turn of the work in two or three sentences, in the person's own vocabulary. Keep apart the things the person keeps apart; a flattened term is a correction waiting to happen.
 2. **The title.** Two forms: a human title under 100 characters for YouTube, and the slug that names the file, `ep<N>-screenwalk-<yymmdd>-<seat>-<topics>` (precedent: `ep550-screenwalk-261001-mino-smcraft-stateloom-laskmi-trading`).
-3. **The description.** Three or four short paragraphs a viewer reads under the video, and which a Miadi review can use as its source summary. It says what happens in the recording. It never states as done, or as existing, what the person only wants: on 2026-10-08 "It closes on how the work is funded" claimed a funding that does not exist.
+3. **The description.** Three or four short paragraphs a viewer reads under the video, and which a Miadi review can use as its source summary. It says what happens in the recording. It never states as done, or as existing, what the person only wants: on 2026-10-08 "It closes on how the work is funded" claimed a funding that does not exist. It is safe to publish: it names no person except William, and no host, path or permission. It relates things by Miadi addresses (`miadi-chronicle://120`, `owner/repo#n`) and carries no full URL (William, 2026-11-07, version 0.4). When the recording names someone who has not consented, say so before upload and recommend unlisted and registered as withheld (precedent: miadi-chronicle://250, screenwalk 261104-001).
 4. **A note for the agents who will observe this session.** Who the seat is, what to expect from it, and what it will do next, in the imperative.
 5. **What comes next**, as the next screenwalk.
 
