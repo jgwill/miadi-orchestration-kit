@@ -4,7 +4,7 @@ A RISE packet for a Debian package that hosts one of our witness seats on a rela
 
 Reverse-engineered from the prototype run of 2026-11-04 on eury. In it, the witness seat `6ad00fd4` (user `mia`) watched Jerry's session T5 `d8e16584` (user `gmusic`) while it prepared and delivered his handle. That handle is staged in the chronicle at `_staging_for_new_episodes/stcmastery-plugin-structure-atelier-jerry-near-the-loop-261104/` (miadisabelle/chronicle-sessions#103). The prototype continues as long as Jerry works with the handle. `01-reverse-engineer.md` keeps its record.
 
-Status: specified, not built. Issues: jgwill/miadi-orchestration-kit#109 (its maintainer-side sibling, `miadi-feedback`) and jgwill/miadi-orchestration-kit#91 (T5 production context exploration).
+Status: specified, not built. Issue: jgwill/miadi-orchestration-kit#138. Also: jgwill/miadi-orchestration-kit#109 (its maintainer-side sibling, `miadi-feedback`) and jgwill/miadi-orchestration-kit#91 (T5 production context exploration).
 
 ## Desired outcome
 

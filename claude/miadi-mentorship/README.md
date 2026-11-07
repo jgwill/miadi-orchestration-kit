@@ -81,6 +81,8 @@ The capture has no timestamp field. An event's `time` is when the watcher saw th
 
 ## Related
 
+- jgwill/miadi-orchestration-kit#138: the issue that holds this draft and the hosted witness.
+
 - `rispecs/hosted-witness-service/`: the package this draft would feed. Its watcher events (`turn_end`, `input`, `feedback`) are this plugin's `mentee.turn_ended`, `mentee.said` and `mentee.feedback_written`.
 - `claude/miadi-witness/`: the witness team's seat and practices.
 - The staged folder of the run: `/srv/miadi/episodes/miadi-chronicle/_staging_for_new_episodes/stcmastery-plugin-structure-atelier-jerry-near-the-loop-261104/` (miadisabelle/chronicle-sessions#103).
