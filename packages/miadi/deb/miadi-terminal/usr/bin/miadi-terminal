@@ -11,7 +11,7 @@ Installed by miadi-terminal (jgwill/miadi-orchestration-kit).
 
 Integrations:
     desktop     the miadi-chronicle:, miadi-ceremony:, miadi-circle:, miadi-foundation:,
-                miadi-notebook:, miadi-prototype:, miadi-tracing: (miadi-trace:, miadi-prompt:), miadi-capability:
+                miadi-notebook:, miadi-prototype:, miadi-tracing: (miadi-trace:, miadi-prompt:), miadi-capability:, miadi-tmux:
                 and rise:// schemes
                 open in the browser from any application — OSC 8 links in a
                 terminal, links in a page
@@ -43,6 +43,7 @@ SCHEME_MIMES = ("x-scheme-handler/miadi-chronicle", "x-scheme-handler/miadi-cere
                 "x-scheme-handler/miadi-notebook", "x-scheme-handler/miadi-prototype",
                 "x-scheme-handler/miadi-tracing", "x-scheme-handler/miadi-trace",
                 "x-scheme-handler/miadi-prompt", "x-scheme-handler/miadi-capability",
+                "x-scheme-handler/miadi-tmux",
                 "x-scheme-handler/rise")
 TMUX_CONF = SHARE / "tmux" / "miadi-chronicle.conf"
 TMUX_LINE = f"source-file -q {TMUX_CONF}  # miadi-terminal"
