@@ -1,0 +1,15 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Miadi pinned upstream browser installer
+Source: https://github.com/jgwill/miadi-orchestration-kit
+Comment: This Debian artifact contains only the Miadi installer and lock manifest.
+ It does NOT redistribute Chrome, Widevine, headless shell or ffmpeg binaries.
+ During configuration the installing host downloads hash-pinned archives
+ directly from the upstream URLs in SOURCE.json. Their original ABOUT,
+ license and third-party notices remain in the generated browsers directory.
+ Chrome's own terms/credits apply to its use; a Miadi MIT license does not
+ relicense any software downloaded from upstream.
+
+Files: *
+Copyright: 2026 Miadi Factory contributors
+License: Expat
+ Full text: /usr/share/miadi-deepdiver-chromium/PACKAGING-LICENSE.

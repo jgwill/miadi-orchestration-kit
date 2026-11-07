@@ -6,6 +6,23 @@ DeepDiver itself is Jerry's tool (`Gerico1007/deepdiver`). The factory runs the 
 
 ## Install
 
+On amd64 Ubuntu 22.04/24.04 or Debian 12, after adding the [Sanctuaire APT source](../../packages/miadi/deb/README.md):
+
+```bash
+sudo apt install miadi-deepdiver -y       # deepdiver is also an APT alias
+miadi-deepdiver setup --claude            # desktop user, no sudo; preserves existing settings
+miadi-deepdiver doctor --offline --claude
+deepdiver chrome launch                  # persistent user profile, loopback CDP
+# Human signs in once. Until then: SIGN-IN NEEDED.
+deepdiver chrome status
+```
+
+`setup --claude` uses the existing marketplace plugin and the fork's embedded
+`skills install --agent claude`; it does not copy this plugin or overwrite an
+existing skill. A disabled plugin stays disabled: enable only its intended scope
+explicitly. Restart Claude Code after installation: hooks load at session start,
+not mid-session. On a host that already has the runtime, install this plugin with:
+
 ```bash
 claude plugin marketplace add jgwill/miadi-orchestration-kit
 claude plugin install miadi-deepdiver@miadi-orchestration-kit
@@ -27,8 +44,8 @@ The plugin has no MCP server. DeepDiver is a command line. `scripts/plan-read.mj
 
 ## Runtime floors
 
-- DeepDiver from `miadisabelle/deepdiver` `main` at or after 2026-10-06 (`pip install git+https://github.com/miadisabelle/deepdiver@main`). PyPI `deepdiver` 0.1.1 fails on the current interface.
-- Google Chrome on a host with a display, with CDP on port 9222 and a profile signed in to the Google account that owns the notebooks. DeepDiver keeps its own Chrome home, `~/.chrome-deepdiver`, signed in once; `deepdiver chrome status` checks it.
+- DeepDiver from `miadisabelle/deepdiver` at or after 2026-10-06. APT 0.1.0-1 pins commit `91898f367d519f8468943afcec356b839652a58c`, hash-verified with captured wheels and a hash-pinned direct upstream Chromium installer; `/usr/share/miadi-deepdiver/SOURCE.json` is authoritative. Its upstream Python metadata still says 0.1.1; it is NOT the obsolete PyPI artifact. A developer installation must pin a verified fork commit, not mutable `main`.
+- Chrome on a host with a display, with CDP on 127.0.0.1:9222 and a profile signed in to the account that owns the notebooks. The fork's home is `~/.chrome-deepdiver`; the APT launcher defaults to **`~/.chrome-deepdiver-apt`** so a different browser/keyring cannot modify an existing sign-in. No profile migration is automatic; the person signs in once. `deepdiver chrome status` checks it. APT fetches the pinned browser directly from upstream (network needed first time), but never network-pips Python.
 - `ffprobe` for the media data in the manifest (optional).
 - The `miadi-review` skill's client for review Markdown and stored transcripts.
 

@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+export PLAYWRIGHT_BROWSERS_PATH=/usr/lib/miadi-deepdiver/browsers
+exec /usr/lib/miadi-deepdiver/venv/bin/python -I /usr/lib/miadi-deepdiver/setup.py "$@"
