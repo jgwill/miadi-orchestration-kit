@@ -130,6 +130,23 @@ A series of inventories gives one line per session: `<team glyph> <team id> · <
 
 Earned 2026-10-08. William asked `gaia-cpufreq-cap-rebooted-fix-261008` by hand which team its work fit, then asked that the seat do it in every inventory and propose whether each session exits, is completed first, or is only recorded (jgwill/Miadi#746, jgwill/miadi-orchestration-kit#76).
 
+### Step 4c: Capabilities (since 2026-11-07)
+
+The Capability Registry (Episode 568, miadi-chronicle://568, `rispecs/capability-registry/`) describes what each repository provides, and each capability is meant to be owned by a team. William gave this team feeding it: "it's going to be part of your team and your responsibility to feed on it and also contributing to actually upgrading it." On 2026-11-07, 1 of 302 inventory records carried `capabilities`.
+
+**Read:**
+
+- `miadi-repomap capabilities <owner/name> --json` gives each row's `address`, `kind`, `status` and `statement`. `needs-resolution` means no statement yet.
+- `list_relational_nodes` with `kind: capability` lists what the wheel holds.
+- An episode's holdings are under `capabilities:` in its `episode.yaml`.
+- `chronicle_resolve` on `miadi-capability:<owner>/<repo>/<kind>/<name>` opens one.
+
+**Write, when a session's commits changed a capability's code:** add it to the record's `capabilities` (SCHEMA.md) with its commit as evidence, then run `inventory.mjs capabilities --session <id>`. To record what an episode relies on, call `chronicle_episode_capability` with `dryRun` first and relation `uses`.
+
+**What the registry cannot say yet.** A row has no team (jgwill/Miadi#951). Pages and routes have no row (jgwill/Miadi#952). The kit and `passages` have no rows (jgwill/Miadi#953). Until those land, write the proposed team beside the capability, as the table in Episode 567's `rispecs/writing-subdomain/readiness-261106.md` does.
+
+**When an inventory shows a row is wrong,** propose the correction to the registry's owner, `mw-rwl-repo` on T8.
+
 ### Step 5: Keep watching the sessions that are still running (since 2026-10-06)
 
 A record is not the end of the job when the session is still `in_progress`. In the same turn as the records, start the listener on every session that is still running, and keep following them:

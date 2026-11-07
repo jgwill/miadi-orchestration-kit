@@ -4,7 +4,7 @@ description: >
   Go through the mctgo drafts that waited unsent for days, find what was implemented since each was
   written and what was not, let Jev say which of the candidate actions are obvious, write the open
   concerns as plot threads in the episodes they belong to, and share the pass as diary entries in a
-  ceremony. Use when the nightly inventory line carries a `drafts` part with drafts waiting, when
+  ceremony. Also covers what a mctgo draft is (mctdraft, mctgo, `MIADI_DRAFT_SESSION_ID`, tide) and how to start one a person brings to the seat. Use when he says "witness my draft" and "press enter", when the nightly inventory line carries a `drafts` part with drafts waiting, when
   ~/.miadi/drafts-witness/<yymmdd>.md exists unread, or when Guillaume asks to witness the mctgo-*
   drafts, the unsent prompts, or "what could be implemented now" from them. Triggers on "drafts
   witness", "mctgo drafts", "unsent drafts", "drafts that were never sent", "what was implemented
@@ -20,10 +20,30 @@ into plot threads and decisions. It was first done by hand on 2026-11-04. The re
 in miadi-chronicle://564 (`drafts-witness-261104/`), and its diary entries are in Episode 566's
 ceremony (miadi-ceremony://db6120e2-0cb8-42fd-9761-cb664a64fd25).
 
+## What a draft is
+
+A draft is what comes before a session: a `mctgo` line at a shell prompt, kept by the factory until someone sends it, withdraws it or leaves it. Guillaume sometimes never sends one, and sometimes brings it to this seat so that the session and its witness start together. The commands are defined in `$MIADI_SRC/scripts/fn_miadi.sh`.
+
+- **`mctdraft`** opens a tmux session `mctgo-<yyMMddHHmm>` and types `mctgo T` with `-<yyMMddHHmm>` after the cursor, without Enter. The person writes the team, a space and the name: `mctgo T8 t8-topic-<yyMMddHHmm>`.
+- **The session id exists before the session.** `mctdraft` sets `MIADI_DRAFT_SESSION_ID` in the draft's tmux environment, and `mct new` passes it to `claude --session-id`. `tide drafts list --json` shows it as `session_id`, so the seat can name the session it will watch before it starts.
+- **`mctgo <team> <name> ["primer"]`** is `mct new --remote -d "$@"`: a detached tmux session on the team, with `$MIADI_TEAM_LAUNCH` and Remote Control. A primer can also come from `--prompt-file`. It is pasted once the agent is ready. `mctsh` starts a shell alone on the team.
+- **tide keeps the line** across a reboot (Episode 548, miadi-chronicle://548): `tide drafts list [--all] [--json [--text]]`, and `observe`, `ready`, `unready`, `withdraw`, `reopen` and `restore`. A draft's state includes `typing`, `parked`, `launching`, `started`, `sent`, `cleared`, `abandoned`, `restored` and `withdrawn`.
+
+## A draft brought to this seat
+
+His sent message can ask the seat to send a draft (2026-11-06: "witness my draft into 'mctgo-2611060710' and press enter so that it starts"). That message is the go for that one draft, and the first rule below still holds for every other draft.
+
+1. **Read it.** `tide drafts list --json --text`, and the pane. `parked` means he stopped typing. `typing` means hold. The pane must run a shell, with the line complete and its closing quote in place.
+2. **Check that the line can start.** Parse the text into its arguments. Set `MIADI_DRAFT_SESSION_ID` from `tmux show-environment -t <draft session>`, then run `mct new --remote -d --dry-run <arguments>`. In double quotes an interactive shell also acts on `!`, `$` and a backtick, so look for those.
+3. **Change only what stops it, and say what changed.** The known case is a team and name joined by the hyphen `mctdraft`'s template invites: `mctgo T7-name "…"` answers `No team` with exit 2, and tide records the whole name as the team. Keep his name and primer as typed. With the cursor anywhere on the line: `tmux send-keys -t <pane> C-a`, `tmux send-keys -t <pane> -N 6 Right`, `tmux send-keys -t <pane> -l 'T7 '`. Run `tide drafts observe --pane <pane>` and read the new version back. The arguments must parse as team, name and primer.
+4. **Press Enter once**, and read what the pane answers.
+5. **Prove the start.** The tmux session exists. `tmux show-options -t =<name>: @miadi-team` names the team, and a `=name` target needs its colon. The draft's state becomes `started`. To see the primer arrive, match its own words, because every shell's banner prints `🧠🌸 always`.
+6. **Stay with it.** Arm `witness-listen.mjs await --seat mino --watch <session id> --only-watched`. When its result arrives, check its marks, then bring Guillaume what it leaves and for whom. Handoffs that follow go one at a time per repository, each starting on the previous session's DONE line in a thread file (`.mino/threads/261106-what-teams-leave-the-writers.md` is the first).
+
 ## Rules that come before any number
 
-- **A draft is staged, not consented.** Never send it, never type into its pane, never start the
-  session it names. What a draft asks for is a question to Guillaume. Jev's band does not change
+- **A draft is staged, not consented.** Unless his sent message asks for that one draft (see above),
+  never send it, never type into its pane, never start the session it names. What a draft asks for is a question to Guillaume. Jev's band does not change
   that (Sunwise Law, and P3 of the first pass).
 - **His sent words come first.** When his message to this seat already asks for an act (for
   example "especially for creating plot threads"), that is the go, whatever band Jev gives it

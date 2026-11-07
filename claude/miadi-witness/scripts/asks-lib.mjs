@@ -73,10 +73,17 @@ export function addAsk(ledger, { title, words, said_at = null, session_id = null
   return ask;
 }
 
-export function updateAsk(ledger, id, { status, evidence = [], words = null, said_at = null, session_id = null, where = null, by = null, note = "" }) {
+export function updateAsk(ledger, id, { status, expect = null, reopen = false, evidence = [], words = null, said_at = null, session_id = null, where = null, by = null, note = "" }) {
   const ask = ledger.asks.find((candidate) => candidate.id === id);
   if (!ask) throw new Error(`no ask ${id} in seat ${ledger.seat}`);
   if (status && !STATUSES.includes(status)) throw new Error(`status must be one of ${STATUSES.join(", ")}`);
+  // A merge between seats can renumber asks, so an id read earlier may now name another ask (2026-11-07).
+  if (expect && !ask.title.toLowerCase().includes(String(expect).toLowerCase())) {
+    throw new Error(`${id} is now "${ask.title}", which does not contain "${expect}". Read the id again with list.`);
+  }
+  if (status && status !== "done" && ask.status === "done" && !reopen) {
+    throw new Error(`${id} is done ("${ask.title}"). Pass --reopen to change that.`);
+  }
   if (words) ask.words.push({ text: words, said_at, session_id, where });
   for (const item of evidence) if (!ask.evidence.includes(item)) ask.evidence.push(item);
   if (status) ask.status = status;

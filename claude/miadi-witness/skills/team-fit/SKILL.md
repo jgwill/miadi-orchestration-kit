@@ -69,7 +69,7 @@ List what the session did as A1, A2 … with one glyph each, from this table:
 | 🤝 | hand off, message another seat, ask |
 | 🧭 | decide, or propose a decision for William |
 
-**Team glyphs, draft (held for William, jgwill/Miadi#746 H2):** 🔁 T1 Session continuity · 📡 T2 Event path · 👁️ T3 Witness · 📈 T4 Chart path · 🌱 T5 Production context exploration · 🎬 T6 Production · 🛎️ T7 Operator desk · ❔ unassigned · 🆕 proposed. The script prints `glyph: draft` until `teams.json` carries a `glyph` for the team.
+**Team glyphs, draft (held for William, jgwill/Miadi#746 H2):** 🔁 T1 Session continuity · 📡 T2 Event path · 👁️ T3 Witness · 📈 T4 Chart path · 🌱 T5 Production context exploration · 🎬 T6 Production · 🛎️ T7 Operator desk · 🏗️ T8 Software development · 📖 T9 Story · ❔ unassigned · 🆕 proposed. The script prints `glyph: draft` until `teams.json` carries a `glyph` for the team.
 
 ## 5. Propose the ending
 

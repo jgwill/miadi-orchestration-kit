@@ -69,9 +69,13 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Desired outcome:** William hears and judges what the building teams produce before anything is revised, and his answers reach them as clear messages.
 - **Leads:** William (human). Mino, the `stcbot` seat (agent).
 - **Makes:** spoken first impressions and walkthroughs, revision messages, the session inventory (`miadisabelle/workspace` `.mino/session-inventory/`), charts.
-- **Uses:** T1's hook capture and Claude Code's transcripts and session list, to see what other sessions received and did.
+- **Uses:** T1's hook capture and Claude Code's transcripts and session list, to see what other sessions received and did. tide's draft records. T8's capability registry.
 - **Sessions:** `stcbot`, `mino-260928-fork-01`, `miadi-review-in-episode`.
-- **Plugin:** `claude/miadi-witness` (0.1.0), with the skills `miadi-witness-first-impression` and `miadi-mino-tmux-inventory` (jgwill/miadi-orchestration-kit#59).
+- **Plugin:** `claude/miadi-witness`, with `miadi-witness-first-impression`, `miadi-mino-tmux-inventory`, `team-fit` and `drafts-witness` among its skills (jgwill/miadi-orchestration-kit#59).
+- **Before a session (William, 2026-11-06):** "we bring it, in this case, to you so that we can start together as a witness." A `mctgo` draft can come to this team before its session starts. `drafts-witness` holds what a draft is and how to start one he brings.
+- **Capabilities (William, 2026-11-01):** "part of your team and your responsibility to feed on it and also contributing to actually upgrading it." `miadi-mino-tmux-inventory` Step 4c holds how the inventory reads and feeds the registry.
+- **Leaves for the writers:** plot threads for the open concerns a drafts pass finds, through the threads door, and what each session left, read back to William.
+- **Next:** when teams state their offers (`teams/diagrams/`), `team-fit` compares what a session left with what its team offers, so the proposed ending names what is still owed. T7 proposed this as A4.
 - **Proposed, William 2026-09-28: an inventory agent.** Until now the inventory was made by hand. William gives a session name, Mino looks at the session, works out what it is doing and where it stands, and records it, either after `/exit` gives the session id or while it keeps running. An inventory agent would do this for every session. It would read T1's binding line (every start, rename and end, with the terminal and the launch) and the session's transcript, then write and update the inventory entry with its meaning: mission, relations, state, and what needs William. It builds on T1's line (A5 in the Tmux Agent Restore proposal). Where it runs is not decided.
 
 ## T4 · Chart path

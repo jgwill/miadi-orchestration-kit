@@ -5,8 +5,11 @@
 //   asks.mjs show   <ask-id> [--seat mino]
 //   asks.mjs add    --title <t> --words <verbatim> [--said-at <iso>] [--session <id>] [--where <w>]
 //                   [--status open] [--evidence <e>]... [--seat mino] [--by <who>] [--note <n>]
-//   asks.mjs update <ask-id> [--status partial] [--evidence <e>]... [--words <verbatim> --said-at <iso>]
-//                   [--seat mino] [--by <who>] [--note <n>]
+//   asks.mjs update <ask-id> --expect <words of its title> [--status partial] [--evidence <e>]...
+//                   [--words <verbatim> --said-at <iso>] [--reopen] [--seat mino] [--by <who>] [--note <n>]
+//
+// Ids move when a merge between seats renumbers the ledger: --expect refuses when the id now names another
+// ask. A done ask keeps its status unless --reopen says otherwise.
 //
 // --words - reads the words from stdin, so a long message keeps its exact bytes.
 
@@ -14,11 +17,12 @@ import { STATUSES, addAsk, asksDir, ledgerPath, readLedger, updateAsk, writeLedg
 
 function parse(argv) {
   const args = { _: [], evidence: [], seat: "mino" };
-  const keys = { "--seat": "seat", "--status": "status", "--title": "title", "--words": "words", "--said-at": "said_at", "--session": "session_id", "--where": "where", "--by": "by", "--note": "note" };
+  const keys = { "--expect": "expect", "--seat": "seat", "--status": "status", "--title": "title", "--words": "words", "--said-at": "said_at", "--session": "session_id", "--where": "where", "--by": "by", "--note": "note" };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--evidence") args.evidence.push(argv[++i]);
     else if (keys[arg]) args[keys[arg]] = argv[++i];
+    else if (arg === "--reopen") args.reopen = true;
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }

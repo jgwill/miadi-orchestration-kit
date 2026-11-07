@@ -28,6 +28,8 @@ export const DRAFT_GLYPHS = {
   T5: "🌱",
   T6: "🎬",
   T7: "🛎️",
+  T8: "🏗️",
+  T9: "📖",
   unassigned: "❔",
   proposed: "🆕",
 };
