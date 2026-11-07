@@ -1,0 +1,7 @@
+{
+  "name": "miadi-steering",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The steering inbox of a GitHub Copilot CLI session (jgwill/Miadi#942)."
+}

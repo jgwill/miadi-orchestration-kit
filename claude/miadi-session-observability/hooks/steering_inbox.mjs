@@ -28,15 +28,17 @@ import { appendFileSync, chmodSync, lstatSync, mkdirSync, readdirSync, readFileS
 import { join } from "node:path";
 
 export const PROTOCOL = 1;
+/** The written contract every provider's adapter keeps: jgwill/Miadi packages/connector/STEERING.md. */
+export const CONTRACT = "miadi.steering/1";
 /** Claude Code spills additionalContext past 10,000 characters to a file; the rest waits for the next continuation. */
 const MAX_CONTEXT_CHARS = 8000;
 const LOCK_STALE_MS = 10_000;
 
 export const steeringRoot = (env = process.env) => env.MIADI_STEERING_DIR || join(env.MIADI_FACTORY_DIR || "/srv/miadi/factory", "steering");
-const safe = (id) => String(id).replace(/[^\w-]/g, "-");
+export const safe = (id) => String(id).replace(/[^\w-]/g, "-");
 
 /** One level only: a host without the factory folder must not get one made for it. */
-function ownedDir(path) {
+export function ownedDir(path) {
   try {
     mkdirSync(path, { mode: 0o700 });
   } catch (error) {
@@ -46,7 +48,7 @@ function ownedDir(path) {
   return path;
 }
 
-function receipt(dir, entry) {
+export function receipt(dir, entry) {
   appendFileSync(join(dir, "receipts.jsonl"), `${JSON.stringify({ at: new Date().toISOString(), source: "runtime_hook", ...entry })}\n`, { mode: 0o600 });
 }
 
@@ -82,7 +84,7 @@ function refusal(e, sessionId, dir, now) {
   return null;
 }
 
-function statSafe(path) {
+export function statSafe(path) {
   try {
     return lstatSync(path);
   } catch {
@@ -102,7 +104,7 @@ function moveOrSkip(from, toDir, name) {
 }
 
 /** One drain at a time, so parallel tool calls keep the envelopes in order. The holder drains for all of them. */
-function withLock(dir, now, fn) {
+export function withLock(dir, now, fn) {
   const lock = join(dir, ".drain");
   try {
     mkdirSync(lock);
@@ -153,9 +155,17 @@ export function claimPending(dir, sessionId, now = Date.now()) {
     if (claimed.length && chars + text.length > MAX_CONTEXT_CHARS) break;
     if (!moveOrSkip(file, join(dir, "claimed"), name)) continue;
     chars += text.length;
-    claimed.push({ envelope, text });
+    claimed.push({ envelope, text, name });
   }
   return claimed;
+}
+
+/**
+ * The provider refused the hand-off, so the model cannot have it: back in the queue, at its old place,
+ * with a receipt. Only for a door that says so. A claim whose fate is unknown is never replayed.
+ */
+export function returnToPending(dir, name, steer, reason) {
+  if (moveOrSkip(join(dir, "claimed", name), join(dir, "pending"), name)) receipt(dir, { steer, state: "emit_failed", reason, returned: true });
 }
 
 const EVENTS = { "post-tool-use": "PostToolUse", "post-tool-use-failure": "PostToolUseFailure", "user-prompt-submit": "UserPromptSubmit", stop: "Stop", "stop-watch": "Stop" };
@@ -189,16 +199,97 @@ export function drain(event, input, env = process.env, write = (s) => writeSync(
   return true;
 }
 
-/** Say that this session's hooks are loaded. A session started before this adapter has no file, and the connector answers unsupported. */
-export function announce(input, env = process.env) {
+/**
+ * Who each provider's adapter is, and what it promises. Each line was tested on that provider's real
+ * agent before it was written here; jgwill/Miadi packages/connector/STEERING.md holds the evidence.
+ * Claude Code's hooks are never assumed of another provider, and each adapter wires its own door.
+ */
+export const IDENTITIES = {
+  claude: {
+    provider: "claude",
+    adapter: "miadi-session-observability",
+    guarantee: {
+      level: "same_turn",
+      continuation: "PostToolUse and PostToolUseFailure additionalContext, then Stop decision block when no tool follows",
+      idle: "the factory runner prompts the seat, and UserPromptSubmit presents it",
+    },
+  },
+  pi: {
+    provider: "pi",
+    adapter: "@miadi/pi-session-observability",
+    guarantee: {
+      level: "same_turn",
+      continuation: "Pi's steering queue: after the current assistant turn has run its tool calls, before the next model request",
+      idle: "the adapter starts a run itself",
+    },
+  },
+  copilot: {
+    provider: "copilot",
+    adapter: "miadi-steering (Copilot extension)",
+    guarantee: {
+      level: "same_turn",
+      continuation: "session.send immediate, held until the tools in flight have finished",
+      idle: "the adapter starts a turn itself",
+    },
+  },
+  codex: {
+    provider: "codex",
+    adapter: "miadi-steering (Codex hooks)",
+    guarantee: {
+      level: "same_turn",
+      continuation: "PostToolUse additionalContext, then Stop decision block when no tool follows",
+      idle: "the factory runner runs codex queue on the thread, and UserPromptSubmit presents it",
+    },
+  },
+};
+
+/** The nearest ancestor whose program is the agent: a hook runs under a shell, and the agent is what must be alive. */
+export function ancestorPid(name, start = process.ppid) {
+  let pid = start;
+  for (let i = 0; i < 12 && pid > 1; i++) {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+      // Its program, never a word in its arguments: this hook's own path holds the provider's name.
+      const program = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0")[0].split("/").at(-1);
+      if (stat.slice(stat.indexOf("(") + 1, stat.lastIndexOf(")")) === name || program === name) return pid;
+      pid = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]);
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Say that this session's adapter is loaded. A session started before its adapter has no file, and
+ * the connector answers unsupported. The pid and pane let the connector check a provider that keeps
+ * no registry of its own: this exact process, in this exact pane, is the session.
+ */
+export function announce(input, env = process.env, identity = IDENTITIES.claude) {
   if (!input.session_id) return;
   const root = steeringRoot(env);
   try {
     ownedDir(root);
     const dir = ownedDir(join(root, safe(input.session_id)));
+    const { provider, adapter, adapter_version, guarantee, pid } = identity;
     writeFileSync(
       join(dir, "adapter.json"),
-      `${JSON.stringify({ protocol: PROTOCOL, provider: "claude", adapter: "miadi-session-observability", session_id: input.session_id, transcript_path: input.transcript_path, source: input.source, ready_at: new Date().toISOString() })}\n`,
+      `${JSON.stringify({
+        protocol: PROTOCOL,
+        contract: CONTRACT,
+        provider,
+        adapter,
+        ...(adapter_version ? { adapter_version } : {}),
+        session_id: input.session_id,
+        transcript_path: input.transcript_path,
+        source: input.source,
+        ready_at: new Date().toISOString(),
+        ...(pid ? { pid } : {}),
+        ...(env.TMUX_PANE ? { pane: env.TMUX_PANE } : {}),
+        // A pane number is unique per tmux server, and a host runs several: the server is half the address.
+        ...(env.TMUX ? { tmux_socket: env.TMUX.split(",")[0] } : {}),
+        ...(guarantee ? { guarantee } : {}),
+      })}\n`,
       { mode: 0o600 },
     );
   } catch {
@@ -210,11 +301,21 @@ export function retire(input, env = process.env) {
   if (input.session_id) rmSync(join(steeringRoot(env), safe(input.session_id), "adapter.json"), { force: true });
 }
 
+/** The Claude Code plugin's own version, from the manifest beside this hook. */
+function pluginVersion() {
+  try {
+    return JSON.parse(readFileSync(new URL("../.claude-plugin/plugin.json", import.meta.url), "utf8")).version;
+  } catch {
+    return undefined;
+  }
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const event = process.argv[2];
+    const provider = process.argv[3] ?? "claude";
     const input = JSON.parse(readFileSync(0, "utf8"));
-    if (event === "session-start") announce(input);
+    if (event === "session-start") announce(input, process.env, { ...IDENTITIES[provider], adapter_version: process.argv[4] ?? pluginVersion(), pid: ancestorPid(provider) });
     else if (event === "session-end") retire(input);
     else if (event === "stop-watch") {
       if (drain(event, input, process.env, (s) => writeSync(2, s))) process.exit(2);
