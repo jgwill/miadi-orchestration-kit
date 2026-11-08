@@ -1,0 +1,9 @@
+name: miette-plan-insight
+version: 0.1.0
+description: Hermes plan-file triggers and commands for Miette's shared named review-seat runtime.
+author: Miadi
+requires_hermes: ">=0.23.0"
+provides_tools: []
+provides_hooks:
+  - post_tool_call
+  - pre_llm_call

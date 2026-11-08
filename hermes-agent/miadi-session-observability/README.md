@@ -6,6 +6,17 @@ This directory, not binscripts or an installed copy, is canonical for Hermes.
 The Claude implementation remains canonical for Claude; this is not its shell API
 wrapped in a different manifest.
 
+Since 0.1.1 the installed Miadi 0.3.0 bridge is recognized as the continuity
+owner for start/end/index. With that plugin loaded, capture does not duplicate
+those records. It fills the bridge's missing resume boundary with
+`session.observed` only when a tmux pane is verified; messaging sessions never
+gain invented terminal coordinates. `plugins.entries.miadi-session-observability.settings.continuity_owner`
+is `auto` by default; `bridge` or `capture` is an explicit deployment override.
+For an older Miadi bridge without lifecycle hooks choose `capture`, or upgrade
+the bridge first. The advisory dependency orders bridge discovery before this
+decision. Event/reply/history capture remains active in either mode. Session cwd
+comes from ctx.session_cwd(), not the shared gateway process's working directory.
+
 ## Requirements and installation
 
 Hermes >=0.23.0 with `register_hook`, `register_skill`, and the observer lifecycle
@@ -71,7 +82,7 @@ Each firing appends a redacted JSON object to these existing paths:
 - `<root>/<sid>/last_hermes_<event>.json` (atomic latest snapshot)
 - `<root>/<sid>/_hermes_hooks_all.jsonl`
 - `<root>/data/hermes_hooks_all.jsonl`
-- `<root>/data/session_index.jsonl` (once per plugin-observed identity, including resume)
+- `<root>/data/session_index.jsonl` (once per identity when this plugin owns continuity; otherwise the Miadi bridge owns it)
 
 The shell bridge's `hook_event_name`, `tool_name`, `tool_input`, `session_id`,
 `cwd`, `extra`, and routing fields are preserved. Native `args` become
@@ -104,7 +115,7 @@ Child session ids are used when supplied; parent/child/task ids remain in payloa
 
 ### Terminal continuity
 
-Start, first prompt after resume, or changed binding metadata appends the binding
+When this plugin owns continuity, start, first prompt after resume, or changed binding metadata appends the binding
 schema tide reads to `<root>/data/terminal_bindings.jsonl` and the session's
 `_terminal_binding.jsonl`. Only finalize/reset appends `session.end`; reset uses
 `old_session_id`, never the replacement identity. Native hook callbacks return
@@ -139,8 +150,8 @@ exception class, never raw payload/credentials, and leave execution unchanged.
 
 The old pre/post-tool scripts also attempted Miette plan-perspective launches
 through `/opt/binscripts/plan-insight`. Those side effects do not belong in a
-recording plugin and are not carried over. A Hermes plan-insight plugin is the
-next opt-in candidate; capture does not silently start Claude or Miette.
+recording plugin and are not carried over. `../miette-plan-insight` now provides
+that separate opt-in; capture does not silently start Claude or Miette.
 
 This first Hermes plugin does not claim Claude feature parity: no inode-scanning
 files-written index, publication index, Claude-specific transcript/subagent sweep,

@@ -88,11 +88,14 @@ def read_json(path):
 
 
 class Capture:
-    def __init__(self, root, profile="default"):
+    def __init__(self, root, profile="default", continuity=True, cwd_resolver=None):
         # An operator-selected root may itself be a host symlink (/src on Eury).
         self.root = Path(root).expanduser().resolve()
         self.profile = profile
+        self.continuity = continuity
+        self.cwd_resolver = cwd_resolver
         self.redactor = Redactor()
+        self.started_here = set()
 
     def check_root(self):
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -129,7 +132,8 @@ class Capture:
         return {
             "hook_event_name": hook, "tool_name": kwargs.get("tool_name"),
             "tool_input": kwargs.get("args"), "session_id": sid,
-            "cwd": kwargs.get("cwd") or str(Path.cwd()), "profile": self.profile,
+            "cwd": kwargs.get("cwd") or (self.cwd_resolver() if self.cwd_resolver else "") or str(Path.cwd()),
+            "profile": self.profile,
             "extra": extra, "platform": kwargs.get("platform") or "unknown",
             "source": kwargs.get("source"), "model": kwargs.get("model"),
             "turn_id": kwargs.get("turn_id"), "tool_call_id": kwargs.get("tool_call_id"),
@@ -148,20 +152,33 @@ class Capture:
         safe_directory(self.root / "data")
         payload = self.payload(hook, sid, kwargs)
         with session_lock(directory):
+            if hook == "on_session_start":
+                self.started_here.add(sid)
             for event in EVENTS[hook]:
                 line = self.dump({**payload, "capture_event": event})
                 append(directory / ("_hermes_" + event + ".jsonl"), line)
                 atomic_write(directory / ("last_hermes_" + event + ".json"), line)
                 append(directory / "_hermes_hooks_all.jsonl", line)
                 append(self.root / "data" / "hermes_hooks_all.jsonl", line)
-            if hook in ("on_session_start", "pre_llm_call"):
+            if self.continuity and hook in ("on_session_start", "pre_llm_call"):
                 marker = directory / ".observability-indexed"
                 if not marker.exists():
                     index = {k: payload[k] for k in ("session_id", "platform", "source", "model", "captured_at", "profile")}
                     append(self.root / "data" / "session_index.jsonl", self.dump(index))
                     atomic_write(marker, "indexed")
-            if hook in ("on_session_start", "pre_llm_call", "on_session_finalize", "on_session_reset"):
+            if self.continuity and hook in ("on_session_start", "pre_llm_call", "on_session_finalize", "on_session_reset"):
                 self.bind(directory, hook, payload)
+            elif not self.continuity and hook == "pre_llm_call" and sid not in self.started_here:
+                # Miadi 0.3 owns start/end/index but has no resume callback.
+                # Fill that non-overlapping boundary only for a verified pane.
+                self.bind(directory, hook, payload, require_tmux=True)
+            if hook in ("on_session_finalize", "on_session_reset"):
+                self.started_here.discard(sid)
+                if not self.continuity:
+                    state_path = directory / ".observability-binding.json"
+                    previous = read_json(state_path)
+                    if previous:
+                        atomic_write(state_path, self.dump({**previous, "event": "session.end"}))
             if hook == "post_llm_call":
                 history = kwargs.get("conversation_history")
                 if isinstance(history, list):
@@ -171,14 +188,16 @@ class Capture:
                     "at": payload["captured_at"], "response": kwargs.get("assistant_response"),
                 }))
 
-    def bind(self, directory, hook, payload):
+    def bind(self, directory, hook, payload, require_tmux=False):
         state_path = directory / ".observability-binding.json"
         previous = read_json(state_path)
         event = {"on_session_start": "session.start", "pre_llm_call": "session.observed",
                  "on_session_finalize": "session.end", "on_session_reset": "session.end"}[hook]
         binding = make_binding(payload["session_id"], event, payload, previous)
+        if require_tmux and binding["tmux"] is None:
+            return
         comparable = ("pid", "tmux", "name", "cwd", "team", "episode", "account_person", "launch_alias")
-        if event != "session.end" and previous and all(binding[k] == previous.get(k) for k in comparable):
+        if event != "session.end" and previous and previous.get("event") != "session.end" and all(binding[k] == previous.get(k) for k in comparable):
             return
         if event != "session.end" and previous and binding["name"] != previous.get("name"):
             binding["event"] = "session.rename"

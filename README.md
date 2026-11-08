@@ -78,6 +78,20 @@ supports staging disabled until a coordinated gateway restart. Never enable it
 alongside the legacy Hermes capture hooks. See its README for installation,
 verification, and the features deliberately kept separate from recording.
 
+[`hermes-agent/miadi-chronicle-episode-kit`](hermes-agent/miadi-chronicle-episode-kit)
+registers the canonical Chronicle/staging/screenwalk skills, guards native vessel
+creation and keeps Miadi addresses in complete replies. Its preview/status
+commands reuse the existing MightyEagle `miadi` bridge, not duplicate clients
+or tool registrations.
+
+[`hermes-agent/miette-plan-insight`](hermes-agent/miette-plan-insight) adapts the
+shared Miette seat runtime for Hermes plan files and Hermes reviewers, including
+versioned insights and a tracked background listener. `scripts/install-hermes-kit.py`
+stages all three native plugins without editing configuration; activation is a
+coordinated legacy-hook cutover and restart. The installed Miadi 0.3.0 bridge
+remains the start/end/index writer; observability 0.1.1 defers those records and
+fills only verified-pane resume observations that the bridge does not emit.
+
 ## Apt packages
 
 `sudo apt install miadi` makes a machine a Miadi host. A client installs `miadi-terminal` and `miadi-chronicle-client`. Every package, its build and its tests: [`packages/miadi/deb`](packages/miadi/deb/README.md).

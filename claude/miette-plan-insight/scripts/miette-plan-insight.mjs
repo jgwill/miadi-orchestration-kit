@@ -72,6 +72,14 @@ function updateJson(path, fields) {
 /** A value as one single-quoted shell word. */
 const shellQuote = (value) => `'${String(value).replace(/'/g, `'\\''`)}'`;
 
+/** A Hermes seat must inherit its profile/state even when the tmux server predates them. */
+function hermesLaunchEnvironment(agent) {
+  if (agent !== "hermes") return "";
+  const values = { MIADI_MIETTE_AGENT: "hermes", MIADI_MIETTE_STATE_DIR: stateRoot(env),
+    HERMES_HOME: env.HERMES_HOME, HERMES_SESSIONDATA_ROOT: env.HERMES_SESSIONDATA_ROOT };
+  return Object.entries(values).filter(([, value]) => value).map(([key, value]) => `${key}=${shellQuote(value)}`).join(" ") + " ";
+}
+
 function run(cmd, args, options = {}) {
   const r = spawnSync(cmd, args, { encoding: "utf8", timeout: options.timeout ?? 30_000, env: options.env ?? env });
   return { ok: r.status === 0, status: r.status, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), error: r.error };
@@ -198,6 +206,7 @@ function keepPlan({ key, planText, planningTmux, cwd, transcriptPath, mission, e
     episode_given: episode ?? prior.episode_given ?? null,
     created_at: prior.created_at ?? now(),
     last_plan: planPath,
+    source_agent: env.MIADI_MIETTE_AGENT === "hermes" ? "hermes" : "claude",
     last_source: source
   });
   writeJson(seatIndexOf(seat), { planning_session: key, state_dir: stateDir });
@@ -365,7 +374,7 @@ function joinRecord(sessionId) {
   }
 }
 
-function herdrOpen({ seat, cwd, launch, team, primerPath, log }) {
+function herdrOpen({ seat, cwd, launch, team, primerPath, log, agent = "claude" }) {
   const herdr = findBin("herdr", env.MIADI_HERDR_BIN);
   if (!herdr || !run(herdr, ["workspace", "list"], { timeout: 10_000 }).ok) {
     log("herdr does not answer: opening in tmux instead");
@@ -386,7 +395,8 @@ function herdrOpen({ seat, cwd, launch, team, primerPath, log }) {
   const launcher = join(dirname(primerPath), "herdr-launch.sh");
   // Every value is one quoted word. The seat is named in the environment for the recursion guard,
   // declared on its team, and opened to Remote Control as mct does for a tmux seat.
-  const command = `MIADI_MIETTE_SEAT=${shellQuote(seat)} MIADI_TEAM=${shellQuote(team)} ${launch} -n ${shellQuote(seat)} --remote-control ${shellQuote(seat)} "$(cat ${shellQuote(primerPath)})"`;
+  const agentFlags = agent === "hermes" ? "" : ` -n ${shellQuote(seat)} --remote-control ${shellQuote(seat)}`;
+  const command = `MIADI_MIETTE_SEAT=${shellQuote(seat)} MIADI_TEAM=${shellQuote(team)} ${hermesLaunchEnvironment(agent)}${launch}${agentFlags} "$(cat ${shellQuote(primerPath)})"`;
   writeFileSync(launcher, `#!/bin/bash\ncd ${shellQuote(cwd)} || exit 1\nexec "$SHELL" -ic ${shellQuote(command)}\n`, { mode: 0o755 });
   run(herdr, ["pane", "run", pane, `bash ${shellQuote(launcher)}`], { timeout: 20_000 });
   return { carrier: "herdr", pane };
@@ -448,7 +458,8 @@ function openSeat({ args, sessionId, stateDir, seatState, seat, plan, log }) {
   const episode = seatState.episode_given
     ? { folder: seatState.episode_given, source: "asker" }
     : episodeOf(joinRecord(sessionId));
-  const inputs = join(sessionDataRoot(env), sessionId, "_claude_user_inputs.jsonl");
+  const agent = seatState.source_agent ?? (env.MIADI_MIETTE_AGENT === "hermes" ? "hermes" : "claude");
+  const inputs = join(sessionDataRoot(env), sessionId, agent === "hermes" ? "_hermes_user_prompt_submit.jsonl" : "_claude_user_inputs.jsonl");
   const cwd = seatState.cwd && existsSync(seatState.cwd) ? seatState.cwd : homedir();
   const primer = primerText({
     seat,
@@ -460,11 +471,12 @@ function openSeat({ args, sessionId, stateDir, seatState, seat, plan, log }) {
     mission: seatState.mission,
     source: seatState.last_source,
     stateDir,
+    agent,
     fileCommand: `node ${SCRIPT} file`
   });
   const primerPath = join(stateDir, `primer-${stamp()}.md`);
   const team = env.MIADI_MIETTE_TEAM || DEFAULT_TEAM;
-  const launch = env.MIADI_MIETTE_LAUNCH || DEFAULT_LAUNCH;
+  const launch = env.MIADI_MIETTE_LAUNCH || (agent === "hermes" ? "hermes" : DEFAULT_LAUNCH);
   const carrier = carrierOf(env);
 
   if (args.dryRun) {
@@ -473,7 +485,7 @@ function openSeat({ args, sessionId, stateDir, seatState, seat, plan, log }) {
   }
   writeFileSync(primerPath, `${primer}\n`);
 
-  let opened = carrier === "herdr" ? herdrOpen({ seat, cwd, launch, team, primerPath, log }) : null;
+  let opened = carrier === "herdr" ? herdrOpen({ seat, cwd, launch, team, primerPath, log, agent }) : null;
   if (!opened) {
     const mct = findBin("mct", env.MIADI_MCT_BIN);
     if (!mct) {
@@ -481,7 +493,8 @@ function openSeat({ args, sessionId, stateDir, seatState, seat, plan, log }) {
       return EXIT_NO_SEAT;
     }
     // The seat is named in its environment too: the hook's recursion guard reads it.
-    const r = run(mct, ["new", team, seat, "--cwd", cwd, "--launch", `MIADI_MIETTE_SEAT=${seat} ${launch}`, "--remote", "--prompt-file", primerPath, "-d"], { timeout: 60_000 });
+    const agentFlags = agent === "hermes" ? ["--no-name"] : ["--remote"];
+    const r = run(mct, ["new", team, seat, "--cwd", cwd, "--launch", `MIADI_MIETTE_SEAT=${seat} ${hermesLaunchEnvironment(agent)}${launch}`, ...agentFlags, "--prompt-file", primerPath, "-d"], { timeout: 60_000 });
     log(`mct new ${team} ${seat}: exit ${r.status}${r.err ? ` · ${r.err.split("\n").at(-1)}` : ""}`);
     if (!r.ok) return r.status ?? 1;
     opened = { carrier: "tmux" };

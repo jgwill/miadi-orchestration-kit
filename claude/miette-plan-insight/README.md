@@ -88,6 +88,13 @@ session-observability did not, and runs `plan-insight-register` to carry it to t
 
 ## Check
 
+Since 0.1.4 the scripts are also the shared runtime for
+`hermes-agent/miette-plan-insight`. `MIADI_MIETTE_AGENT=hermes` selects native
+reviewer flags, prompt ledgers and session identities; without it Claude's
+existing launch and skill contract is unchanged. The Hermes launcher carries
+its profile/state explicitly into a tmux or Herdr seat. This avoids a divergent
+copy of the version/listen/file/mission protocol.
+
 ```bash
 node --test scripts/miette-plan-insight.test.mjs     # stand-ins for mct and the interpreter; nothing opens
 node scripts/miette-plan-insight.mjs open --session <key> --dry-run

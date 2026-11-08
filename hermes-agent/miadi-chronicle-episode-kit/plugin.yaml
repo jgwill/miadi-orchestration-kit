@@ -1,0 +1,12 @@
+name: miadi-chronicle-episode-kit
+version: 0.1.0
+description: Canonical Chronicle practices, native vessel guard and Miadi addresses; reuses the Miadi HTTP bridge.
+author: Miadi
+requires_hermes: ">=0.23.0"
+requires_plugins:
+  - id: miadi
+    version_range: ">=0.3.0"
+provides_tools: []
+provides_hooks:
+  - pre_tool_call
+  - transform_llm_output

@@ -1,9 +1,12 @@
 name: miadi-session-observability
-version: 0.1.0
+version: 0.1.1
 description: Local, redacted Miadi session capture and terminal continuity for Hermes.
 author: Miadi
 requires_hermes: ">=0.23.0"
 homepage: https://github.com/jgwill/miadi-orchestration-kit
+requires_plugins:
+  - id: miadi
+    version_range: ">=0.3.0"
 provides_tools: []
 provides_hooks:
   - on_session_start

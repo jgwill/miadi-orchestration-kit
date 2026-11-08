@@ -23,7 +23,8 @@ export function stateRoot(env = process.env) {
 export function sessionDataRoot(env = process.env) {
   // The order session-observability's lib.sh and mct read.
   return (
-    text(env.CLAUDE_SESSIONDATA_ROOT) ??
+    (env.MIADI_MIETTE_AGENT === "hermes" ? text(env.HERMES_SESSIONDATA_ROOT) : undefined) ??
+    (env.MIADI_MIETTE_AGENT === "hermes" ? undefined : text(env.CLAUDE_SESSIONDATA_ROOT)) ??
     text(env.MIADI_SESSION_DIR) ??
     text(env.MIADI_SESSIONDATA_ROOT) ??
     text(env.SESSION_DATA_ROOT) ??
@@ -88,9 +89,21 @@ export function shortKey(key) {
   return k.slice(0, 8);
 }
 
-/** A Claude session id, as opposed to a mission or an ask kept by this plugin. */
+/** A Claude or local Hermes session id, as opposed to a mission or an ask. */
 export function isSessionId(key) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(key));
+  const value = String(key);
+  // Hermes shapes are grounded in hermes_state_ids.py; mission-/ask- keys
+  // remain private seat state, never fabricated conversation captures.
+  return [
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    /^local-[0-9a-f]{64}$/i,
+    /^\d{8}_\d{6}_[0-9a-f]+$/i,
+    /^cron_[A-Za-z0-9][A-Za-z0-9._-]*_\d{8}_\d{6}$/,
+    /^bg_(?:\d{6}_)?[0-9a-f]{6}$/,
+    /^(?:room_|run_)[0-9a-f]{32}$/,
+    /^api_\d{9,}_[0-9a-f]{8}$/,
+    /^api-[0-9a-f]{16}$/
+  ].some((pattern) => pattern.test(value));
 }
 
 /** The first line of an insight that carries its recommendation, for a one-line summary. */
@@ -158,11 +171,11 @@ export function episodeOf(join) {
 }
 
 /** The first prompt the seat receives. It names the plan, the session and the episode, and the skill to follow. */
-export function primerText({ seat, sessionId, planningTmux, planPath, userInputs, episode, mission, source, stateDir, fileCommand = "node <plugin>/scripts/miette-plan-insight.mjs file" }) {
+export function primerText({ seat, sessionId, planningTmux, planPath, userInputs, episode, mission, source, stateDir, agent = "claude", fileCommand = "node <plugin>/scripts/miette-plan-insight.mjs file" }) {
   const byHand = typeof source === "string" && source.startsWith("asked by hand");
   const lines = [
     `You are Miette in the plan insight seat ${seat}.`,
-    `Load the miette-plan-insight skill and follow it.`,
+    `Load the ${agent === "hermes" ? "miette-plan-insight:miette-plan-insight" : "miette-plan-insight"} skill and follow it.`,
     ``,
     byHand
       ? `This plan was asked for by hand${planningTmux ? ` from tmux ${planningTmux}` : ""} (key ${sessionId}).`
