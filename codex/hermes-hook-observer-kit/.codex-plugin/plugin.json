@@ -1,0 +1,45 @@
+{
+  "name": "hermes-hook-observer-kit",
+  "version": "0.1.0",
+  "description": "Codex plugin for the Hermes hook-driven observational control plane. Instruments sessions with typed semantic hooks, prepares subscriber manifests, and runs an observer agent that builds long-horizon traces and emits quality/risk/alignment signals.",
+  "author": {
+    "name": "Miadi",
+    "url": "https://github.com/jgwill/miadi-orchestration-kit"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/codex/hermes-hook-observer-kit",
+  "repository": "https://github.com/jgwill/miadi-orchestration-kit",
+  "license": "MIT",
+  "keywords": [
+    "hermes",
+    "miadi",
+    "hooks",
+    "event-driven",
+    "observer",
+    "mape-k",
+    "ncp",
+    "codex",
+    "control-plane"
+  ],
+  "agents": "./agents/",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Hermes Hook Observer Kit",
+    "shortDescription": "Instrument Hermes sessions with typed hooks and run the observational control plane.",
+    "longDescription": "A Codex-native plugin that prepares a Hermes session surface with typed semantic hooks, assigns event topics, produces a subscriber manifest, and runs the hermes-event-observer agent to build long-horizon traces, evaluate behaviour against design intent and NCP narrative constraints, and emit quality/risk/alignment signals back into the control plane.",
+    "developerName": "Miadi",
+    "category": "Development",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/jgwill/miadi-orchestration-kit",
+    "privacyPolicyURL": "https://github.com/jgwill/miadi-orchestration-kit",
+    "termsOfServiceURL": "https://github.com/jgwill/miadi-orchestration-kit/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Prepare hook instrumentation for this Hermes session.",
+      "Run the observer agent on the current event trace.",
+      "Emit quality and risk signals for this session."
+    ],
+    "brandColor": "#1E40AF"
+  }
+}
