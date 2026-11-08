@@ -36,6 +36,8 @@ with it depends on you publishing it." A change to a package is finished when al
 5. Publish in dependency order (README.md, "Build, test, install"), with the token in
    `~/.config/sanctuaire-apt.env`.
 6. Install on gaia: `sudo apt-get install --no-install-recommends <package>`.
+   A package that serves the Miadi web app, such as `miadi-server`, is not installed on a host that
+   runs the app from a source build, gaia included. It goes on the hosts that run the app from the package.
 7. Say what was published.
 
 A Termux build (`termux/<package>`) is published by its push: a phone with
