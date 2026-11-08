@@ -3,7 +3,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y --no-install-recommends ca-certificates curl xvfb xauth iproute2 procps >/dev/null
-apt-get install -y --no-install-recommends /debs/miadi-deepdiver-chromium_1.64.1-1_amd64.deb /debs/miadi-deepdiver_0.1.0-1_amd64.deb /debs/deepdiver_0.1.0-1_all.deb >/dev/null
+apt-get install -y --no-install-recommends /debs/miadi-deepdiver-chromium_1.64.1-1_amd64.deb /debs/miadi-deepdiver_0.1.0-2_amd64.deb /debs/deepdiver_0.1.0-1_all.deb >/dev/null
 printf 'PASS install %s\n' "$(. /etc/os-release; echo "$PRETTY_NAME")"
 test ! -e /root/.config/deepdiver
 /usr/bin/python3 /tests/deepdiver-assert.py
@@ -130,16 +130,16 @@ printf 'PASS init and clone routes use the APT home and preserve the old profile
 env https_proxy=http://127.0.0.1:9 http_proxy=http://127.0.0.1:9 /usr/bin/python3 -I /usr/lib/miadi-deepdiver/install-browser.py >/dev/null
 printf 'PASS cached browser offline reinstall\n'
 # Reinstall while disconnected: venv uses only the packaged wheels.
-apt-get --reinstall install -y --no-install-recommends /debs/miadi-deepdiver_0.1.0-1_amd64.deb >/dev/null
+apt-get --reinstall install -y --no-install-recommends /debs/miadi-deepdiver_0.1.0-2_amd64.deb >/dev/null
 test "$before" = "$(sha256sum "$cfg")"
 # Upgrade from a generated prior-version fixture; not a claim of prior release.
-dpkg-deb -R /debs/miadi-deepdiver_0.1.0-1_amd64.deb /tmp/old
+dpkg-deb -R /debs/miadi-deepdiver_0.1.0-2_amd64.deb /tmp/old
 sed -i 's/^Version: .*/Version: 0.0.9-1/' /tmp/old/DEBIAN/control
 dpkg-deb -Zzstd -z3 --build /tmp/old /tmp/old.deb >/dev/null
 dpkg --remove deepdiver >/dev/null
 dpkg -i /tmp/old.deb >/dev/null
-apt-get install -y --no-install-recommends /debs/miadi-deepdiver_0.1.0-1_amd64.deb >/dev/null
-test "$(dpkg-query -W -f='${Version}' miadi-deepdiver)" = 0.1.0-1
+apt-get install -y --no-install-recommends /debs/miadi-deepdiver_0.1.0-2_amd64.deb >/dev/null
+test "$(dpkg-query -W -f='${Version}' miadi-deepdiver)" = 0.1.0-2
 test "$before" = "$(sha256sum "$cfg")"
 printf 'PASS reinstall and fixture upgrade\n'
 apt-get remove -y miadi-deepdiver >/dev/null
