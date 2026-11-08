@@ -385,6 +385,12 @@ PY
     apt-get remove -y -qq miadi-feedback >/dev/null 2>&1 && test ! -e /usr/bin/miadi-feedback && echo "remove takes the command with it"
   fi
 
+  if dpkg -s miadi-server >/dev/null 2>&1; then
+    test -x /usr/bin/miadi-server
+    grep -qx "ExecStart=/usr/bin/miadi-server" /usr/lib/systemd/user/miadi-server.service
+    bash /tmp/tests/miadi-server.sh
+  fi
+
   if dpkg -s miadi-node >/dev/null 2>&1; then
     dpkg -s miadi-node | sed -n "s/^Version: /installed miadi-node /p"
     test "$(/usr/lib/miadi-node/bin/node --version)" = "v$(dpkg -s miadi-node | sed -n "s/^Version: \([^-]*\)-.*/\1/p")"

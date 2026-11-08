@@ -27,6 +27,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
 | `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases: `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` | 0.1.0 |
 | `miadi-chronicle-server` | the chronicle's host services: `miadi-capture-service` (a per-user unit, not started), `miadi-episode-capture`, `miadi-transcription`, `miadi-hooks`, `miadi-hooks-interpret`, `miadi-chart-pulse` (0.1.3), `plan-insight-register` (`miadi` depends on it since 0.4.0) | 0.1.0 |
+| `miadi-server` | the Miadi web app as a per-user service: `miadi-server` (launcher, `check`) and a unit, not started. Not part of `miadi` | 0.1.0 |
 | `miadi-music` | music on the host, for an album or an episode's score: brings the three below and the `miadi-music` command | 0.1.0 |
 | `miadi-music-render` | ABC to MIDI, audio and the engraved page: abcmidi, abcm2ps, fluidsynth with the FluidR3 soundfont, ffmpeg | 0.1.0 |
 | `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
@@ -410,6 +411,18 @@ reply, up to three times, then lets the turn end and says so.
 To move a pin: change `prep/<half>.packages`, bump the half's `Version:`,
 build, test, publish. A Node release is a new `miadi-node` Version
 (`24.21.0-1` names `v24.21.0`); the halves accept any 24.x.
+
+## miadi-server
+
+The launcher and per-user unit for the Miadi web app (jgwill/Miadi). The checkout, its
+dependencies and its build stay with the checkout, the package starts nothing, and `miadi` does
+not depend on it, because most hosts do not serve the app. The launcher reads three host settings
+(`MIADI_PROJECT_DIR`, else `MIADI_SRC`, then `MIADI_MODE_FILE` and `MIADI_PORT`) and passes the app
+nothing else, so the app's settings stay in the checkout's `.env`. Setup is in
+`/usr/share/doc/miadi-server/README`. `tests/miadi-server.sh` covers what it starts and refuses.
+
+`docker/miadi-server/Dockerfile` builds the app in a container from this package and a `git archive` of
+the source. Nothing secret stays in the image.
 
 ## miadi-film
 

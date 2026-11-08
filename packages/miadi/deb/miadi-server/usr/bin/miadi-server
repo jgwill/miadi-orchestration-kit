@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# miadi-server — run the Miadi web app from this host's checkout. Installed by miadi-server.
+#   miadi-server         start it, in the mode its mode file names (the systemd unit runs this)
+#   miadi-server check   say what it would run and what stops it
+#
+# Three host settings, from the environment, else from miadi-config:
+#   MIADI_PROJECT_DIR   the checkout, else MIADI_SRC
+#   MIADI_MODE_FILE     holds dev or prod (default /etc/miadi/mode); no file means prod
+#   MIADI_PORT          the port (default 3335)
+# The app's own settings stay in the checkout's .env. This launcher passes it nothing else.
+set -euo pipefail
+
+# Exit 2 is a setup problem. The unit does not restart on it, so a host with no build does not crash-loop.
+die() { echo "miadi-server: $*" >&2; exit 2; }
+
+setting() { # setting NAME: the environment's value, else this host's
+	if [ -n "${!1:-}" ]; then printf '%s\n' "${!1}"; else miadi-config get "$1" 2>/dev/null || true; fi
+}
+
+dir=$(setting MIADI_PROJECT_DIR)
+[ -n "$dir" ] || dir=$(setting MIADI_SRC)
+mode_file=$(setting MIADI_MODE_FILE)
+mode_file=${mode_file:-/etc/miadi/mode}
+port=$(setting MIADI_PORT)
+port=${port:-3335}
+mode=prod
+if [ -r "$mode_file" ]; then mode=$(tr -d '[:space:]' < "$mode_file"); fi
+
+# problems: what stops the app from starting, one per line
+problems() {
+	if [ -z "$dir" ] || [ ! -e "$dir/package.json" ]; then
+		echo "no checkout at '${dir:-(unset)}': sudo miadi-config set MIADI_PROJECT_DIR <checkout of jgwill/Miadi>"
+		return
+	fi
+	case $mode in
+		dev) ;;
+		prod) [ -f "$dir/.next/BUILD_ID" ] || echo "no production build in $dir/.next: build it first (pnpm build)" ;;
+		*) echo "$mode_file says '$mode', which is neither dev nor prod" ;;
+	esac
+	command -v node >/dev/null || echo "node is not on PATH"
+	command -v pnpm >/dev/null || echo "pnpm is not on PATH: install it for this host"
+}
+
+case ${1:-start} in
+	check)
+		echo "checkout  ${dir:-(unset)}"
+		echo "mode      $mode ($mode_file)"
+		echo "port      $port"
+		found=$(problems)
+		[ -n "$found" ] || { echo "ok        ready to start"; exit 0; }
+		while IFS= read -r line; do echo "missing   $line"; done <<<"$found"
+		exit 1
+		;;
+	start)
+		found=$(problems)
+		[ -z "$found" ] || die "$found"
+		cd "$dir"
+		export PORT=$port
+		if [ "$mode" = dev ]; then exec pnpm dev; else exec pnpm start; fi
+		;;
+	*) die "usage: miadi-server [check]" ;;
+esac
