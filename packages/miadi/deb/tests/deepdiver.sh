@@ -5,7 +5,7 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
 image=${IMAGE:-ubuntu:22.04}
 # Metadata alone can be read while dpkg-deb is still writing data.tar.
-for deb in miadi-deepdiver-chromium_1.64.1-1_amd64 miadi-deepdiver_0.1.0-1_amd64 deepdiver_0.1.0-1_all; do
+for deb in miadi-deepdiver-chromium_1.64.1-1_amd64 miadi-deepdiver_0.1.0-2_amd64 deepdiver_0.1.0-1_all; do
   test "$(dpkg-deb -f "$here/dist/$deb.deb" Package)" = "${deb%%_*}"
   dpkg-deb --contents "$here/dist/$deb.deb" >/dev/null
 done

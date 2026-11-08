@@ -11,11 +11,16 @@ As the desktop user, not root:
   deepdiver chrome status
   miadi-deepdiver doctor --claude
 
-Claude Code is installed/authenticated separately. setup --claude installs the
+Claude Code is installed/authenticated separately. A Claude Code too old to
+list plugins is brought forward with its own claude install stable, and the old
+version stays on disk. setup --claude installs the
 existing miadi-deepdiver@miadi-orchestration-kit marketplace plugin and the
 fork's embedded skills with deepdiver skills install --agent claude. Existing
 config, disabled plugin settings and differing personal skills are preserved.
-Restart Claude to load plugin hooks. The kit's screenwalk-notebook skill and
+Both commands then report what /deepdive reaches beyond this CLI, as OK factory
+or FACTORY NEEDS with its remedy: node, ffmpeg, the chronicle checkout, the API
+writer token, the episode door, the miadi-review client and Jev. These never
+block plain notebooks. Restart Claude to load plugin hooks. The kit's screenwalk-notebook skill and
 plan-before-render gate stay canonical; read the fork manual with
   deepdiver skills show notebooklm-automation
 

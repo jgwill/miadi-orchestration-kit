@@ -14,6 +14,6 @@ for abi, items in lock['runtime'].items():
     assert abi in ('cp310', 'cp311', 'cp312')
     for item in items:
         assert hashlib.sha256((share/'wheels'/item['filename']).read_bytes()).hexdigest() == item['sha256']
-assert subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'miadi-deepdiver'], text=True) == '0.1.0-1'
+assert subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'miadi-deepdiver'], text=True) == '0.1.0-2'
 assert subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'miadi-deepdiver-chromium'], text=True) == '1.64.1-1'
 print('PASS dpkg versions, pinned source/hash, captured wheel hashes and exclusion of raw debug/source archive')

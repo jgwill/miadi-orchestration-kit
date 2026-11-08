@@ -479,7 +479,7 @@ deepdiver chrome status
 miadi-deepdiver doctor --claude
 ```
 
-`miadi-deepdiver` 0.1.0-1 carries source commit
+`miadi-deepdiver` 0.1.0-2 carries source commit
 `91898f367d519f8468943afcec356b839652a58c`, a normalized reproducible fork wheel,
 and all locked dependencies for Python 3.10/3.11/3.12, in
 `/usr/share/miadi-deepdiver/`. Its upstream Python metadata still says 0.1.1;
@@ -523,7 +523,11 @@ skills/settings. It calls the **existing** marketplace plugin
 `skills install --agent claude`, without `--force`. An explicitly disabled
 plugin stays disabled; the helper reports the intended enable command instead
 of overriding personal/project policy. Claude Code installation/authentication
-is separate. Restart Claude after installing: hooks are loaded at session
+is separate, except that a Claude Code too old to list plugins (2.0.76 has no
+`plugin list`) is brought forward with its own `claude install stable`. `setup --claude` and `doctor --claude` end
+with what `/deepdive` reaches beyond this CLI: `OK factory` or `FACTORY NEEDS`
+with its remedy, then `FACTORY READY` or `FACTORY NOT READY`. Plain notebooks are
+never blocked by these. Restart Claude after installing: hooks are loaded at session
 start. The kit's canonical `screenwalk-notebook` and plan-before-render gate
 are unchanged; the embedded fork manual is read with `deepdiver skills show`.
 

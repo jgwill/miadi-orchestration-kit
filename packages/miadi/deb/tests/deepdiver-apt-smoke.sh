@@ -10,7 +10,7 @@ printf 'deb [signed-by=/usr/share/keyrings/sanctuaire-agentique.gpg] https://apt
 apt-get update -qq
 apt-cache policy miadi-deepdiver deepdiver miadi-deepdiver-chromium
 apt-get install -y --no-install-recommends "${PACKAGE:-miadi-deepdiver}" >/dev/null
-test "$(dpkg-query -W -f='${Version}' miadi-deepdiver)" = 0.1.0-1
+test "$(dpkg-query -W -f='${Version}' miadi-deepdiver)" = 0.1.0-2
 /usr/bin/deepdiver --help >/dev/null
 /usr/lib/miadi-deepdiver/venv/bin/pip check
 useradd -m -s /bin/bash diver

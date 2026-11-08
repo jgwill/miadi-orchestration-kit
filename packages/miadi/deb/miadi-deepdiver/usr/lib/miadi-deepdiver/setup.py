@@ -21,11 +21,12 @@ REPO = 'jgwill/miadi-orchestration-kit'
 CONFIG = Path.home()/'.config/deepdiver/config.yaml'
 
 
-def run(args):
+def run(args, timeout=180):
     # No shell and no subprocess output/exception text that could echo credentials.
-    p = subprocess.run(args, capture_output=True, text=True, timeout=180)
+    # args come from this file, so naming the whole command exposes nothing.
+    p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
     if p.returncode:
-        raise RuntimeError(f'{args[0]} {args[1]} failed (exit {p.returncode}); run that command directly to diagnose.')
+        raise RuntimeError(f'{" ".join(args)} failed (exit {p.returncode}); run that command directly to diagnose.')
     return p.stdout
 
 
@@ -34,6 +35,31 @@ def claude_json(*args):
     if not isinstance(value, list):
         raise RuntimeError('Claude returned an unsupported plugin inventory; no settings changed.')
     return value
+
+
+def claude_label():
+    p = subprocess.run(['claude', '--version'], capture_output=True, text=True, timeout=60)
+    return shutil.which('claude')+' '+(p.stdout.split() or ['(unknown version)'])[0]
+
+
+def claude_lacks_inventory():
+    # Claude Code 2.0.76 has no `plugin list` and no --json on `marketplace list`.
+    for args in (('plugin', 'list', '--json'), ('plugin', 'marketplace', 'list', '--json')):
+        p = subprocess.run(['claude', *args], capture_output=True, text=True, timeout=180)
+        if p.returncode and ('unknown command' in p.stderr or 'unknown option' in p.stderr):
+            return True
+    return False
+
+
+def bring_claude_forward():
+    if not claude_lacks_inventory():
+        return
+    print('CLAUDE UPDATE: '+claude_label()+' cannot list plugins; running claude install stable.')
+    # `claude update` fails from 2.0.76. The old version stays beside the new one.
+    run(['claude', 'install', 'stable'], timeout=600)
+    if claude_lacks_inventory():
+        raise RuntimeError('CLAUDE TOO OLD: '+claude_label()+' comes first on PATH and still cannot list plugins. Put ~/.local/bin ahead of it, then rerun setup --claude.')
+    print('OK Claude Code: '+claude_label())
 
 
 def plugin_rows():
@@ -57,9 +83,47 @@ def plugin_check():
     print('OK plugin: existing screenwalk-notebook and plan reader; restart Claude to load hooks.')
 
 
+def factory_report():
+    """What /deepdive reaches beyond this CLI: each item is named with its remedy.
+
+    Never blocks, since a host that only makes notebooks works without these.
+    Names only: no value of any setting is printed.
+    """
+    env = os.environ.get
+    root, src = env('MIADI_CHRONICLE_ROOT'), env('MIADI_SRC') or '/src/Miadi'
+    review = 'packages/review-service/skills/miadi-review'
+    client = 'scripts/miadi_review.py'
+    lane = Path(env('LANE_CHECK_DIR') or '/workspace/repos/jgwill/smcraft/examples/decision-gate/lane-check')
+    kit = any(r.get('id') == 'miadi-chronicle-episode-kit@'+MARKET for r in claude_json('list'))
+    checks = [
+        ('node', shutil.which('node'),
+         'install Node.js on PATH; the word-gate hook and plan reader call node, and miadi-node stays private'),
+        ('ffmpeg and ffprobe', shutil.which('ffmpeg') and shutil.which('ffprobe'), 'sudo apt install ffmpeg'),
+        ('chronicle checkout', root and next(Path(root).glob('*/episode.yaml'), None),
+         'sudo apt install miadi-config, open a login shell, and clone the chronicle to $MIADI_CHRONICLE_ROOT'),
+        ('MIADI_API_URL and MIADI_API_TOKEN_WRITER', env('MIADI_API_URL') and env('MIADI_API_TOKEN_WRITER'),
+         'add MIADI_API_TOKEN_WRITER to ~/.env and open a login shell'),
+        ('episode door', kit or shutil.which('inquiry-weave-mcp'),
+         'sudo apt install miadi-chronicle-client, or claude plugin install miadi-chronicle-episode-kit@'+MARKET),
+        ('miadi-review client', (Path.home()/'.claude/skills/miadi-review'/client).is_file() or (Path(src)/review/client).is_file(),
+         'keep a jgwill/Miadi checkout at $MIADI_SRC, then ln -s "$MIADI_SRC/'+review+'" ~/.claude/skills/miadi-review'),
+        ('Jev plan reader', (lane/'lib/decider.mjs').is_file() and env('JEV_AI_API_KEY'),
+         'clone jgwill/smcraft or set LANE_CHECK_DIR, and add JEV_AI_API_KEY to ~/.env'),
+    ]
+    missing = 0
+    for name, found, remedy in checks:
+        if found:
+            print('OK factory: '+name)
+        else:
+            missing += 1
+            print('FACTORY NEEDS '+name+': '+remedy)
+    print('FACTORY READY' if not missing else f'FACTORY NOT READY: /deepdive needs the {missing} item(s) above; plain notebooks work without them.')
+
+
 def install_claude():
     if not shutil.which('claude'):
         raise RuntimeError('CLAUDE MISSING: install/sign in to Claude Code separately, then setup --claude.')
+    bring_claude_forward()
     markets = [r for r in claude_json('marketplace', 'list') if r.get('name') == MARKET]
     if markets and any(r.get('repo') != REPO for r in markets):
         raise RuntimeError('MARKETPLACE COLLISION: existing registration preserved; expected '+REPO)
@@ -79,6 +143,7 @@ def install_claude():
         if source.read_bytes() != target.read_bytes():
             raise RuntimeError('EMBEDDED SKILL PRESERVED: existing '+skill['dir_name']+' differs; review it before an explicit upstream --force install.')
     print('OK embedded skills: fork operating manual; kit skill remains canonical for the media workflow.')
+    factory_report()
 
 
 def legacy_installations():
@@ -208,7 +273,10 @@ def doctor(args):
             browser.close()
             print('OK sandboxed headless browser; no authenticated automation performed.')
     if args.claude:
+        if shutil.which('claude') and claude_lacks_inventory():
+            raise RuntimeError('CLAUDE TOO OLD: '+claude_label()+' cannot list plugins. miadi-deepdiver setup --claude brings it forward.')
         plugin_check()
+        factory_report()
     if not os.environ.get('DISPLAY'):
         print('DISPLAY UNAVAILABLE: headless checks do not establish desktop/sign-in readiness.')
     if not args.offline:
