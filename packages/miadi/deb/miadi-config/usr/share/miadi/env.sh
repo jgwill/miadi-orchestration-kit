@@ -127,12 +127,14 @@ export MIADI_INQUIRY_GITHUB_REPO="${MIADI_INQUIRY_GITHUB_REPO:-miadisabelle/Etua
 export MIADI_INQUIRY_API_BASE="${MIADI_INQUIRY_API_BASE:-http://127.0.0.1:3335}"
 
 # Services. Local ports are the defaults; public and tailnet URLs belong in miadi.env.
+export MIADI_SESSION_ISSUE_REPO="${MIADI_SESSION_ISSUE_REPO:-miadisabelle/chronicle-sessions}"
 export MIADI_API_URL_DEFAULT="${MIADI_API_URL_DEFAULT:-http://127.0.0.1:3335}"
 export MIADI_API_URL="${MIADI_API_URL:-$MIADI_API_URL_DEFAULT}"
 export MIADI_CHRONICLE_MW_URL="${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}" # the chronicle medicine wheel
 export MIADI_CHRONICLE_FW_URL="${MIADI_CHRONICLE_FW_URL:-http://127.0.0.1:8031}"
 export MIADI_STATELOOM_BRIDGE_URL="${MIADI_STATELOOM_BRIDGE_URL:-${STATELOOM_BRIDGE_URL:-http://127.0.0.1:4599}}"
 if [ -n "${MIADI_URL_BASE:-}" ]; then
+	export MIADI_PUBLIC_URL="${MIADI_PUBLIC_URL:-$MIADI_URL_BASE}"
 	export MIADI_PDE_WEBHOOK="${MIADI_PDE_WEBHOOK:-$MIADI_URL_BASE/api/pde/webhook}"
 	export MIADI_WEBHOOK_URL="${MIADI_WEBHOOK_URL:-$MIADI_URL_BASE/api/workflow/webhook}"
 fi
