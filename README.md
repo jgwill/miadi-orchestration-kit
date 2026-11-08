@@ -67,6 +67,17 @@ A plugin outside the marketplace loads from a checkout with `claude --plugin-dir
 | [`miette`](claude/miette) | a Two-Eyed Seeing check: a Stop hook measures Mia's and Miette's share of an output | no | Not working. Attempt at making outputs better when we were stuck with claude-opus-5.0 and its smart ass outputs.  Now better with claude-opus-5.5 and we disabled it.  Might be reused as example of how you can actually capture the LLM response and force them to read a skill and produce a different output programatically which was really great to observe |
 | [`miadi-session-orchestrator`](claude/miadi-session-orchestrator) | the review role in plan-insight pipelines | no | Very old and probably not good as it is, thought the goal implied by 'miadi-session-orchestrator' is great and we need it.  If I remember correctly, it was created as part of a desired to prepare sessions which has not advanced much as many exploration and other aspects was needed for that.  It would be subject of a full review and revision to be useful. |
 
+## Hermes Agent plugins
+
+[`hermes-agent/miadi-session-observability`](hermes-agent/miadi-session-observability)
+replaces the legacy Hermes capture hooks with a native plugin: redacted event
+ledgers, terminal bindings for tide, turn replies/history, usage events, and a
+namespaced session-continuity skill. No MCP server is needed for capture.
+Its installer defaults to a dry run, preserves unrelated hooks/plugins, and
+supports staging disabled until a coordinated gateway restart. Never enable it
+alongside the legacy Hermes capture hooks. See its README for installation,
+verification, and the features deliberately kept separate from recording.
+
 ## Apt packages
 
 `sudo apt install miadi` makes a machine a Miadi host. A client installs `miadi-terminal` and `miadi-chronicle-client`. Every package, its build and its tests: [`packages/miadi/deb`](packages/miadi/deb/README.md).
