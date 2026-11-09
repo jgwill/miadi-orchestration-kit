@@ -27,6 +27,55 @@ claude_work_started() {  # <hook input json>
     rm -f "$tmp"
 }
 
+# The real path of the nearest folder holding a .git, or the folder itself when there is none.
+miadi_repo_of() {  # <folder>
+    local here d
+    here=$(cd -P "$1" 2>/dev/null && pwd) || return 1
+    d="$here"
+    while [ -n "$d" ] && [ "$d" != "/" ]; do
+        [ -e "$d/.git" ] && { printf '%s' "$d"; return 0; }
+        d="${d%/*}"
+    done
+    printf '%s' "$here"
+}
+
+# True while a Claude Code process holds this session (its live registry, ~/.claude/sessions/<pid>.json).
+miadi_session_live() {  # <session id>
+    local file
+    file=$(grep -ls "\"sessionId\":\"$1\"" "$HOME"/.claude/sessions/*.json 2>/dev/null | head -n 1)
+    [ -n "$file" ] && kill -0 "$(basename "$file" .json)" 2>/dev/null
+}
+
+# Prints, for the agent, the other live sessions with a reply in progress in this session's
+# repository: what each was asked and the last files it wrote there. Nothing when there are none.
+# A person should not have to say "another agent is working here". One jq reads every marker
+# and a repository is worked out once per folder: this runs on every prompt.
+claude_work_neighbours() {  # <hook input json>
+    local sid cwd repo dir other other_cwd started prompt where files shown=0 extra=0 lines=""
+    local -A repo_of_cwd=()
+    IFS=$'\t' read -r sid cwd < <(jq -r '[.session_id // "", .cwd // ""] | @tsv' <<< "$1" 2>/dev/null)
+    [ -n "$sid" ] && [ -n "$cwd" ] || return 0
+    dir=$(miadi_working_dir)
+    [ -d "$dir" ] || return 0
+    repo=$(miadi_repo_of "$cwd") || return 0
+    while IFS=$'\t' read -r other other_cwd started prompt; do
+        [ "$other" != "$sid" ] && [ -n "$other_cwd" ] || continue
+        [ -n "${repo_of_cwd[$other_cwd]+x}" ] || repo_of_cwd[$other_cwd]=$(miadi_repo_of "$other_cwd" 2>/dev/null)
+        [ "${repo_of_cwd[$other_cwd]}" = "$repo" ] || continue
+        if [ "$shown" -ge 3 ]; then extra=$((extra + 1)); continue; fi
+        miadi_session_live "$other" || continue
+        shown=$((shown + 1))
+        where=$(tail -n 1 "$CLAUDE_SESSIONDATA_ROOT/$other/_terminal_binding.jsonl" 2>/dev/null | jq -r '.tmux.session // empty' 2>/dev/null)
+        files=$(tail -n 60 "$CLAUDE_SESSIONDATA_ROOT/$other/_claude_files_written.jsonl" 2>/dev/null | jq -r '.path // empty' 2>/dev/null \
+            | grep -F "$repo/" | sed "s#^$repo/##" | tac | awk '!seen[$0]++' | head -n 5 | paste -sd, - | sed 's/,/, /g')
+        lines+="- ${where:-a session} ($other), since $started: \"${prompt:0:120}\"${files:+. Recent files: $files}"$'\n'
+    done < <(find "$dir" -maxdepth 1 -name '*.json' -mmin -720 -exec jq -r '[.session_id // "", .cwd // "", .started_at // "", .prompt // ""] | @tsv' {} + 2>/dev/null)
+    [ "$shown" -gt 0 ] || return 0
+    printf 'Other sessions have a reply in progress in this repository (%s). Keep off what they hold. For what one did: miadi-hooks-interpret digest <id>\n%s' "$repo" "$lines"
+    [ "$extra" -eq 0 ] || printf 'And %d more.\n' "$extra"
+    return 0
+}
+
 claude_work_finished() {  # <hook input json>
     local sid
     sid=$(jq -r '.session_id // empty' <<< "$1" 2>/dev/null)

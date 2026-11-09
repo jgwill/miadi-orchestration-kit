@@ -67,7 +67,11 @@ session name changes with `/rename`, and every change is a `session.rename` line
    pass they start while available memory, measured then, stays above the floor (0.9.73). A
    session cut off mid-reply starts first, with one line as its first prompt: its request, and to
    check the live state and continue until it is finished. The line does not say why the work
-   stopped, because the next step is the same after a reboot, a crash or a kill-server. An agent that had
+   stopped, because the next step is the same after a reboot, a crash or a kill-server. A session
+   that was waiting for the person is told otherwise (ironsilk 0.9.76): tide reads the mode and the
+   open tool from its transcript. A plan nobody answered comes back in plan mode and is presented
+   again unchanged, its Miette seat is told to listen again, and a question is asked again. Neither
+   is carried out without the person. An agent that had
    exited starts nothing and gets nothing typed: its pane keeps a note (the pane option
    `@miadi-resume`), `tide agents list` shows it `exited`, and `tide agents resume [pane]`
    brings it back when the human chooses (William, 2026-10-07).

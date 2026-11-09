@@ -23,3 +23,6 @@ claude_write_json "$output_dir/last_claude_user_inputs.jsonl" "$input" # We migh
 claude_artifact_comments_prompt_queue "$output_dir" "$input"
 
 #echo "" >> "$output_dir/_claude_user_inputs.jsonl"
+
+# Told to the agent: who else has a reply in progress in this repository. Last, after the capture.
+claude_work_neighbours "$input"
