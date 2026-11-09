@@ -181,10 +181,14 @@ async function readStdin() {
 function keepPlan({ key, planText, planningTmux, cwd, transcriptPath, mission, episode, source }) {
   const stateDir = stateDirOf(key);
   mkdirSync(stateDir, { recursive: true });
-  const planPath = join(stateDir, `plan-${planStamp()}.md`);
-  writeFileSync(planPath, planText.endsWith("\n") ? planText : `${planText}\n`);
-
   const prior = readJson(seatFileOf(key), {});
+  // The same plan presented again is the same version, and no new version wakes Miette: a restore
+  // brings back a plan nobody answered, and she has already read it.
+  const text = planText.endsWith("\n") ? planText : `${planText}\n`;
+  const unchanged = prior.last_plan && existsSync(prior.last_plan) && readFileSync(prior.last_plan, "utf8") === text;
+  const planPath = unchanged ? prior.last_plan : join(stateDir, `plan-${planStamp()}.md`);
+  if (!unchanged) writeFileSync(planPath, text);
+
   // A seat name already serving another key gets a number, so two plans asked for from one
   // tmux session never share a seat, and a running seat's listener never loses its key.
   // A name whose seat no longer runs is free again.
@@ -216,12 +220,13 @@ function keepPlan({ key, planText, planningTmux, cwd, transcriptPath, mission, e
   const log = openSync(join(stateDir, "open.log"), "a");
   const child = spawn(process.execPath, [SCRIPT, "open", "--session", key], { detached: true, stdio: ["ignore", log, log], env });
   child.unref();
-  return { seat, running: seatRunning(seat, prior.carrier), listening: listenerAlive(key), planPath };
+  return { seat, running: seatRunning(seat, prior.carrier), listening: listenerAlive(key), planPath, unchanged: Boolean(unchanged) };
 }
 
 /** What the person who presented the plan is told about the seat. */
-function seatNotice(seat, running, listening) {
+function seatNotice(seat, running, listening, unchanged) {
   if (!running) return `Miette is opening a seat named ${seat} to read this plan.`;
+  if (unchanged) return `Miette has already read this plan in ${seat}.`;
   if (listening) return `Miette reads this new version of the plan in ${seat}.`;
   return `Miette's seat ${seat} is open and is not listening: run /miette-listen there and she reads this version.`;
 }
@@ -246,7 +251,7 @@ async function hook() {
   }
   if (!plan?.trim()) return 0;
 
-  const { seat, running, listening } = keepPlan({
+  const { seat, running, listening, unchanged } = keepPlan({
     key: input.sessionId,
     planText: plan,
     planningTmux,
@@ -254,7 +259,7 @@ async function hook() {
     transcriptPath: input.transcriptPath,
     source: "ExitPlanMode"
   });
-  process.stdout.write(`${JSON.stringify({ systemMessage: seatNotice(seat, running, listening) })}\n`);
+  process.stdout.write(`${JSON.stringify({ systemMessage: seatNotice(seat, running, listening, unchanged) })}\n`);
   return 0;
 }
 

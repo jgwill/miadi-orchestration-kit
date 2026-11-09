@@ -139,6 +139,22 @@ test("the hook keeps the plan, answers at once, and the seat opens with mct new 
   }
 });
 
+test("the same plan presented again is the same version, and a changed plan is a new one", () => {
+  const { dir, env, stateOf } = host();
+  const present = (plan) => cli(["hook"], env, JSON.stringify({ session_id: SID, tool_name: "ExitPlanMode", cwd: dir, tool_input: { plan } }));
+  const versions = () => readdirSync(stateOf(SID)).filter((n) => n.startsWith("plan-")).length;
+  try {
+    assert.equal(present("# Plan\nship it").status, 0);
+    assert.equal(versions(), 1);
+    assert.equal(present("# Plan\nship it").status, 0);
+    assert.equal(versions(), 1, "a plan a restore presents again wakes nobody");
+    assert.equal(present("# Plan\nship it, revised").status, 0);
+    assert.equal(versions(), 2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a hook turned off, or given no plan, writes nothing", () => {
   const { dir, env } = host();
   try {
