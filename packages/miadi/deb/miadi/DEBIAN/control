@@ -1,9 +1,9 @@
 Package: miadi
-Version: 0.5.0
+Version: 0.6.0
 Section: misc
 Priority: optional
 Architecture: all
-Depends: miadi-config (>= 0.2.0), miadi-tide (>= 0.1.1), miadi-tmux (>= 3.7c), miadi-perms (>= 0.1.0), miadi-chronicle-server (>= 0.1.0), miadi-terminal (>= 0.3.0)
+Depends: miadi-config (>= 0.2.0), miadi-tide (>= 0.1.1), miadi-tmux (>= 3.7c), miadi-perms (>= 0.1.0), miadi-chronicle-server (>= 0.1.0), miadi-terminal (>= 0.3.0), miadi-claude (>= 0.1.0)
 Recommends: miadi-chronicle-client (>= 0.1.0)
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
@@ -15,6 +15,7 @@ Description: Miadi host platform
  and write on the shared session capture every 4 hours,
  miadi-chronicle-server, the chronicle's host services (capture, hooks,
  plan insight), and miadi-terminal, the tmux settings every user's tmux
- starts with and the per-user integrations. It recommends
+ starts with and the per-user integrations, and miadi-claude, the one
+ command that sets up Claude Code for an account. It recommends
  miadi-chronicle-client, the chronicle's commands and MCP servers for the
  agents that run on the host.

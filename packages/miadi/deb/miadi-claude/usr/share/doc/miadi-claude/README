@@ -1,0 +1,35 @@
+miadi-claude: Claude Code on a Miadi host, one command per account
+
+  miadi-claude setup    capture this account's Claude Code sessions
+  miadi-claude status   what is set up and what setup would change
+
+Run it as the account, never with sudo. An administrator sets up another account with:
+
+  sudo -iu <user> miadi-claude setup
+
+What setup does, in order, stopping at the first thing it cannot do:
+
+  1. Checks that this account can write the capture folder.
+  2. Adds the miadi-orchestration-kit marketplace to Claude Code when it is absent.
+  3. Installs the miadi-session-observability plugin for this account.
+  4. Removes from ~/.claude/settings.json the entries that run a retired claude_hooks/*_hook.sh.
+
+Step 4 comes last, so a failure before it leaves the old capture running. A hook of your own
+stays. A command that runs a retired hook and does something else stays, and setup names it.
+settings.json as it was before the first change is kept beside it as
+settings.json.bak-miadi-claude.
+
+Hooks load when a session starts, so restart any Claude session running at that moment. Until
+it restarts, a session whose hand-wired hooks were removed captures nothing.
+
+To undo: claude plugin uninstall miadi-session-observability@miadi-orchestration-kit, and copy
+settings.json.bak-miadi-claude back over settings.json.
+
+A disabled plugin stays disabled: setup says how to enable it and leaves settings.json alone.
+
+What it records: every Claude Code event of this account's sessions, sanitized, under the capture
+folder. That folder is MIADI_SESSIONDATA_ROOT, /src/_sessiondata when it exists, else
+~/_sessiondata. Read claude/miadi-session-observability/README.md in the kit before running it on
+an account shared with people who have not agreed to that.
+
+Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb

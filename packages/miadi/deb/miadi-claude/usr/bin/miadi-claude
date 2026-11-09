@@ -1,0 +1,360 @@
+#!/usr/bin/python3
+"""miadi-claude: Claude Code on a Miadi host, one command per account.
+
+Installed by miadi-claude (jgwill/miadi-orchestration-kit).
+
+    miadi-claude setup    capture this account's Claude Code sessions, and retire hooks wired by hand
+    miadi-claude status   what is set up and what setup would change (changes nothing)
+
+Setup installs the miadi-session-observability plugin for this account, then removes from
+settings.json only the hook entries that plugin replaces. It runs as the user. The package
+writes nothing into a home directory.
+
+Exit 0: ready. Exit 1: something is missing or blocked, and the output names the remedy.
+"""
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+MARKET = "miadi-orchestration-kit"
+REPO = "jgwill/miadi-orchestration-kit"
+PLUGIN = "miadi-session-observability@" + MARKET
+
+# The hooks once wired by hand into settings.json, which the plugin carries under the same names.
+# This list is the past: a hook added to the plugin later was never wired by hand.
+RETIRED = (
+    "accepted_redirection_hook corrective_feedback_hook notification_hook permission_request_hook "
+    "post_tool_use_failure_hook post_tool_use_hook pre_compact_hook pre_tool_use_hook "
+    "session_end_hook session_start_hook stop_hook subagent_start_hook subagent_stop_hook "
+    "user_prompt_submit_hook"
+).split()
+# The whole command must be one retired hook. A command that does more is a person's own.
+RETIRED_COMMAND = re.compile(
+    r"""\s*(?:(?:/usr/bin/|/bin/)?(?:bash|sh)\s+)?(["']?)[^\s;&|"']*claude_hooks/(?:%s)\.sh\1\s*"""
+    % "|".join(RETIRED)
+)
+MENTIONS_RETIRED = re.compile(r"claude_hooks/[a-z_]*_hook\.sh")
+
+
+class Blocked(Exception):
+    """Stop here. The message says what is wrong and what to run."""
+
+
+def config_dir():
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+
+
+def settings_path():
+    # A settings.json kept with other dotfiles is a link: change the file it points to.
+    return (config_dir() / "settings.json").resolve()
+
+
+def run(args, timeout=180):
+    # args come from this file. Claude's output is not shown, since it may echo a credential.
+    done = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    if done.returncode:
+        raise Blocked(f'{" ".join(args)} failed (exit {done.returncode}). Run that command to see why.')
+    return done.stdout
+
+
+def claude_list(*args):
+    try:
+        value = json.loads(run(["claude", "plugin", *args, "--json"]))
+    except json.JSONDecodeError:
+        raise Blocked("Claude Code returned a plugin list this command cannot read. Nothing changed.")
+    if not isinstance(value, list):
+        raise Blocked("Claude Code returned a plugin list this command cannot read. Nothing changed.")
+    return value
+
+
+def claude_label():
+    done = subprocess.run(["claude", "--version"], capture_output=True, text=True, timeout=60)
+    return shutil.which("claude") + " " + (done.stdout.split() or ["(unknown version)"])[0]
+
+
+def claude_too_old():
+    # Claude Code 2.0.76 has no `plugin list` and no --json on `marketplace list`.
+    for args in (("plugin", "list", "--json"), ("plugin", "marketplace", "list", "--json")):
+        done = subprocess.run(["claude", *args], capture_output=True, text=True, timeout=180)
+        if done.returncode and ("unknown command" in done.stderr or "unknown option" in done.stderr):
+            return True
+    return False
+
+
+def bring_claude_forward():
+    if not claude_too_old():
+        return
+    print("update   " + claude_label() + " cannot list plugins: running claude install stable")
+    # `claude update` fails from 2.0.76. The old version stays beside the new one.
+    run(["claude", "install", "stable"], timeout=600)
+    if claude_too_old():
+        raise Blocked(claude_label() + " comes first on PATH and still cannot list plugins. "
+                      "Put ~/.local/bin ahead of it, then run miadi-claude setup again.")
+
+
+def capture_root():
+    """The folder the plugin's hooks write to: the rule of its hooks/claude_hooks/lib.sh."""
+    for name in ("CLAUDE_SESSIONDATA_ROOT", "MIADI_SESSION_DIR", "MIADI_SESSIONDATA_ROOT", "SESSION_DATA_ROOT"):
+        if os.environ.get(name):
+            return Path(os.environ[name])
+    if Path("/src/_sessiondata").is_dir():
+        return Path("/src/_sessiondata")
+    return Path.home() / "_sessiondata"
+
+
+def capture_problem(root):
+    """Why this account cannot write the capture, or None."""
+    probe = root
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    if os.access(probe, os.W_OK | os.X_OK):
+        return None
+    if probe == root:
+        return (f"{root} is not writable by this account. An administrator adds it to the folder's group: "
+                f"sudo usermod -aG $(stat -c %G {root}) {os.environ.get('USER', '<user>')}, then log in again.")
+    return f"{root} cannot be created by this account. Set MIADI_SESSIONDATA_ROOT to a folder it can write."
+
+
+def read_settings():
+    """(the parsed settings.json, or {} when there is none)"""
+    path = settings_path()
+    if not path.exists():
+        return {}
+    try:
+        value = json.loads(path.read_text())
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise Blocked(f"{path} is not valid JSON. It was left as it is. Fix it, then run setup again.")
+    if not isinstance(value, dict):
+        raise Blocked(f"{path} does not hold a JSON object. It was left as it is.")
+    return value
+
+
+def hook_groups(settings):
+    """Every (event, group, hook) that has the shape Claude Code documents."""
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return
+    for event, groups in hooks.items():
+        for group in groups if isinstance(groups, list) else []:
+            inner = group.get("hooks") if isinstance(group, dict) else None
+            for hook in inner if isinstance(inner, list) else []:
+                if isinstance(hook, dict):
+                    yield event, group, hook
+
+
+def is_retired(hook):
+    command = hook.get("command")
+    return isinstance(command, str) and RETIRED_COMMAND.fullmatch(command) is not None
+
+
+def survey(settings):
+    """(retired hooks setup would remove, other commands that name such a hook and stay)"""
+    retired, left = [], []
+    for _, _, hook in hook_groups(settings):
+        if is_retired(hook):
+            retired.append(hook["command"])
+        elif MENTIONS_RETIRED.search(str(hook.get("command", ""))):
+            left.append(hook["command"])
+    return retired, left
+
+
+def without_retired(settings):
+    """Drop retired hooks, then only the groups and events that this emptied."""
+    emptied = []
+    for event, group, _ in list(hook_groups(settings)):
+        before = group["hooks"]
+        kept = [h for h in before if not (isinstance(h, dict) and is_retired(h))]
+        if len(kept) != len(before):
+            group["hooks"] = kept
+            if not kept:
+                emptied.append((event, group))
+    hooks = settings.get("hooks")
+    for event, group in emptied:
+        if any(group is g for g in hooks[event]):
+            hooks[event] = [g for g in hooks[event] if g is not group]
+        if not hooks[event]:
+            del hooks[event]
+    if emptied and not hooks:
+        del settings["hooks"]
+    return settings
+
+
+def write_settings(settings, original):
+    """Keep how it was before setup began, then replace the file in one step."""
+    path = settings_path()
+    mode = path.stat().st_mode & 0o7777
+    backup = path.with_name(path.name + ".bak-miadi-claude")
+    if not backup.exists():
+        backup.write_bytes(original)
+        os.chmod(backup, mode)
+        print(f"kept     {backup}: settings.json as it was")
+    fd, temp = tempfile.mkstemp(dir=path.parent, prefix=".settings.miadi-claude.")
+    try:
+        with os.fdopen(fd, "w") as out:
+            json.dump(settings, out, indent=2, ensure_ascii=False)
+            out.write("\n")
+        os.chmod(temp, mode)
+        os.replace(temp, path)
+    except BaseException:
+        os.unlink(temp)
+        raise
+
+
+def plugin_rows():
+    return [r for r in claude_list("list") if r.get("id") == PLUGIN]
+
+
+def for_this_account(rows):
+    # A plugin installed for one project captures nothing elsewhere.
+    return [r for r in rows if r.get("scope") in ("user", "managed")]
+
+
+def check_plugin(rows):
+    """Stop unless the plugin is enabled for this account and its hooks are on disk."""
+    if not rows:
+        raise Blocked(f"{PLUGIN} did not install. Your settings.json was left as it is.")
+    # enabled is the installed scope's setting. A person's disabled plugin stays disabled.
+    if not all(r.get("enabled") for r in rows):
+        raise Blocked(f"{PLUGIN} is installed and disabled, and it stays so. "
+                      f"To capture this account's sessions: claude plugin enable {PLUGIN}, "
+                      "then run miadi-claude setup again. Your settings.json was left as it is.")
+    for row in rows:
+        if not (Path(row.get("installPath", "/nonexistent")) / "hooks/hooks.json").is_file():
+            raise Blocked(f"{PLUGIN} is listed but its hooks are missing. Run: claude plugin update {PLUGIN}")
+
+
+def probe_capture(row):
+    """Run one of the plugin's own hooks into a throwaway folder: proof it can record here."""
+    hook = Path(row["installPath"]) / "hooks/claude_hooks/notification_hook.sh"
+    with tempfile.TemporaryDirectory() as temp:
+        done = subprocess.run(["bash", str(hook)], input='{"session_id":"miadi-claude-probe","message":"probe"}',
+                              env=dict(os.environ, CLAUDE_SESSIONDATA_ROOT=temp),
+                              capture_output=True, text=True, timeout=60)
+        written = Path(temp, "miadi-claude-probe", "_claude_Notification.jsonl")
+        if done.returncode or not written.is_file() or not written.stat().st_size:
+            raise Blocked(f"The plugin's capture hook did not record on this account (exit {done.returncode}). "
+                          "Your settings.json was left as it is, so the old capture keeps running.")
+
+
+def ensure_marketplace():
+    markets = [m for m in claude_list("marketplace", "list") if m.get("name") == MARKET]
+    # A checkout added by path is the kit too. A marketplace with this name from elsewhere is not.
+    if any(m.get("source") != "directory" and m.get("repo") != REPO for m in markets):
+        raise Blocked(f"A marketplace named {MARKET} comes from somewhere else, and it was left as it is. "
+                      f"This command expects {REPO}.")
+    if markets:
+        run(["claude", "plugin", "marketplace", "update", MARKET])
+    else:
+        run(["claude", "plugin", "marketplace", "add", REPO])
+        print(f"added    the {MARKET} marketplace")
+
+
+def setup():
+    if os.geteuid() == 0:
+        raise Blocked("Run this as the account it sets up, without sudo. An administrator: sudo -iu <user> miadi-claude setup")
+    if not shutil.which("jq"):
+        raise Blocked("The capture hooks need jq: sudo apt install jq")
+    if not shutil.which("claude"):
+        raise Blocked("Claude Code is not installed for this account: "
+                      "curl -fsSL https://claude.ai/install.sh | bash, then run miadi-claude setup again.")
+    # Read everything that can refuse before anything changes.
+    read_settings()
+    original = settings_path().read_bytes() if settings_path().exists() else b""
+    root = capture_root()
+    problem = capture_problem(root)
+    if problem:
+        raise Blocked(problem)
+    bring_claude_forward()
+    ensure_marketplace()
+    rows = for_this_account(plugin_rows())
+    if not rows:
+        run(["claude", "plugin", "install", PLUGIN, "--scope", "user"])
+        rows = for_this_account(plugin_rows())
+        print(f"installed {PLUGIN}")
+    check_plugin(rows)
+    root.mkdir(parents=True, exist_ok=True)
+    probe_capture(rows[0])
+    # Last, so a failure above leaves the old capture running. Read again: installing the
+    # plugin wrote its enabledPlugins entry into this file.
+    settings = read_settings()
+    retired, left = survey(settings)
+    if retired:
+        write_settings(without_retired(settings), original)
+        print(f"removed  {len(retired)} hand-wired hook entries from {settings_path()}")
+        check_plugin(for_this_account(plugin_rows()))
+    for command in left:
+        print(f"left     {command}: it does more than run a retired hook, so it needs a person")
+    version = rows[0].get("version", "?")
+    print(f"ready    {PLUGIN} {version}, capturing to {root}")
+    print("next     hooks load when a session starts: restart any Claude session running now."
+          + (" Until then it captures nothing." if retired else ""))
+    return 0
+
+
+def status():
+    missing = 0
+    def miss(line):
+        nonlocal missing
+        missing += 1
+        print("MISSING  " + line)
+
+    settings = read_settings()
+    root = capture_root()
+    problem = capture_problem(root)
+    if problem:
+        miss(problem)
+    else:
+        print(f"ok       capture folder {root}")
+    if not shutil.which("jq"):
+        miss("jq: sudo apt install jq")
+    rows = []
+    if not shutil.which("claude"):
+        miss("Claude Code for this account: curl -fsSL https://claude.ai/install.sh | bash")
+    elif claude_too_old():
+        miss(claude_label() + " cannot list plugins: miadi-claude setup brings it forward")
+    else:
+        print("ok       Claude Code " + claude_label())
+        rows = for_this_account(plugin_rows())
+        if not rows:
+            miss(f"{PLUGIN}: miadi-claude setup")
+        elif not all(r.get("enabled") for r in rows):
+            miss(f"{PLUGIN} is disabled: claude plugin enable {PLUGIN}")
+        else:
+            print(f'ok       {PLUGIN} {rows[0].get("version", "?")}')
+    retired, left = survey(settings)
+    if retired:
+        miss(f"{len(retired)} hand-wired hook entries in {settings_path()} are retired: miadi-claude setup removes them")
+    for command in left:
+        print(f"note     {command}: it does more than run a retired hook, so setup leaves it")
+    kit = os.environ.get("MIADI_ORCHESTRATION_KIT_ROOT")
+    if not os.environ.get("MIADI_TEAMS_FILE") and not (kit and Path(kit, "teams/teams.json").is_file()):
+        print("note     no teams file: sessions are captured with team unassigned (MIADI_TEAMS_FILE)")
+    print("ready" if not missing else f"not ready: {missing} missing")
+    return 1 if missing else 0
+
+
+def main():
+    command = sys.argv[1] if len(sys.argv) == 2 else None
+    if command in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
+    if command not in ("setup", "status"):
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    try:
+        return setup() if command == "setup" else status()
+    except Blocked as stopped:
+        print(f"BLOCKED  {stopped}", file=sys.stderr)
+    except (OSError, subprocess.TimeoutExpired) as failed:
+        print(f"BLOCKED  {type(failed).__name__}: {failed}", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
