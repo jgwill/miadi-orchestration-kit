@@ -149,10 +149,10 @@ Nine seats existed on this host. Measure again before relying on these counts.
 
 ## Log
 
-- **0.1.0, 2026-11-09.** Written in `t7-on-miette-insights-plan-plugin-2611090438` at Guillaume's word, after a seat fired beside `t6-universe-and-perspective-vocabulary-coaia-narrative-2611090429`. Each capability is under 55 words without its title, as he asked. The decomposition is `.pde/2611090456--a21bd81f-6297-4038-a4a5-c8610e52245c/` in miadisabelle/workspace.
+- **0.1.0, 2026-11-09.** Written in `t7-on-miette-insights-plan-plugin-2611090438` at Guillaume's word, after a seat fired beside `t6-universe-and-perspective-vocabulary-coaia-narrative-2611090429`. Each capability is under 55 words without its title, as he asked. The decomposition is `.pde/2611090456--a21bd81f-6297-4038-a4a5-c8610e52245c/` in Episode 75.
 
 ## Related
 
 - `teams/README.md`, sections T3 and T7.
-- Episode 75 (miadi-chronicle://75), this skill's case.
+- Episode 75 (miadi-chronicle://75), this skill's case. Its `teachings/planning-with-miette.md` is Miette's explanation of this subject for someone who has never seen the factory, read by `@miadi/teachings`.
 - jgwill/miadi-orchestration-kit#104, jgwill/miadi-orchestration-kit#71
