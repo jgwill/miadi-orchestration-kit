@@ -7,6 +7,7 @@ for dependency in python3 jq perl; do
 done
 . "$SCRIPT_DIR/lib.sh"
 . "$SCRIPT_DIR/terminal_binding.sh"
+. "$SCRIPT_DIR/work_in_progress.sh"
 
 if [ "${2:-}" = --job ]; then
     raw=$(cat "$3")
@@ -22,6 +23,8 @@ export CODEX_SESSION_ID
 output_dir="$CODEX_SESSIONDATA_ROOT/$CODEX_SESSION_ID"
 mkdir -p "$output_dir" "$CODEX_SESSIONDATA_ROOT/data"
 if { [ "$event" = SessionEnd ] || [ "$event" = Interrupt ]; } && [ "${2:-}" != --job ]; then
+    # The reply is over before the job detaches, so a prompt typed next keeps its own marker.
+    codex_work_finished "$input"
     # Codex caps these hooks at three seconds. Preserve process identity before
     # detaching, and leave only sanitized data in the short-lived job file.
     export _TB_AGENT_PID="$(_tb_agent_pid "$CODEX_SESSION_ID")"
@@ -55,6 +58,7 @@ case "$event" in
         ;;
     UserPromptSubmit)
         alias_event user_inputs
+        codex_work_started "$input"
         codex_check_terminal_binding_rename "$input"
         codex_check_terminal_binding_mission "$input"
         codex_artifact_comments_prompt_queue "$output_dir" "$input"
@@ -76,6 +80,11 @@ case "$event" in
         ;;
     PreToolUse)
         tool=$(jq -r '.tool_name // empty' <<< "$input")
+        # A guard refuses with exit 2. Anything else, its own failure included, allows.
+        for guard in secret_print_guard tmux_server_guard session_lookup_guard; do
+            printf '%s' "$input" | bash "$_CODEX_HOOKS_ROOT/$guard.sh"
+            [ "$?" -ne 2 ] || exit 2
+        done
         if [ "$tool" = Bash ]; then
             command=$(jq -r '.tool_input.command // empty' <<< "$input")
             bash "$_CODEX_HOOKS_ROOT/git_command_validator.sh" "$command" || exit 2
@@ -105,6 +114,8 @@ case "$event" in
         ;;
     PostToolUse|PostToolUseFailure)
         tool=$(jq -r '.tool_name // empty' <<< "$input")
+        # What it prints is the hook's reply to Codex, so it is the only thing on stdout.
+        alert=$(printf '%s' "$input" | bash "$_CODEX_HOOKS_ROOT/secret_exposure_alert.sh")
         if [ "$(jq -r '.codex_tool_exit_code // empty' <<< "$input")" != "" ]; then
             codex_write_jsonl "$output_dir/_codex_PostToolUse_status.jsonl" "$input"
         fi
@@ -125,6 +136,7 @@ case "$event" in
                 jq '.tool_input' <<< "$input" | hook_secret_sanitize_stream > "$output_dir/plans/$id.json"
             fi
         fi
+        [ -z "$alert" ] || printf '%s\n' "$alert"
         ;;
     SubagentStart|SubagentStop)
         agent=$(jq -r '.agent_id // empty' <<< "$input")
@@ -142,6 +154,7 @@ case "$event" in
         if [ -n "$(jq -r '.last_assistant_message // empty' <<< "$input")" ]; then
             alias_event AssistantResponse
         fi
+        [ "$event" != Stop ] || codex_work_finished "$input"
         [ "$event" != SessionEnd ] || codex_write_terminal_binding session.end "$input"
         archive_turn
         ;;

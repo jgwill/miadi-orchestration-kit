@@ -2,12 +2,13 @@
 
 Capture a Codex session and the work it produces in the same
 `<root>/<session_id>/` tree used by the Claude plugin and the session observers.
-This plugin writes local capture data. It does not open session issues or publish
-anything itself. Tracking: [#98](https://github.com/jgwill/miadi-orchestration-kit/issues/98).
+This plugin writes local capture data and refuses a few commands that would harm the
+host (see the parity table). It does not open session issues or publish anything itself. Tracking: [#98](https://github.com/jgwill/miadi-orchestration-kit/issues/98).
 
 ## Install
 
-Requires Codex with plugin hooks (verified with CLI 0.163.0), Bash, Python 3,
+Requires Codex with plugin hooks (verified with CLI 0.163.0, 0.167.0 and the desktop
+runtime 0.167.0-alpha.3.2; `/usr/bin/codex` on a host may be an older CLI with no plugins), Bash, Python 3,
 `jq`, Perl, and GNU file utilities. `flock`, `setsid` and `timeout` provide the
 same locking, detachment and scan bounds as the Claude implementation.
 
@@ -75,6 +76,11 @@ fall back to `${CODEX_HOME:-$HOME/.codex}/miadi-session-observability/_sessionda
 | Artifact publication/comment parser | Carried for compatible Artifact/ArtifactComments payloads; this does not provide a Claude Artifact service in Codex |
 | Session fork | Native `codex fork SESSION_ID` and `codex resume SESSION_ID`, guided by the packaged skill |
 | `/btw` | Claude-specific index omitted; no equivalent Codex source contract verified |
+| Print guard for credentials | `secret_print_guard` refuses a shell command that would print one, before it runs. Codex has no separate Read or Grep tool to cover. Off: `MIADI_SECRET_PRINT_GUARD=off` in the session environment |
+| Exposure alert and scrub | `secret_exposure_alert` writes `_codex_secret_exposures.jsonl` and tells the person and the model, never the value. `scripts/miadi-scrub-secrets.py --apply` masks held values in `$CODEX_HOME` sessions and the capture root |
+| tmux server guard | `tmux_server_guard` refuses a shell command that ends the shared server. Off: `MIADI_TMUX_SERVER_GUARD=off` |
+| Session lookup guard | `session_lookup_guard` sends agents to `tide agents list` and `miadi-hooks-interpret` instead of `find /` or reading raw `_codex_*` capture. Off: `MIADI_SESSION_LOOKUP_GUARD=off` |
+| Work in progress | `<state>/miadi/working/<session_id>.json` from a prompt until Stop, Interrupt or SessionEnd, which `tide agents restore` reads |
 
 Native events keep the original tool input/output. Workers use a normalized copy:
 `turn_id` supplies `prompt_id`, native patches use `tool_input.command`, and string
