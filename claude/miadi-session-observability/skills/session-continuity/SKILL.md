@@ -71,7 +71,9 @@ session name changes with `/rename`, and every change is a `session.rename` line
    that was waiting for the person is told otherwise (ironsilk 0.9.76): tide reads the mode and the
    open tool from its transcript. A plan nobody answered comes back in plan mode and is presented
    again unchanged, its Miette seat is told to listen again, and a question is asked again. Neither
-   is carried out without the person. An agent that had
+   is carried out without the person. A session that had ended its reply but left a shell, a
+   monitor or a subagent running in its last turn is woken and told their names, because Claude
+   Code otherwise says so only at the next prompt. It decides what to start again. An agent that had
    exited starts nothing and gets nothing typed: its pane keeps a note (the pane option
    `@miadi-resume`), `tide agents list` shows it `exited`, and `tide agents resume [pane]`
    brings it back when the human chooses (William, 2026-10-07).
