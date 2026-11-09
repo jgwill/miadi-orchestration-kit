@@ -23,6 +23,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-tmux` | `/usr/bin/tmux` 3.7c built from the upstream release, replacing the distribution's tmux (3.2a on 22.04): one tmux version on a host, since a client cannot attach to a server of another version. `kill-server` from inside a pane of the server it would end is refused (`prep/patches/tmux-3.7c/0002`), at install, with no server restart | 3.7c-4 |
 | `miadi-terminal` | a client's clickable `miadi-chronicle:`, `miadi-ceremony:`, `miadi-circle:`, `miadi-foundation:` (0.2.2), `miadi-notebook:`, `miadi-prototype:`, `miadi-tracing:` and `rise://` (0.4.0), `miadi-capability:`, `miadi-tmux:` (0.4.8) (0.4.1) references, and bare circle ids (0.1.4): desktop, Terminator, tmux; the tmux settings every user starts with, `/etc/miadi/tmux.conf` (0.3.0; `miadi` depends on it since 0.5.0) | 0.1.0 |
 | `miadi-tide` | the review loop (`tan`, `plannotator-tui`) and the tide runtime (`tide`, its daemon) | 0.1.0 |
+| `miadi-claude` | `miadi-claude setup`: one command per account that installs the session capture plugin and retires hooks wired by hand, and the commands those hooks call (`jq`) | 0.1.0 |
 | `miadi-perms` | group read and write on the shared session capture (`MIADI_SESSIONDATA_ROOT`), every 4 hours, so one user's agent hooks can write where another user's session created files | 0.1.0 |
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
 | `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases: `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` | 0.1.0 |
@@ -225,6 +226,38 @@ A workstation's own shell files and older copies can hide what is installed:
 `type -a tan plannotator-tui` should list `/usr/bin` first. `miadi-config check` reports a
 `plannotator-tui` that comes first on `PATH`. It cannot see a shell function, so
 `type -a` is the check for `tan`. Ref: jgwill/miadi-orchestration-kit#134.
+
+## miadi-claude
+
+An account's Claude Code on a Miadi host is set up with one command, run as that account:
+
+```bash
+sudo apt install miadi-claude     # miadi depends on it since 0.6.0
+miadi-claude setup                # an administrator: sudo -iu <user> miadi-claude setup
+miadi-claude status               # what is set up and what setup would change; changes nothing
+```
+
+Nobody edits `settings.json` or has to know what a plugin is. Setup stops at the first step it
+cannot do, in this order:
+
+| step | when it cannot |
+|---|---|
+| read `settings.json` and check the capture folder is writable | nothing has changed; it names the remedy |
+| bring a Claude Code too old to list plugins forward (`claude install stable`) | it names the launcher that stays old |
+| add the kit's marketplace and install `miadi-session-observability` for the user | `settings.json` is left as it is |
+| run one of the plugin's hooks into a throwaway folder, proving it records on this account | `settings.json` is left as it is |
+| remove the entries that run a retired `claude_hooks/*_hook.sh` | a copy, `settings.json.bak-miadi-claude`, holds how it was before the first change |
+
+The old hooks go last, so a failure leaves the old capture running. A hook of the person's own stays,
+and a command that runs a retired hook and does something else stays and is named. A plugin a person
+disabled stays disabled. Running it again changes nothing. Claude Code and its sign-in stay with each
+account, and the package writes nothing into a home directory: this is per account because a capture
+of every event is something an account takes on, and because only the account's own `settings.json`
+holds the hooks that would otherwise fire twice.
+
+`bash tests/miadi-claude.sh` runs every branch against a fake `claude` in disposable homes.
+`REAL=1 KIT=<checkout>` adds the real `claude` CLI, with no sign-in and no model call. The account's
+`miadi-config check` names this command when it finds no plugin, or hooks wired by hand.
 
 ## miadi-tide
 
@@ -632,6 +665,7 @@ bash "$publish" dist/miadi-node_<version>_amd64.deb   # before the two halves th
 bash "$publish" dist/miadi-chronicle-client_<version>_all.deb
 bash "$publish" dist/miadi-chronicle-server_<version>_all.deb   # before the miadi that depends on it
 bash "$publish" dist/miadi-terminal_<version>_all.deb   # after the miadi-config it depends on, before the miadi that depends on it
+bash "$publish" dist/miadi-claude_<version>_all.deb   # before the miadi that depends on it
 bash "$publish" dist/miadi_<version>_all.deb
 bash "$publish" dist/miadi-tide_<version>_amd64.deb     # before the miadi that depends on it
 bash "$publish" dist/miadi-music-render_<version>_all.deb

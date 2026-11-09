@@ -208,10 +208,12 @@ check() {
 			grep -q '"miadi-session-observability@[^"]*": *true' "$settings" && plugin=1
 			grep -q 'claude_hooks/[a-z_]*_hook\.sh' "$settings" && handwired=1
 		fi
+		local setup_claude="miadi-claude setup"
+		command -v miadi-claude >/dev/null || setup_claude="sudo apt install miadi-claude && miadi-claude setup"
 		if [ $plugin = 1 ] && [ $handwired = 0 ]; then echo "ok       Claude session capture: the miadi-session-observability plugin"
-		elif [ $plugin = 1 ]; then miss "Claude hooks wired by hand in $settings run beside the miadi-session-observability plugin, so every event is captured twice: remove the \"hooks\" entries that run claude_hooks/*_hook.sh"
-		elif [ $handwired = 1 ]; then miss "Claude hooks wired by hand in $settings are retired: claude plugin install miadi-session-observability@miadi-orchestration-kit, then remove the \"hooks\" entries that run claude_hooks/*_hook.sh"
-		else miss "Claude sessions write no binding line, so mct's primer and tide restore wait for nothing: claude plugin install miadi-session-observability@miadi-orchestration-kit"; fi
+		elif [ $plugin = 1 ]; then miss "Claude hooks wired by hand in $settings run beside the miadi-session-observability plugin, so every event is captured twice: $setup_claude"
+		elif [ $handwired = 1 ]; then miss "Claude hooks wired by hand in $settings are retired: $setup_claude"
+		else miss "Claude sessions write no binding line, so mct's primer and tide restore wait for nothing: $setup_claude"; fi
 	fi
 	if command -v tailscale >/dev/null; then
 		local op me=${USER:-$(id -un)}

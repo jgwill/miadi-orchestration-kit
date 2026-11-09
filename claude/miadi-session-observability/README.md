@@ -92,6 +92,18 @@ no inbox and notices nothing.
 
 ## Install
 
+On a Miadi host, each account runs one command:
+
+```bash
+miadi-claude setup      # sudo apt install miadi-claude, when it is not there yet
+```
+
+It installs this plugin for the account, proves one of its hooks can record there, and only then
+removes the hand-wired `claude_hooks/*_hook.sh` entries from `~/.claude/settings.json`, keeping a
+copy of the file (`packages/miadi/deb`, section miadi-claude).
+
+Without the package:
+
 ```bash
 claude plugin marketplace add jgwill/miadi-orchestration-kit      # or the path of a checkout
 claude plugin install miadi-session-observability@miadi-orchestration-kit
@@ -109,8 +121,9 @@ To try the plugin without installing it: `claude --plugin-dir <path to this fold
 ## Where captures go
 
 `<root>` is `CLAUDE_SESSIONDATA_ROOT`, else `MIADI_SESSION_DIR`, `MIADI_SESSIONDATA_ROOT`,
-`SESSION_DATA_ROOT`, else `/src/_sessiondata` when it exists, else `_sessiondata` beside this
-folder (`hooks/claude_hooks/lib.sh`).
+`SESSION_DATA_ROOT`, else `/src/_sessiondata` when it exists, else `~/_sessiondata`
+(`hooks/claude_hooks/lib.sh`). Since 0.1.40: it was `_sessiondata` beside this folder, which for an
+installed plugin is a folder named for its version, left behind at the next update.
 
 ## Files written
 

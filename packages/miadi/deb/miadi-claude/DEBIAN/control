@@ -1,0 +1,16 @@
+Package: miadi-claude
+Version: 0.1.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: python3, jq, git
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: One command that sets up Claude Code for an account on a Miadi host
+ miadi-claude setup, run by each account, installs the
+ miadi-session-observability plugin and removes the hook entries that
+ plugin replaces from that account's settings.json, so a session is
+ captured and bound to its terminal with nothing to wire by hand.
+ miadi-claude status says what is set up. The package also brings the
+ commands the capture hooks call. Installing it changes no home directory.
+ Claude Code itself and its sign-in stay with each account.

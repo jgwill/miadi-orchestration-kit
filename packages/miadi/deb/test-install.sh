@@ -102,6 +102,18 @@ docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$debs:/tmp/debs:ro" -v "$t
     su hermes-api-test -s /bin/bash -c "HERMES_TAILNET_INSTALLER=/usr/share/miadi/hermes-tailnet/26-hermes-tailscale-autostart.sh python3 /tmp/hermes-tailnet-proxy.py"
   fi
 
+  if dpkg -s miadi-claude >/dev/null 2>&1; then
+    dpkg -s miadi-claude | sed -n "s/^Version: /installed miadi-claude /p"
+    command -v jq >/dev/null && echo "miadi-claude brings the jq the capture hooks call"
+    test ! -e /root/.claude && echo "installing miadi-claude changed no home directory"
+    if miadi-claude setup 2>/tmp/root.log; then echo "miadi-claude setup ran as root" >&2; exit 1; fi
+    grep -q "without sudo" /tmp/root.log && echo "miadi-claude setup refuses root and says how to reach the account"
+    useradd -m claude-test
+    if su claude-test -s /bin/bash -c "miadi-claude status" >/tmp/status.log 2>&1; then echo "status called a new account ready" >&2; exit 1; fi
+    grep -q "Claude Code for this account" /tmp/status.log && echo "miadi-claude status tells a new account what is missing"
+    test ! -e /home/claude-test/.claude && echo "miadi-claude status changed nothing"
+  fi
+
   if dpkg -s miadi-tmux >/dev/null 2>&1; then
     dpkg -s miadi-tmux | sed -n "s/^Version: /installed miadi-tmux /p"
     hash -r

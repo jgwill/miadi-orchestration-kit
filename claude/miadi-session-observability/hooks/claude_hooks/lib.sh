@@ -7,15 +7,17 @@ _CLAUDE_HOOKS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Portable capture-output root — one source of truth for every claude hook.
 # Honors the shared env alias set by etc/bash_env_common (MIADI_SESSION_DIR ->
 # MIADI_SESSIONDATA_ROOT -> SESSION_DATA_ROOT). With no env loaded it falls back to
-# /src/_sessiondata on hosts that have /src (servers; /src -> /a/src on Eury), else the
-# repo-local _sessiondata beside the scripts (Termux/Android, containers without env).
+# /src/_sessiondata on hosts that have /src (servers; /src -> /a/src on Eury), else
+# ~/_sessiondata, the default miadi-config states. An installed plugin is a copy in a folder
+# named for its version, so a capture written beside these scripts would be left behind at
+# the next update.
 if [ -z "${CLAUDE_SESSIONDATA_ROOT:-}" ]; then
     CLAUDE_SESSIONDATA_ROOT="${MIADI_SESSION_DIR:-${MIADI_SESSIONDATA_ROOT:-${SESSION_DATA_ROOT:-}}}"
     if [ -z "$CLAUDE_SESSIONDATA_ROOT" ]; then
         if [ -d "/src/_sessiondata" ]; then
             CLAUDE_SESSIONDATA_ROOT="/src/_sessiondata"
         else
-            CLAUDE_SESSIONDATA_ROOT="$(cd "$_CLAUDE_HOOKS_ROOT/.." && pwd)/_sessiondata"
+            CLAUDE_SESSIONDATA_ROOT="$HOME/_sessiondata"
         fi
     fi
 fi

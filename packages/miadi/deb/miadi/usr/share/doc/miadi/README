@@ -17,6 +17,8 @@ each further account, an administrator runs:
   sudo loginctl enable-linger <user>        # its systemd runs, and its tmux starts, at boot
   sudo -iu <user> miadi-terminal enable     # clickable references; comments out the
                                             #   tmux settings it repeats of /etc/miadi/tmux.conf
+  sudo -iu <user> miadi-claude setup        # once Claude Code is installed for the account:
+                                            #   session capture, and no settings to wire by hand
   sudo -iu <user> env XDG_RUNTIME_DIR=/run/user/$(id -u <user>) miadi-terminal enable restore
   sudo -iu <user> env XDG_RUNTIME_DIR=/run/user/$(id -u <user>) \
     systemctl --user enable --now tide-store-prune.timer miadi-capture-service
