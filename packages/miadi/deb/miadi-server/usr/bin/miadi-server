@@ -1,62 +1,203 @@
 #!/usr/bin/env bash
-# miadi-server — run the Miadi web app from this host's checkout. Installed by miadi-server.
-#   miadi-server         start it, in the mode its mode file names (the systemd unit runs this)
-#   miadi-server check   say what it would run and what stops it
-#
-# Three host settings, from the environment, else from miadi-config:
-#   MIADI_PROJECT_DIR   the checkout, else MIADI_SRC
-#   MIADI_MODE_FILE     holds dev or prod (default /etc/miadi/mode); no file means prod
-#   MIADI_PORT          the port (default 3335)
-# The app's own settings stay in the checkout's .env. This launcher passes it nothing else.
+# miadi-server — the Miadi web app, installed and ready to run. Installed by miadi-server.
 set -euo pipefail
 
-# Exit 2 is a setup problem. The unit does not restart on it, so a host with no build does not crash-loop.
+APP=${MIADI_SERVER_APP:-/usr/lib/miadi-server/app}
+NODE=${MIADI_SERVER_NODE:-/usr/lib/miadi-node/bin/node}
+SOURCE_FILE=$(dirname "$APP")/SOURCE
+ENV_FILE=${MIADI_SERVER_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/miadi-server/env}
+STATE=${MIADI_SERVER_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/miadi-server}
+RUN=$STATE/app
+
+# Exit 2 is a setup problem. The unit does not restart on it, so a host that is not ready does not crash-loop.
 die() { echo "miadi-server: $*" >&2; exit 2; }
 
+usage() {
+	cat <<HELP
+miadi-server: the Miadi web app, built and ready to run
+
+usage: miadi-server [command]
+
+commands:
+  start         run the app in the foreground (the default, and what the unit runs)
+  check         say what would run and what stops it; exits 1 when something is missing
+  init [FILE]   store the app's settings; with no FILE, write a template to fill in
+  version       the package and the Miadi commit it was built from
+  help          this text (also -h, --help)
+
+run it as a service, for this user:
+  systemctl --user enable --now miadi-server
+  journalctl --user -u miadi-server
+  sudo loginctl enable-linger "\$USER"      # to start at boot with nobody logged in
+
+first run:
+  miadi-server init /path/to/.env          # the app's settings: Redis, database, tokens
+  miadi-server check
+  miadi-server
+
+where things are:
+  settings      $ENV_FILE
+                plain KEY=VALUE, mode 600 (MIADI_SERVER_ENV moves it)
+  its own data  $STATE
+  the app       $APP
+
+what it reads from this host (\`sudo miadi-config set NAME VALUE\`, or the environment):
+  MIADI_PORT          the port (default 3335)
+  MIADI_BIND          the address (default 127.0.0.1; 0.0.0.0 in a container)
+  MIADI_PROJECT_DIR   run a checkout of jgwill/Miadi instead of the installed app
+  MIADI_MODE_FILE     with a checkout: a file holding dev or prod (default /etc/miadi/mode)
+
+the app needs to reach:
+  Redis               KV_REST_API_URL in its settings
+  the medicine wheel  MIADI_CHRONICLE_MW_URL in its settings (default http://127.0.0.1:8040)
+  person tokens       credentials.jsonl in MIADI_IDENTITY_DIR (default /srv/miadi/identity)
+HELP
+}
+
 setting() { # setting NAME: the environment's value, else this host's
-	if [ -n "${!1:-}" ]; then printf '%s\n' "${!1}"; else miadi-config get "$1" 2>/dev/null || true; fi
+	if [ -n "${!1:-}" ]; then printf '%s\n' "${!1}"; elif command -v miadi-config >/dev/null 2>&1; then miadi-config get "$1" 2>/dev/null || true; fi
 }
 
 dir=$(setting MIADI_PROJECT_DIR)
-[ -n "$dir" ] || dir=$(setting MIADI_SRC)
-mode_file=$(setting MIADI_MODE_FILE)
-mode_file=${mode_file:-/etc/miadi/mode}
 port=$(setting MIADI_PORT)
 port=${port:-3335}
+bind=${MIADI_BIND:-127.0.0.1}
+mode_file=$(setting MIADI_MODE_FILE)
+mode_file=${mode_file:-/etc/miadi/mode}
 mode=prod
 if [ -r "$mode_file" ]; then mode=$(tr -d '[:space:]' < "$mode_file"); fi
 
-# problems: what stops the app from starting, one per line
-problems() {
-	if [ -z "$dir" ] || [ ! -e "$dir/package.json" ]; then
-		echo "no checkout at '${dir:-(unset)}': sudo miadi-config set MIADI_PROJECT_DIR <checkout of jgwill/Miadi>"
+value_in_settings() { # value_in_settings NAME: from the settings file, never exported
+	[ -r "$ENV_FILE" ] || return 0
+	sed -n "s/^$1=//p" "$ENV_FILE" | tail -1 | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'
+}
+
+problems() { # what stops it from starting, one per line
+	if [ -n "$dir" ]; then
+		if [ ! -e "$dir/package.json" ]; then echo "no checkout at $dir (MIADI_PROJECT_DIR)"; return; fi
+		case $mode in
+			dev) ;;
+			prod) [ -f "$dir/.next/BUILD_ID" ] || echo "no production build in $dir/.next: build it first (pnpm build)" ;;
+			*) echo "$mode_file says '$mode', which is neither dev nor prod" ;;
+		esac
+		command -v node >/dev/null || echo "node is not on PATH"
+		command -v pnpm >/dev/null || echo "pnpm is not on PATH"
 		return
 	fi
-	case $mode in
-		dev) ;;
-		prod) [ -f "$dir/.next/BUILD_ID" ] || echo "no production build in $dir/.next: build it first (pnpm build)" ;;
-		*) echo "$mode_file says '$mode', which is neither dev nor prod" ;;
-	esac
-	command -v node >/dev/null || echo "node is not on PATH"
-	command -v pnpm >/dev/null || echo "pnpm is not on PATH: install it for this host"
+	[ -f "$APP/server.js" ] || echo "the app is not installed at $APP: reinstall miadi-server"
+	[ -x "$NODE" ] || echo "no node at $NODE: install miadi-node"
+}
+
+answers() { # answers URL: whether anything answers there
+	command -v curl >/dev/null || return 2
+	[ "$(curl -sS -m 4 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null || true)" != 000 ]
+}
+
+prepare_runtime() { # a folder this user can write to, where the installed app runs
+	mkdir -p "$RUN"
+	shopt -s nullglob dotglob
+	local entry name
+	for entry in "$APP"/*; do
+		name=${entry##*/}
+		case $name in
+			# The app saves into these. Copied once, then kept across upgrades.
+			data | config | app)
+				if [ ! -e "$RUN/$name" ]; then
+					cp -r "$entry" "$RUN/$name"
+					chmod -R u+w "$RUN/$name"
+				fi
+				;;
+			# Started from here so that it finds everything else in this folder.
+			server.js) cp -f "$entry" "$RUN/server.js" ;;
+			*) ln -sfn "$entry" "$RUN/$name" ;;
+		esac
+	done
+	shopt -u nullglob dotglob
+	if [ -r "$ENV_FILE" ]; then ln -sfn "$ENV_FILE" "$RUN/.env"; else rm -f "$RUN/.env"; fi
+}
+
+cmd_check() {
+	local found line url missing=0
+	if [ -n "$dir" ]; then
+		echo "runs      the checkout $dir, mode $mode ($mode_file)"
+	else
+		echo "runs      the installed app, $(cat "$SOURCE_FILE" 2>/dev/null || echo "$APP")"
+	fi
+	echo "serves    http://$bind:$port"
+	found=$(problems)
+	if [ -n "$found" ]; then
+		while IFS= read -r line; do echo "missing   $line"; missing=1; done <<<"$found"
+	fi
+	if [ -z "$dir" ]; then
+		if [ -r "$ENV_FILE" ]; then
+			echo "ok        settings $ENV_FILE"
+			url=$(value_in_settings KV_REST_API_URL)
+			if [ -z "$url" ]; then echo "missing   KV_REST_API_URL in $ENV_FILE: the app has no Redis"; missing=1
+			elif answers "$url"; then echo "ok        Redis answers"
+			else echo "missing   Redis does not answer at ${url%%\?*}"; missing=1; fi
+			url=$(value_in_settings MIADI_CHRONICLE_MW_URL)
+			url=${url:-http://127.0.0.1:8040}
+			if answers "$url"; then echo "ok        the medicine wheel answers at $url"
+			else echo "missing   the medicine wheel does not answer at $url: person tokens answer 502"; missing=1; fi
+		else
+			echo "missing   no settings at $ENV_FILE: miadi-server init /path/to/.env"
+			missing=1
+		fi
+		line=$(value_in_settings MIADI_IDENTITY_DIR)
+		line=${MIADI_IDENTITY_DIR:-${line:-/srv/miadi/identity}}
+		if [ -r "$line/credentials.jsonl" ]; then echo "ok        person tokens: $line"
+		else echo "note      no credentials.jsonl in $line: shared tokens work, person tokens do not"; fi
+	fi
+	if [ "$missing" = 0 ]; then echo "ok        ready to start"; return 0; fi
+	return 1
+}
+
+cmd_init() {
+	mkdir -p "$(dirname "$ENV_FILE")"
+	if [ -n "${1:-}" ]; then
+		[ -r "$1" ] || die "cannot read $1"
+		[ ! -e "$ENV_FILE" ] || [ "$(readlink -f "$1")" != "$(readlink -f "$ENV_FILE")" ] || die "$1 is already the settings file"
+		umask 077
+		cp "$1" "$ENV_FILE"
+	elif [ -e "$ENV_FILE" ]; then
+		die "$ENV_FILE exists: give a file to replace it, or edit it"
+	else
+		umask 077
+		cat > "$ENV_FILE" <<TEMPLATE
+# The Miadi web app's settings. Plain KEY=VALUE.
+KV_REST_API_URL=
+KV_REST_API_TOKEN=
+DATABASE_URL=
+MIADI_CHRONICLE_MW_URL=http://127.0.0.1:8040
+MIADI_API_TOKEN_READER=
+MIADI_API_TOKEN_WRITER=
+TEMPLATE
+	fi
+	chmod 600 "$ENV_FILE"
+	echo "settings in $ENV_FILE"
+	echo "next: miadi-server check"
+}
+
+cmd_start() {
+	local found
+	found=$(problems)
+	[ -z "$found" ] || die "$found"
+	export HOSTNAME=$bind PORT=$port
+	if [ -n "$dir" ]; then
+		cd "$dir"
+		if [ "$mode" = dev ]; then exec pnpm dev; else exec pnpm start; fi
+	fi
+	[ -r "$ENV_FILE" ] || echo "miadi-server: no settings at $ENV_FILE, so no Redis or database: miadi-server init /path/to/.env" >&2
+	prepare_runtime
+	cd "$RUN"
+	exec "$NODE" server.js
 }
 
 case ${1:-start} in
-	check)
-		echo "checkout  ${dir:-(unset)}"
-		echo "mode      $mode ($mode_file)"
-		echo "port      $port"
-		found=$(problems)
-		[ -n "$found" ] || { echo "ok        ready to start"; exit 0; }
-		while IFS= read -r line; do echo "missing   $line"; done <<<"$found"
-		exit 1
-		;;
-	start)
-		found=$(problems)
-		[ -z "$found" ] || die "$found"
-		cd "$dir"
-		export PORT=$port
-		if [ "$mode" = dev ]; then exec pnpm dev; else exec pnpm start; fi
-		;;
-	*) die "usage: miadi-server [check]" ;;
+	start) cmd_start ;;
+	check) cmd_check ;;
+	init) cmd_init "${2:-}" ;;
+	version) printf 'miadi-server %s\n%s\n' "$(dpkg-query -W -f '${Version}' miadi-server 2>/dev/null || echo unknown)" "$(cat "$SOURCE_FILE" 2>/dev/null || echo 'no built app')" ;;
+	help | -h | --help) usage ;;
+	*) usage >&2; exit 2 ;;
 esac

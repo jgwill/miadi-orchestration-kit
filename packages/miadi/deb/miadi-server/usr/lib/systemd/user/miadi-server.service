@@ -1,8 +1,7 @@
 # miadi-server: the Miadi web app, for one user. Installed by miadi-server, not started.
 # Turn it on with: systemctl --user enable --now miadi-server
-# The app's settings stay in the checkout's .env. miadi-server reads only where the checkout is,
-# its mode and its port. A value set here would override .env, because Next.js keeps what the
-# environment already has.
+# Its settings are in ~/.config/miadi-server/env (miadi-server init), and it listens on
+# MIADI_BIND:MIADI_PORT, 127.0.0.1:3335 unless they say otherwise.
 [Unit]
 Description=Miadi web app
 Documentation=https://github.com/jgwill/miadi-orchestration-kit/blob/main/packages/miadi/deb/README.md
