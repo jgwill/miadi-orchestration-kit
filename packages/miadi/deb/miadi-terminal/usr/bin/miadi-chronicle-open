@@ -73,6 +73,11 @@ BARE_WHEEL_ID = re.compile(r"(circle|ceremony):", re.I)
 # query or a fragment goes to the door.
 TMUX_ADDRESS = re.compile(r"miadi-tmux:(?://)?([A-Za-z_][A-Za-z0-9_-]{0,31})@([A-Za-z0-9][A-Za-z0-9.-]{0,252}):([A-Za-z0-9_][A-Za-z0-9_+~-]{0,199})", re.I)
 TRAILING = ".,;:!?)]}'\""
+# Qt reads the number of miadi-chronicle://560 as an IPv4 address, so Konsole
+# hands on miadi-chronicle://0.0.2.48 (jgwill/Miadi#595). Qt reads a
+# zero-padded number as octal: 064 arrives as 0.0.0.52, as 52 does. That
+# address has two readings, and the door offers both.
+QT_ADDRESS = re.compile(r"miadi-chronicle://(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?=[/?#]|$)", re.I)
 # A double click is two clicks; the second must not open the same page again.
 REPEAT_SECONDS = 1.5
 
@@ -122,6 +127,23 @@ def as_uri(ref):
         return ref
     kind = bare.group(1).lower()
     return f"miadi-{kind}:{kind}:{ref[bare.end():]}"
+
+
+def before_qt_rewrite(ref):
+    """The episode number Qt rewrote as an address, when it has one reading.
+    A click in tmux under Konsole opens twice, from Konsole and from tmux; read
+    back, both build the same URL and the second is the double click it is."""
+    found = QT_ADDRESS.match(ref)
+    if not found:
+        return ref
+    value = 0
+    for octet in (int(o) for o in found.groups()):
+        if octet > 255:
+            return ref
+        value = value * 256 + octet
+    if 0o10 <= value <= 0o77:
+        return ref
+    return f"miadi-chronicle://{value}{ref[found.end():]}"
 
 
 # Whether U+FE0F widens the character before it. tmux 3.4 always did; 3.5
@@ -379,7 +401,7 @@ def main(argv):
               file=sys.stderr)
         return 64
 
-    ref = as_uri(ref)
+    ref = before_qt_rewrite(as_uri(ref))
     if not ref.lower().startswith(SCHEMES):
         print(f"not a Miadi reference: {ref}", file=sys.stderr)
         return 65
