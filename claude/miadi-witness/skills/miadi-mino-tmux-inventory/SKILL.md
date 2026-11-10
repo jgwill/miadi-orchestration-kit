@@ -120,13 +120,23 @@ For every session recorded, run the `team-fit` skill on it and write its `team_f
 node "$KIT/claude/miadi-witness/scripts/team-fit.mjs" --tmux <tmux name> --json
 ```
 
-Then propose one ending, and say it in the report to William:
+Then choose one ending:
 
-- 🚪 **a, exit.** Its work is committed, pushed and verified, and it holds nothing. On his word: Step 3's `/exit`, the session end verified, the shell removed.
-- ✅ **b, complete then exit.** A remainder is left that the session or the seat can finish. On his word: Step 6, steer to finish, then close.
+- 🚪 **a, exit.** Its work is committed, pushed and verified, and it holds nothing. The seat runs Step 3's `/exit` itself, verifies the session end, removes the shell, and reports it as done: the session's full name, the mission it achieved in one sentence, and that it was closed.
+- ✅ **b, complete then exit.** A remainder is left that the session or the seat can finish. The seat runs Step 6, steers it to finish, then closes it the same way.
 - 📋 **c, record only.** He is still working with it or holds a choice in it. The record is written or updated, and Step 5 keeps watching it.
 
-A series of inventories gives one line per session: `<team glyph> <team id> · <tmux name> · <ending proposed> · <why>`. An unassigned session gets a proposed team (skill `team-fit`, section 3), which never enters `teams.json` without William's word.
+**The seat exits a session that achieved its mission, without asking (since 2026-11-10).** Guillaume: "the whole goal of the factory and all of its sessions is that rarely human will exit the session by themselves. It's going to be the agent that's going to decide to run the exit ... there's obviously a need for you to self-evolve, for being capable of deciding that a session could be exited without telling us anything or just mentioning it as a statement". Before the `/exit`, all of these hold:
+
+1. Its DONE line names its commits, and each one is on origin.
+2. It holds nothing: no question to a person, no staged send, no uncommitted work of its own.
+3. Its record is written, by `/inventory-exit` or the seat.
+4. No person typed into it after its last turn. Check the session's last input time (`miadi-hooks-interpret digest`) and run `pane-write-guard.sh`.
+
+When any of these fails, the ending is b or c, and the report says which one failed.
+- 📋 **c, record only.** He is still working with it or holds a choice in it. The record is written or updated, and Step 5 keeps watching it.
+
+A series of inventories gives one line per session: `<team glyph> <team id> · <tmux name> · <ending> · <why>`. An unassigned session gets a proposed team (skill `team-fit`, section 3), which never enters `teams.json` without William's word.
 
 Earned 2026-10-08. William asked `gaia-cpufreq-cap-rebooted-fix-261008` by hand which team its work fit, then asked that the seat do it in every inventory and propose whether each session exits, is completed first, or is only recorded (jgwill/Miadi#746, jgwill/miadi-orchestration-kit#76).
 
