@@ -67,6 +67,10 @@ jgwill/miadi-orchestration-kit#56.
   The binding line stays readable. `MIADI_SESSION_LOOKUP_GUARD=off` in the session's
   environment turns it off for work on the capture itself. Earned 2026-11-01, when a seat
   ran `find / -name terminal_bindings.jsonl` for 120 s instead of `tide agents list`.
+  Since 0.1.44 a relative path is read against the folder the command `cd`s to before it, so
+  `cd <repo> && grep -r … <dir>` from a shell whose folder is in the capture is allowed, and
+  `cd <session folder>; cat _claude_…` is refused. A `cd` ends at a pipe, a background `&` or
+  the `)` of its subshell, and one the guard cannot read falls back to the shell's folder.
 - **tmux server guard** (0.1.36). A Bash command that ends the shared tmux server is refused:
   `tmux kill-server` and `tmux kill-session -a` without `-L` or `-S`, `pkill` or `killall` on
   tmux, `kill` of the server's pid, `systemctl stop` or `restart` of `tmux-server`. `TMUX_TMPDIR`

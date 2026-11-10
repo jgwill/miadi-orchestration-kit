@@ -10,15 +10,18 @@ trap 'rm -rf "$WORK"' EXIT
 
 ROOT="$WORK/_sessiondata"
 SID="0e514958-b9e0-49cb-b60d-27ad83d8b258"
-mkdir -p "$ROOT/data" "$ROOT/$SID" "$WORK/elsewhere"
+mkdir -p "$ROOT/data" "$ROOT/$SID" "$WORK/elsewhere" "$WORK/kit/claude/miadi-witness"
 ln -s "$ROOT" "$WORK/link-to-root"
 export CLAUDE_SESSIONDATA_ROOT="$ROOT"
 unset MIADI_SESSION_DIR MIADI_SESSIONDATA_ROOT SESSION_DATA_ROOT MIADI_SESSION_LOOKUP_GUARD
 
 failures=0
 expect() {  # <label> <expected exit> <command>
+    expect_in "$1" "$2" "$WORK" "$3"
+}
+expect_in() {  # <label> <expected exit> <the shell's folder> <command>
     python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[1],"tool_input":{"command":sys.argv[2]}}))' \
-        "$WORK" "$3" | bash "$GUARD" 2>/dev/null
+        "$3" "$4" | bash "$GUARD" 2>/dev/null
     local got=$?
     if [ "$2" = "$got" ]; then
         echo "ok   $1"
@@ -50,6 +53,20 @@ expect "a find from a relative folder is allowed" 0 "find . -name SKILL.md"
 expect "a non-recursive ls of a session folder is allowed" 0 "ls $ROOT/$SID"
 expect "a grep for / as text is allowed" 0 "grep -n '/' README.md"
 expect "an empty command is allowed" 0 ""
+
+# A relative path is read against the folder the command cds to (2026-11-10, Phase 4 of the
+# search-inside-sessions mission), and a scan of the capture is still refused.
+IN="$ROOT/$SID"
+expect_in "measured: from a shell in the capture, cd to a repo then grep -r a folder there is allowed" 0 "$IN" \
+    "cd $WORK/kit/claude && grep -rlE \"workspace/\\.mino\" miadi-witness"
+expect_in "from a shell in the capture, grep -r . is still refused" 2 "$IN" "grep -rn mw-rwl-repo ."
+expect_in "after a cd elsewhere, grep -r over the root by its path is still refused" 2 "$IN" "cd $WORK/elsewhere && grep -rn x $ROOT"
+expect "a cd into the root then grep -r . is refused" 2 "cd $ROOT && grep -rn x ."
+expect "a cd into a session folder then cat of its raw capture is refused" 2 "cd $ROOT/$SID; cat _claude_user_inputs.jsonl"
+expect_in "a cd inside a closed subshell does not carry past it" 2 "$IN" "(cd $WORK/elsewhere); grep -rn x ."
+expect_in "a cd piped into the search does not carry into it" 2 "$IN" "cd $WORK/elsewhere | grep -rn x ."
+expect_in "a cd to a folder the guard cannot read falls back to the shell's folder" 2 "$IN" "cd \"\$NOT_SET_ANYWHERE\" && grep -rn x ."
+expect_in "cds follow one another" 0 "$IN" "cd $WORK/elsewhere; cd ..; grep -rn x elsewhere kit"
 
 printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"find / -name x"}}' "$WORK" \
     | MIADI_SESSION_LOOKUP_GUARD=off bash "$GUARD" 2>/dev/null

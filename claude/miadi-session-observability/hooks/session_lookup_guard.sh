@@ -18,7 +18,8 @@
 #     <root>/<session uuid>/_claude_*, last_claude_*, _responses_*, _transcript*
 #
 # WHAT IT ALLOWS
-#   find under any other folder. The binding line <root>/data/terminal_bindings.jsonl (the
+#   find under any other folder. A relative path is read against the folder the command `cd`s
+#   to before it, so `cd <repo> && grep -r … <dir>` from a shell in the capture is allowed. The binding line <root>/data/terminal_bindings.jsonl (the
 #   session-continuity skill reads it with jq). Any command that is not a reader, so
 #   `miadi-hooks-interpret digest <root>/<id>` and the plugin's own scripts and tests.
 #
@@ -55,17 +56,18 @@ for name in ("CLAUDE_SESSIONDATA_ROOT", "MIADI_SESSION_DIR", "MIADI_SESSIONDATA_
         roots.add(os.path.realpath(v))
 roots.add(os.path.realpath("/src/_sessiondata"))
 
-def resolve(path):
+def resolve(path, base):
     path = os.path.expanduser(path)
     if not os.path.isabs(path):
-        path = os.path.join(cwd, path)
+        path = os.path.join(base, path)
     return os.path.realpath(path)
 
-def under_root(path):
-    r = resolve(path)
+def under_root(path, base):
+    r = resolve(path, base)
     return any(r == root or r.startswith(root + os.sep) for root in roots)
 
 RAW = re.compile(r"/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\*)/(_claude_|last_claude_|_responses_|_transcript)")
+RAW_NAMES = ("_claude_", "last_claude_", "_responses_", "_transcript")
 READERS = {"cat", "jq", "grep", "egrep", "rg", "head", "tail", "sed", "awk", "less", "wc", "python", "python3"}
 
 try:
@@ -75,19 +77,38 @@ try:
 except Exception:
     sys.exit(0)
 
-segments, seg = [], []
+# The command in order: its segments and the separators between them, so a `cd` is followed.
+items, seg = [], []
 for t in tokens:
     if t and set(t) <= set(";&|()"):
         if seg:
-            segments.append(seg)
+            items.append(("cmd", seg))
         seg = []
+        items.append(("sep", t))
     else:
         seg.append(t)
 if seg:
-    segments.append(seg)
+    items.append(("cmd", seg))
 
+# The folder a relative path is read against: the folder of the shell, then each `cd` or `pushd` the command
+# makes before it. A `cd` ends at a pipe or a background `&` (a subshell) and at the `)` that
+# closes its subshell. A target the guard cannot read (`cd -`, an unset variable) falls back to
+# the folder of the shell, as before any `cd` was followed (2026-11-10, Phase 4 of the
+# search-inside-sessions mission: `cd <kit> && grep -r … miadi-witness` from a shell in the
+# capture was refused as a scan of the capture).
+here, stack, undo = cwd, [], None
 reason = None
-for s in segments:
+for kind, s in items:
+    if kind == "sep":
+        if undo is not None and s in ("|", "|&", "&"):
+            here = undo
+        undo = None
+        for ch in s:
+            if ch == "(":
+                stack.append(here)
+            elif ch == ")" and stack:
+                here = stack.pop()
+        continue
     while s and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", s[0]):
         s = s[1:]
     while s and s[0] in ("sudo", "timeout", "nice", "command", "env", "xargs"):
@@ -98,6 +119,15 @@ for s in segments:
         continue
     prog = os.path.basename(s[0])
     args = s[1:]
+    if prog in ("cd", "pushd", "popd"):
+        target = next((a for a in args if a == "-" or not a.startswith("-")), None) if prog != "popd" else "-"
+        undo = here
+        if target is None:
+            here = os.path.expanduser("~")
+        else:
+            target = os.path.expandvars(target)
+            here = cwd if target == "-" or "$" in target or "`" in target else resolve(target, here)
+        continue
     if prog == "find":
         starts = []
         for a in args:
@@ -106,16 +136,16 @@ for s in segments:
             starts.append(a)
         if "/" in starts:
             reason = "a find from / walks every mount on this host"
-        elif any(under_root(a) for a in starts):
+        elif any(under_root(a, here) for a in starts):
             reason = "a find over the session capture is a fleet scan"
     elif prog in ("grep", "egrep", "rg", "ls"):
         flags = " ".join(a for a in args if a.startswith("-"))
         recursive = prog == "rg" or re.search(r"(^|\s)-[A-Za-z]*[rR]|--recursive", flags)
         paths = [a for a in args if not a.startswith("-")]
-        if recursive and any(under_root(a) for a in paths):
+        if recursive and any(under_root(a, here) for a in paths):
             reason = "a recursive search over the session capture is a fleet scan"
     if reason is None and prog in READERS:
-        if any(RAW.search(resolve(a)) and under_root(a) for a in args if "/" in a):
+        if any(RAW.search(resolve(a, here)) and under_root(a, here) for a in args if "/" in a or a.startswith(RAW_NAMES)):
             reason = "the raw capture is read through miadi-hooks-interpret, not by hand"
     if reason:
         break
