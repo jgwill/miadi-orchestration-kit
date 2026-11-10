@@ -2,6 +2,7 @@
 # SessionEnd writes the ending session's inventory record in its detached half, with
 # miadi-witness's inventory.mjs: from the installed plugin, else from the kit checkout at
 # MIADI_ORCHESTRATION_KIT_ROOT, else not at all. The first half still returns at once.
+# session_inventory.sh where prints the same script for /inventory-exit.
 # Run: bash tests/session-end-inventory.sh
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -57,7 +58,10 @@ D=dddddddd-0000-4000-8000-00000000000d
 detached "$D"
 expect "the installed plugin's inventory.mjs is the one run" "write --session $D" "$(cat "$WITNESS_INVENTORY_DIR/used-user" 2>/dev/null)"
 expect "not a project install for another folder" "no" "$([ -f "$WITNESS_INVENTORY_DIR/used-other" ] && echo yes || echo no)"
+expect "/inventory-exit finds the same script" "$WORK/witness-user/scripts/inventory.mjs" "$(bash "$HOOKS/session_inventory.sh" where "$WORK/cwd")"
 rm -f "$HOME/.claude/plugins/installed_plugins.json"
+expect "else the kit checkout's" "$KIT/claude/miadi-witness/scripts/inventory.mjs" "$(bash "$HOOKS/session_inventory.sh" where "$WORK/cwd")"
+expect "and nothing, failing, without either" "1" "$(MIADI_ORCHESTRATION_KIT_ROOT= bash "$HOOKS/session_inventory.sh" where "$WORK/cwd" > /dev/null; echo $?)"
 
 E=eeeeeeee-0000-4000-8000-00000000000e
 mv "$WITNESS_INVENTORY_DIR" "$WORK/inventory-away"

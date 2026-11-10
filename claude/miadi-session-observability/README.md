@@ -303,6 +303,11 @@ installed plugin is a copy of this folder, so it cannot reach the kit by a relat
 
 ## Host integrations it uses when present
 
+- `/inventory-exit` (0.1.42): before the person closes a session, its own agent writes the
+  record's facts with `inventory.mjs write`, adds the meaning from what it did (mission,
+  work_completed, held_decisions, next_steps, team_fit from miadi-witness `team-fit.mjs`,
+  disposition), commits only that record in the inventory's repository and pushes, then tells
+  the person to type `/exit`. It never runs `/exit` itself.
 - The session's inventory record is written when it ends (0.1.41). The SessionEnd hook's
   detached half runs miadi-witness `scripts/inventory.mjs write --session <id>`, no model call,
   from the installed `miadi-witness` plugin (a user install, or a project install whose folder
