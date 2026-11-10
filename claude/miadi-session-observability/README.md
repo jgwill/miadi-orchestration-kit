@@ -303,6 +303,13 @@ installed plugin is a copy of this folder, so it cannot reach the kit by a relat
 
 ## Host integrations it uses when present
 
+- The session's inventory record is written when it ends (0.1.41). The SessionEnd hook's
+  detached half runs miadi-witness `scripts/inventory.mjs write --session <id>`, no model call,
+  from the installed `miadi-witness` plugin (a user install, or a project install whose folder
+  holds the session's cwd), else from `$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-witness`.
+  Nothing is written without either, without `node`, on a host with no inventory folder
+  (`WITNESS_INVENTORY_DIR`, else `~/workspace/.mino/session-inventory`), or for a headless
+  `claude -p` child. The run's output goes to the session's `trace.log`.
 - A presented plan is kept as `plans/session_<id>_<yyMMddHHmm>.md`. Until 0.1.19 the hook also ran
   `/opt/binscripts/plan-insight/miette_claude_plan_perspective_claude.sh`. Miette's perspective is
   now the [`miette-plan-insight`](../miette-plan-insight) plugin's: a session that loads it opens a
@@ -322,6 +329,7 @@ bash tests/binding-agent.sh
 bash tests/binding-mission.sh
 bash tests/workspace-clone-guard.sh
 bash tests/uncommitted-not-written.sh
+bash tests/session-end-inventory.sh
 CLAUDE_SESSIONDATA_ROOT=$(mktemp -d) claude --restricted --plugin-dir . --model haiku
 ```
 
