@@ -721,9 +721,29 @@ async function capabilitiesCommand(args) {
 // episode, circle and ceremony into the record is what puts a session on an episode and on its
 // main ceremony. Earned 2026-11-01: William asked for two sessions to be added to Episode 568 and
 // its ceremony, and the seat first reached for a connector that signs in as him.
-// The episode comes from the public door GET …/episodes/<ref>. The main circle and ceremony come
-// from GET …/episodes/<ref>/circle, which needs a signed-in reader: the seat's own token
-// (WITNESS_MIADI_TOKEN, else MIADI_MINO_TOKEN), never the token of the person it acts for.
+// The episode comes from GET …/episodes/<ref>, the main circle and ceremony from
+// GET …/episodes/<ref>/circle. Both need a signed-in reader: the door answers 404 to an unsigned
+// read of an episode (measured 2026-11-10 at 127.0.0.1:3335 and on the tailnet). Both are signed
+// with the seat's own token, never the token of the person it acts for.
+
+// The seat's token: WITNESS_MIADI_TOKEN, else MIADI_MINO_TOKEN, from the environment, else from one
+// literal line of WITNESS_ENV_FILE (default ~/.env), which is read and never sourced. A seat's
+// process environment often lacks it while ~/.env has it. The token is never printed.
+export function seatToken(env = process.env) {
+  for (const name of ["WITNESS_MIADI_TOKEN", "MIADI_MINO_TOKEN"]) if (env[name]) return env[name];
+  const file = env.WITNESS_ENV_FILE || join(homedir(), ".env");
+  if (!existsSync(file)) return "";
+  const lines = readFileSync(file, "utf8").split("\n");
+  for (const name of ["WITNESS_MIADI_TOKEN", "MIADI_MINO_TOKEN"]) {
+    for (const line of lines) {
+      const m = new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=\\s*(.*?)\\s*$`).exec(line);
+      const value = m?.[1].replace(/^(['"])(.*)\1$/, "$2");
+      if (value) return value;
+    }
+  }
+  return "";
+}
+
 async function holdCommand(args) {
   const [id] = args.sessions;
   if (!id || !args.episode) {
@@ -737,13 +757,13 @@ async function holdCommand(args) {
     return 2;
   }
   const base = (process.env.WITNESS_MIADI_API_URL ?? process.env.MIADI_API_URL ?? "http://127.0.0.1:3335").replace(/\/$/, "");
-  const token = process.env.WITNESS_MIADI_TOKEN ?? process.env.MIADI_MINO_TOKEN ?? "";
+  const token = seatToken();
   const ref = encodeURIComponent(args.episode);
   let door;
   try {
-    door = await getJson(`${base}/api/chronicle/episodes/${ref}`);
+    door = await getJson(`${base}/api/chronicle/episodes/${ref}`, token);
   } catch (error) {
-    console.error(`inventory: the episode door: ${error.message}`);
+    console.error(`inventory: the episode door: ${error.message}${token ? "" : "; the read was unsigned: the door reads an episode only for a signed-in reader, so put the seat's MIADI_MINO_TOKEN in the environment or in ~/.env"}`);
     return 1;
   }
   const dated = typeof door.episode === "string" ? door.episode : door.identity?.name;
@@ -755,7 +775,7 @@ async function holdCommand(args) {
   }
   let main = null;
   let owed = "";
-  if (!token) owed = "no seat token (WITNESS_MIADI_TOKEN or MIADI_MINO_TOKEN)";
+  if (!token) owed = "no seat token (WITNESS_MIADI_TOKEN or MIADI_MINO_TOKEN, in the environment or ~/.env)";
   else {
     try {
       main = (await getJson(`${base}/api/chronicle/episodes/${ref}/circle`, token)).main ?? null;

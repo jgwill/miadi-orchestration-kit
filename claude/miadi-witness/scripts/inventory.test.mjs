@@ -260,13 +260,15 @@ test("repo keeps owner/repo, and repo_remote keeps the host it lives on", async 
   assert.equal(repoFromRemote(null), null);
 });
 
-test("hold puts a session on an episode, its main circle and ceremony, read from the episode door with the seat's token", async () => {
+test("hold puts a session on an episode, its main circle and ceremony, both read from the episode door with the seat's token", async () => {
   const fx = fixture();
   run(fx, ["write", "--session", NEW]);
   const seen = [];
+  // as the door answers since 2026-11: an unsigned read of an episode is a 404
   const server = createServer((req, res) => {
     seen.push(`${req.url} ${req.headers.authorization ?? "-"}`);
-    if (req.url === "/api/chronicle/episodes/568") {
+    const signed = /^Bearer \S+/.test(req.headers.authorization ?? "");
+    if (req.url === "/api/chronicle/episodes/568" && signed) {
       res.end(JSON.stringify({ episode: "2026-11-01-episode-568-what-each", manifest: { episode: 568, title: "What each", status: "vessel" } }));
     } else if (req.url === "/api/chronicle/episodes/568/circle" && req.headers.authorization === "Bearer seat-token") {
       res.end(JSON.stringify({ main: { circle: { id: "circle:1:x", name: "Episode 568 Root Circle" }, ceremony: { id: "cer-1" } } }));
@@ -277,8 +279,11 @@ test("hold puts a session on an episode, its main circle and ceremony, read from
   });
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
   const url = `http://127.0.0.1:${server.address().port}`;
+  const noFile = join(fx.base, "no.env");
+  const envFile = join(fx.base, "seat.env");
+  writeFileSync(envFile, "OTHER=1\nexport MIADI_MINO_TOKEN='seat-token'\n");
   try {
-    const held = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568", "--how", "minted here"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "seat-token" });
+    const held = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568", "--how", "minted here"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "seat-token", WITNESS_ENV_FILE: noFile });
     assert.equal(held.code, 0, held.stderr);
     assert.match(held.stdout, /held .* episode miadi-chronicle:\/\/568, circle circle:1:x, ceremony cer-1/);
     const record = read(fx, `${NEW}.json`);
@@ -286,14 +291,27 @@ test("hold puts a session on an episode, its main circle and ceremony, read from
     assert.equal(record.circle.id, "circle:1:x");
     assert.equal(record.ceremony.id, "cer-1");
     assert.match(record.observations.at(-1).what, /Held by episode miadi-chronicle:\/\/568/);
+    assert.ok(seen.includes("/api/chronicle/episodes/568 Bearer seat-token"), "the episode itself is read signed");
 
-    const owed = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "", MIADI_MINO_TOKEN: "" });
-    assert.equal(owed.code, 0);
-    assert.match(owed.stdout, /circle owed: no seat token/);
-    assert.ok(!seen.some((line) => line.includes("/circle -")), "no circle read is sent without the seat's token");
+    seen.length = 0;
+    const fromFile = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "", MIADI_MINO_TOKEN: "", WITNESS_ENV_FILE: envFile });
+    assert.equal(fromFile.code, 0, fromFile.stderr);
+    assert.match(fromFile.stdout, /circle circle:1:x, ceremony cer-1/, "an environment without the token reads it from the env file");
+    assert.ok(seen.every((line) => line.endsWith("Bearer seat-token")));
+    assert.ok(!`${fromFile.stdout}${fromFile.stderr}`.includes("seat-token"), "the token is never printed");
 
-    assert.equal((await runAsync(fx, ["hold", "--session", NEW, "--episode", "9"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "seat-token" })).code, 1);
-    assert.equal((await runAsync(fx, ["hold", "--session", OLD, "--episode", "568"], { WITNESS_MIADI_API_URL: url })).code, 2);
+    const owed = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "another-seat", WITNESS_ENV_FILE: noFile });
+    assert.equal(owed.code, 0, owed.stderr);
+    assert.match(owed.stdout, /circle owed: \/api\/chronicle\/episodes\/568\/circle answered 401/);
+
+    seen.length = 0;
+    const unsigned = await runAsync(fx, ["hold", "--session", NEW, "--episode", "568"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "", MIADI_MINO_TOKEN: "", WITNESS_ENV_FILE: noFile });
+    assert.equal(unsigned.code, 1);
+    assert.match(unsigned.stderr, /answered 404; the read was unsigned: .*MIADI_MINO_TOKEN/);
+    assert.ok(!seen.some((line) => line.includes("/circle")), "no circle read is sent without the seat's token");
+
+    assert.equal((await runAsync(fx, ["hold", "--session", NEW, "--episode", "9"], { WITNESS_MIADI_API_URL: url, WITNESS_MIADI_TOKEN: "seat-token", WITNESS_ENV_FILE: noFile })).code, 1);
+    assert.equal((await runAsync(fx, ["hold", "--session", OLD, "--episode", "568"], { WITNESS_MIADI_API_URL: url, WITNESS_ENV_FILE: noFile })).code, 2);
   } finally {
     server.close();
   }
