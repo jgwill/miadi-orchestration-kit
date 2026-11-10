@@ -377,3 +377,40 @@ test("a session the factory runner started carries its connector record, once", 
   assert.equal(record.factory[0].remote_control, "https://claude.ai/code/session_x");
   assert.equal(changes.length, 1);
 });
+
+test("trace and related.issues are filled from the session's commits and pushes, and an agent's links stay", () => {
+  const fx = fixture();
+  const repos = join(fx.base, "repos");
+  const tree = join(repos, "acme", "tools");
+  mkdirSync(tree, { recursive: true });
+  const git = (env, ...a) => execFileSync("git", ["-C", tree, ...a], { encoding: "utf8", env: { ...process.env, ...env } }).trim();
+  const commit = (at, message) => {
+    git({ GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at }, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", message);
+    return git({}, "rev-parse", "HEAD");
+  };
+  git({}, "init", "-q");
+  git({}, "remote", "add", "origin", "git@example.com:acme/tools.git");
+  const base = commit("2026-09-29T08:00:00Z", "the base");
+  commit("2026-09-29T09:59:00Z", "made before the session began #7"); // pushed by it, not made by it
+  const made = commit("2026-09-29T10:05:00Z", "the loop runs, see other/lib#3 and &#39; #0123 #12");
+  const pushed = commit("2026-09-29T10:06:00Z", "the loop stops #12\n\nCloses #13");
+  const short = (sha) => git({}, "rev-parse", "--short", sha);
+  writeFileSync(join(fx.sessiondata, NEW, "_claude_publications.jsonl"), [
+    { kind: "commit", sha: made, dir: tree, repo: "acme/tools", subject: "the loop runs", verified: true },
+    { kind: "push", from: short(base), to: short(pushed), repo: "acme/tools", url: `https://github.com/acme/tools/compare/${short(base)}...${short(pushed)}` },
+    { kind: "push", from: "aaaaaaa", to: "bbbbbbb", repo: "acme/elsewhere" },
+  ].map((l) => JSON.stringify(l)).join("\n") + "\n");
+  writeFileSync(join(fx.inventory, `${NEW}.json`), JSON.stringify({
+    version: "1.0.0", session_id: NEW, tmux_session_name: "tmux-new",
+    links: { question: [], trace: [{ ref: `acme/tools@${pushed}`, note: "an agent wrote this", added_by: "witness" }], evidence: [], criteria: [], judgment: [] },
+    related: { issues: ["acme/tools#13", "kept/by#1"] },
+  }));
+  const written = runEnv(fx, ["write", "--session", NEW], { WITNESS_REPOS_ROOT: repos });
+  assert.match(written.stdout, /trace owed: push acme\/elsewhere aaaaaaa\.\.\.bbbbbbb: no local tree/);
+  const record = read(fx, `${NEW}.json`);
+  assert.deepEqual(record.links.trace.map((e) => e.ref), [`acme/tools@${pushed}`, `acme/tools@${short(made)}`]);
+  assert.equal(record.links.trace[0].note, "an agent wrote this");
+  assert.equal(record.links.trace[1].note, "the loop runs, see other/lib#3 and &#39; #0123 #12");
+  assert.deepEqual(record.related.issues, ["acme/tools#13", "kept/by#1", "other/lib#3", "acme/tools#12"]);
+  assert.match(runEnv(fx, ["plan", "--session", NEW], { WITNESS_REPOS_ROOT: repos }).stdout, /unchanged /);
+});

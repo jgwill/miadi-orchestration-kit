@@ -133,20 +133,26 @@ export function originNames(origin, repo) {
   return o === r || o.endsWith(`/${r}`) || o.endsWith(`:${r}`);
 }
 
-function treeFor(repo, env = process.env) {
-  const candidates = [KNOWN_TREES[repo], join(env.WITNESS_REPOS_ROOT || "/workspace/repos", repo)].filter(Boolean);
-  for (const path of candidates) {
+// Every local tree whose origin names the repository: the folders given first (a commit's own
+// folder, the session's cwd), then KNOWN_TREES, then <WITNESS_REPOS_ROOT>/<owner>/<repo>.
+export function treesFor(repo, { first = [], env = process.env } = {}) {
+  const trees = [];
+  for (const path of [...first, KNOWN_TREES[repo], join(env.WITNESS_REPOS_ROOT || "/workspace/repos", repo)]) {
     // A subfolder of a repository counts: git finds the repository above it.
-    if (!existsSync(path)) continue;
+    if (!path || trees.includes(path) || !existsSync(path)) continue;
     try {
       const origin = execFileSync("git", ["-C", path, "remote", "get-url", "origin"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
       // A folder is not the repository: the origin must name it, after a / or a :.
-      if (originNames(origin, repo)) return path;
+      if (originNames(origin, repo)) trees.push(path);
     } catch {
       // a tree with no origin cannot vouch for a repository
     }
   }
-  return null;
+  return trees;
+}
+
+function treeFor(repo, env = process.env) {
+  return treesFor(repo, { env })[0] ?? null;
 }
 
 // Check one reference against what it points at. Commits are checked in a local tree whose

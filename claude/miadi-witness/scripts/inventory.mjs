@@ -19,9 +19,11 @@
 //                                                      hold the record's capabilities in its episode
 //
 // The five links (links-lib.mjs): question, trace, evidence, criteria, judgment. The script
-// fills question from the hook capture, and evidence with the Miadi reviews the session is named
-// after (review-<yymmdd>-<id>) or that a person's prompt names; the rest are added with `link`. `--kind derived_from`
-// sets the parent session of a fork or a resume.
+// fills question from the hook capture, evidence with the Miadi reviews the session is named
+// after (review-<yymmdd>-<id>) or that a person's prompt names, and trace with owner/repo@sha for
+// each commit in the capture's publications (related.issues gets the owner/repo#n their messages
+// name); the rest are added with `link`. `--kind derived_from` sets the parent session of a fork
+// or a resume.
 //
 // A name is verified by a binding line whose tmux session is that name, or by a pane reading
 // in the seat's own transcripts: a command aimed at exactly that tmux session whose output
@@ -35,7 +37,7 @@ import { fileURLToPath } from "node:url";
 
 import { defaultPaths, lastWilliamInput, readBindings } from "../service/threads.mjs";
 import { transcriptDirForCwd } from "../service/lineage.mjs";
-import { LINK_KINDS, addLink, checkRef, emptyLinks, firstInput, linkGaps, personPrompts, reviewPage, reviewsNamed } from "./links-lib.mjs";
+import { LINK_KINDS, addLink, checkRef, emptyLinks, firstInput, linkGaps, parseRef, personPrompts, reviewPage, reviewsNamed, treesFor } from "./links-lib.mjs";
 
 const SCRIPT = fileURLToPath(import.meta.url);
 const BY = "inventory-keeper (miadi-witness scripts/inventory.mjs)";
@@ -147,6 +149,9 @@ export function factsFor(sessionId, entry, sessiondata) {
     names: [line.tmux?.session, ...entry.names],
     prompts: existsSync(dir) ? personPrompts(sessiondata, sessionId) : [],
   });
+  const published = existsSync(dir)
+    ? commitsOf(sessiondata, sessionId, { since: entry.first.at, cwd: entry.first.cwd ?? line.cwd })
+    : { commits: [], owed: [] };
   return {
     session_id: sessionId,
     tmux_session_name: line.tmux?.session ?? null,
@@ -169,7 +174,125 @@ export function factsFor(sessionId, entry, sessiondata) {
     hook_capture: capture,
     first_input: first,
     reviews,
+    commits: published.commits,
+    trace_owed: published.owed,
   };
+}
+
+// ---------- trace and issues ----------
+// What the session committed, read from its hook capture (_claude_publications.jsonl, written by
+// miadi-session-observability's publications.sh). A `commit` line names its repo and sha. A
+// `push` line names only the range it pushed, so its commits are listed with git log <from>..<to>
+// in a local tree whose origin names the repository, keeping those committed at or after the
+// session's first binding line: a push also carries commits made before the session began
+// (Session 7209701b pushed jgwill/Miadi a391144e, committed two minutes before it started).
+// A push no local tree can list is reported as owed, never guessed.
+
+// owner/repo#n, or a bare #n read against the commit's own repository. Not inside a word, a
+// path or an HTML entity, and never #0… (a colour, not an issue).
+const ISSUE_IN_TEXT = /(?<![\w/&#.-])(?:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+))?#([1-9]\d*)\b/g;
+
+export function issuesIn(message, repo) {
+  const issues = [];
+  for (const m of String(message ?? "").matchAll(ISSUE_IN_TEXT)) {
+    const owner = m[1] ?? repo;
+    if (owner && !issues.includes(`${owner}#${m[2]}`)) issues.push(`${owner}#${m[2]}`);
+  }
+  return issues;
+}
+
+const sameSha = (a, b) => {
+  const [x, y] = [String(a).toLowerCase(), String(b).toLowerCase()];
+  return x.startsWith(y) || y.startsWith(x);
+};
+
+// [{short, sha, time, message}] for a git log range in one tree, or null when the tree cannot list it.
+function logCommits(tree, range, max = 200) {
+  try {
+    const out = execFileSync("git", ["-C", tree, "log", `--max-count=${max}`, "--format=%h%x1f%H%x1f%ct%x1f%B%x1e", ...range, "--"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.split("\x1e").map((chunk) => chunk.replace(/^\n/, "")).filter(Boolean).map((chunk) => {
+      const [short, sha, time, message = ""] = chunk.split("\x1f");
+      return { short, sha, time: Number(time), message: message.trim() };
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function commitsOf(sessiondata, sessionId, { since = null, cwd = null, env = process.env } = {}) {
+  const path = join(sessiondata, sessionId, "_claude_publications.jsonl");
+  const commits = [];
+  const owed = [];
+  if (!existsSync(path)) return { commits, owed };
+  const lines = readFileSync(path, "utf8").split("\n").flatMap((raw) => {
+    try {
+      return raw.trim() ? [JSON.parse(raw)] : [];
+    } catch {
+      return [];
+    }
+  });
+  const dirs = (repo) => [...new Set(lines.filter((l) => l.kind === "commit" && l.repo === repo && l.dir).map((l) => l.dir)), cwd].filter(Boolean);
+  const sinceSeconds = since && !Number.isNaN(Date.parse(since)) ? Date.parse(since) / 1000 : null;
+  const add = (repo, c) => {
+    if (commits.some((k) => k.repo === repo && sameSha(k.sha, c.sha))) return;
+    commits.push({ repo, sha: c.sha, short: c.short, subject: c.message.split("\n")[0], issues: issuesIn(c.message, repo) });
+  };
+  for (const line of lines) {
+    if (line.kind === "commit") {
+      if (!line.repo || !line.sha) {
+        owed.push(`commit ${line.sha ?? "?"}: the capture names no repository`);
+        continue;
+      }
+      const trees = treesFor(line.repo, { first: dirs(line.repo), env });
+      const found = trees.map((tree) => logCommits(tree, [line.sha], 1)).find((list) => list?.length);
+      add(line.repo, found?.[0] ?? { sha: line.sha, short: line.sha, message: line.subject ?? "" });
+    } else if (line.kind === "push") {
+      if (!line.repo || !line.to) {
+        owed.push(`push ${line.url ?? line.remote ?? "?"}: the capture names no repository or no pushed tip`);
+        continue;
+      }
+      const range = line.from && !/^0+$/.test(line.from) ? [`${line.from}..${line.to}`] : [line.to];
+      const max = range[0].includes("..") ? 200 : 1;
+      const listed = treesFor(line.repo, { first: dirs(line.repo), env }).map((tree) => logCommits(tree, range, max)).find((list) => list !== null);
+      if (!listed) {
+        owed.push(`push ${line.repo} ${line.from ?? ""}...${line.to}: no local tree whose origin names ${line.repo} holds the range`);
+        continue;
+      }
+      for (const c of listed) if (sinceSeconds === null || c.time >= sinceSeconds) add(line.repo, c);
+    }
+  }
+  return { commits, owed };
+}
+
+// Adds a commit unless the trace already holds it, in any length of sha an agent wrote.
+function fillTrace(record, facts, now, changes) {
+  const held = (record.links?.trace ?? []).map((entry) => parseRef(entry.ref)).filter((ref) => ref.type === "commit");
+  let added = 0;
+  for (const c of facts.commits ?? []) {
+    if (held.some((ref) => ref.repo.toLowerCase() === c.repo.toLowerCase() && sameSha(ref.sha, c.sha))) continue;
+    if (addLink(record, "trace", `${c.repo}@${c.short}`, { note: c.subject || undefined, by: BY, now })) {
+      held.push({ repo: c.repo, sha: c.sha });
+      added += 1;
+    }
+  }
+  if (added) changes.push(`trace link${added > 1 ? "s" : ""} to ${added} commit${added > 1 ? "s" : ""}`);
+}
+
+function fillIssues(record, facts, changes) {
+  const issues = record.related?.issues ?? [];
+  const known = new Set(issues.filter((i) => typeof i === "string").map((i) => i.toLowerCase()));
+  const added = [];
+  for (const ref of (facts.commits ?? []).flatMap((c) => c.issues)) {
+    if (known.has(ref.toLowerCase())) continue;
+    known.add(ref.toLowerCase());
+    added.push(ref);
+  }
+  if (!added.length) return;
+  record.related = { ...(record.related ?? {}), issues: [...issues, ...added] };
+  changes.push(`related.issues +${added.length} (${added.join(", ")})`);
 }
 
 // The question link is a fact of the hook capture, so the script fills it when it is empty.
@@ -301,9 +424,11 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
     };
     fillQuestion(record, facts, now, []);
     fillEvidence(record, facts, now, []);
+    fillTrace(record, facts, now, []);
+    fillIssues(record, facts, []);
     fillMissions(record, facts, now, []);
     fillFactory(record, facts, now, []);
-    return { action: "create", file: `${facts.session_id}.json`, changes: ["new record"], record };
+    return { action: "create", file: `${facts.session_id}.json`, changes: ["new record"], owed: facts.trace_owed ?? [], record };
   }
   const record = structuredClone(existing.record);
   const changes = [];
@@ -321,11 +446,14 @@ export function planFor(facts, existing, now = new Date().toISOString()) {
   }
   fillQuestion(record, facts, now, changes);
   fillEvidence(record, facts, now, changes);
+  fillTrace(record, facts, now, changes);
+  fillIssues(record, facts, changes);
   fillMissions(record, facts, now, changes);
   fillFactory(record, facts, now, changes);
-  if (!changes.length) return { action: "unchanged", file: existing.file, changes, record };
+  const owed = facts.trace_owed ?? [];
+  if (!changes.length) return { action: "unchanged", file: existing.file, changes, owed, record };
   record.observations = [...(record.observations ?? []), { at: now, by: BY, what: `Facts updated from the binding line and the hook capture: ${changes.join(", ")}.` }];
-  return { action: "update", file: existing.file, changes, record };
+  return { action: "update", file: existing.file, changes, owed, record };
 }
 
 // ---------- names ----------
@@ -513,6 +641,7 @@ function main() {
   for (const plan of plans) {
     const head = plan.action === "skip" ? `skip      ${plan.session_id} · ${plan.reason}` : `${plan.action.padEnd(10)}${plan.file}${plan.changes.length ? ` · ${plan.changes.join(", ")}` : ""}`;
     console.log(`${head}${plan.written ? " · written" : ""}`);
+    for (const owed of plan.owed ?? []) console.log(`  trace owed: ${owed}`);
   }
   if (inventory.hygiene.length) {
     console.log(`hygiene (${inventory.hygiene.length}, not changed by this script):`);
