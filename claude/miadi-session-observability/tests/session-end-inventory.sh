@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SessionEnd writes the ending session's inventory record in its detached half, with
 # miadi-witness's inventory.mjs: from the installed plugin, else from the kit checkout at
-# MIADI_ORCHESTRATION_KIT_ROOT, else not at all. The first half still returns at once.
+# MIADI_ORCHESTRATION_KIT_ROOT, else not at all, then inventory-at-exit.mjs beside it decides how
+# the record gets its meaning. The first half still returns at once.
 # session_inventory.sh where prints the same script for /inventory-exit.
 # Run: bash tests/session-end-inventory.sh
 set -u
@@ -12,8 +13,9 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 export HOME="$WORK/home" CLAUDE_SESSIONDATA_ROOT="$WORK/root" XDG_STATE_HOME="$WORK/state"
 export WITNESS_INVENTORY_DIR="$WORK/inventory" MIADI_FACTORY_LEDGER="$WORK/no-ledger.jsonl" MIADI_MISSIONS_DIR="$WORK/no-missions"
+export INVENTORY_AT_EXIT_LEDGER="$WORK/decisions/inventory-at-exit.jsonl" TYPESAFE_ENV_FILE="$WORK/no.env"
 mkdir -p "$HOME/.claude/sessions" "$CLAUDE_SESSIONDATA_ROOT/data" "$WITNESS_INVENTORY_DIR" "$WORK/cwd"
-unset TMUX TMUX_PANE MIADI_RUN_MISSION MIADI_TEAM MIADI_ORCHESTRATION_KIT_ROOT CLAUDE_CONFIG_DIR WITNESS_BINDINGS MIADI_SESSIONDATA_ROOT MIADI_SESSION_DIR SESSION_DATA_ROOT
+unset JEV_AI_API_KEY TYPESAFE_API_KEY TMUX TMUX_PANE MIADI_RUN_MISSION MIADI_TEAM MIADI_ORCHESTRATION_KIT_ROOT CLAUDE_CONFIG_DIR WITNESS_BINDINGS MIADI_SESSIONDATA_ROOT MIADI_SESSION_DIR SESSION_DATA_ROOT
 
 failures=0
 expect() {  # <label> <expected> <actual>
@@ -41,6 +43,8 @@ expect "the kit checkout's inventory.mjs writes the record" "yes" "$(record "$B"
 expect "keyed by the ending session" "$B" "$(jq -r .session_id "$WITNESS_INVENTORY_DIR/$B.json" 2>/dev/null)"
 expect "from its session.end binding line" "unreviewed" "$(jq -r .status "$WITNESS_INVENTORY_DIR/$B.json" 2>/dev/null)"
 expect "the run is kept in the session's trace.log" "1" "$(grep -c "Session inventory: $KIT/claude/miadi-witness/scripts/inventory.mjs write --session $B" "$CLAUDE_SESSIONDATA_ROOT/$B/trace.log")"
+expect "then inventory-at-exit.mjs decides how it gets its meaning" "jev unread" "$(jq -r --arg id "$B" 'select(.session_id == $id) | "\(.decided_by) \(.action)"' "$INVENTORY_AT_EXIT_LEDGER" 2>/dev/null)"
+expect "with no Jev key here, the record stays unread for the nightly pass" "1" "$(grep -c "inventory at exit: $B · jev → unread · Jev did not answer" "$CLAUDE_SESSIONDATA_ROOT/$B/trace.log")"
 
 C=cccccccc-0000-4000-8000-00000000000c
 detached "$C" '["claude","-p","edit this"]'
@@ -57,6 +61,7 @@ jq -n --arg u "$WORK/witness-user" --arg o "$WORK/witness-other" '{version: 2, p
 D=dddddddd-0000-4000-8000-00000000000d
 detached "$D"
 expect "the installed plugin's inventory.mjs is the one run" "write --session $D" "$(cat "$WITNESS_INVENTORY_DIR/used-user" 2>/dev/null)"
+expect "an installed miadi-witness without inventory-at-exit.mjs decides nothing" "0" "$(grep -c "\"session_id\":\"$D\"" "$INVENTORY_AT_EXIT_LEDGER")"
 expect "not a project install for another folder" "no" "$([ -f "$WITNESS_INVENTORY_DIR/used-other" ] && echo yes || echo no)"
 expect "/inventory-exit finds the same script" "$WORK/witness-user/scripts/inventory.mjs" "$(bash "$HOOKS/session_inventory.sh" where "$WORK/cwd")"
 rm -f "$HOME/.claude/plugins/installed_plugins.json"

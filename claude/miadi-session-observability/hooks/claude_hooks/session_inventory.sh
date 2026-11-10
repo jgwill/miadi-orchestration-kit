@@ -8,6 +8,8 @@
 # The script comes from the installed miadi-witness plugin, else from the kit checkout at
 # MIADI_ORCHESTRATION_KIT_ROOT. With neither, with no node, or on a host with no inventory folder,
 # nothing is written. A headless `claude -p` child is left out, as inventory.mjs --all leaves it.
+# After the facts, inventory-at-exit.mjs beside inventory.mjs decides how the record gets its
+# meaning, and commits the record by path.
 
 _inventory_script() {
     local cwd="$1" registry="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" path
@@ -36,6 +38,12 @@ claude_write_session_inventory() {
     {
         echo "Session inventory: $script write --session $session_id"
         MIADI_SESSIONDATA_ROOT="$CLAUDE_SESSIONDATA_ROOT" "${run[@]}" "$script" write --session "$session_id" 2>&1
+        # How the record gets its meaning (0.1.43): counted, or one Jev call that may start one
+        # detached Haiku reader (miadi-witness inventory-at-exit.mjs). An older miadi-witness has none.
+        decide="$(dirname "$script")/inventory-at-exit.mjs"
+        if [ -f "$decide" ]; then
+            MIADI_SESSIONDATA_ROOT="$CLAUDE_SESSIONDATA_ROOT" "${run[@]}" "$decide" decide --session "$session_id" 2>&1
+        fi
     } >> "$output_dir/trace.log"
 }
 

@@ -314,7 +314,10 @@ installed plugin is a copy of this folder, so it cannot reach the kit by a relat
   holds the session's cwd), else from `$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-witness`.
   Nothing is written without either, without `node`, on a host with no inventory folder
   (`WITNESS_INVENTORY_DIR`, else `~/workspace/.mino/session-inventory`), or for a headless
-  `claude -p` child. The run's output goes to the session's `trace.log`.
+  `claude -p` child. The run's output goes to the session's `trace.log`. Since 0.1.43 it then runs
+  `inventory-at-exit.mjs decide` beside it, which decides how the record gets its meaning (counted,
+  or one Jev call that may start one detached Haiku reader under a dollar and a daily cap) and
+  commits the record by path. An installed miadi-witness older than 0.7.43 has no such script.
 - A presented plan is kept as `plans/session_<id>_<yyMMddHHmm>.md`. Until 0.1.19 the hook also ran
   `/opt/binscripts/plan-insight/miette_claude_plan_perspective_claude.sh`. Miette's perspective is
   now the [`miette-plan-insight`](../miette-plan-insight) plugin's: a session that loads it opens a

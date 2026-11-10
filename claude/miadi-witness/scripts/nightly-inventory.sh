@@ -78,8 +78,11 @@ summary=$(printf '%s' "$json" | node -e '
 	console.log(JSON.stringify({ written, created, updated: written.length - created.length, unread }));
 ')
 
-# One reader for what no agent has read: Haiku, capped, never a seat of its own.
-mapfile -t unread < <(printf '%s' "$summary" | node -e 'for (const id of JSON.parse(require("fs").readFileSync(0,"utf8")).unread) console.log(id)')
+# One reader for what no agent has read: Haiku, capped, never a seat of its own. A session whose
+# reading was settled as facts only at its exit (inventory-at-exit.mjs settled, a decision or a
+# person's ruling in ~/.miadi/decisions/inventory-at-exit.jsonl) is left out.
+mapfile -t settled < <(node "$here/inventory-at-exit.mjs" settled 2>/dev/null)
+mapfile -t unread < <(printf '%s' "$summary" | node -e 'for (const id of JSON.parse(require("fs").readFileSync(0,"utf8")).unread) console.log(id)' | grep -vxF -f <(printf '%s\n' "${settled[@]}" ""))
 reading=null
 if [ "$read" = 1 ] && [ "${#unread[@]}" -gt 0 ] && command -v claude >/dev/null 2>&1; then
 	batch=("${unread[@]:0:$max_read}")

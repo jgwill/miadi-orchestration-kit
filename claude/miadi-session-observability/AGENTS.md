@@ -29,7 +29,8 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
 - `hooks/claude_hooks/session_inventory.sh`, `commands/inventory-exit.md` and
   `tests/session-end-inventory.sh`: the session's inventory record, written by miadi-witness
   `inventory.mjs` in SessionEnd's detached half (0.1.41) and with its meaning by the session's
-  own agent at `/inventory-exit` (0.1.42), 14 checks.
+  own agent at `/inventory-exit` (0.1.42), then the decision of miadi-witness
+  `inventory-at-exit.mjs` on how the record gets its meaning (0.1.43), 17 checks.
 - `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a
