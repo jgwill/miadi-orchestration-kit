@@ -2,13 +2,14 @@
 name: miadi-run
 description: >
   Start a terminal mission from one pinned version of a miadiRun prompt
-  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in seven
-  verbs: create, resolve, prepare, launch, given, prompt, observe. Create makes the person's text a
+  (`miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>` in the tracing provider), in eight
+  verbs: create, resolve, prepare, launch, given, start, prompt, observe. Create makes the person's text a
   new prompt version and opens its research trace. The launched seat reads its pinned version
   from the provider with `prompt` and starts the mission without waiting. Prepare pins the version, holds the prompt
   and its research trace on the episode and asks `tide companion open` for its plan,
   and never executes. Launch runs only on the person's explicit word. Given records a mission the person handed by
-  hand to a seat that already runs, typing nothing. Every step adds
+  hand to a seat that already runs, typing nothing. Start runs create, prepare and `mct new
+  --mission` in one command, opening a new tmux seat on the mission. Every step adds
   a typed observation (research, preparation, execution, return) to the mission's
   trace. Triggers on "miadiRun", "miadi-run", "prepare the mission", "launch the
   mission", "start a session from that prompt", "start a session with that trace",
@@ -16,7 +17,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.11.3
+  version: 0.12.0
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -36,6 +37,7 @@ $R resolve <prompt-name | trace-id> [--domain ceremony|creative|eng]
 $R prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--dry-run]
 $R launch  <mission> --authorized-by <who>
 $R given   <mission> --session <claude-session-id | 8-char prefix | tmux-session> --authorized-by <who> [--at <iso>]
+$R start   <prompt-name> --text-file F --episode <ref> --team <id> --session <tmux name> --authorized-by <who> [--cwd DIR] [--domain eng] [--dry-run]
 $R prompt  <mission>
 $R observe <mission> --kind research|return --summary "<text>" [--detail-file F]
 $R observe --trace <trace-id> --kind research --summary "<text>"
@@ -52,7 +54,7 @@ gives the `return` command. A seat therefore starts from the prompt in the provi
 copy on disk (Guillaume, 2026-10-13). The first launch, that day, opened a seat that read a copy and
 then only listened.
 
-## The seven verbs
+## The eight verbs
 
 0. **create** is for a person who gives the prompt name and its text together, for example
    `/miadi-run miadiRun-2610121041-pde-into-miadi-chronicle <the text>` (Guillaume,
@@ -103,6 +105,30 @@ then only listened.
    started. The record gets `launch.via: "given"` and the seat's `claude_session_id`, and an
    `execution` generation links that seat to the prompt version. A mission is given or launched
    once.
+
+3c. **start** (0.12.0) opens a new seat on a new prompt version in one command. Guillaume,
+   2026-11-10: "you would have the command you need to actually start a session this way with the
+   actual prompting and the way we intended to use here". Until then it took three commands a seat
+   had to remember: create, prepare, then `mctgo --mission`. Start refuses before writing anything
+   when the tmux session `--session` exists (exit 4), when `--authorized-by` is missing (exit 3),
+   or when the name breaks the `miadiRun-` convention (exit 2). It then runs:
+   - **create** in `--domain` (default `eng`), whose new trace takes the tmux name as its session.
+   - **prepare** with the version and trace create returned, on `--episode`. It retries while the
+     provider cannot read the new trace yet, every `MIADI_RUN_START_POLL_MS` (5000), for at most
+     `MIADI_RUN_START_WAIT_S` (180). Past that it stops (exit 4) and prints the prepare and mct
+     commands to run once the trace is readable.
+   - **`mct new <team> <session> --remote -d --mission <prompt>.v<N> --authorized-by <who>
+     [--cwd DIR]`**, the command `mctgo` wraps (jgwill/Miadi `scripts/fn_miadi.sh`, @miadi/chronicle-tui).
+     mct declares the team, starts the agent with `MIADI_RUN_MISSION`, pastes "Read <brief> whole
+     first" once the agent is ready, and records `given` itself. `MIADI_MCT` overrides the binary.
+     When mct refuses, the mission stays prepared and start prints the mct line (exit 6).
+
+   It prints the mission id, the prompt, the trace, the tmux name and `open`: the line
+   `~/workspace/.mino/bin/session-door <session id> --open` once the seat's binding line, written
+   since this start, names its session (it waits `MIADI_RUN_START_BIND_WAIT_S`, 30), otherwise the
+   tmux name. `--dry-run` writes nothing. It prints the create, prepare and mct lines it would run,
+   and runs `mct new … --dry-run` without `--mission`, because mct refuses a mission that is not
+   prepared yet.
 
    **show** lists `seats`: the session a launch or a hand-off recorded, every session whose
    binding line has a `session.mission` line for this mission (capture plugin 0.1.12 and later),
@@ -177,9 +203,10 @@ When `MIADI_API_URL` is unset, the relations are recorded as `pending`. Hold the
 
 ## Exit codes
 
-`2` usage or a refused flag. `3` launch or given without authorization. `4` unknown prompt, trace, session or
-mission, a mission already prepared or launched, or a return before a launch. `5` the pinned
-version no longer matches. `6` tide could not plan. `7` tide did not open the seat, or its plan
+`2` usage or a refused flag. `3` launch, given or start without authorization. `4` unknown prompt, trace, session or
+mission, a mission already prepared or launched, a return before a launch, a tmux session start
+would reuse, or a trace the provider did not read within start's bound. `5` the pinned
+version no longer matches. `6` tide could not plan, or mct new refused start's seat. `7` tide did not open the seat, or its plan
 would not type the mission prompt. `8` the record was written, but an observation or an episode
 relation was refused, or tide's plan would not type the mission prompt (stderr names which).
 `9` the guard refused `--run` outside launch.
@@ -192,7 +219,8 @@ relation was refused, or tide's plan would not type the mission prompt (stderr n
 
 - **A session-fork lane.** `miadi-fork open` (`claude/miadi-session-observability`) opens a
   branch with no starting prompt, so it cannot deliver a pinned version. It needs a `--brief`
-  option in that plugin first. Until then the companion seat is the only launcher.
+  option in that plugin first. Until then the launchers are the companion seat (launch) and
+  `mct new --mission` (start).
 
 ## Test
 
@@ -200,7 +228,7 @@ relation was refused, or tide's plan would not type the mission prompt (stderr n
 node --test $MIADI_ORCHESTRATION_KIT_ROOT/skills/miadi-run/miadi-run.test.mjs
 ```
 
-The test runs the script as a process. Stub `tide`, `coaia`, `tmux`, `claude` and
+The test runs the script as a process. Stub `tide`, `coaia`, `tmux`, `mct`, `claude` and
 `miacompanionyolo` on PATH log every call, and a local server answers as Langfuse and as the
 episode door. It proves these things:
 
@@ -215,4 +243,10 @@ episode door. It proves these things:
   pinned prompt version, and research and preparation are events.
 - Create writes the text exactly as given, sets no label, refuses a repeated text, and opens a
   trace or appends under the given trace's root.
+- Start refuses a name outside the convention, a missing `--authorized-by` or flag, and an
+  existing tmux session before the provider is even asked. Its dry run writes nothing and runs
+  only `mct new … --dry-run`. A real start creates the version, prepares it after the provider
+  twice cannot read the new trace, runs mct with the mission, and names the seat's session from a
+  binding line written since it began, or prints the tmux name. It stops at its bound with the
+  next commands, and keeps the mission prepared when mct refuses.
 - No key reaches a log, a record, a request body or the output.

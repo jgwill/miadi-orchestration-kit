@@ -7,6 +7,8 @@
 //   prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 //   launch  <mission> --authorized-by <who>
 //   given   <mission> --session <claude-session-id | prefix | tmux-session> --authorized-by <who> [--at <iso>]
+//   start   <prompt-name> --text-file F --episode <ref> --team <id> --session <tmux name> --authorized-by <who> [--cwd DIR] [--domain eng] [--dry-run]
+//                                                                       (create, prepare, then a new seat: mct new --mission)
 //   prompt  <mission>                                                   (the seat reads its pinned version)
 //   backfill <mission>                                                  (summaries of a record made before 0.6.0, from its trace)
 //   observe <mission> --kind research|return --summary <text> [--detail-file F]
@@ -472,6 +474,111 @@ async function given(deps, opts) {
   return mission
 }
 
+// ---------- start: create, prepare and a new seat on the mission, in one command ----------
+
+// Guillaume, 2026-11-10: a session started on a traced miadiRun prompt keeps the prompt and its
+// trace, so anyone can come back to what was started and the prompt can evolve. Starting one took
+// three commands a seat had to remember: create, prepare, then mctgo (`mct new --remote -d`), which
+// sets MIADI_RUN_MISSION, pastes "Read <brief> whole first" once the agent is ready and records
+// `miadi-run given` itself. `start` runs the three. It refuses before writing anything when the
+// tmux session exists, when nobody is named as authorizing, or when the name breaks the convention.
+const START_DOMAIN = "eng"
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const seconds = (value, fallback) => (Number.isFinite(Number(value)) && value !== "" && value !== undefined ? Number(value) : fallback)
+
+export function shellLine(cmd, args) {
+  return [cmd, ...args].map((a) => (/^[A-Za-z0-9_./:=@%+,-]+$/.test(String(a)) ? String(a) : `'${String(a).replace(/'/g, "'\\''")}'`)).join(" ")
+}
+
+export function mctArgs({ team, session, mission, authorizedBy, cwd, dryRun = false }) {
+  return ["new", team, session, "--remote", "-d", ...(mission ? ["--mission", mission, "--authorized-by", authorizedBy] : []), ...(cwd ? ["--cwd", cwd] : []), ...(dryRun ? ["--dry-run"] : [])]
+}
+
+// A trace create opened is not readable at once: prepare refuses it as unknown, or as rootless,
+// until the provider has it (about a minute, measured 2026-11-10).
+const TRACE_NOT_YET = /^trace \S+ (is in no configured domain|has no root observation)/
+
+async function start(deps, opts) {
+  const name = opts.positional[0]
+  if (!name || !PROMPT_NAME_RE.test(name)) throw new Refusal(2, "start needs a prompt name miadiRun-<yyMMddHHmm>-<tmuxName>-<missionName>")
+  if (typeof opts.authorizedBy !== "string" || !opts.authorizedBy.trim()) throw new Refusal(3, `start needs --authorized-by <who>: the person whose word starts ${name}`)
+  for (const [flag, value] of [["--text-file", opts.textFile], ["--episode", opts.episode], ["--team", opts.team], ["--session", opts.session]]) {
+    if (!value) throw new Refusal(2, `start needs ${flag}`)
+  }
+  const domain = opts.domain || START_DOMAIN
+  const begun = deps.now()
+  if (!DOMAINS.includes(domain)) throw new Refusal(2, `unknown domain "${domain}" (${DOMAINS.join(", ")})`)
+  // An existing tmux session is never touched, so it is refused here, before a prompt version exists.
+  if (run(deps, "start", "tmux", ["has-session", "-t", `=${opts.session}`]).status === 0) {
+    throw new Refusal(4, `tmux session ${opts.session} exists; start opens a new seat and never touches a running one`)
+  }
+  const mct = deps.env.MIADI_MCT || "mct"
+  const script = fileURLToPath(import.meta.url)
+  const who = opts.authorizedBy.trim()
+  const createArgs = ["create", name, "--text-file", opts.textFile, "--domain", domain, "--session", opts.session, ...(opts.commitMessage ? ["--commit-message", opts.commitMessage] : [])]
+  const prepareArgs = (version, trace) => ["prepare", "--prompt", name, "--version", String(version), "--trace", trace, "--episode", String(opts.episode), "--domain", domain]
+  const seat = (mission, dryRun) => mctArgs({ team: opts.team, session: opts.session, mission, authorizedBy: who, cwd: opts.cwd, dryRun })
+
+  if (opts.dryRun) {
+    // mct refuses a mission that is not prepared yet, so its dry run plans the seat without it.
+    const planned = run(deps, "start", mct, seat(null, true))
+    return {
+      dryRun: true,
+      would_run: [shellLine("node", [script, ...createArgs]), shellLine("node", [script, ...prepareArgs("<N>", "<trace-id>")]), shellLine(mct, seat(`${name}.v<N>`, false))],
+      mct_dry_run: { command: shellLine(mct, seat(null, true)), status: planned.status, plan: (planned.stdout || planned.stderr || "").trim(), note: "without --mission and --authorized-by: mct refuses a mission not prepared yet" },
+    }
+  }
+
+  const made = await create(deps, { ...opts, positional: [name], domain, session: opts.session })
+  if (made.trace.ok === false) throw new Refusal(1, `prompt ${made.prompt.reference} exists, but its trace was not opened: ${made.trace.error ?? "coaia failed"}`)
+  const id = missionId(name, made.prompt.version)
+  const waitS = seconds(deps.env.MIADI_RUN_START_WAIT_S, 180)
+  const pollMs = seconds(deps.env.MIADI_RUN_START_POLL_MS, 5000)
+  const startedAt = deps.now()
+  let mission
+  for (let tries = 1; ; tries += 1) {
+    try {
+      mission = await prepare(deps, { positional: [], addDirs: [], prompt: name, version: made.prompt.version, trace: made.trace.id, episode: opts.episode, domain })
+      break
+    } catch (e) {
+      if (!(e instanceof Refusal) || !TRACE_NOT_YET.test(e.message)) throw e
+      if (deps.now() - startedAt >= waitS * 1000) {
+        throw new Refusal(4, `${e.message} after ${tries} tries in ${waitS} s. Prompt ${made.prompt.reference} and trace ${made.trace.reference} exist; once the provider reads the trace:\n  ${shellLine("node", [script, ...prepareArgs(made.prompt.version, made.trace.id)])}\n  ${shellLine(mct, seat(id, false))}`)
+      }
+      await sleep(pollMs)
+    }
+  }
+
+  const opened = run(deps, "start", mct, seat(id, false))
+  if (opened.status !== 0) {
+    throw new Refusal(6, `mission ${id} is prepared, but ${mct} new refused (exit ${opened.status}): ${(opened.stderr || opened.stdout || "").trim().slice(0, 300)}\nOnce that is settled:\n  ${shellLine(mct, seat(id, false))}`)
+  }
+  // The new seat's binding line names its session id once the agent starts. A tmux name can be
+  // reused, so only a line written since this start began counts (to the second: a line may carry no
+  // milliseconds).
+  const bindS = seconds(deps.env.MIADI_RUN_START_BIND_WAIT_S, 30)
+  const since = deps.now()
+  let bound = null
+  for (;;) {
+    const hit = findSeat(deps.env, opts.session)
+    if (hit && hit.tmux === opts.session && Date.parse(hit.at ?? "") >= Math.floor(begun.getTime() / 1000) * 1000) { bound = hit; break }
+    if (deps.now() - since >= bindS * 1000) break
+    await sleep(Math.min(pollMs, 1000))
+  }
+  const door = deps.env.MIADI_SESSION_DOOR || join(homedir(), "workspace", ".mino", "bin", "session-door")
+  return {
+    mission: id,
+    prompt: made.prompt.reference,
+    trace: mission.trace.reference,
+    episode: String(opts.episode),
+    team: opts.team,
+    tmux: opts.session,
+    session_id: bound?.session_id ?? null,
+    open: bound ? `${door} ${bound.session_id} --open` : opts.session,
+    authorized_by: who,
+  }
+}
+
 // What the seat reads first: the pinned version, from the provider, only while it matches.
 async function promptCmd(deps, opts) {
   const id = opts.positional[0]
@@ -858,7 +965,7 @@ async function drafts(deps, opts) {
 
 export function parseArgs(argv) {
   const opts = { positional: [], addDirs: [] }
-  const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile", "--text-file": "textFile", "--session": "session", "--commit-message": "commitMessage", "--at": "at" }
+  const takes = { "--domain": "domain", "--prompt": "prompt", "--version": "version", "--trace": "trace", "--episode": "episode", "--seat": "seat", "--authorized-by": "authorizedBy", "--kind": "kind", "--summary": "summary", "--detail-file": "detailFile", "--text-file": "textFile", "--session": "session", "--commit-message": "commitMessage", "--at": "at", "--team": "team", "--cwd": "cwd" }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
     if (takes[a]) opts[takes[a]] = argv[++i]
@@ -888,6 +995,7 @@ miadi-run resolve <prompt-name | trace-id> [--domain d]
 miadi-run prepare --prompt <name> --version <N> --trace <trace-id> --episode <ref> [--seat mia] [--add-dir DIR]... [--domain d] [--dry-run]
 miadi-run launch  <mission> --authorized-by <who>
 miadi-run given   <mission> --session <claude-session-id | prefix | tmux-session> --authorized-by <who> [--at <iso>]
+miadi-run start   <prompt-name> --text-file F --episode <ref> --team <id> --session <tmux name> --authorized-by <who> [--cwd DIR] [--domain eng] [--dry-run]
 miadi-run prompt  <mission>
 miadi-run backfill <mission>
 miadi-run observe <mission> --kind research|return --summary <text> [--detail-file F]
@@ -904,6 +1012,7 @@ export async function main(argv, deps = defaultDeps()) {
   if (verb === "prepare") return prepare(deps, opts)
   if (verb === "launch") return launch(deps, opts)
   if (verb === "given") return given(deps, opts)
+  if (verb === "start") return start(deps, opts)
   if (verb === "prompt") return promptCmd(deps, opts)
   if (verb === "observe") return observeCmd(deps, opts)
   if (verb === "show") return show(deps, opts)

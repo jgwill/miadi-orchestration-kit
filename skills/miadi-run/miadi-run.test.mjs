@@ -29,11 +29,16 @@ const SEAT_TMUX = `${NEW}-seat`
 const LAUNCHED_ID = "bbbb2222-3333-4444-8555-666677778888"
 // the session running every command of this test, as Claude Code names it to a tool call
 const SIGNER = "cccc3333-4444-4555-8666-777788889999"
+// start: a prompt of its own in the eng domain, and the session the stub mct's seat binds
+const START = "miadiRun-2611101653-test-seat-startVerb"
+const STARTED_ID = "dddd4444-5555-4666-8777-888899990000"
+const ENG = {}
 
 let root, stubs, logs, home, server, base, sessiondata
 const requests = []
 let promptBody = BODY_V1
 let limited = false
+const traceLookups = {}
 
 function stub(name, stdout) {
   const file = join(stubs, name)
@@ -57,13 +62,29 @@ before(async () => {
   // tide prints a plan in the state written to logs/tide.state (default "create"); with --run it reports an executed seat
   stub("tide", `STATE=$(cat "${logs}/tide.state" 2>/dev/null || echo create)
 if printf '%s\\n' "$@" | grep -qx -- '--run'; then echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"executed\\":true,\\"session_id\\":\\"tide-row-1\\"}"; else echo "{\\"session\\":\\"episode-9-mia-companion\\",\\"state\\":\\"$STATE\\",\\"commands\\":[]}"; fi`)
-  stub("coaia", `prev=""
+  stub("coaia", `prev=""; name=""
 for a in "$@"; do
-  if [ "$prev" = "--prompt" ]; then n=$(ls "${logs}"/created.*.txt 2>/dev/null | wc -l); printf '%s' "$a" > "${logs}/created.$((n+1)).txt"; fi
+  [ "$prev" = "--name" ] && name="$a"
+  if [ "$prev" = "--prompt" ]; then
+    if [ "$name" = "${START}" ]; then f=start-created; else f=created; fi
+    n=$(ls "${logs}"/$f.*.txt 2>/dev/null | wc -l); printf '%s' "$a" > "${logs}/$f.$((n+1)).txt"
+  fi
   prev="$a"
 done
 echo "observation sent"`)
-  for (const never of ["tmux", "claude", "miacompanionyolo"]) stub(never, "exit 0")
+  // tmux answers has-session from logs/tmux.sessions; nothing else is ever expected of it
+  stub("tmux", `if [ "$1" = has-session ]; then grep -qxF -- "\${3#=}" "${logs}/tmux.sessions" 2>/dev/null; exit $?; fi
+exit 0`)
+  for (const never of ["claude", "miacompanionyolo"]) stub(never, "exit 0")
+  // mct new: a dry run prints a plan and refuses a mission (none is prepared yet); a real run starts
+  // the seat, whose agent writes its binding line, unless logs/mct.nobind holds it back
+  stub("mct", `if printf '%s\n' "$@" | grep -qx -- '--dry-run'; then
+  if printf '%s\n' "$@" | grep -qx -- '--mission'; then echo "No prepared mission" >&2; exit 2; fi
+  echo "tmux new-session -d -s $3"; exit 0
+fi
+[ -f "${logs}/mct.fail" ] && { echo "tmux: no server" >&2; exit 4; }
+[ -f "${logs}/mct.nobind" ] && exit 0
+printf '{"session_id":"${STARTED_ID}","at":"%s","event":"session.start","tmux":{"session":"%s","pane_id":"%%11"}}\n' "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" "$3" >> "${sessiondata}/data/terminal_bindings.jsonl"`)
 
   server = createServer((req, res) => {
     let body = ""
@@ -85,6 +106,19 @@ echo "observation sent"`)
         const file = join(logs, `created.${Number(u.searchParams.get("version"))}.txt`)
         return existsSync(file) ? send(200, { name: NEW, version: Number(u.searchParams.get("version")), type: "text", prompt: readFileSync(file, "utf8"), labels: [] }) : send(404, {})
       }
+      const startMade = readdirSync(logs).filter((f) => /^start-created\.\d+\.txt$/.test(f)).length
+      if (u.pathname === "/api/public/v2/prompts" && u.searchParams.get("name") === START) return send(200, { data: startMade ? [{ name: START, versions: Array.from({ length: startMade }, (_, i) => i + 1), labels: ["latest"], type: "text" }] : [] })
+      if (u.pathname === `/api/public/v2/prompts/${START}`) {
+        const file = join(logs, `start-created.${Number(u.searchParams.get("version"))}.txt`)
+        return existsSync(file) ? send(200, { name: START, version: Number(u.searchParams.get("version")), type: "text", prompt: readFileSync(file, "utf8"), labels: [] }) : send(404, {})
+      }
+      // a trace create opened: unknown for its first two reads, as the provider is slow to hold it
+      const opened = u.pathname.match(/^\/api\/public\/traces\/([0-9a-f]{32})$/)
+      if (opened && opened[1] !== TRACE) {
+        traceLookups[opened[1]] = (traceLookups[opened[1]] ?? 0) + 1
+        if (existsSync(join(logs, "trace.never")) || traceLookups[opened[1]] <= 2) return send(404, {})
+        return send(200, { id: opened[1], name: START, sessionId: "start-seat", observations: [{ id: "start-root", parentObservationId: null, startTime: "2026-11-10T22:00:00Z" }] })
+      }
       if (u.pathname === `/api/public/traces/${TRACE}`) return send(200, { id: TRACE, name: "Reciprocal mission inquiry — source and synthesis", sessionId: "miadi-reciprocal-mission-261011", input: "never printed", observations: [{ id: "child-1", parentObservationId: "root-1", startTime: "2026-10-11T10:48:01Z" }, { id: "root-1", parentObservationId: null, startTime: "2026-10-11T10:48:00Z" }, { id: "ret-1", parentObservationId: "root-1", startTime: "2026-10-12T09:00:00Z", name: `miadi-run · return · ${PROMPT}.v1`, input: JSON.stringify({ summary: "seat opened, mission done" }) }] })
       if (u.pathname === "/api/chronicle/episodes/9/tracing" && req.method === "POST") return send(JSON.parse(body).dryRun ? 200 : 201, { ok: true })
       return send(404, {})
@@ -92,11 +126,12 @@ echo "observation sent"`)
   })
   await new Promise((r) => server.listen(0, "127.0.0.1", r))
   base = `http://127.0.0.1:${server.address().port}`
+  Object.assign(ENG, { ENG_LANGFUSE_PUBLIC_KEY: SECRETS[0], ENG_LANGFUSE_SECRET_KEY: SECRETS[1], ENG_LANGFUSE_BASE_URL: base })
 })
 
 after(() => { server.close(); rmSync(root, { recursive: true, force: true }) })
 
-function cli(args) {
+function cli(args, extra = {}) {
   const env = {
     PATH: `${stubs}:${dirname(process.execPath)}:/usr/bin:/bin`,
     HOME: root,
@@ -109,6 +144,10 @@ function cli(args) {
     MIADI_API_TOKEN_WRITER: SECRETS[2],
     CLAUDE_SESSIONDATA_ROOT: sessiondata,
     CLAUDE_CODE_SESSION_ID: SIGNER,
+    MIADI_RUN_START_POLL_MS: "20",
+    MIADI_RUN_START_WAIT_S: "5",
+    MIADI_RUN_START_BIND_WAIT_S: "1",
+    ...extra,
   }
   return new Promise((resolve) => execFile(process.execPath, [SCRIPT, ...args], { env }, (error, stdout, stderr) => resolve({ code: error ? error.code : 0, stdout, stderr })))
 }
@@ -389,6 +428,101 @@ test("backfill reads a return's summary back from the trace into a record made b
 test("show lists the sessions that signed a mission's events beside its seat", async () => {
   const shown = JSON.parse((await cli(["show", MISSION])).stdout)
   assert.deepEqual(shown.seats.map((s) => [s.session_id, s.source]), [[LAUNCHED_ID, "prompt"], [SIGNER, "signed"]])
+})
+
+const STARTING = ["--episode", "9", "--team", "T8", "--authorized-by", "Guillaume"]
+const startText = (n) => { const f = join(root, `start-${n}.txt`); writeFileSync(f, `start the seat, take ${n}\n`); return f }
+
+test("start refuses before writing anything: a name outside the convention, no --authorized-by, a missing flag, a tmux session that exists", async () => {
+  const text = startText(0)
+  const coaiaBefore = log("coaia").length
+  const asked = requests.length
+  writeFileSync(join(logs, "tmux.sessions"), "t8-already-here\n")
+  const cases = [
+    [2, ["start", "t8-start-verb", "--text-file", text, "--session", "t8-new", ...STARTING]],
+    [3, ["start", START, "--text-file", text, "--session", "t8-new", "--episode", "9", "--team", "T8"]],
+    [2, ["start", START, "--text-file", text, "--session", "t8-new", "--episode", "9", "--authorized-by", "Guillaume"]],
+    [4, ["start", START, "--text-file", text, "--session", "t8-already-here", ...STARTING]],
+    [4, ["start", START, "--text-file", text, "--session", "t8-already-here", ...STARTING, "--dry-run"]],
+  ]
+  for (const [code, args] of cases) {
+    const r = await cli(args, ENG)
+    assert.equal(r.code, code, `${args.join(" ")}: ${r.stderr}`)
+  }
+  assert.match((await cli(cases[3][1], ENG)).stderr, /tmux session t8-already-here exists/)
+  assert.equal(log("coaia").length, coaiaBefore, "no prompt version, no trace")
+  assert.equal(requests.length, asked, "the provider is not even asked")
+  assert.deepEqual(log("mct"), [])
+})
+
+test("start --dry-run writes nothing: it prints create and prepare, and runs mct new --dry-run", async () => {
+  const coaiaBefore = log("coaia").length
+  const r = await cli(["start", START, "--text-file", startText(1), "--session", "t8-start-dry", "--cwd", "/work/kit", ...STARTING, "--dry-run"], ENG)
+  assert.equal(r.code, 0, r.stderr)
+  const out = JSON.parse(r.stdout)
+  assert.equal(out.dryRun, true)
+  assert.match(out.would_run[0], new RegExp(`miadi-run\\.mjs create ${START} --text-file \\S+ --domain eng --session t8-start-dry$`))
+  assert.match(out.would_run[1], new RegExp(`miadi-run\\.mjs prepare --prompt ${START} --version '<N>' --trace '<trace-id>' --episode 9 --domain eng$`))
+  assert.equal(out.would_run[2], `mct new T8 t8-start-dry --remote -d --mission '${START}.v<N>' --authorized-by Guillaume --cwd /work/kit`)
+  assert.equal(out.mct_dry_run.status, 0)
+  assert.equal(out.mct_dry_run.plan, "tmux new-session -d -s t8-start-dry")
+  assert.deepEqual(log("mct"), ["new T8 t8-start-dry --remote -d --cwd /work/kit --dry-run"])
+  assert.equal(log("coaia").length, coaiaBefore)
+  assert.equal(existsSync(join(logs, "start-created.1.txt")), false)
+  assert.equal(readdirSync(home).some((d) => d.startsWith(START)), false, "no mission")
+})
+
+test("start creates the version, prepares it once the provider reads the trace, opens the seat with mct and names its session", async () => {
+  // an older session that once held the same tmux name is not the new seat
+  writeFileSync(join(sessiondata, "data", "terminal_bindings.jsonl"), JSON.stringify({ session_id: "eeee5555-6666-4777-8888-999900001111", at: "2026-10-01T08:00:00Z", tmux: { session: "t8-start-real" } }) + "\n", { flag: "a" })
+  const mctBefore = log("mct").length
+  const r = await cli(["start", START, "--text-file", startText(2), "--session", "t8-start-real", "--cwd", "/work/kit", ...STARTING], ENG)
+  assert.equal(r.code, 0, r.stderr)
+  const out = JSON.parse(r.stdout)
+  const id = `${START}.v1`
+  assert.equal(out.mission, id)
+  assert.equal(out.prompt, `miadi-tracing:eng/prompt/${START}@1`)
+  assert.match(out.trace, /^miadi-tracing:eng\/trace\/[0-9a-f]{32}$/)
+  assert.equal(out.tmux, "t8-start-real")
+  assert.equal(out.session_id, STARTED_ID)
+  assert.equal(out.open, `${join(root, "workspace", ".mino", "bin", "session-door")} ${STARTED_ID} --open`)
+  const traceId = out.trace.split("/").at(-1)
+  assert.equal(traceLookups[traceId], 3, "two refusals while the provider could not read the trace, then prepare")
+  assert.match(log("coaia").join("\n"), new RegExp(`fuse traces create --name ${START} --trace-id ${traceId} --session-id t8-start-real `), "the trace's session is the tmux name")
+  const m = JSON.parse(readFileSync(join(home, id, "mission.json"), "utf8"))
+  assert.equal(m.state, "prepared", "mct's helper records given once the brief is pasted")
+  assert.equal(m.trace.id, traceId)
+  assert.deepEqual(log("mct").slice(mctBefore), [`new T8 t8-start-real --remote -d --mission ${id} --authorized-by Guillaume --cwd /work/kit`])
+})
+
+test("start prints the tmux name when the seat's binding line is not written yet", async () => {
+  writeFileSync(join(logs, "mct.nobind"), "")
+  const r = await cli(["start", START, "--text-file", startText(3), "--session", "t8-start-unbound", ...STARTING], ENG)
+  rmSync(join(logs, "mct.nobind"))
+  assert.equal(r.code, 0, r.stderr)
+  const out = JSON.parse(r.stdout)
+  assert.equal(out.mission, `${START}.v2`)
+  assert.equal(out.session_id, null)
+  assert.equal(out.open, "t8-start-unbound")
+})
+
+test("start stops after its bound when the provider never reads the trace, and when mct refuses, saying what to run next", async () => {
+  writeFileSync(join(logs, "trace.never"), "")
+  const mctBefore = log("mct").length
+  const slow = await cli(["start", START, "--text-file", startText(4), "--session", "t8-start-slow", ...STARTING], { ...ENG, MIADI_RUN_START_WAIT_S: "0.2" })
+  rmSync(join(logs, "trace.never"))
+  assert.equal(slow.code, 4, slow.stderr)
+  assert.match(slow.stderr, /is in no configured domain after \d+ tries/)
+  assert.match(slow.stderr, new RegExp(`miadi-run\\.mjs prepare --prompt ${START} --version 3 --trace [0-9a-f]{32} --episode 9 --domain eng\\n  mct new T8 t8-start-slow --remote -d --mission ${START}\\.v3 --authorized-by Guillaume`))
+  assert.equal(existsSync(join(home, `${START}.v3`)), false, "not prepared")
+  assert.equal(log("mct").length, mctBefore, "no seat opened")
+
+  writeFileSync(join(logs, "mct.fail"), "")
+  const refused = await cli(["start", START, "--text-file", startText(5), "--session", "t8-start-refused", ...STARTING], ENG)
+  rmSync(join(logs, "mct.fail"))
+  assert.equal(refused.code, 6, refused.stderr)
+  assert.match(refused.stderr, new RegExp(`mission ${START}\\.v4 is prepared, but mct new refused \\(exit 4\\): tmux: no server`))
+  assert.equal(JSON.parse(readFileSync(join(home, `${START}.v4`, "mission.json"), "utf8")).state, "prepared")
 })
 
 test("the creative domain's keys are read from the env file", () => {
