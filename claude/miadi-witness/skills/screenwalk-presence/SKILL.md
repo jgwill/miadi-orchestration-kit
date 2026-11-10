@@ -7,7 +7,7 @@ description: Write what a seat says when it takes part in a screenwalk, the reco
 
 A screenwalk is a recording of a person working with agent sessions, with their voices. Episode 550 holds its definition. When William plays a seat's reply inside one, the reply becomes part of the film. So it is written for the ear, and it can be reused as the episode's script.
 
-Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.6 (2026-11-07). Revise it from William's spoken feedback after each playback.
+Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused for this purpose: "that reads too much detail". The second followed this shape. Version 0.7 (2026-11-10). Revise it from William's spoken feedback after each playback.
 
 ## The shape, in order
 
@@ -22,7 +22,8 @@ Drawn from 2026-10-02/03 (session `mino-261002a`). The first reply was refused f
 ## Written to be heard
 
 - Short sentences. One idea each.
-- No file paths, commands, versions, commit hashes or issue numbers in the spoken part. A link, if one is needed, goes in a final line after the closing sentence.
+- No file paths, commands, versions, commit hashes or issue numbers in the spoken part.
+- **Addresses come after the script, only those he has a reason to open, one per line, each with its reason** (version 0.7, 2026-11-10). Each line says what the address opens and why he would open it now, and it names what the address needs from him, or that it needs nothing. An address he has no reason to open is left out, such as a session already closed. A paragraph that lists addresses is never written. Guillaume, on a paragraph that listed two episodes and three tmux sessions: "I'm not sure I understand how I could interpret such paragraph with that much reference ... what was its purpose for communicating with me, and what did that needed from me." The address grammar's own rule still holds: an address stands beside the words that name the thing.
 - No tables and no code blocks. Headings are allowed, because they are read as pauses.
 - Three to five minutes aloud: about 600 to 900 words.
 - Name people and seats by name. Say "Mia", not "the implementation lane".
