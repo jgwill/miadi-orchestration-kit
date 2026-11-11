@@ -15,7 +15,7 @@ Guillaume, 2026-11-10: "if we would have to create a video for someone who wants
 **Instruction** (fill each `<…>`, keep the rest as written):
 
 ```text
-What session <tmux name> created on <date>, for someone who was not there. Name each thing made, with what proves it: <the commits, files or records, from the digest>. Then each decision the person made, in the words they used: <quotes, from the digest's prompts or the transcript, with timestamps>. Then what the session left open, as the session's own last reply or closing says it. Nothing else: no architecture, no claim the evidence does not show. A thing proposed is said to be proposed; a thing not seen working is said to be not seen. Speak only in the language of creating: what was created, current reality, the next step.
+What session <tmux name> created on <date>. Name each thing made, with what proves it: <the commits, files or records, from the digest>. Then each decision the person made, in the words they used: <quotes, from the digest's prompts or the transcript, with timestamps>. Then what the session left open, as the session's own last reply or closing says it. Nothing else: no architecture, no claim the evidence does not show. A thing proposed is said to be proposed; a thing not seen working is said to be not seen. Speak only in the language of creating: what was created, current reality, the next step.
 ```
 
 **Before sending the plan on**: each item names a thing made or a decision, not a theme; every claim has its source in the digest, the record or the transcript.
