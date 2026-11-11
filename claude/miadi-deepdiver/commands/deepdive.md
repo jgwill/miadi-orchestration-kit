@@ -25,6 +25,14 @@ Arguments: `$ARGUMENTS`
 
 ## 2. The brief comes from the review
 
+**First, the purpose of each video.** A video is made for one of three purposes (Guillaume, 2026-11-10). Name it before writing any instruction, and write it beside the instruction in `perspectives.md`:
+
+- **What happened**: what a session created, for someone who was not there, short. Template and sources: `purposes/what-happened.md`.
+- **Where we are going**: the episode's goal as scenes that do not exist yet, each with who makes it and what proves it, made to be paused and commented on. Template and sources: `purposes/where-we-are-going.md`.
+- **Feedback that triggers implementation**: a person plays one of the two in a screenwalk and comments aloud. That screenwalk's review is an `explainer-feedback` review, and the `explainer-feedback-loop` skill (miadi-witness) carries it. `/deepdive` does not make this one: it makes the video it plays.
+
+A brief that names no purpose gets both videos for a screenwalk review: what happened, for the session it records, and where we are going, for the episode that holds it. A status walk through a session's missions is neither: in Episode 568 (2026-11-10) it gave a plan the person had no use for, "I remember what I did". A session's evidence is its inventory record and `miadi-hooks-interpret digest`, not only its recording: that session went on after the recording stopped.
+
 A review says how it will be used next, under `## Intended Use & Continuation` (older reviews: `## Intent`).
 
 - **A line that names the Deep Diver** (`**The Deep Diver path.**`, or `production/deepdiver` in the header's `branches:`) is the brief: what the notebook questions the review against, and which media it wants (an image of the episode's essence, a short cut, a report).
