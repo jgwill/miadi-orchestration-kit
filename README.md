@@ -128,6 +128,7 @@ Hosts set `MIADI_ORCHESTRATION_KIT_ROOT` to their checkout of this repository.
 | Item | Use it for | Guillaume's Notes |
 | --- | --- | --- |
 | [`skills/chronicle-episode`](skills/chronicle-episode/SKILL.md) | the one entry point for Chronicle episode work on any host, with `redeem-receipt.sh` and `reconcile.py` beside it | ok |
+| [`skills/youtube-source`](skills/youtube-source/SKILL.md) | retrieve YouTube metadata and manual/automatic captions, render timestamped source text, or use a labelled CPU-transcription fallback | |
 | [`skills/production-context-exploration`](skills/production-context-exploration/SKILL.md) | T5 first-version practice: one staged inquiry and script, bounded Mia–Ava academic lenses, no automatic episode birth | |
 | [`skills/chart-path`](skills/chart-path/SKILL.md) | how a structural tension chart an agent writes reaches Asterion, and the words the teams use for it | just a stub and Asterion is still just a prototype |
 | [`skills/proposal-visualization`](skills/proposal-visualization/SKILL.md) | a proposal or a set of questions as one HTML page to read, comment on and approve, and the commands to attach it to a GitHub issue as an artifact |  Getting better, it helps to comment on claude-code artefact.  Still has a lot of useless content or unclear sections on what requires human attention but that is really getting better |
