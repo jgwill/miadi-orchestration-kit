@@ -17,7 +17,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.12.1
+  version: 0.12.2
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -196,8 +196,10 @@ then only listened.
 - Earlier prompt versions. Only `create` writes a prompt, and only as a new version with no
   label, so no earlier version and no label moves. The person may also revise the prompt in the
   provider, which makes a new version the same way.
-- Keys. The domain's keys (`<DOMAIN>_LANGFUSE_*`, from the environment or one literal line of
-  `$MIADI_ENV_FILE`, default `$MIADI_SRC/.env`) travel only in request headers and in coaia's
+- Keys. The domain's keys (`<DOMAIN>_LANGFUSE_*`, from the environment or one literal line of the
+  first file that has it: `$MIADI_TRACING_ENV`, the user's `~/.config/miadi/tracing.env` (their home
+  since 0.12.2, as `@miadi/llmops` 0.4.0 reads them, jgwill/Miadi#824), then `$MIADI_ENV_FILE`, default
+  `$MIADI_SRC/.env`) travel only in request headers and in coaia's
   environment, under the three names coaia reads. `MIADI_API_TOKEN_WRITER` travels only in the
   episode door's header. No key appears in an observation, the mission record or the output.
 

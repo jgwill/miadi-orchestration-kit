@@ -45,13 +45,26 @@ export class Refusal extends Error {
 
 // ---------- domains and keys ----------
 
+// The files a key is read from after the environment, first value wins, as @miadi/llmops/keys
+// reads them (0.4.0, jgwill/Miadi#824): $MIADI_TRACING_ENV, the user's ~/.config/miadi/tracing.env
+// (the home of the domain keys since 2026-11-12), then $MIADI_ENV_FILE or $MIADI_SRC/.env. The user
+// file comes from $XDG_CONFIG_HOME or $HOME only, never the process's own home, so a test that sets
+// neither reads no real key.
+export function envFiles(env) {
+  const config = env.XDG_CONFIG_HOME || (env.HOME ? join(env.HOME, ".config") : "")
+  const files = [env.MIADI_TRACING_ENV, config ? join(config, "miadi", "tracing.env") : "", env.MIADI_ENV_FILE || (env.MIADI_SRC ? join(env.MIADI_SRC, ".env") : "")]
+  return files.filter((f, i) => f && files.indexOf(f) === i)
+}
+
 function envFileValues(env) {
-  const file = env.MIADI_ENV_FILE || (env.MIADI_SRC ? join(env.MIADI_SRC, ".env") : "")
-  if (!file || !existsSync(file)) return {}
   const out = {}
-  for (const line of readFileSync(file, "utf8").split("\n")) {
-    const m = line.match(new RegExp(`^((?:${DOMAINS.map((d) => d.toUpperCase()).join("|")})_LANGFUSE_[A-Z_]+|MIADI_API_TOKEN_WRITER)=(.*)$`))
-    if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, "")
+  const wanted = new RegExp(`^(?:export\\s+)?((?:${DOMAINS.map((d) => d.toUpperCase()).join("|")})_LANGFUSE_[A-Z_]+|MIADI_API_TOKEN_WRITER)=(.*)$`)
+  for (const file of envFiles(env)) {
+    if (!existsSync(file)) continue
+    for (const line of readFileSync(file, "utf8").split("\n")) {
+      const m = line.match(wanted)
+      if (m && !(m[1] in out)) out[m[1]] = m[2].replace(/^['"]|['"]$/g, "")
+    }
   }
   return out
 }

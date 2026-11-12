@@ -11,7 +11,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createHash } from "node:crypto"
-import { domainKeys } from "./miadi-run.mjs"
+import { domainKeys, envFiles } from "./miadi-run.mjs"
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "miadi-run.mjs")
 const PROMPT = "miadiRun-2610110648-test-seat-checkPrepare"
@@ -574,6 +574,21 @@ test("a root written before Langfuse v4 is not served as a row: the parent its c
   assert.equal(r.code, 0, r.stderr)
   const t = JSON.parse(r.stdout)
   assert.deepEqual([t.root, t.session, t.name, t.observations], ["legacy-root", "legacy-session", null, 2])
+})
+
+test("a domain's keys are read from the environment, then the user's ~/.config/miadi/tracing.env, then the repository .env", () => {
+  const dir = mkdtempSync(join(tmpdir(), "miadi-run-keys-"))
+  const repo = join(dir, "repo.env")
+  mkdirSync(join(dir, ".config", "miadi"), { recursive: true })
+  writeFileSync(join(dir, ".config", "miadi", "tracing.env"), "ENG_LANGFUSE_PUBLIC_KEY=pk-user\nENG_LANGFUSE_SECRET_KEY=sk-user\n")
+  writeFileSync(repo, "ENG_LANGFUSE_PUBLIC_KEY=pk-repo\nENG_LANGFUSE_SECRET_KEY=sk-repo\nexport CREATIVE_LANGFUSE_PUBLIC_KEY=pk-c\nCREATIVE_LANGFUSE_SECRET_KEY=sk-c\n")
+  const env = { HOME: dir, MIADI_ENV_FILE: repo }
+  assert.deepEqual(envFiles(env), [join(dir, ".config", "miadi", "tracing.env"), repo])
+  assert.deepEqual([domainKeys(env, "eng").pub, domainKeys(env, "eng").sec], ["pk-user", "sk-user"])
+  assert.equal(domainKeys({ ...env, ENG_LANGFUSE_PUBLIC_KEY: "pk-env" }, "eng").pub, "pk-env")
+  assert.equal(domainKeys(env, "creative").pub, "pk-c")
+  assert.deepEqual(envFiles({ MIADI_ENV_FILE: repo }), [repo], "no HOME, no user file: a test reads no real key")
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test("no command reads the deprecated trace endpoint (Langfuse v4, 2026-11-16)", () => {
