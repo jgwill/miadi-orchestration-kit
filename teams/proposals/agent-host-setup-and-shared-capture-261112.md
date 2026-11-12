@@ -1,6 +1,6 @@
 # Every agent on a host reaches the same settings and writes where the others read: a proposal for T8
 
-Proposed 2026-11-12 by the Claude Code session `7c06cec8-1fe9-4b86-84e0-368e3ec5e7ee` (miadi-tmux://jgi@hu:t8-parity-codex-plugin-setup-990), after it set up Codex capture for jgi on hu (jgwill/Miadi#990). It is addressed to T8 · Software development, which owns the host install. Nothing in P1 to P4 is built. What this pull request adds is listed at the end.
+Proposed 2026-11-12 by the Claude Code session `7c06cec8-1fe9-4b86-84e0-368e3ec5e7ee` (miadi-tmux://jgi@hu:t8-parity-codex-plugin-setup-990), after it set up Codex capture for jgi on hu (jgwill/Miadi#990). It is addressed to T8 · Software development, which owns the host install. Nothing in P1 to P5 is built. What this pull request adds is listed at the end.
 
 Guillaume, on the settings: "it's possible that we never really set up all of the environment variable for what you're actually running." On the per-account fallback: "That makes any agent incapable of being informed of a session about what's going on in that session, if that's happening."
 
@@ -44,6 +44,10 @@ It names a missing Claude plugin and hand-wired Claude hooks. It says nothing ab
 
 `/usr/bin/codex` is codex-cli 0.0.2505291458 and has no `plugin` command. jgi's `PATH` finds 0.167.0 first, and the desktop app runs its own 0.167.0-alpha.3.2. A service or a script on a plain `PATH` would reach the old one.
 
+### F7. The factory does not see a session on another host
+
+On 2026-11-12 the factory connector's `list_sessions` found nothing for `t8-parity-codex-plugin-setup-990`. Its `search_sessions` read all 6268 session folders on the factory's host and matched none of this session's four days of work. That work is captured on hu, in 857 local session folders, by this plugin. hu runs `tide-runtime.service` and two `miadi-tunnel@` units, which bring gaia's and ilex's services to hu's loopback. Nothing sends hu's sessions the other way. The staged exploration `the-session-on-another-host-261110` already names this as capability C5, "missing", for T1 and T3.
+
 ## From the recommendation of 2026-11-12
 
 The seat first recommended a `~/.config/environment.d/miadi.conf` for the desktop session, without tokens. Two parts of it stand:
@@ -78,6 +82,12 @@ One command per account, run as that account, stopping at the first step it cann
 ### P4. The check covers Codex as it covers Claude
 
 It reports the Codex plugin and its hook trust, legacy entries in `~/.codex/hooks.json`, and a `/usr/bin/codex` too old for plugins that would shadow the others.
+
+### P5. Each host reports its sessions to the factory
+
+Guillaume, 2026-11-12: "if there's anything that we run as a service to inform the factory of what are the session of the user, that's something else, but I think we never designed something like that, and it might be relevant."
+
+A shared folder (P2) serves the agents of one host. The factory needs a report from every host. A user service on each host would send each new binding line to the factory: session id, account, host, agent, tmux address, team, episode, start and end. Drafts and tide's snapshot could follow later. Content stays on the host, and the factory asks that host for more when someone needs it. Without this report, a capability record can say which implementation exists, but not on which hosts it runs, which is the availability column parity needs. Design owners: T1 for capture, T2 for the event path, T3 for the inventory that reads it.
 
 ## In this pull request
 
