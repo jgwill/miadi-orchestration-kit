@@ -24,9 +24,22 @@ marketplace before installing, or point its local configuration at this checkout
 during development. Installing from a one-off source override does not change
 the marketplace source used by subsequent Codex processes.
 
-Review the plugin's hooks through `/hooks`, then start a fresh session. Installing
-alone does not trust hooks. Confirm that each enabled hook has source `plugin`,
-this plugin's id and trust status `trusted`. Leave unrelated hooks enabled.
+Installing alone does not trust hooks. Review them, then trust this plugin's hooks
+and no others:
+
+```sh
+node codex/miadi-session-observability/scripts/trust-hooks.mjs            # every hook Codex reports, and its trust
+node codex/miadi-session-observability/scripts/trust-hooks.mjs --trust    # trust exactly this plugin's hooks
+```
+
+The script asks a private `codex app-server` over stdio, so a running app or TUI is
+not touched. It exits 0 only when every hook of this plugin is trusted. On a desktop
+host, run it with `CODEX_BIN=/usr/lib/chatgpt/resources/codex`. `/hooks` in a
+session shows the same. Leave unrelated hooks enabled, then start a fresh session.
+
+Hand-wired capture in `~/.codex/hooks.json` must go after the plugin is proven, or
+every event is written twice: `scripts/legacy-cutover.py backup`, then `clear
+--backup <folder>`. A running app keeps the hook list it loaded until it restarts.
 
 For tmux annotation with Codex's shared app-server (0.164+), expose the native
 thread ID in its terminal title:
