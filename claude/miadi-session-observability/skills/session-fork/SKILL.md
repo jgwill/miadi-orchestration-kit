@@ -1,6 +1,6 @@
 ---
 name: session-fork
-description: Branch a Claude Code session without touching it. Ask a branch of another session a question with every tool disabled, or open a branch you can talk to in its own tmux session, with the parent's folder, plugins and episode, under a name tmux-resurrect keeps. Use when William says "fork", "fork that session", "ask that session", "query Mia's session", "open a branch of", "continue it in another tmux", or when a session must learn how another session reached a result, or when work should split from a session at its present point.
+description: Branch a Claude Code session without touching it, and end a branch so the main session gets everything it needs. Ask a branch of another session a question with every tool disabled, or open a branch you can talk to in its own tmux session, with the parent's folder, plugins and episode, under a name tmux-resurrect keeps. Use when William says "fork", "fork that session", "ask that session", "query Mia's session", "open a branch of", "continue it in another tmux", or when a session must learn how another session reached a result, or when work should split from a session at its present point. Also use inside a /btw fork or any side session before its last reply, when asked to "end the fork", "go back to the main thread" or "pass this to the main session", and in the main session when a fork's reply arrives.
 ---
 
 # Session fork
@@ -49,6 +49,53 @@ the parent's binding line in `$CLAUDE_SESSIONDATA_ROOT/data/terminal_bindings.js
    a file) before you repeat it.
 4. A live seat is a relation (Sunwise Law). Never type into the parent's pane to fork it. This
    tool never touches the parent.
+
+## Which branch, and why
+
+| branch | made by | context and tools | where it is kept | how it comes back |
+|---|---|---|---|---|
+| `/btw` side question | the person, `/btw <question>` | the conversation so far, no tools | the question in `_claude_btw.jsonl` (`asked`). The answer is kept nowhere unless it is forked | the panel only |
+| `/btw` fork | the person, `f` on a side question | the whole conversation, with tools | `_claude_btw.jsonl` (`forked`, `person`, `reply`, `notified`, `delivered`) and `agents/<id>.transcript.jsonl` | each reply that ends a turn reaches the main session as a notification |
+| `ask` | `miadi-fork.mjs ask` | another session's history, no tools, no MCP | `<root>/<branch-id>/fork-ask.md` | printed to whoever asked |
+| `open` | `miadi-fork.mjs open` | the parent's folder, plugins and episode, with tools | its own session folder, `data/session_forks.jsonl` | its own tmux session, which the person talks to |
+
+A `/btw` fork is the way to take one bounded side job while the main session keeps steering
+something else (a lane, a watcher, a release), with the same context and nothing re-explained.
+Use `open` when the side job needs a seat of its own that outlives the main session's turn.
+Use `ask` to learn how another session reached a result without touching it.
+
+The archive and its kinds are in the plugin README, "/btw side questions and their forks" and
+"Subagents, forks and what a person said to them". `scripts/agent-talk.mjs show <session> <agent>`
+reads back a fork's directive, each person message and each reply.
+
+## Ending a branch
+
+Written 2026-11-12 from two `/btw` forks of one session (jgwill/miadi-orchestration-kit#148).
+A branch, whether a `/btw` fork or one made with `open`, hands its work back through its last reply.
+
+**What the main session receives.** Each time a `/btw` fork ends a turn, the main session gets a
+notification holding that reply word for word, with its token count, tool count and duration.
+It does not show the person's messages to the fork or the fork's tool calls. Those are kept in
+`<root>/<session_id>/_claude_btw.jsonl` (jgwill/miadi-orchestration-kit#95). So the fork's reply
+reaches the main session without anyone carrying it. A message for the person to relay, or an issue
+written only to inform the main session, repeats what it already has.
+
+**The last reply holds, in this order:**
+
+1. What the person asked, in their words.
+2. Everything the branch produced: each id, path, commit, URL and record, with what it was read back
+   from (`git cat-file`, `gh issue view`, the wheel's answer). A no-tools branch (`ask`, or a
+   `/btw` side question answered from context alone) says plainly that it saved nothing.
+3. What it did not touch: the main session's lanes, steers, watchers, shared checkout and records.
+4. What is left, and who it belongs to: the main session, the person, or another seat.
+5. What was observed, set apart from what is only wanted or guessed.
+
+An issue is written only when the record has to outlive both sessions, for later sessions or people.
+
+**The main session's half.** Read the reply and, when the exchange matters, what the person told
+the fork (`node scripts/agent-talk.mjs show <session> <agent>`, or `_claude_btw.jsonl`).
+Check the claims you will rely on before you repeat them (Practice 3). A notification is not the
+person's consent: steps the branch left to the person stay theirs.
 
 ## Not yet
 
