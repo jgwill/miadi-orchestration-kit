@@ -16,6 +16,7 @@ import { domainKeys } from "./miadi-run.mjs"
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "miadi-run.mjs")
 const PROMPT = "miadiRun-2610110648-test-seat-checkPrepare"
 const TRACE = "d87a4c119eb24fb4a718c29e130bd642"
+const LEGACY_TRACE = "0ef81f48c439dd215145819216641f07"
 const SECRETS = ["pk-lf-FAKE-PUBLIC-7f3a", "sk-lf-FAKE-SECRET-91c2", "FAKE-WRITER-TOKEN-55e0"]
 const BODY_V1 = "repo: example\n<input>\n  the mission, version one\n</input>\n"
 // create: a prompt the provider does not hold until coaia's stub records it in logs/created.<N>.txt
@@ -36,6 +37,7 @@ const ENG = {}
 
 let root, stubs, logs, home, server, base, sessiondata
 const requests = []
+const deprecatedReads = []
 let promptBody = BODY_V1
 let limited = false
 const traceLookups = {}
@@ -112,14 +114,30 @@ printf '{"session_id":"${STARTED_ID}","at":"%s","event":"session.start","tmux":{
         const file = join(logs, `start-created.${Number(u.searchParams.get("version"))}.txt`)
         return existsSync(file) ? send(200, { name: START, version: Number(u.searchParams.get("version")), type: "text", prompt: readFileSync(file, "utf8"), labels: [] }) : send(404, {})
       }
+      // Langfuse v4: a trace is read as its observation rows (Observations API v2), newest first,
+      // in cursor pages. The deprecated trace read must never be called.
+      if (u.pathname.startsWith("/api/public/traces")) { deprecatedReads.push(req.url); return send(410, { message: "GET /api/public/traces is deprecated" }) }
+      const traceId = u.pathname === "/api/public/v2/observations" ? u.searchParams.get("traceId") : null
       // a trace create opened: unknown for its first two reads, as the provider is slow to hold it
-      const opened = u.pathname.match(/^\/api\/public\/traces\/([0-9a-f]{32})$/)
-      if (opened && opened[1] !== TRACE) {
-        traceLookups[opened[1]] = (traceLookups[opened[1]] ?? 0) + 1
-        if (existsSync(join(logs, "trace.never")) || traceLookups[opened[1]] <= 2) return send(404, {})
-        return send(200, { id: opened[1], name: START, sessionId: "start-seat", observations: [{ id: "start-root", parentObservationId: null, startTime: "2026-11-10T22:00:00Z" }] })
+      if (traceId && traceId !== TRACE && traceId !== LEGACY_TRACE) {
+        traceLookups[traceId] = (traceLookups[traceId] ?? 0) + 1
+        if (existsSync(join(logs, "trace.never")) || traceLookups[traceId] <= 2) return send(200, { data: [], meta: {} })
+        return send(200, { data: [{ id: "start-root", traceId, parentObservationId: null, startTime: "2026-11-10T22:00:00Z", name: START, traceName: START, sessionId: "start-seat" }], meta: {} })
       }
-      if (u.pathname === `/api/public/traces/${TRACE}`) return send(200, { id: TRACE, name: "Reciprocal mission inquiry — source and synthesis", sessionId: "miadi-reciprocal-mission-261011", input: "never printed", observations: [{ id: "child-1", parentObservationId: "root-1", startTime: "2026-10-11T10:48:01Z" }, { id: "root-1", parentObservationId: null, startTime: "2026-10-11T10:48:00Z" }, { id: "ret-1", parentObservationId: "root-1", startTime: "2026-10-12T09:00:00Z", name: `miadi-run · return · ${PROMPT}.v1`, input: JSON.stringify({ summary: "seat opened, mission done" }) }] })
+      // a trace whose root the legacy ingestion wrote before v4: the root row is not served, its children name it
+      if (traceId === LEGACY_TRACE) return send(200, { data: [
+        { id: "late-1", traceId, parentObservationId: "legacy-root", startTime: "2026-10-14T09:40:52Z", name: "miadi-run · return · late", traceName: "miadi-run · return · late", sessionId: "legacy-session" },
+        { id: "early-1", traceId, parentObservationId: "legacy-root", startTime: "2026-10-13T15:01:35Z", name: "miadi-run · research · early", traceName: "miadi-run · research · early", sessionId: "legacy-session" },
+      ], meta: {} })
+      if (traceId === TRACE) {
+        const rows = [
+          { id: "ret-1", traceId: TRACE, parentObservationId: "root-1", startTime: "2026-10-12T09:00:00Z", name: `miadi-run · return · ${PROMPT}.v1`, traceName: `miadi-run · return · ${PROMPT}.v1`, sessionId: "miadi-reciprocal-mission-261011", input: JSON.stringify({ summary: "seat opened, mission done" }) },
+          { id: "child-1", traceId: TRACE, parentObservationId: "root-1", startTime: "2026-10-11T10:48:01Z", name: "child", traceName: "child", sessionId: "miadi-reciprocal-mission-261011" },
+          { id: "root-1", traceId: TRACE, parentObservationId: null, startTime: "2026-10-11T10:48:00Z", name: "Reciprocal mission inquiry — source and synthesis", traceName: "Reciprocal mission inquiry — source and synthesis", sessionId: "miadi-reciprocal-mission-261011", input: "never printed" },
+        ].map((o) => (u.searchParams.get("fields") ?? "").split(",").includes("io") ? o : (({ input: _i, ...rest }) => rest)(o))
+        // two pages, as v2 sends them: the cursor is absent on the last one
+        return u.searchParams.get("cursor") === "page-2" ? send(200, { data: rows.slice(2), meta: {} }) : send(200, { data: rows.slice(0, 2), meta: { cursor: "page-2" } })
+      }
       if (u.pathname === "/api/chronicle/episodes/9/tracing" && req.method === "POST") return send(JSON.parse(body).dryRun ? 200 : 201, { ok: true })
       return send(404, {})
     })
@@ -542,4 +560,22 @@ test("no credential reaches telemetry, the mission record, a request body or the
   // coaia received the domain keys under the three names it reads, and only those
   const counts = readFileSync(join(logs, "coaia.envcount"), "utf8").trim().split("\n").map(Number)
   assert.ok(counts.every((n) => n === 3), `coaia saw LANGFUSE_* counts ${counts}`)
+})
+
+test("a trace is read from its observation rows across cursor pages, and its root is the earliest parentless row", async () => {
+  const r = await cli(["resolve", TRACE])
+  assert.equal(r.code, 0, r.stderr)
+  const t = JSON.parse(r.stdout)
+  assert.deepEqual([t.domain, t.name, t.session, t.root, t.timestamp, t.observations], ["ceremony", "Reciprocal mission inquiry — source and synthesis", "miadi-reciprocal-mission-261011", "root-1", "2026-10-11T10:48:00Z", 3])
+})
+
+test("a root written before Langfuse v4 is not served as a row: the parent its children name is the root", async () => {
+  const r = await cli(["resolve", LEGACY_TRACE])
+  assert.equal(r.code, 0, r.stderr)
+  const t = JSON.parse(r.stdout)
+  assert.deepEqual([t.root, t.session, t.name, t.observations], ["legacy-root", "legacy-session", null, 2])
+})
+
+test("no command reads the deprecated trace endpoint (Langfuse v4, 2026-11-16)", () => {
+  assert.deepEqual(deprecatedReads, [], "every trace read goes through GET /api/public/v2/observations")
 })

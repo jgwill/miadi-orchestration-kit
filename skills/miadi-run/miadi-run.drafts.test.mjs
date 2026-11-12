@@ -57,8 +57,12 @@ function world() {
         const name = decodeURIComponent(p[1]), v = Number(u.searchParams.get("version"))
         return prompts[name]?.[v - 1] !== undefined ? answer(200, { name, version: v, type: "text", prompt: prompts[name][v - 1], labels: [] }) : answer(404, null)
       }
-      const t = u.pathname.match(/^\/api\/public\/traces\/(.+)$/)
-      if (t && traces[t[1]]) return answer(200, { id: t[1], name: traces[t[1]].name, sessionId: traces[t[1]].session, observations: [{ id: "root-1", parentObservationId: null, startTime: "2026-10-31T08:48:37Z" }] })
+      // Langfuse v4: a trace is read as its observation rows; the deprecated trace read is refused
+      if (u.pathname.startsWith("/api/public/traces")) throw new Error(`deprecated Langfuse read: ${u.pathname}`)
+      if (u.pathname === "/api/public/v2/observations") {
+        const id = u.searchParams.get("traceId")
+        return answer(200, { data: traces[id] ? [{ id: "root-1", traceId: id, parentObservationId: null, startTime: "2026-10-31T08:48:37Z", name: traces[id].name, traceName: traces[id].name, sessionId: traces[id].session }] : [], meta: {} })
+      }
       if (u.pathname === `/api/ceremonies/${CEREMONY}`) return answer(200, { ceremony: { id: CEREMONY, episode_path: EPISODE, type: "talking_circle" } })
       const e = u.pathname.match(/^\/api\/chronicle\/episodes\/([^/]+)\/tracing$/)
       if (e && init.method === "POST") { held.push({ episode: e[1], ...JSON.parse(init.body) }); return answer(201, { ok: true }) }

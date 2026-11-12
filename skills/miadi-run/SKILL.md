@@ -17,7 +17,7 @@ description: >
   given as the source of a mission.
 metadata:
   type: skill
-  version: 0.12.0
+  version: 0.12.1
   issue: jgwill/miadi-orchestration-kit#84
 ---
 
@@ -190,6 +190,9 @@ then only listened.
   observation, without `--trace-name`. A parentless observation becomes another root, and
   Langfuse renames the trace after it. That was measured on 2026-10-11 on a scratch trace in the
   eng project. A trace with no root observation is refused before anything is written.
+  A trace is read as its observation rows from Langfuse's Observations API v2 (0.12.1): the
+  trace read `GET /api/public/traces/{id}` stops answering on 2026-11-16. A root that the legacy
+  ingestion wrote before v4 is not served as a row, so the parent its children name is the root.
 - Earlier prompt versions. Only `create` writes a prompt, and only as a new version with no
   label, so no earlier version and no label moves. The person may also revise the prompt in the
   provider, which makes a new version the same way.

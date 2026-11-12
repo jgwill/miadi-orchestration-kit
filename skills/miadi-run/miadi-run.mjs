@@ -90,17 +90,36 @@ async function langfuseGet(deps, domain, path) {
 
 // ---------- provider reads (metadata, and the one prompt body a mission pins) ----------
 
+// Langfuse v4 has no trace read: GET /api/public/traces/{id} stops answering on 2026-11-16. A trace
+// is its observation rows, read from Observations API v2 page by page (meta.cursor, absent on the
+// last page) and returned oldest first. A trace the project does not hold answers no rows.
+async function traceObservations(deps, domain, id, fields) {
+  const rows = []
+  let cursor = null
+  do {
+    const q = new URLSearchParams({ traceId: id, fields, limit: "1000" })
+    if (cursor) q.set("cursor", cursor)
+    const r = await langfuseGet(deps, domain, `/api/public/v2/observations?${q}`)
+    if (r.status !== 200) return { status: r.status, rows: null }
+    rows.push(...(Array.isArray(r.body?.data) ? r.body.data : []).filter((o) => o.traceId === id))
+    cursor = r.body?.meta?.cursor ?? null
+  } while (cursor)
+  return { status: 200, rows: rows.sort((a, b) => String(a.startTime ?? "").localeCompare(String(b.startTime ?? ""))) }
+}
+
 async function findTrace(deps, id, given) {
   for (const domain of domainsToTry(deps.env, given)) {
-    const r = await langfuseGet(deps, domain, `/api/public/traces/${encodeURIComponent(id)}`)
-    if (r.status === 200) {
-      const t = r.body
-      const observations = Array.isArray(t.observations) ? t.observations : []
-      // A parentless observation becomes a root and renames the trace (measured 2026-10-11 on
-      // Langfuse cloud), so every observation miadi-run adds hangs under the earliest root.
-      const root = observations.filter((o) => !o.parentObservationId).sort((a, b) => String(a.startTime ?? "").localeCompare(String(b.startTime ?? "")))[0]?.id ?? null
-      return { domain, id, reference: `miadi-tracing:${domain}/trace/${id}`, name: t.name ?? null, session: t.sessionId ?? null, root, timestamp: t.timestamp ?? null, observations: observations.length }
-    }
+    const { rows } = await traceObservations(deps, domain, id, "core,basic,trace_context")
+    if (!rows?.length) continue
+    // A parentless observation becomes a root and renames the trace (measured 2026-10-11 on
+    // Langfuse cloud), so every observation miadi-run adds hangs under the earliest root. In v4
+    // each row carries its own traceName; the trace's name and session are the earliest root's.
+    // A root written before v4 by the legacy ingestion is not served as a row (measured 2026-11-12,
+    // ceremony trace 0ef81f48…): its children still name it, so the earliest orphan's parent is the root.
+    const first = rows.find((o) => !o.parentObservationId) ?? null
+    const ids = new Set(rows.map((o) => o.id))
+    const root = first?.id ?? rows.find((o) => o.parentObservationId && !ids.has(o.parentObservationId))?.parentObservationId ?? null
+    return { domain, id, reference: `miadi-tracing:${domain}/trace/${id}`, name: first?.traceName || first?.name || null, session: first?.sessionId ?? rows.find((o) => o.sessionId)?.sessionId ?? null, root, timestamp: rows[0].startTime ?? null, observations: rows.length }
   }
   return null
 }
@@ -633,10 +652,10 @@ async function backfill(deps, opts) {
   const id = opts.positional[0]
   if (!id) throw new Refusal(2, "backfill needs a mission id")
   const mission = loadMission(deps.env, id)
-  const r = await langfuseGet(deps, mission.trace.domain, `/api/public/traces/${encodeURIComponent(mission.trace.id)}`)
-  if (r.status !== 200) throw new Refusal(4, `trace ${mission.trace.id} not readable in ${mission.trace.domain} (HTTP ${r.status})`)
+  const r = await traceObservations(deps, mission.trace.domain, mission.trace.id, "core,basic,io")
+  if (!r.rows?.length) throw new Refusal(4, `trace ${mission.trace.id} not readable in ${mission.trace.domain} (HTTP ${r.status}${r.rows ? ", no observations" : ""})`)
   const onTrace = {}
-  for (const o of (r.body.observations ?? []).filter((o) => typeof o.name === "string" && o.name.endsWith(` · ${id}`)).sort((a, b) => String(a.startTime ?? "").localeCompare(String(b.startTime ?? "")))) {
+  for (const o of r.rows.filter((o) => typeof o.name === "string" && o.name.endsWith(` · ${id}`))) {
     const kind = o.name.split(" · ")[1]
     ;(onTrace[kind] ??= []).push(o)
   }
