@@ -27,6 +27,13 @@ adds `tailscale serve --https=8443` when that mapping is absent. It leaves an 84
 serves something else untouched and says so. A `flock` keeps concurrent sessions to one
 service. On a host without `MIADI_CHRONICLE_ROOT`, it does nothing.
 
+The port is 8771 unless something else holds it. On eury, Gerico's `forest-registry`
+(`@gerico1007/termux-init`) defaults to 8771 as well, so ensure takes the first free port
+after it, says which service holds 8771, and keeps the choice in
+`$XDG_STATE_HOME/miadi-phone-capture/port`. `mia-listen` reads that file when
+`MIADI_PHONE_CAPTURE_PORT` is unset. A port set by hand that another service holds is
+refused with the holder's name.
+
 On the iPhone, open `https://<host>.<tailnet>.ts.net:8443/` in Safari and allow the
 microphone. The hook gives each session the link with `?episode=<its folder>`. The page
 also remembers the last episode.
@@ -45,7 +52,7 @@ session start will bring it back unless the plugin is disabled.
 |---|---|---|
 | `MIADI_CHRONICLE_ROOT` | required | where episodes live |
 | `MIADI_PHONE_CAPTURE_EPISODE` | none | the preselected episode |
-| `MIADI_PHONE_CAPTURE_PORT` / `_HOST` | `8771` / `127.0.0.1` | loopback only. `tailscale serve` is the way in |
+| `MIADI_PHONE_CAPTURE_PORT` / `_HOST` | chosen by `ensure.sh` / `127.0.0.1` | loopback only. `tailscale serve` is the way in. Unset, `ensure.sh` takes 8771, or the first port after it that is free, and keeps it in `<state>/port`. A host sets it with `sudo miadi-config set MIADI_PHONE_CAPTURE_PORT <n>` |
 | `MIADI_PHONE_CAPTURE_HTTPS_PORT` | `8443` | the `tailscale serve` port `ensure.sh` maps |
 | `MIADI_PHONE_CAPTURE_PUBLIC_URL` | `http://<host>:<port>` | base of the audio `uri` each registration carries |
 | `MIADI_PHONE_CAPTURE_STATE_DIR` | `$XDG_STATE_HOME/miadi-phone-capture` | the take library (`takes/`) and in-flight uploads |
@@ -88,7 +95,7 @@ latest reply for the selected episode.
 ## A reply that walks the canvas (smcraft Spec 84)
 
 The stateloom designer records takes and plays replies too, through its own proxy
-(`STATELOOM_COMPANION_URL=http://127.0.0.1:8771`) or from an origin in
+(`STATELOOM_COMPANION_URL=http://127.0.0.1:<port>`, the port in `<state>/port`) or from an origin in
 `MIADI_PHONE_CAPTURE_CORS_ORIGINS`.
 
 - **A take's canvas.** `/api/takes/part` and `/api/takes` take `context=<json>`: what the

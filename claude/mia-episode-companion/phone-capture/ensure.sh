@@ -7,13 +7,20 @@
 #
 # Does nothing on a host without $MIADI_CHRONICLE_ROOT. The service runs detached
 # (setsid) and outlives the session that started it. Its log is <state>/service.log.
+#
+# The port: MIADI_PHONE_CAPTURE_PORT when set (the environment, or the host's
+# /etc/miadi/miadi.env through `miadi-config set`), else the one this host chose before
+# (<state>/port), else 8771, else the first port after it that is free or already
+# phone-capture. The port it answers on is kept in <state>/port, where mia-listen reads
+# it. Earned on eury: Gerico's forest-registry defaults to 8771 too.
 set -uo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 mode="${1:-}"
-port="${MIADI_PHONE_CAPTURE_PORT:-8771}"
+default_port=8771
 https_port="${MIADI_PHONE_CAPTURE_HTTPS_PORT:-8443}"
 state="${MIADI_PHONE_CAPTURE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/miadi-phone-capture}"
+port_file="$state/port"
 log="$state/service.log"
 payload=""
 [ "$mode" = "--hook" ] && payload="$(cat 2>/dev/null || true)"
@@ -32,8 +39,25 @@ report() { # $1 visible-or-empty  $2 context
   exit 0
 }
 
-answering() {
-  curl -s -m 2 "http://127.0.0.1:$port/api/health" 2>/dev/null | grep -q '"capture"'
+is_capture() { # $1 port
+  curl -s -m 2 "http://127.0.0.1:$1/api/health" 2>/dev/null | grep -q '"capture"'
+}
+answering() { is_capture "$port"; }
+
+# Something listens on loopback port $1, whatever its protocol.
+in_use() { (: </dev/tcp/127.0.0.1/"$1") 2>/dev/null; }
+
+# Who listens on port $1: its systemd unit and user, else its process, else nothing.
+holder() {
+  command -v ss >/dev/null || return 0
+  local line unit uid user proc
+  line="$(ss -Hltnpe "sport = :$1" 2>/dev/null | head -n 1)"
+  [ -n "$line" ] || return 0
+  unit="$(printf '%s' "$line" | grep -o 'cgroup:[^ ]*' | grep -o '[^/]*\.service' | grep -v '^user@' | tail -n 1)"
+  uid="$(printf '%s' "$line" | grep -o 'uid:[0-9]*' | cut -d: -f2)"
+  [ -n "$uid" ] && user="$(getent passwd "$uid" | cut -d: -f1)"
+  proc="$(printf '%s' "$line" | grep -o 'users:(("[^"]*",pid=[0-9]*' | sed 's/users:(("\([^"]*\)",pid=\([0-9]*\)/\1 (pid \2)/')"
+  printf '%s%s' "${unit:-${proc:-a process}}" "${user:+ of $user}"
 }
 
 root="${MIADI_CHRONICLE_ROOT:-}"
@@ -47,6 +71,21 @@ command -v curl >/dev/null || report "📱 phone-capture not started: curl is no
 mkdir -p "$state"
 exec 9>"$state/ensure.lock"
 command -v flock >/dev/null && flock -w 30 9
+
+port="${MIADI_PHONE_CAPTURE_PORT:-}"
+port_note=""
+if [ -z "$port" ]; then
+  port="$(tr -dc 0-9 2>/dev/null <"$port_file")"
+  # A kept port another service has taken since is chosen again.
+  if [ -z "$port" ] || { ! is_capture "$port" && in_use "$port"; }; then
+    port=""
+    for candidate in $(seq "$default_port" $((default_port + 19))); do
+      if is_capture "$candidate" || ! in_use "$candidate"; then port="$candidate"; break; fi
+    done
+    [ -n "$port" ] || report "📱 phone-capture not started: ports $default_port–$((default_port + 19)) are all taken. Set MIADI_PHONE_CAPTURE_PORT to a free one" "phone-capture found no free port on this host."
+    [ "$port" != "$default_port" ] && port_note=" (port $port: $default_port is held by $(holder "$default_port"))"
+  fi
+fi
 
 started=""
 restarted=""
@@ -65,8 +104,10 @@ if answering; then
   fi
 fi
 if ! answering; then
-  if curl -s -m 2 -o /dev/null "http://127.0.0.1:$port/" 2>/dev/null; then
-    report "📱 phone-capture not started: port $port answers but is not phone-capture" "Port $port is held by another service; phone-capture is not running."
+  # Reached only for a port someone set: a chosen port is free or phone-capture.
+  if in_use "$port"; then
+    who="$(holder "$port")"
+    report "📱 phone-capture not started: MIADI_PHONE_CAPTURE_PORT=$port is held by ${who:-another service}. Unset it and ensure.sh chooses a free port" "Port $port (MIADI_PHONE_CAPTURE_PORT) is held by ${who:-another service}; phone-capture is not running."
   fi
   # Install when the lockfile differs from the one last installed, so a new
   # dependency arrives with the plugin update that needs it.
@@ -88,6 +129,7 @@ if ! answering; then
   answering || report "📱 phone-capture did not answer within 10s, see $log" "phone-capture failed to start; its log is $log."
   started="yes"
 fi
+[ "$(cat "$port_file" 2>/dev/null)" = "$port" ] || echo "$port" >"$port_file"
 
 # tailscale serve: add the https mapping when absent, never replace someone else's.
 url="http://127.0.0.1:$port"
@@ -134,7 +176,7 @@ link="$url/"
 
 context="phone-capture is running on this host. William can record from the iPhone in Safari at $link$serve_note. Takes land in the chosen episode's captures/ uncommitted; mia-listen wakes on them."
 case "$started" in
-  yes) report "📱 phone-capture ${restarted:+re}started · $link$serve_note" "$context" ;;
+  yes) report "📱 phone-capture ${restarted:+re}started$port_note · $link$serve_note" "$context" ;;
   serve) report "📱 phone-capture: tailscale serve restored · $link" "$context" ;;
   *) report "" "$context" ;;
 esac
