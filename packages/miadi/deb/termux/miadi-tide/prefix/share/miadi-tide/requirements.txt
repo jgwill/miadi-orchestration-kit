@@ -1,7 +1,7 @@
 # The tide runtime the Termux build of miadi-tide installs, from PyPI. ironsilk
 # is the release the Ubuntu build of the same version carries; the rest are
 # prep/miadi-tide.constraints.txt. Change both with the Ubuntu package.
-ironsilk==0.9.76
+ironsilk==0.9.77
 aiosqlite==0.22.1
 click==8.4.2
 markdown-it-py==4.2.0
