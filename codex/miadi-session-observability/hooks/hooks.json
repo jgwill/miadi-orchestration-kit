@@ -1,5 +1,5 @@
 {
-  "description": "Silent local capture. PostToolUse records failures as derived events.",
+  "description": "Local capture and host guards. PostToolUse records failures as derived events.",
   "hooks": {
     "SessionStart": [
       {

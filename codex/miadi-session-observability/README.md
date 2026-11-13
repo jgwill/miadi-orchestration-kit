@@ -2,12 +2,13 @@
 
 Capture a Codex session and the work it produces in the same
 `<root>/<session_id>/` tree used by the Claude plugin and the session observers.
-This plugin writes local capture data. It does not open session issues or publish
-anything itself. Tracking: [#98](https://github.com/jgwill/miadi-orchestration-kit/issues/98).
+This plugin writes local capture data and refuses a few commands that would harm the
+host (see the parity table). It does not open session issues or publish anything itself. Tracking: [#98](https://github.com/jgwill/miadi-orchestration-kit/issues/98).
 
 ## Install
 
-Requires Codex with plugin hooks (verified with CLI 0.163.0), Bash, Python 3,
+Requires Codex with plugin hooks (verified with CLI 0.163.0, 0.167.0 and the desktop
+runtime 0.167.0-alpha.3.2; `/usr/bin/codex` on a host may be an older CLI with no plugins), Bash, Python 3,
 `jq`, Perl, and GNU file utilities. `flock`, `setsid` and `timeout` provide the
 same locking, detachment and scan bounds as the Claude implementation.
 
@@ -23,9 +24,22 @@ marketplace before installing, or point its local configuration at this checkout
 during development. Installing from a one-off source override does not change
 the marketplace source used by subsequent Codex processes.
 
-Review the plugin's hooks through `/hooks`, then start a fresh session. Installing
-alone does not trust hooks. Confirm that each enabled hook has source `plugin`,
-this plugin's id and trust status `trusted`. Leave unrelated hooks enabled.
+Installing alone does not trust hooks. Review them, then trust this plugin's hooks
+and no others:
+
+```sh
+node codex/miadi-session-observability/scripts/trust-hooks.mjs            # every hook Codex reports, and its trust
+node codex/miadi-session-observability/scripts/trust-hooks.mjs --trust    # trust exactly this plugin's hooks
+```
+
+The script asks a private `codex app-server` over stdio, so a running app or TUI is
+not touched. It exits 0 only when every hook of this plugin is trusted. On a desktop
+host, run it with `CODEX_BIN=/usr/lib/chatgpt/resources/codex`. `/hooks` in a
+session shows the same. Leave unrelated hooks enabled, then start a fresh session.
+
+Hand-wired capture in `~/.codex/hooks.json` must go after the plugin is proven, or
+every event is written twice: `scripts/legacy-cutover.py backup`, then `clear
+--backup <folder>`. A running app keeps the hook list it loaded until it restarts.
 
 For tmux annotation with Codex's shared app-server (0.164+), expose the native
 thread ID in its terminal title:
@@ -75,6 +89,11 @@ fall back to `${CODEX_HOME:-$HOME/.codex}/miadi-session-observability/_sessionda
 | Artifact publication/comment parser | Carried for compatible Artifact/ArtifactComments payloads; this does not provide a Claude Artifact service in Codex |
 | Session fork | Native `codex fork SESSION_ID` and `codex resume SESSION_ID`, guided by the packaged skill |
 | `/btw` | Claude-specific index omitted; no equivalent Codex source contract verified |
+| Print guard for credentials | `secret_print_guard` refuses a shell command that would print one, before it runs. Codex has no separate Read or Grep tool to cover. Off: `MIADI_SECRET_PRINT_GUARD=off` in the session environment |
+| Exposure alert and scrub | `secret_exposure_alert` writes `_codex_secret_exposures.jsonl` and tells the person and the model, never the value. `scripts/miadi-scrub-secrets.py --apply` masks held values in `$CODEX_HOME` sessions and the capture root |
+| tmux server guard | `tmux_server_guard` refuses a shell command that ends the shared server. Off: `MIADI_TMUX_SERVER_GUARD=off` |
+| Session lookup guard | `session_lookup_guard` sends agents to `tide agents list` and `miadi-hooks-interpret` instead of `find /` or reading raw `_codex_*` capture. Off: `MIADI_SESSION_LOOKUP_GUARD=off` |
+| Work in progress | `<state>/miadi/working/<session_id>.json` from a prompt until Stop, Interrupt or SessionEnd, which `tide agents restore` reads |
 
 Native events keep the original tool input/output. Workers use a normalized copy:
 `turn_id` supplies `prompt_id`, native patches use `tool_input.command`, and string
