@@ -251,6 +251,15 @@ try:
 finally:
     s.close()
 
+# A Miadi review (jgwill/etc-claude-code#23): the door opens its page on the review service.
+s = Scenario(100, lines_program(["reviewed in miadi-review://5ceaaf3e-eeb9-4afd-9079-42a6a31a5b08."]))
+try:
+    s.click(20)
+    check("a review opens the door with its address", s.opened_lines(),
+          [f"{FRONT}miadi-review%3A%2F%2F5ceaaf3e-eeb9-4afd-9079-42a6a31a5b08"])
+finally:
+    s.close()
+
 # A connector record id (jgwill/Miadi#879): the row holds no Miadi word, only the
 # id the connector minted. The word "inquiry:" and another kind's UUID are text.
 RECORD = "f6938a49-d7d5-4d64-bd47-fd2004f38865"
