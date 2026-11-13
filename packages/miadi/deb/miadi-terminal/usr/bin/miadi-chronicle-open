@@ -15,10 +15,15 @@ miadi-tracing:<domain>/<resource>/<id>[@<v>] with its aliases miadi-trace:
 and miadi-prompt:, and a specification, rise://<owner>/<repo>/<path>[@<commit>].
 A capability, one thing a git repository provides (Episode 568), is
 miadi-capability:<owner>/<repo>/<kind>/<name>; it opens its registry page.
-A tmux session is miadi-tmux:<account>@<host>:<session> (jgwill/Miadi#968). A
+A tmux session is miadi-tmux:<account>@<host>:<session> (jgwill/Miadi#968), or
+miadi-tmux://<account>@<host>/<session>, the spelling a URL parser reads. A
 click in tmux on a session of this account on this host moves the clicking
 client there; everywhere else it opens through the door like the rest. A click
-starts no ssh and types into no pane.
+starts no ssh and types into no pane. A record of the Miadi Factory connector
+is its bare id, <kind>:<uuid> as the connector mints it
+(inquiry:f6938a49-d7d5-4d64-bd47-fd2004f38865); the door opens it on My
+Research (jgwill/Miadi#879). Only the connector's kinds with a whole UUID
+count, so the word "inquiry:" stays text.
 In running text a specification is found only with its //, so the word
 "rise:" stays text.
 
@@ -66,12 +71,17 @@ ETC_DEFAULT = "/etc/miadi"
 # URI in running text; trailing sentence punctuation is stripped after. A bare
 # wheel id counts only in the form the wheel mints, a timestamp or ep<N> after
 # its kind, so the word "circle:" in running text is not a reference.
-REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|(?:notebook|prototype|tracing|trace|prompt|capability|tmux):(?://)?[A-Za-z0-9._~/:+@\-]+)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\brise://[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9._~/\-]+(?:@[A-Za-z0-9._/\-]+)?(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*''', re.I)
+REFERENCE = re.compile(r'''\bmiadi-(?:(?:chronicle|foundation):(?://)?[A-Za-z0-9._~/\-]+|(?:ceremony|circle):(?://)?[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|(?:notebook|prototype|tracing|trace|prompt|capability|tmux):(?://)?[A-Za-z0-9._~/:+@\-]+)(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\brise://[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9][A-Za-z0-9._\-]*/[A-Za-z0-9._~/\-]+(?:@[A-Za-z0-9._/\-]+)?(?:\?[^\s<>"'`]*)?(?:#[^\s<>"'`]*)?|\b(?:circle|ceremony):(?:\d{10,}|ep\d+):[A-Za-z0-9._~\-]+(?::[A-Za-z0-9._~\-]+)*|\b(?:observation|inquiry|link|work_proposal|run_request|handoff|source_intent|review_operation_request|participant_consent_request|deep_diver_request|review_episode_link_request|calendar_event_draft|session_completion_proposal|research_artifact|inquiry_episode_request|session_steer_request|steering_revocation|provider_choice|provider_policy|transcript_job):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b''', re.I)
 BARE_WHEEL_ID = re.compile(r"(circle|ceremony):", re.I)
+# A connector record's id, the form the connector mints (packages/connector
+# newRecordId in jgwill/Miadi). It has no scheme: the door reads it as it is.
+RECORD_ID = re.compile(r"(?:observation|inquiry|link|work_proposal|run_request|handoff|source_intent|review_operation_request|participant_consent_request|deep_diver_request|review_episode_link_request|calendar_event_draft|session_completion_proposal|research_artifact|inquiry_episode_request|session_steer_request|steering_revocation|provider_choice|provider_policy|transcript_job):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 # The grammar of jgwill/Miadi#968, packages/inquiry-weave/src/tmux-dsl.ts. The
 # session cannot start as a flag or as tmux's = prefix, and an address with a
-# query or a fragment goes to the door.
-TMUX_ADDRESS = re.compile(r"miadi-tmux:(?://)?([A-Za-z_][A-Za-z0-9_-]{0,31})@([A-Za-z0-9][A-Za-z0-9.-]{0,252}):([A-Za-z0-9_][A-Za-z0-9_+~-]{0,199})", re.I)
+# query or a fragment goes to the door. A / between host and session is the
+# same address: after // a URL parser reads <host>:<session> as a host and a
+# port it refuses, and <host>/<session> as a host and a path.
+TMUX_ADDRESS = re.compile(r"miadi-tmux:(?://)?([A-Za-z_][A-Za-z0-9_-]{0,31})@([A-Za-z0-9][A-Za-z0-9.-]{0,252})[:/]([A-Za-z0-9_][A-Za-z0-9_+~-]{0,199})", re.I)
 TRAILING = ".,;:!?)]}'\""
 # Qt reads the number of miadi-chronicle://560 as an IPv4 address, so Konsole
 # hands on miadi-chronicle://0.0.2.48 (jgwill/Miadi#595). Qt reads a
@@ -396,13 +406,13 @@ def main(argv):
         print("usage: miadi-chronicle-open [--open] miadi-chronicle:<episode>[/<artifact>] | miadi-circle:<id> | circle:<id>"
               " | miadi-foundation:<slug> | miadi-notebook:<uuid> | miadi-prototype:<slug>"
               " | miadi-tracing:<domain>/<resource>/<id> | miadi-capability:<owner>/<repo>/<kind>/<name>"
-              " | miadi-tmux:<account>@<host>:<session>"
+              " | miadi-tmux:<account>@<host>:<session> | <record kind>:<uuid>"
               " | rise://<owner>/<repo>/<path>",
               file=sys.stderr)
         return 64
 
     ref = before_qt_rewrite(as_uri(ref))
-    if not ref.lower().startswith(SCHEMES):
+    if not ref.lower().startswith(SCHEMES) and not RECORD_ID.fullmatch(ref):
         print(f"not a Miadi reference: {ref}", file=sys.stderr)
         return 65
     if opening and in_tmux and moved_to_session(ref, options.get("client")):

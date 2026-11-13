@@ -251,6 +251,21 @@ try:
 finally:
     s.close()
 
+# A connector record id (jgwill/Miadi#879): the row holds no Miadi word, only the
+# id the connector minted. The word "inquiry:" and another kind's UUID are text.
+RECORD = "f6938a49-d7d5-4d64-bd47-fd2004f38865"
+s = Scenario(100, lines_program([f"I1 opened inquiry:{RECORD}, pending.",
+                                 "the inquiry: is still open",
+                                 f"seen session:{RECORD} here"]))
+try:
+    s.click(20)
+    check("a connector record opens the door with its id", s.opened_lines(), [f"{FRONT}inquiry%3A{RECORD}"])
+    s.click(6, row=1)
+    s.click(14, row=2)
+    check("the word inquiry: and a session id are not records", s.opened_lines()[1:], [])
+finally:
+    s.close()
+
 
 def streaming(width, name):
     """A pane still printing: the click opens what was under it when it landed."""
@@ -280,7 +295,9 @@ s = Scenario(100, lines_program([f"see miadi-tmux://{ME}@{HOST}:other-seat.",
                                  f"pref miadi-tmux://{ME}@{HOST}:other here",
                                  f"away miadi-tmux://{ME}@{HOST}-elsewhere:other-seat here",
                                  f"them miadi-tmux://{ME}x@{HOST}:other-seat here",
-                                 f"flag miadi-tmux://{ME}@{HOST}:-other-seat here"]))
+                                 f"flag miadi-tmux://{ME}@{HOST}:-other-seat here",
+                                 f"path miadi-tmux://{ME}@{HOST}/other-seat here",
+                                 f"away miadi-tmux://{ME}@{HOST}-elsewhere/other-seat here"]))
 
 
 def on_session(scenario):
@@ -316,6 +333,14 @@ try:
         s.click(20, row=row)
         check(name, s.opened_lines()[before:], [want])
         results.append((f"and the client stays (on {on_session(s)})", on_session(s) == "click"))
+    s.click(20, row=7)
+    results.append((f"a / between host and session moves the client too (on {on_session(s)})", on_session(s) == "other-seat"))
+    s.run("switch-client", "-t", "=click:")
+    s.drain(0.5)
+    before = len(s.opened_lines())
+    s.click(20, row=8)
+    check("and on another host opens the door as written", s.opened_lines()[before:],
+          [f"{FRONT}miadi-tmux%3A%2F%2F{ME}%40{HOST}-elsewhere%2Fother-seat"])
 finally:
     s.close()
 
