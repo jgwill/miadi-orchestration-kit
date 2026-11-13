@@ -27,7 +27,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-node` | Node.js 24 LTS at `/usr/lib/miadi-node`, private to the two below: nothing on `PATH`, no npm | 24.21.0-1 |
 | `miadi-chronicle-client` | the chronicle's commands and MCP servers from pinned npm releases: `inquiry-weave`, `inquiry-weave-mcp`, `passages`, `mkepisode`, `miadi-voice-mcp`, `medicine-wheel-mcp` | 0.1.0 |
 | `miadi-chronicle-server` | the chronicle's host services: `miadi-capture-service` (a per-user unit, not started), `miadi-episode-capture`, `miadi-transcription`, `miadi-hooks`, `miadi-hooks-interpret`, `miadi-chart-pulse` (0.1.3), `plan-insight-register` (`miadi` depends on it since 0.4.0) | 0.1.0 |
-| `miadi-server` | the Miadi web app as a per-user service: `miadi-server` (launcher, `check`) and a unit, not started. Not part of `miadi` | 0.1.0 |
+| `miadi-server` | the Miadi web app, built and ready to run: no checkout, pnpm or build on the host. `miadi-server` (`--help`, `check`, `init`) and a per-user unit, not started. Not part of `miadi` | 0.1.0 |
 | `miadi-music` | music on the host, for an album or an episode's score: brings the three below and the `miadi-music` command | 0.1.0 |
 | `miadi-music-render` | ABC to MIDI, audio and the engraved page: abcmidi, abcm2ps, fluidsynth with the FluidR3 soundfont, ffmpeg | 0.1.0 |
 | `miadi-music-measure` | NumPy, SciPy and Pillow, pinned, in their own venv, built from one of the three below | 0.1.0 |
@@ -414,15 +414,21 @@ build, test, publish. A Node release is a new `miadi-node` Version
 
 ## miadi-server
 
-The launcher and per-user unit for the Miadi web app (jgwill/Miadi). The checkout, its
-dependencies and its build stay with the checkout, the package starts nothing, and `miadi` does
-not depend on it, because most hosts do not serve the app. The launcher reads three host settings
-(`MIADI_PROJECT_DIR`, else `MIADI_SRC`, then `MIADI_MODE_FILE` and `MIADI_PORT`) and passes the app
-nothing else, so the app's settings stay in the checkout's `.env`. Setup is in
-`/usr/share/doc/miadi-server/README`. `tests/miadi-server.sh` covers what it starts and refuses.
+The built Miadi web app (jgwill/Miadi), its launcher and a per-user unit, at `/usr/lib/miadi-server`.
+A host needs no checkout, no pnpm and no build. Most hosts do not serve the app, so `miadi` does
+not depend on it, and a host that runs the app from a source build does not install it.
 
-`docker/miadi-server/Dockerfile` builds the app in a container from this package and a `git archive` of
-the source. Nothing secret stays in the image.
+`miadi-server init <file>` stores the app's settings in `~/.config/miadi-server/env`,
+`miadi-server check` says what stops it, and `miadi-server --help` lists the rest. A host that
+runs its own checkout sets `MIADI_PROJECT_DIR`, and the launcher runs that checkout instead.
+
+Building it needs a jgwill/Miadi checkout, pnpm and npm: `MIADI_SERVER_SOURCE=<checkout> bash build.sh
+miadi-server`. It builds a clean export of the commit and reads no secret. At 0.2.0 the package is
+76 MB, under the apt repository's 100 MB upload limit. Past that limit, publish it with a GitHub
+release asset as the second argument to `apt-publish.sh`.
+
+`docker/miadi-server/Dockerfile` makes a container from the package alone. `tests/miadi-server.sh`
+covers what the launcher starts and refuses, and `test-install.sh` starts the real app.
 
 ## miadi-film
 

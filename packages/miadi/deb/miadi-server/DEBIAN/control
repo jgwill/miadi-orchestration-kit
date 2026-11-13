@@ -1,17 +1,18 @@
 Package: miadi-server
-Version: 0.1.0
+Version: 0.2.0
 Section: web
 Priority: optional
-Architecture: all
+Architecture: amd64
 Depends: bash, miadi-config (>= 0.2.0), miadi-node (>= 24.21.0-1), miadi-node (<< 25)
-Suggests: systemd
+Suggests: systemd, curl
 Maintainer: Miadi <mia@jgwill.com>
 Homepage: https://github.com/jgwill/miadi-orchestration-kit
-Description: The Miadi web app as a per-user service
- The launcher and the per-user systemd unit that run the Miadi web app
- (jgwill/Miadi) from a checkout on this host. miadi-server starts it in the
- mode its mode file names and refuses a production start with no build.
- miadi-server check says what it would run and what stops it.
+Description: The Miadi web app, built and ready to run
+ The built Miadi web app (jgwill/Miadi), its launcher and a per-user systemd
+ unit. It needs no source checkout, no pnpm and no build on the host: give it
+ its settings with `miadi-server init <file>` and start it. It serves on
+ 127.0.0.1:3335 by default. `miadi-server --help` lists the commands and
+ settings, and `miadi-server check` says what stops it from running.
  .
- The checkout, its dependencies and its build stay with the checkout: this
- package installs the service, starts nothing, and is not part of miadi.
+ It starts nothing when installed and is not part of miadi. A host that runs
+ the app from its own checkout sets MIADI_PROJECT_DIR.

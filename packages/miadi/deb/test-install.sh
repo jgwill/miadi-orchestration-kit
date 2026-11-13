@@ -389,6 +389,21 @@ PY
     test -x /usr/bin/miadi-server
     grep -qx "ExecStart=/usr/bin/miadi-server" /usr/lib/systemd/user/miadi-server.service
     bash /tmp/tests/miadi-server.sh
+    test -f /usr/lib/miadi-server/app/server.js
+    ! find /usr/lib/miadi-server/app -maxdepth 2 -name ".env*" | grep -q .
+    apt-get install -y -qq curl >/dev/null 2>&1
+    HOME=/tmp/server-home miadi-server >/tmp/miadi-server.log 2>&1 &
+    server=$!
+    code=000
+    for _ in $(seq 1 30); do
+      code=$(curl -s -m 2 -o /dev/null -w "%{http_code}" http://127.0.0.1:3335/api/health || true)
+      [ "$code" = 200 ] && break
+      sleep 1
+    done
+    kill "$server" 2>/dev/null || true
+    wait "$server" 2>/dev/null || true
+    [ "$code" = 200 ] || { tail -20 /tmp/miadi-server.log; echo "the installed app did not answer: $code"; exit 1; }
+    echo "the installed app serves on 3335 with no source on the host"
   fi
 
   if dpkg -s miadi-node >/dev/null 2>&1; then
