@@ -68,7 +68,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Level:** between William and the teams that build.
 - **Desired outcome:** William hears and judges what the building teams produce before anything is revised, and his answers reach them as clear messages.
 - **Leads:** William (human). Mino, the `stcbot` seat (agent).
-- **Makes:** spoken first impressions and walkthroughs, revision messages, the session inventory (`miadisabelle/workspace` `.mino/session-inventory/`), charts.
+- **Makes:** spoken first impressions and walkthroughs, revision messages, the session inventory (`miadisabelle/workspace` `.mino/session-inventory/`), charts, Miette's readings of plans before a person approves them (`claude/miette-plan-insight`, whose seats open on this team).
 - **Uses:** T1's hook capture and Claude Code's transcripts and session list, to see what other sessions received and did. tide's draft records. T8's capability registry.
 - **Sessions:** `stcbot`, `mino-260928-fork-01`, `miadi-review-in-episode`.
 - **Plugin:** `claude/miadi-witness`, with `miadi-witness-first-impression`, `miadi-mino-tmux-inventory`, `team-fit` and `drafts-witness` among its skills (jgwill/miadi-orchestration-kit#59).
@@ -131,7 +131,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Desired outcome:** every question William asks about how the factory works gets a short answer from the owning team's text, checked against the tool itself. The question is kept, and when the docs or tools fail to answer it, that failure reaches the team that owns them.
 - **Leads:** William (human). The session `miadi-how-to-set-with-tide-a-team` (agent).
 - **Makes:** the `miadi-operator-desk` plugin (`claude/miadi-operator-desk`): the skill `operator-desk`, the command `/desk-record`, and the desk ledger `desk/ledger.jsonl`, one line per question with its answer, sources, owning team and any handoff (jgwill/miadi-orchestration-kit#71).
-- **Teaches (William, 2026-11-07):** how to use the factory for what it supplies, starting with how a cycle closes and how a person gives feedback, so that "by loading the plugin, our agent would also be capable of getting skills that tells us exactly what we need to do and where we're going with this". Skill `closing-a-cycle`, case Episode 573 (miadi-chronicle://573).
+- **Teaches (William, 2026-11-07):** how to use the factory for what it supplies, starting with how a cycle closes and how a person gives feedback, so that "by loading the plugin, our agent would also be capable of getting skills that tells us exactly what we need to do and where we're going with this". Skill `closing-a-cycle`, case Episode 573 (miadi-chronicle://573). Skill `planning-with-miette` (2026-11-09), case Episode 75 (miadi-chronicle://75): "when you plan, you want some insight and you want to have a discussion with another type of agent".
 - **Uses:** every team's section here and its skill, to find the answer. T1's binding line, to know which team a session is on.
 - **Sessions:** `miadi-how-to-set-with-tide-a-team`. A tmux session named `desk-…` is on T7 by its name.
 

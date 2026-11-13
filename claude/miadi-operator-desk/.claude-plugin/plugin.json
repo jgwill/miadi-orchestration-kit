@@ -1,7 +1,7 @@
 {
   "name": "miadi-operator-desk",
-  "description": "The Miadi Factory's operator desk (T7): William's questions about how the factory works (its tools, multiplexers, teams, session assignment, plugins) answered from the owning team's text and checked against the tool itself. Every question is kept in the desk ledger, an unanswered one goes to the team that owns the tool, and a question that comes back becomes a pointer in the skill. Carries the operator-desk skill and /desk-record. Since 0.2.0 it also teaches how a cycle of work closes (skill closing-a-cycle): what needs the person comes back as an explainer and as circle turns they answer makes sense or does not, and the agents act on each answer.",
-  "version": "0.2.0",
+  "description": "The Miadi Factory's operator desk (T7): William's questions about how the factory works (its tools, multiplexers, teams, session assignment, plugins) answered from the owning team's text and checked against the tool itself. Every question is kept in the desk ledger, an unanswered one goes to the team that owns the tool, and a question that comes back becomes a pointer in the skill. Carries the operator-desk skill and /desk-record. Since 0.2.0 it also teaches how a cycle of work closes (skill closing-a-cycle): what needs the person comes back as an explainer and as circle turns they answer makes sense or does not, and the agents act on each answer. Since 0.3.0 it also teaches how to plan with Miette (skill planning-with-miette): what the miette-plan-insight plugin gives us, what to do when a seat opens beside a session, and where the reading lands.",
+  "version": "0.3.0",
   "author": {
     "name": "jgwill"
   },
