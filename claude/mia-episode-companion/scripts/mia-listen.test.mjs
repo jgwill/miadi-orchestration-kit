@@ -174,7 +174,13 @@ test("reply posts the return on stdin to phone-capture with this invocation's or
   assert.deepEqual(answered.takes, ["260101000001"]);
   // A message that answers no take goes through the same command, with the same origin.
   const untaken = await runReply({ MIADI_PHONE_CAPTURE_PORT: String(server.address().port), TMUX_PANE: "%999" }, "Ready when you are.\n", []);
+  // No setting: the reply goes to the port ensure.sh kept, chosen when 8771 was taken.
+  const kept = mkdtempSync(join(tmpdir(), "phone-capture-state-"));
+  writeFileSync(join(kept, "port"), `${server.address().port}\n`);
+  const followed = await runReply({ MIADI_PHONE_CAPTURE_PORT: "", MIADI_PHONE_CAPTURE_STATE_DIR: kept, TMUX_PANE: "%999" }, "Found you.\n", []);
   server.close();
+  assert.equal(followed.status, 0, followed.stderr);
+  assert.equal(received[2].body.text, "Found you.");
   assert.equal(untaken.status, 0, untaken.stderr);
   assert.match(untaken.stdout, /reply delivered to the phone page \(stub-id\)/);
   assert.equal(received[1].body.take, undefined);

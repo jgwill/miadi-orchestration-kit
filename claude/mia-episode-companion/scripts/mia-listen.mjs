@@ -1238,8 +1238,21 @@ export function stepProblems(steps) {
   return problems;
 }
 
+// The port phone-capture answers on: the setting, else the one ensure.sh kept in its state
+// folder (it chooses another when 8771 is taken), else 8771.
+function phoneCapturePort() {
+  if (process.env.MIADI_PHONE_CAPTURE_PORT) return process.env.MIADI_PHONE_CAPTURE_PORT;
+  const state = process.env.MIADI_PHONE_CAPTURE_STATE_DIR
+    || join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "miadi-phone-capture");
+  try {
+    const kept = readFileSync(join(state, "port"), "utf8").trim();
+    if (/^\d+$/.test(kept)) return kept;
+  } catch {}
+  return "8771";
+}
+
 async function postReply(episode, takeId, text, related = [], steps = [], mark = null) {
-  const port = process.env.MIADI_PHONE_CAPTURE_PORT || "8771";
+  const port = phoneCapturePort();
   const origin = currentOrigin();
   const response = await fetch(`http://127.0.0.1:${port}/api/replies`, {
     method: "POST",
