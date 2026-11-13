@@ -204,6 +204,16 @@ test("the ready flag and its moment are kept on the prompt's trace, once each", 
   assert.deepEqual((await main(["drafts"], w.deps)).handled, [])
 })
 
+test("a run is a mark with who ran it and what tide completed", async () => {
+  const w = world()
+  w.write("versioned", { text: `mctgo T1 ${SESSION} 'run it now'`, version: 1, target_team: "T1", target_session: SESSION })
+  w.write("run", { target_team: "T1", target_session: SESSION, sent: true, completion: ["a single quote closed"] })
+  const out = await main(["drafts"], w.deps)
+  assert.deepEqual(out.handled.filter((h) => h.mark).map((h) => [h.mark, h.sent ?? null, h.completion ?? null]), [["run", true, ["a single quote closed"]]])
+  const marks = w.calls.filter((c) => c[3] === "add-observation").map((c) => c.join(" "))
+  assert.match(marks.at(-1), /· run.*"sent":true.*"completion":\["a single quote closed"\]/)
+})
+
 test("sent and unstarted are marks: the draft is a draft again when no session follows (D11)", async () => {
   const w = world()
   w.write("versioned", { text: `mctgo T1 ${SESSION} 'ran, nothing started'`, version: 1, target_team: "T1", target_session: SESSION })
