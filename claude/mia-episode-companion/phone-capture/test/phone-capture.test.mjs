@@ -149,7 +149,7 @@ test("a reply posted from this host waits for the page; one forwarded from the t
   const b = await bridge({ transcriber: stubTranscriber });
   try {
     const post = (headers, body) => fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
-    const reply = { episode: EPISODE, take: "260920235421", text: "🧠: William, it arrived.", origin: { multiplexer: "tmux", pane: "%1" } };
+    const reply = { episode: EPISODE, take: "260920235421", text: "🧠: Ada, it arrived.", origin: { multiplexer: "tmux", pane: "%1" } };
     assert.equal((await post({ "x-forwarded-for": "100.71.17.43" }, reply)).status, 403);
     assert.equal((await post({ "tailscale-user-login": "jgi@example" }, reply)).status, 403);
     const posted = await (await post({}, reply)).json();
@@ -157,7 +157,7 @@ test("a reply posted from this host waits for the page; one forwarded from the t
 
     const byTake = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}&take=260920235421`)).json();
     assert.equal(byTake.replies.length, 1);
-    assert.equal(byTake.replies[0].text, "🧠: William, it arrived.");
+    assert.equal(byTake.replies[0].text, "🧠: Ada, it arrived.");
     assert.equal(byTake.replies[0].audio, null);
     assert.equal(byTake.replies[0].origin, undefined, "the page never sees pane ids");
     const other = await (await fetch(`${b.url}/api/replies?episode=${EPISODE}&take=260920235499`)).json();
@@ -173,7 +173,7 @@ test("Hear Mia renders once through the voice layer as persona mia, then serves 
   const b = await bridge({ transcriber: stubTranscriber, voice });
   try {
     const { id } = await (await fetch(`${b.url}/api/replies`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ episode: EPISODE, take: "260920235421", text: "🧠: **William**, it arrived.\n\n🌸: You can speak from the desk.", origin: { user: "mia", host: "gaia", cwd: "/srv", multiplexer: "tmux", session: "s", pane: "%1" } }) })).json();
+      body: JSON.stringify({ episode: EPISODE, take: "260920235421", text: "🧠: **Ada**, it arrived.\n\n🌸: You can speak from the desk.", origin: { user: "mia", host: "gaia", cwd: "/srv", multiplexer: "tmux", session: "s", pane: "%1" } }) })).json();
     const voiced = await (await fetch(`${b.url}/api/replies/${id}/voice`, { method: "POST" })).json();
     assert.equal(voiced.success, true);
     await fetch(`${b.url}/api/replies/${id}/voice`, { method: "POST" });
@@ -181,7 +181,7 @@ test("Hear Mia renders once through the voice layer as persona mia, then serves 
     assert.equal(requests[0].persona, "mia");
     assert.equal(requests[0].episode, EPISODE);
     assert.equal(requests[0].origin.pane, "%1");
-    assert.equal(requests[0].text, "William, it arrived.\n\nYou can speak from the desk.");
+    assert.equal(requests[0].text, "Ada, it arrived.\n\nYou can speak from the desk.");
 
     const ranged = await fetch(`${b.url}/${voiced.audio}`, { headers: { range: "bytes=0-3" } });
     assert.equal(ranged.status, 206);
@@ -420,9 +420,9 @@ test("the page is told whether a seat is listening on the episode", async () => 
   }
 });
 
-// Episode 339, 2026-10-08: the page says when William records, and the seat that posts a
+// Episode 339, 2026-10-08: the page says when Ada records, and the seat that posts a
 // reply then is told so; and the conversation is one thread of takes and replies.
-test("while the page says William is recording, a reply posted then is told so, and the state lapses when he stops", async () => {
+test("while the page says Ada is recording, a reply posted then is told so, and the state lapses when he stops", async () => {
   const b = await bridge({ transcriber: stubTranscriber });
   try {
     const recorder = (recording) => fetch(`${b.url}/api/recorder`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ episode: EPISODE, recording }) }).then((r) => r.json());
@@ -496,7 +496,7 @@ test("the trading chart may post a labelling note; another origin may not", asyn
   }
 });
 
-// William, Episode 120, 2026-10-12: a few minutes of recording were lost when the recorder
+// Ada, Episode 120, 2026-10-12: a few minutes of recording were lost when the recorder
 // failed at Stop. The page now sends what it captured every 10 seconds.
 const part = (b, rec, offset, bytes) => fetch(`${b.url}/api/takes/part?episode=${EPISODE}&rec=${rec}&offset=${offset}`, {
   method: "POST", headers: { "content-type": "audio/mp4" }, body: bytes,
@@ -566,7 +566,7 @@ test("a take sent whole closes its parts, so nothing is recovered from them late
 });
 
 
-// William, 2026-10-12: "we should have a thumbs up on the actual message that you send".
+// Ada, 2026-10-12: "we should have a thumbs up on the actual message that you send".
 test("a thumb on a reply is kept with its text's hash, the latest one counts, and the thread shows it", async () => {
   const b = await bridge({ transcriber: stubTranscriber });
   try {
@@ -591,7 +591,7 @@ test("a thumb on a reply is kept with its text's hash, the latest one counts, an
   }
 });
 
-// William, 2026-10-12: "when you relate to something very important they would be joined on
+// Ada, 2026-10-12: "when you relate to something very important they would be joined on
 // the actual reply". Only labelled http(s) links are kept, at most six.
 test("a reply carries the cards for what it names, cleaned, and the thread shows them", async () => {
   const b = await bridge({ transcriber: stubTranscriber });
@@ -617,7 +617,7 @@ test("a reply carries the cards for what it names, cleaned, and the thread shows
   }
 });
 
-// William, 2026-10-12: "a thumbs up could reinforce the loop". The reply keeps the loop that
+// Ada, 2026-10-12: "a thumbs up could reinforce the loop". The reply keeps the loop that
 // made it, and a thumb becomes a ruling on its Jev run, in lane-check's shape.
 test("a thumb on a reply that carries its loop is written as a ruling on that Jev run", async () => {
   const b = await bridge({ transcriber: stubTranscriber });
@@ -644,7 +644,7 @@ test("a thumb on a reply that carries its loop is written as a ruling on that Je
 });
 
 
-// smcraft Spec 84: a reply that walks William through diagrams on his canvas. Each step is
+// smcraft Spec 84: a reply that walks Ada through diagrams on their canvas. Each step is
 // voiced on its own, so the canvas plays a step's words while that step is lit.
 test("a reply with steps is voiced step by step, joined in order, and the thread carries each step's audio", async () => {
   const requests = [];
@@ -792,13 +792,13 @@ test("asked for marks, the thread carries the episode's marks, skips a sidecar t
     writeFileSync(doc, JSON.stringify({ stateMachine: { settings: { name: "Screenwalk" }, state: {} } }));
     writeFileSync(join(diagrams, "screenwalk.smdf.marks.json"), JSON.stringify({ doc: "screenwalk.smdf.json", marks: [
       { id: "m-0mvg4iw5pd4sg", kind: "comment", elements: ["state:Witnessing"], level: "Root", text: `Wouldn't that be one more machine? ${"x".repeat(5000)}`,
-        author: { id: "node:human:1", name: "Guillaume", role: "person" }, at: "2026-10-20T03:28:41.292Z", status: "answered",
+        author: { id: "node:human:1", name: "Ada", role: "person" }, at: "2026-10-20T03:28:41.292Z", status: "answered",
         replies: [
-          { author: { name: "Guillaume", role: "person" }, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" },
+          { author: { name: "Ada", role: "person" }, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" },
           { author: { id: "mia", name: "Mia", role: "agent" }, text: "Yes, I answer here now.", at: "2026-10-20T03:33:32.210Z" },
           { author: { name: "Mia", role: "agent" }, text: "   ", at: "2026-10-20T03:34:00.000Z" },
         ] },
-      { id: "m-0mvg4lhv40b6v", region: { x: 37.5, y: -61.5, width: 62.9, height: 62.9 }, text: "An area.", author: { name: "Guillaume" }, at: "2026-10-20T03:30:42.736Z", status: "nonsense" },
+      { id: "m-0mvg4lhv40b6v", region: { x: 37.5, y: -61.5, width: 62.9, height: 62.9 }, text: "An area.", author: { name: "Ada" }, at: "2026-10-20T03:30:42.736Z", status: "nonsense" },
       { id: "m-silent", text: "   ", at: "2026-10-20T03:31:00.000Z" },
     ] }));
     writeFileSync(join(diagrams, "broken.erdf.marks.json"), "{ not json");
@@ -819,12 +819,12 @@ test("asked for marks, the thread carries the episode's marks, skips a sidecar t
     assert.equal(mark.title, "Screenwalk", "the drawing's own name, from settings.name");
     assert.deepEqual(mark.elements, ["state:Witnessing"]);
     assert.equal(mark.text.length, 4000, "words are capped");
-    assert.deepEqual(mark.author, { name: "Guillaume", role: "person" });
+    assert.deepEqual(mark.author, { name: "Ada", role: "person" });
     assert.equal(mark.at, "2026-10-20T03:28:41.292Z");
     assert.equal(mark.lastAt, "2026-10-20T03:33:32.210Z", "the time of its latest reply");
     assert.equal(mark.status, "answered");
     assert.deepEqual(mark.replies, [
-      { author: { name: "Guillaume", role: "person" }, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" },
+      { author: { name: "Ada", role: "person" }, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" },
       { author: { name: "Mia", role: "agent" }, text: "Yes, I answer here now.", at: "2026-10-20T03:33:32.210Z" },
     ]);
     assert.equal(mark.region, undefined);

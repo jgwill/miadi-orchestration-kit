@@ -109,7 +109,7 @@ The stateloom designer records takes and plays replies too, through its own prox
 
 ## Marks in the conversation (smcraft Spec 83)
 
-William also speaks by marking the episode's drawings: elements or an area, a few words, a
+The person also speaks by marking the episode's drawings: elements or an area, a few words, a
 thread of replies, kept beside each drawing as `<name>.<smdf|erdf|sqdf>.marks.json`.
 `GET /api/thread?episode=<folder>&include=marks` adds them to the takes and replies, in time
 order, as items `{kind: "mark", id, doc, drawing, title?, elements, region?, text, author,

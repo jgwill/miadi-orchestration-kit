@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// mia-listen — wakes a Claude Code session when William's next voice take lands in
+// mia-listen — wakes a Claude Code session when the person's next voice take lands in
 // an episode's captures/. The Claude Code counterpart of the Pi episode-companion
 // observer in Episode 339 (.pi/extensions/episode-companion/observer.cjs). That
 // observer stays canonical for the capture contract this file re-implements:
@@ -28,6 +28,15 @@ const STATE_VERSION = 1;
 const STABILITY_POLL_MS = 3_000;
 // A take this fresh at a first baseline is waiting for the seat starting now.
 const CATCH_UP_MS = 15 * 60 * 1000;
+
+// Who Mia companions. The name is the host's, never the plugin's: set
+// MIADI_MIA_COMPANION_PERSON_NAME where the seat starts (the SessionStart hook tells Mia
+// the same name). Unset, every line says "the person".
+export function personName(env = process.env) {
+  return String(env.MIADI_MIA_COMPANION_PERSON_NAME ?? "").trim() || "the person";
+}
+const Person = (env) => { const n = personName(env); return n[0].toUpperCase() + n.slice(1); };
+const possessive = (n) => (/s$/i.test(n) ? `${n}'` : `${n}'s`);
 
 const EXIT_NO_EPISODE = 2;
 const EXIT_UNDELIVERED = 3;
@@ -265,7 +274,7 @@ function statePath(episode) {
 //   listening  await is polling. Stale after two minutes, or when its process is gone.
 //   answering  await woke on a take and exited; the seat is drafting. Written at the wake
 //              and left in place, so the page does not say "nobody is listening" while
-//              Mia is answering (William, 2026-09-29). Stale after fifteen minutes.
+//              Mia is answering (the person, 2026-09-29). Stale after fifteen minutes.
 //   answered   reply posted; the seat re-arms next. Stale after two minutes.
 // The re-arm overwrites either of the last two with listening.
 export const HEARTBEAT_STALE_MS = 120_000;
@@ -308,7 +317,7 @@ function saveState(episode, state) {
 
 // Takes already present when a seat first listens are its baseline: heard by
 // someone before, never a wake for this seat. Except a take from the last few
-// minutes: William records, then starts the session in that episode, and that
+// minutes: the person records, then starts the session in that episode, and that
 // take is meant for it. Only a first baseline is affected.
 function ensureState(episode, takes) {
   const existing = loadState(episode);
@@ -347,7 +356,7 @@ function unheard(state, takes) {
 
 // ---------- marks (smcraft Spec 83) ----------
 //
-// William marks a drawing on his stateloom canvas: elements or an area, a few words, a
+// The person marks a drawing on his stateloom canvas: elements or an area, a few words, a
 // thread of replies. The hub keeps them beside the drawing, `<name>.<smdf|erdf|sqdf>.marks.json`.
 // A mark waiting on an agent wakes this seat as a take does. The rules mirror smcraft's
 // bridge-protocol/src/stage/marks.ts (readMark, marksWaitingOn, markAnchorText) in plain JS:
@@ -565,7 +574,7 @@ export const STAGE_STOP = `smcx --bridge "$STATELOOM_BRIDGE_URL" stage control s
 
 function markAnswerLines(episode, marks, { walk = true } = {}) {
   const lines = [
-    "Answer each mark with one act, as Mia. Your words go into its thread on the drawing, to his phone page and the companion thread in your voice, and play on his canvas while it lights what he marked.",
+    "Answer each mark with one act, as Mia. Your words go into its thread on the drawing, to their phone page and the companion thread in your voice, and play on their canvas while it lights what they marked.",
     "First in that Bash call, clear any step left on the stage, so it neither covers your walk nor stays on every canvas that opens later:",
     `  ${STAGE_STOP}`,
   ];
@@ -579,7 +588,7 @@ function markAnswerLines(episode, marks, { walk = true } = {}) {
   if (walk) {
     const first = marks[0];
     lines.push(
-      "Without --steps, one step lights what he marked while your words play. To walk further, write steps, one sentence or two each, with what to light, and add --steps <that file> to that mark's act (the words on stdin stay the thread's):",
+      "Without --steps, one step lights what they marked while your words play. To walk further, write steps, one sentence or two each, with what to light, and add --steps <that file> to that mark's act (the words on stdin stay the thread's):",
       `  [{"say": "…", "doc": "${first.drawing}", "spotlight": ["${first.elements[0] ?? "state:…"}"]}]`,
     );
   }
@@ -733,7 +742,7 @@ export function answerInThread(mark, words, env = process.env) {
 function voiceWords(answer) {
   if (answer.voiced === true) return "voiced";
   if (answer.unvoiced) return `not voiced: ${answer.unvoiced}`;
-  if (answer.voiced === false) return "voice still rendering, his page plays it when ready";
+  if (answer.voiced === false) return "voice still rendering, their page plays it when ready";
   return "voice not reported by phone-capture";
 }
 
@@ -836,7 +845,7 @@ function purposeLines(episode, take) {
   }
 }
 
-// What William's stateloom canvas shows while he speaks (smcraft Spec 83): the drawing,
+// What the person's stateloom canvas shows while he speaks (smcraft Spec 83): the drawing,
 // the element in hand, where a tour stands, and the marks on that drawing waiting for an
 // agent. Read from the hub's `GET /stage/<name>` and the drawing's `.marks.json` beside it.
 // Only when STATELOOM_BRIDGE_URL is set; a hub that does not answer in two seconds is a
@@ -863,7 +872,7 @@ export async function canvasContext(env = process.env, { skip = [], episode = nu
   const where = [`${basename(ctx.doc)}${ctx.kind ? ` (${ctx.kind})` : ""}`];
   if (ctx.focus) where.push(`${ctx.focus} in hand`);
   if (ctx.tour) where.push(`tour '${ctx.tour.title ?? ""}' at step ${ctx.tour.index + 1} of ${ctx.tour.count}`);
-  const lines = [`On William's canvas (stage '${stage}', reported ${ctx.at ?? "?"}): ${where.join(", ")}.`];
+  const lines = [`On ${possessive(personName())} canvas (stage '${stage}', reported ${ctx.at ?? "?"}): ${where.join(", ")}.`];
   try {
     const sidecar = ctx.doc.replace(/\.json$/i, ".marks.json");
     const raw = existsSync(sidecar) ? JSON.parse(readFileSync(sidecar, "utf8"))?.marks : [];
@@ -873,7 +882,7 @@ export async function canvasContext(env = process.env, { skip = [], episode = nu
     }
     if (waiting.length) {
       lines.push(
-        "  He may be speaking about these. Answer one with one act (its thread, his phone in your voice, his canvas lit):",
+        "  They may be speaking about these. Answer one with one act (its thread, their phone in your voice, their canvas lit):",
         `  node "${SCRIPT}" reply --mark <id> --doc "${ctx.doc}"${episode ? ` --episode "${episode}"` : ""} <<'MIA' … MIA`,
       );
     }
@@ -884,7 +893,7 @@ export async function canvasContext(env = process.env, { skip = [], episode = nu
   return lines;
 }
 
-// What William's canvas showed when he recorded a take there (phone-capture keeps it as
+// What the person's canvas showed when he recorded a take there (phone-capture keeps it as
 // captures/<take>/canvas.json): the drawing, the element in hand, the marks open on it.
 // More exact than the canvas at wake time, which may have moved on.
 function spokenAtLines(episode, take) {
@@ -901,7 +910,7 @@ function spokenAtLines(episode, take) {
     }
     if (Array.isArray(seen.spotlight) && seen.spotlight.length) parts.push(`the step lit ${seen.spotlight.join(", ")}`);
     if (Array.isArray(seen.marks) && seen.marks.length) parts.push(`marks open: ${seen.marks.join(", ")}`);
-    return [`  spoken at his stateloom canvas, looking at ${parts.join(", ")} (${seen.doc})`, ""];
+    return [`  spoken at their stateloom canvas, looking at ${parts.join(", ")} (${seen.doc})`, ""];
   } catch {
     return [];
   }
@@ -910,7 +919,7 @@ function spokenAtLines(episode, take) {
 // A wake carries the takes, the marks, or both: one turn answers everything that arrived.
 export function formatWake(episode, takes, { rearm = true, canvas = [], marks = [] } = {}) {
   const lines = [];
-  if (takes.length) lines.push(`NEW TAKE${takes.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`, "");
+  if (takes.length) lines.push(`NEW TAKE${takes.length > 1 ? "S" : ""} FROM ${personName().toUpperCase()} · ${episodeLabel(episode)}`, "");
   for (const take of takes) {
     const elsewhere = take.source !== "worktree" ? ` · read from ${take.source}, not yet in this checkout` : "";
     lines.push(
@@ -927,7 +936,7 @@ export function formatWake(episode, takes, { rearm = true, canvas = [], marks = 
       "",
     );
   }
-  if (marks.length) lines.push(`NEW MARK${marks.length > 1 ? "S" : ""} FROM WILLIAM · ${episodeLabel(episode)}`, "");
+  if (marks.length) lines.push(`NEW MARK${marks.length > 1 ? "S" : ""} FROM ${personName().toUpperCase()} · ${episodeLabel(episode)}`, "");
   for (const mark of marks) lines.push(...markLines(mark), "");
 
   const what = takes.length && marks.length ? "take or a mark" : takes.length ? "take" : "mark";
@@ -938,8 +947,8 @@ export function formatWake(episode, takes, { rearm = true, canvas = [], marks = 
   lines.push(
     ...wakeContext(episode.root),
     ...canvas,
-    ...(takes.length ? ["This is William speaking in the episode. Answer what he says; do not read it as a task list."] : []),
-    ...(marks.length ? [`This is William marking ${marks.length > 1 ? "the episode's drawings" : "a drawing of the episode"}. Answer what he marked, in its thread; do not read it as a task list.`] : []),
+    ...(takes.length ? [`This is ${personName()} speaking in the episode. Answer what they say; do not read it as a task list.`] : []),
+    ...(marks.length ? [`This is ${personName()} marking ${marks.length > 1 ? "the episode's drawings" : "a drawing of the episode"}. Answer what they marked, in its thread; do not read it as a task list.`] : []),
     `Turn budget (mia-episode-companion skill): this wake carries what an ordinary ${takes.length ? "take" : "mark"} needs.`,
     `1. Hear from the wake. Read a file only if the ${what} names something the wake does not carry; at most two reads.`,
     `2. Draft backstage. Send only ${heard} and the exact draft to the developmental-editor agent, once.`,
@@ -954,7 +963,7 @@ export function formatWake(episode, takes, { rearm = true, canvas = [], marks = 
       marks.length
         ? `5. In that same message: one Bash call that clears the stage, delivers the return (below), answers each mark with its one act (below), and runs the commit above if one is shown${then}`
         : `5. In that same message: one Bash call that delivers the return (below) and runs the commit above if one is shown${then}`,
-      "Deliver the return to William's phone page, which waits for it and can voice it as Mia:",
+      `Deliver the return to ${possessive(personName())} phone page, which waits for it and can voice it as Mia:`,
       `  node "${SCRIPT}" reply ${takes.at(-1).takeId} --episode "${episode.root}" <<'MIA'`,
       "  <the final return, exactly as given>",
       "  MIA",
@@ -968,9 +977,9 @@ export function formatWake(episode, takes, { rearm = true, canvas = [], marks = 
   if (marks.length) lines.push(...markAnswerLines(episode, marks, { walk: !takes.length }));
   if (takes.length && (canvas.length || marks.length || takes.some((take) => spokenAtLines(episode, take).length))) {
     lines.push(
-      "He is at a diagram: you may answer as a walk through it. Write the return as steps, one sentence or two each, with what to light:",
+      "They are at a diagram: you may answer as a walk through it. Write the return as steps, one sentence or two each, with what to light:",
       `  [{"say": "…", "doc": "diagrams/<name>.smdf.json", "spotlight": ["state:…"]}, {"say": "…", "focus": "message:9"}]`,
-      `  and add --steps <that file> to the reply above (stdin may then be empty). Each step's words are voiced on their own and play on his canvas while that step is lit; the phone page plays them as one reply.`,
+      `  and add --steps <that file> to the reply above (stdin may then be empty). Each step's words are voiced on their own and play on their canvas while that step is lit; the phone page plays them as one reply.`,
     );
   }
   if (rearm) {
@@ -1047,7 +1056,7 @@ const USAGE = `usage: mia-listen.mjs <command> [--episode <dir>] [--no-fetch]
                       without a take id it is a message that answers no take
                       [--related "<label>=<target>"]... a card under the reply for something it
                       names: a file in the episode, miadi-review:<id>, owner/repo#n, or a URL
-                      [--steps <steps.json>] a walk through diagrams on William's stateloom canvas:
+                      [--steps <steps.json>] a walk through diagrams on the person's stateloom canvas:
                       [{say, doc?, focus?, spotlight?, region?, title?}], each step's words voiced on
                       their own and played while the canvas lights that step; a doc relative to the
                       episode resolves there. With steps, stdin may be empty: the words are theirs
@@ -1092,7 +1101,7 @@ async function readStdin() {
   return text;
 }
 
-// A card under the reply for something it names that William can open (William, Episode 120,
+// A card under the reply for something it names that the person can open (the person, Episode 120,
 // 2026-10-12: "when you relate to something very important they would be joined on the
 // actual reply"). A file in the episode opens in the chronicle room over the tailnet.
 export function relatedCard(spec, episode, env = process.env) {
@@ -1123,7 +1132,7 @@ function linkKind(url) {
 
 // The loop that made a return, kept with it: its Jev run, what the check flagged, whether the
 // words changed after the check, and what the turn did (the --fact lines). A thumb on the
-// reply then validates the loop, not only the words (William, Episode 120, 2026-10-12:
+// reply then validates the loop, not only the words (the person, Episode 120, 2026-10-12:
 // "a thumbs up could reinforce the loop").
 export function loopOf(takeId, text, env = process.env) {
   if (!takeId) return null;
@@ -1145,7 +1154,7 @@ export function loopOf(takeId, text, env = process.env) {
   };
 }
 
-// The steps of a reply that walks William through diagrams (smcraft Spec 84). A drawing
+// The steps of a reply that walks the person through diagrams (smcraft Spec 84). A drawing
 // named relative to the episode (`diagrams/wave.smdf.json`) is made absolute here, where
 // the episode is known; phone-capture keeps only steps that say something.
 export function readSteps(file, episodeRoot) {
@@ -1164,7 +1173,7 @@ export function readSteps(file, episodeRoot) {
 
 // The names a drawing holds, by kind, as a step lights them (smcraft Spec 83 focus names).
 // Read from the file itself, so a step that names what is not there is caught before
-// William hears a reply that lights nothing. A kind this does not know is never refused.
+// the person hears a reply that lights nothing. A kind this does not know is never refused.
 export function drawingNames(def, file) {
   const names = new Map();
   const add = (kind, name) => {
@@ -1286,7 +1295,7 @@ async function answerMark(episode, takeId, mark, text, related, given) {
       ? `answers mark ${mark.id} on ${basename(mark.doc)}, in its thread (${thread.how === "smcx" ? `smcx: ${thread.told}` : thread.told})`
       : `mark ${mark.id} on ${basename(mark.doc)} NOT answered in its thread: ${thread.error}`,
     `${count} step${count === 1 ? "" : "s"} for the canvas`,
-    ...(answer?.recording ? ["William is recording: it waits silent on his page until he sends his take"] : []),
+    ...(answer?.recording ? [`${Person()} is recording: it waits silent on their page until they send their take`] : []),
   ].join(" · "));
   return answer && thread.ok ? 0 : EXIT_UNDELIVERED;
 }
@@ -1347,7 +1356,7 @@ async function main() {
         // A walk that answers a mark starts on the mark's drawing unless it names another.
         if (mark && !steps[0].doc) steps[0] = { ...steps[0], doc: mark.doc };
         const problems = stepProblems(steps);
-        if (problems.length) throw new Error(`the steps light what their drawings do not hold, so his canvas would show nothing there. Fix them and send again:\n  ${problems.join("\n  ")}`);
+        if (problems.length) throw new Error(`the steps light what their drawings do not hold, so their canvas would show nothing there. Fix them and send again:\n  ${problems.join("\n  ")}`);
       } catch (error) {
         console.error(`mia-listen: ${message(error)}`);
         return EXIT_NO_EPISODE;
@@ -1371,8 +1380,8 @@ async function main() {
       const present = listenerOf(episode);
       if (present?.state === "answering") writeBeat(episode, { state: "answered", takes: present.takes, ...(present.marks ? { marks: present.marks } : {}), reply: answer.id });
       console.log(`mia-listen: reply${takeId ? ` to ${takeId}` : ""} delivered to the phone page (${answer.id})${answer.steps ? `, with ${answer.steps} step${answer.steps === 1 ? "" : "s"} for the canvas` : ""}`);
-      if (answer.recording) console.log("mia-listen: William is recording right now. The reply is on his page, silent, and waits until he has sent his take.");
-      if (answer.unvoiced) console.error(`mia-listen: William can read it but not hear it: ${answer.unvoiced}`);
+      if (answer.recording) console.log(`mia-listen: ${Person()} is recording right now. The reply is on their page, silent, and waits until they have sent their take.`);
+      if (answer.unvoiced) console.error(`mia-listen: ${Person()} can read it but not hear it: ${answer.unvoiced}`);
       return 0;
     } catch (error) {
       console.error(`mia-listen: reply not delivered to phone-capture: ${message(error)}. It stays in this conversation.`);

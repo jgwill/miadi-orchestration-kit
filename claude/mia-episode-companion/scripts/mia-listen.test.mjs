@@ -9,6 +9,16 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(new URL("./mia-listen.mjs", import.meta.url));
+// The person's name is the host's (MIADI_MIA_COMPANION_PERSON_NAME), never the plugin's.
+// Every test below runs as a host that set it; children inherit it.
+process.env.MIADI_MIA_COMPANION_PERSON_NAME = "Ada";
+
+test("the person's name comes from MIADI_MIA_COMPANION_PERSON_NAME, and is \"the person\" when unset", async () => {
+  const { personName } = await import("./mia-listen.mjs");
+  assert.equal(personName({ MIADI_MIA_COMPANION_PERSON_NAME: " Ada " }), "Ada");
+  assert.equal(personName({}), "the person");
+  assert.equal(personName({ MIADI_MIA_COMPANION_PERSON_NAME: "  " }), "the person");
+});
 // Hermetic: no child of these tests reads the live stateloom hub or posts to the live
 // phone-capture. A test that needs either passes its own stub.
 process.env.STATELOOM_BRIDGE_URL = "http://127.0.0.1:9";
@@ -168,7 +178,7 @@ test("reply posts the return on stdin to phone-capture with this invocation's or
   });
   mkdirSync(fx.state, { recursive: true });
   writeFileSync(join(fx.state, `${FOLDER}.listening.json`), JSON.stringify({ state: "answering", takes: ["260101000001"], at: new Date().toISOString() }));
-  const posted = await runReply({ MIADI_PHONE_CAPTURE_PORT: String(server.address().port), TMUX_PANE: "%999", CLAUDE_CODE_SESSION_ID: "4ae4c17d", MIADI_MIA_COMPANION_STATE_DIR: fx.state }, "William, it arrived.\n");
+  const posted = await runReply({ MIADI_PHONE_CAPTURE_PORT: String(server.address().port), TMUX_PANE: "%999", CLAUDE_CODE_SESSION_ID: "4ae4c17d", MIADI_MIA_COMPANION_STATE_DIR: fx.state }, "Ada, it arrived.\n");
   const answered = JSON.parse(readFileSync(join(fx.state, `${FOLDER}.listening.json`), "utf8"));
   assert.equal(answered.state, "answered", "a posted reply ends the answering; the re-arm comes next");
   assert.deepEqual(answered.takes, ["260101000001"]);
@@ -184,7 +194,7 @@ test("reply posts the return on stdin to phone-capture with this invocation's or
   assert.equal(received[0].url, "/api/replies");
   assert.equal(received[0].body.episode, FOLDER);
   assert.equal(received[0].body.take, "260101000001");
-  assert.equal(received[0].body.text, "William, it arrived.");
+  assert.equal(received[0].body.text, "Ada, it arrived.");
   assert.equal(received[0].body.origin.pane, "%999");
   assert.equal(received[0].body.origin.multiplexer, "tmux");
   assert.equal(received[0].body.origin.occupantId, "4ae4c17d", "the Claude session id survives a reboot that renumbers the pane");
@@ -218,8 +228,8 @@ test("a take recorded minutes before the first listen is not swallowed by the ba
   assert.match(run(fx, ["status", "--no-fetch"]).stdout, /unheard: none/);
 });
 
-// Episode 339, 2026-10-08: a seat that posts while William records is told the reply waits.
-test("reply says so when William is recording and the reply waits on his page", async () => {
+// Episode 339, 2026-10-08: a seat that posts while Ada records is told the reply waits.
+test("reply says so when Ada is recording and the reply waits on their page", async () => {
   const fx = fixture();
   const { createServer } = await import("node:http");
   const server = createServer(async (req, res) => {
@@ -237,7 +247,7 @@ test("reply says so when William is recording and the reply waits on his page", 
   });
   server.close();
   assert.equal(out.status, 0, out.stderr);
-  assert.match(out.stdout, /William is recording right now\. The reply is on his page, silent/);
+  assert.match(out.stdout, /Ada is recording right now\. The reply is on their page, silent/);
 });
 
 // jgwill/jgtsrc#190, 2026-10-09: a labelling note wakes the seat marked as such, and its
@@ -293,7 +303,7 @@ test("a reply's loop is read from the Jev ledger: its run, its flags, and whethe
   assert.equal(loopOf(undefined, draft, env), null, "a reply to no take has no loop");
 });
 
-test("the wake says what William's stateloom canvas shows and the marks waiting on that drawing", async () => {
+test("the wake says what Ada's stateloom canvas shows and the marks waiting on that drawing", async () => {
   const { createServer } = await import("node:http");
   const { canvasContext, formatWake } = await import("./mia-listen.mjs");
   const dir = mkdtempSync(join(tmpdir(), "mia-canvas-"));
@@ -302,9 +312,9 @@ test("the wake says what William's stateloom canvas shows and the marks waiting 
   writeFileSync(join(dir, "wave.smdf.marks.json"), JSON.stringify({
     doc: "wave.smdf.json",
     marks: [
-      { id: "m-1", kind: "comment", elements: ["state:Reading"], text: "why does it stop\nhere?", author: { id: "g", name: "Guillaume", role: "person" }, status: "open" },
+      { id: "m-1", kind: "comment", elements: ["state:Reading"], text: "why does it stop\nhere?", author: { id: "g", name: "Ada", role: "person" }, status: "open" },
       { id: "m-2", kind: "question", elements: ["state:Published"], text: "mine", author: { id: "mia", name: "Mia", role: "agent" }, status: "open" },
-      { id: "m-3", kind: "comment", text: "done", author: { id: "g", name: "Guillaume", role: "person" }, status: "resolved" },
+      { id: "m-3", kind: "comment", text: "done", author: { id: "g", name: "Ada", role: "person" }, status: "resolved" },
     ],
   }));
   const server = createServer((req, res) => {
@@ -317,8 +327,8 @@ test("the wake says what William's stateloom canvas shows and the marks waiting 
     const env = { STATELOOM_BRIDGE_URL: `http://127.0.0.1:${server.address().port}`, STATELOOM_STAGE: "trading" };
     const lines = await canvasContext(env);
     const text = lines.join("\n");
-    assert.match(text, /On William's canvas \(stage 'trading', reported now\): wave\.smdf\.json \(machine\), state:Reading in hand, tour 'Walk' at step 2 of 3\./);
-    assert.match(text, /mark m-1 · Guillaume on state:Reading: "why does it stop here\?"/);
+    assert.match(text, /On Ada's canvas \(stage 'trading', reported now\): wave\.smdf\.json \(machine\), state:Reading in hand, tour 'Walk' at step 2 of 3\./);
+    assert.match(text, /mark m-1 · Ada on state:Reading: "why does it stop here\?"/);
     assert.doesNotMatch(text, /m-2|m-3/, "an agent's own question and a resolved mark are not waiting on Mia");
     assert.match(text, /mia-listen\.mjs" reply --mark <id> --doc ".*wave\.smdf\.json" <<'MIA'/);
     const forMarks = (await canvasContext(env, { marksOnly: true, episode: "/ep" })).join("\n");
@@ -329,7 +339,7 @@ test("the wake says what William's stateloom canvas shows and the marks waiting 
 
     const episode = { root: dir, folder: "2026-10-18-episode-999-test", number: 999, git: null };
     const take = { takeId: "261018000000", source: "origin/main", key: "k", capturedAt: "t", outputs: [], sourceFilename: "a.m4a", english: { text: "look at this state" } };
-    assert.match(formatWake(episode, [take], { rearm: false, canvas: lines }), /On William's canvas[\s\S]*This is William speaking/);
+    assert.match(formatWake(episode, [take], { rearm: false, canvas: lines }), /On Ada's canvas[\s\S]*This is Ada speaking/);
   } finally {
     server.close();
   }
@@ -388,12 +398,12 @@ test("a take spoken at the canvas says what the canvas showed, and the wake offe
   }));
   const shown = run(fx, ["show", "260101000001", "--no-fetch"]);
   assert.equal(shown.code, 0, shown.stderr);
-  assert.match(shown.stdout, /spoken at his stateloom canvas, looking at wave\.smdf\.json \(machine\), state:Reading in hand, marks open: m-1/);
+  assert.match(shown.stdout, /spoken at their stateloom canvas, looking at wave\.smdf\.json \(machine\), state:Reading in hand, marks open: m-1/);
   assert.match(shown.stdout, /--steps <that file>/);
 });
 
 // smcraft Spec 84: a reply's steps are checked against their drawings before it is sent,
-// so William never hears a walk whose steps light nothing.
+// so Ada never hears a walk whose steps light nothing.
 test("a reply's steps that name what their drawings do not hold are refused, with what is there", async () => {
   const { stepProblems } = await import("./mia-listen.mjs");
   const dir = mkdtempSync(join(tmpdir(), "mia-steps-"));
@@ -421,11 +431,11 @@ test("a reply's steps that name what their drawings do not hold are refused, wit
 });
 
 // ---------- marks (smcraft Spec 83) ----------
-// Episode 550, 2026-10-19: William marked a drawing and asked in the mark's thread "Are you
+// Episode 550, 2026-10-19: Ada marked a drawing and asked in the mark's thread "Are you
 // replying to me here". No seat listened for marks. A mark waiting on an agent now wakes the
 // episode's seat as a take does.
 
-const PERSON = { id: "node:human:g", name: "Guillaume", role: "person" };
+const PERSON = { id: "node:human:g", name: "Ada", role: "person" };
 const MIA = { id: "mia", name: "Mia", role: "agent" };
 
 function writeMarks(episodeRoot, drawing, marks) {
@@ -454,11 +464,11 @@ test("a person's new mark on a drawing wakes await, with its thread and how to a
   writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ replies: [{ author: PERSON, text: "Are you replying to me here", at: "2026-10-20T03:29:46.215Z" }] })]);
   const woke = awaitOnce(fx);
   assert.equal(woke.code, 0, woke.stderr);
-  assert.match(woke.stdout, /^NEW MARK FROM WILLIAM · episode 900 \(2026-01-01-episode-900-fixture\)/);
-  assert.match(woke.stdout, /mark m-1 · diagrams\/walk\.smdf\.json · comment by Guillaume, 2026-10-20T03:28:41\.292Z · Guillaume added to it/);
+  assert.match(woke.stdout, /^NEW MARK FROM ADA · episode 900 \(2026-01-01-episode-900-fixture\)/);
+  assert.match(woke.stdout, /mark m-1 · diagrams\/walk\.smdf\.json · comment by Ada, 2026-10-20T03:28:41\.292Z · Ada added to it/);
   assert.match(woke.stdout, /on state:Witnessing \(inside Root\)/);
   assert.match(woke.stdout, /"Wouldn't that be one more state machine in between\?"/);
-  assert.match(woke.stdout, /thread:\n {4}Guillaume, 2026-10-20T03:29:46\.215Z: Are you replying to me here/);
+  assert.match(woke.stdout, /thread:\n {4}Ada, 2026-10-20T03:29:46\.215Z: Are you replying to me here/);
   // One act per mark (review R3): the stop first, then reply --mark, nothing else to run.
   assert.match(woke.stdout, /clear any step left on the stage[^\n]*\n {2}smcx --bridge "\$STATELOOM_BRIDGE_URL" stage control stop\n {2}node ".*mia-listen\.mjs" reply --mark m-1 --doc ".*diagrams\/walk\.smdf\.json" --episode ".*" <<'MIA'\n {2}<your words for mark m-1>\n {2}MIA\n/);
   assert.match(woke.stdout, /add --steps <that file> to that mark's act/);
@@ -494,8 +504,8 @@ test("a person's reply to an answered mark wakes again, and so does a reopened o
   writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ status: "open", replies: [answer, followUp] })]);
   const again = awaitOnce(fx);
   assert.equal(again.code, 0, again.stderr);
-  assert.match(again.stdout, /Guillaume added to it/);
-  assert.match(again.stdout, /Mia \(agent\), 2026-10-20T03:33:32Z: Yes, the witness reads each session\.\n {4}Guillaume, 2026-10-20T03:40:00Z: Then where does it live\?/);
+  assert.match(again.stdout, /Ada added to it/);
+  assert.match(again.stdout, /Mia \(agent\), 2026-10-20T03:33:32Z: Yes, the witness reads each session\.\n {4}Ada, 2026-10-20T03:40:00Z: Then where does it live\?/);
 
   writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark({ status: "resolved", replies: [answer, followUp] })]);
   assert.equal(awaitOnce(fx, 1).code, 4, "a resolved mark waits on nobody");
@@ -506,7 +516,7 @@ test("a person's reply to an answered mark wakes again, and so does a reopened o
   writeMarks(fx.episodeRoot, "walk.smdf.json", [{ id: "m-3", text: "Is this the step?", author: MIA, status: "answered", replies: [{ author: PERSON, text: "Yes." }] }]);
   const asked = awaitOnce(fx);
   assert.equal(asked.code, 0, asked.stderr);
-  assert.match(asked.stdout, /mark m-3 · .* · Guillaume answered a question Mia asked/);
+  assert.match(asked.stdout, /mark m-3 · .* · Ada answered a question Mia asked/);
 });
 
 test("a broken sidecar or a mark of unknown shape is skipped, never a reason to stop listening", () => {
@@ -538,8 +548,8 @@ test("status lists the marks waiting on an agent, heard or not", () => {
   ]);
   const status = run(fx, ["status", "--no-fetch"]);
   assert.match(status.stdout, /marks waiting on an agent: 2, 2 unheard/);
-  assert.match(status.stdout, /m-1 · diagrams\/walk\.smdf\.json · Guillaume on state:Witnessing: "Wouldn't that be one more state machine in between\?" \(unheard\)/);
-  assert.match(status.stdout, /m-7 · diagrams\/walk\.smdf\.json · Guillaume on the area 10,21 30×40 inside Root: "over here" \(unheard\)/);
+  assert.match(status.stdout, /m-1 · diagrams\/walk\.smdf\.json · Ada on state:Witnessing: "Wouldn't that be one more state machine in between\?" \(unheard\)/);
+  assert.match(status.stdout, /m-7 · diagrams\/walk\.smdf\.json · Ada on the area 10,21 30×40 inside Root: "over here" \(unheard\)/);
   assert.doesNotMatch(status.stdout, /m-5|m-6/);
   assert.equal(awaitOnce(fx).code, 0);
   assert.match(run(fx, ["status", "--no-fetch"]).stdout, /marks waiting on an agent: 2, 0 unheard[\s\S]*\(heard\)/);
@@ -552,7 +562,7 @@ test("a take and a mark arriving together make one wake that carries both", () =
   writeMarks(fx.episodeRoot, "walk.smdf.json", [personMark()]);
   const woke = awaitOnce(fx);
   assert.equal(woke.code, 0, woke.stderr);
-  assert.match(woke.stdout, /^NEW TAKE FROM WILLIAM[\s\S]*Look at what I marked\.[\s\S]*NEW MARK FROM WILLIAM[\s\S]*mark m-1/);
+  assert.match(woke.stdout, /^NEW TAKE FROM ADA[\s\S]*Look at what I marked\.[\s\S]*NEW MARK FROM ADA[\s\S]*mark m-1/);
   assert.match(woke.stdout, /--take 260101000007 --draft -/);
   assert.match(woke.stdout, /clears the stage, delivers the return \(below\), answers each mark with its one act/);
   assert.match(woke.stdout, /reply --mark m-1 --doc ".*walk\.smdf\.json"/);

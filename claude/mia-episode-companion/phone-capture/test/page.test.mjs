@@ -1,5 +1,5 @@
 // The page's recorder, run headlessly against a small DOM stub. The bugs these cover were
-// live on William's iPhone: a double tap started two recorders and left a clock running
+// live on Ada's iPhone: a double tap started two recorders and left a clock running
 // after Stop, and a failed upload threw the recording away.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -227,7 +227,7 @@ test("every episode is listed, and the filter finds an old one by number", async
   assert.deepEqual(h.elements.episode.appended.map((o) => o.value), ["2026-06-10-episode-044-teaching-academic-foundations-of-miaco"]);
 });
 
-test("a link with no episode chooses none: William picks before anything records", async () => {
+test("a link with no episode chooses none: Ada picks before anything records", async () => {
   const h = harness({ search: "" });
   await settle(30);
   assert.equal(h.elements.episode.value, "", "nothing is preselected");
@@ -257,7 +257,7 @@ test("silence holds the audio open from Stop, so her reply plays without a tap",
 });
 
 test("a take sent while nobody listens says so, still waits, and her reply plays when a session answers", async () => {
-  // William, 2026-09-29: he recorded, then started the session. The page had stopped
+  // Ada, 2026-09-29: he recorded, then started the session. The page had stopped
   // waiting, so her reply arrived without a tap and iOS refused to play it.
   let state = "away";
   const h = harness({
@@ -284,12 +284,12 @@ test("a take sent while nobody listens says so, still waits, and her reply plays
   assert.ok(h.elements.replyAudio.played >= 2);
 });
 
-// Episode 339, 2026-10-08: a reply posted while William was recording started playing,
+// Episode 339, 2026-10-08: a reply posted while Ada was recording started playing,
 // iOS gave the audio session to it, and his take was cut.
 const OLD = { id: "r-old", take: null, text: "Earlier.", at: "2026-10-08T11:00:00.000Z", audio: null };
 const NEW = { id: "r-new", take: null, text: "Arrived mid-take.", at: "2026-10-08T11:20:00.000Z", audio: null };
 
-test("a reply that arrives while William records stays silent, says it is waiting, and the take goes on", async () => {
+test("a reply that arrives while Ada records stays silent, says it is waiting, and the take goes on", async () => {
   const h = harness({ pollEvery: 20, extraReplies: (ms) => (ms < 60 ? [OLD] : [NEW, OLD]) });
   await settle(15);
   const playedBefore = h.elements.replyAudio.played || 0;
@@ -335,7 +335,7 @@ test("after the take is sent, the reply that waited is offered, not played, and 
   assert.equal(h.elements.transcript.textContent, "", "the take's words are in the conversation, not printed again above it");
 });
 
-// William, Episode 120, 2026-10-12: a few minutes in, the recorder failed at Stop and the
+// Ada, Episode 120, 2026-10-12: a few minutes in, the recorder failed at Stop and the
 // page said nothing was sent. What it captured stays, and gaia is told what happened.
 test("a recorder error keeps what it captured, says why, offers Send, and tells gaia", async () => {
   const h = harness();
@@ -371,7 +371,7 @@ test("while recording, what was captured goes to gaia in parts, each at the offs
   assert.equal(h.calls.filter((c) => c.url.startsWith("api/takes?")).length, 1, "Stop still sends the whole take");
 });
 
-// William, 2026-10-12: "if I'm listening to a previous message of you and you send another
+// Ada, 2026-10-12: "if I'm listening to a previous message of you and you send another
 // one, it cuts me off". The new one waits and plays after.
 test("a reply that arrives while another plays waits for it to end, then plays", async () => {
   const at = new Date().toISOString();
@@ -441,7 +441,7 @@ test("a reply's cards open what it names", async () => {
   assert.match(links[0].textContent, /Plot threads/);
 });
 
-// William, 2026-10-12, take 261012193110: after the sequence, an older reply he taps plays
+// Ada, 2026-10-12, take 261012193110: after the sequence, an older reply he taps plays
 // alone; the latest one, already seen, does not play again after it.
 test("a reply he taps himself plays alone, and a reply already seen never plays again by itself", async () => {
   const at = new Date().toISOString();
@@ -477,7 +477,7 @@ const DOC = "/srv/chronicle/" + EPISODE + "/diagrams/screenwalk.smdf.json";
 const MARK = {
   kind: "mark", id: "m-0mvg4iw5pd4sg", doc: DOC, drawing: "screenwalk.smdf.json", title: "Screenwalk",
   elements: ["state:Witnessing"], text: "Wouldn't that be one more state machine in between?",
-  author: { name: "Guillaume", role: "person" }, at: "2026-10-20T03:28:41.292Z", lastAt: "2026-10-20T03:33:32.210Z", status: "answered",
+  author: { name: "Ada", role: "person" }, at: "2026-10-20T03:28:41.292Z", lastAt: "2026-10-20T03:33:32.210Z", status: "answered",
   replies: [{ author: { name: "Mia", role: "agent" }, text: "Yes: WitnessedSession has no machine yet.", at: "2026-10-20T03:33:32.210Z" }],
 };
 

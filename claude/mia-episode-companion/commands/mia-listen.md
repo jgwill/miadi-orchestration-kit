@@ -1,10 +1,10 @@
 ---
-description: Listen for William's next voice take in this episode and answer as Mia
+description: Listen for the person's next voice take in this episode and answer as Mia
 argument-hint: "[status | show <take-id> | stop | phone | <episode-dir>]"
 allowed-tools: Bash, Read, Task, TaskStop
 ---
 
-Act as Mia, William's development companion, using the `mia-episode-companion` skill and
+Act as Mia, the person's development companion, using the `mia-episode-companion` skill and
 `${CLAUDE_PLUGIN_ROOT}/scripts/mia-listen.mjs`.
 
 Arguments: `$ARGUMENTS`
@@ -15,7 +15,7 @@ Arguments: `$ARGUMENTS`
    Do not re-arm afterwards unless the listener is not running.
 3. `stop`: stop the running background `mia-listen.mjs await` task with TaskStop, then
    say so.
-3b. `phone`: run `"${CLAUDE_PLUGIN_ROOT}/phone-capture/ensure.sh"` and give William the
+3b. `phone`: run `"${CLAUDE_PLUGIN_ROOT}/phone-capture/ensure.sh"` and give the person the
    link it printed. It starts phone-capture only when it is down.
 4. No argument, or an episode directory: first run `status` (add `--episode <dir>` when
    one was given). Exit 2 means no `episode.yaml` was found. Say so and stop. Otherwise,
@@ -25,13 +25,13 @@ Arguments: `$ARGUMENTS`
    node "${CLAUDE_PLUGIN_ROOT}/scripts/mia-listen.mjs" await [--episode <dir>]
    ```
 
-   Tell William in one line that Mia is listening on that episode, and how many takes are
+   Tell the person in one line that Mia is listening on that episode, and how many takes are
    unheard. If takes are already unheard, the listener wakes at once. That is expected.
 
 When the background task exits with a wake, follow the skill's turn: hear, draft,
 developmental-editor agent, revise, return, re-arm.
 
-To put a message on William's phone page that answers no take, pipe it to `reply` without a
+To put a message on the person's phone page that answers no take, pipe it to `reply` without a
 take id: `node "${CLAUDE_PLUGIN_ROOT}/scripts/mia-listen.mjs" reply <<'MIA'`. Never post
 to phone-capture with curl. `reply` reads this seat's origin, and the voice layer refuses
 to speak a reply whose origin was composed by hand.

@@ -22,7 +22,7 @@
   .matches button:active { background:#1b3129; }
   #filter { width:100%; min-height:44px; margin-bottom:8px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.95rem; }
   select { width:100%; min-height:44px; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font-size:.95rem; }
-  /* Record and her controls stay at the top while the words scroll under them (William, 2026-09-29). */
+  /* Record and her controls stay at the top while the words scroll under them (the person, 2026-09-29). */
   .dock { position:sticky; top:0; z-index:5; display:flex; flex-direction:column; gap:10px;
           margin:0 -16px; padding:10px 16px 12px; background:var(--bg); border-bottom:1px solid var(--line); }
   .dock .reply-actions { margin-top:0; }
@@ -180,7 +180,7 @@
   var queued = [];
   // Replies already on the page: shown, queued or played. Only a reply the page has not seen
   // joins the sequence and may play by itself. Once he taps ▶ himself, the sequence is over
-  // and each reply plays only when he chooses it (William, 2026-10-12, take 261012193110).
+  // and each reply plays only when he chooses it (the person, 2026-10-12, take 261012193110).
   var seen = {};
   async function giveFeedback(item, value) {
     try {
@@ -461,7 +461,7 @@
   function showReply(reply, arrived) {
     var isNew = !current || current.id !== reply.id;
     // A reply that arrives while another is playing waits for it to end, as it waits
-    // while William records (William, Episode 120, 2026-10-12: "it cuts me off").
+    // while the person records (the person, Episode 120, 2026-10-12: "it cuts me off").
     if (isNew && speaking()) {
       if (seen[reply.id]) return;
       seen[reply.id] = true;
@@ -565,9 +565,9 @@
     return "Waiting for Mia… ";
   }
 
-  // One conversation: William's takes and Mia's replies, newest first, right under the
+  // One conversation: the person's takes and Mia's replies, newest first, right under the
   // controls. Oldest-first put a reply that landed mid-take at the bottom of forty entries,
-  // where William could not read it while speaking (take 261008074903). It is rebuilt only
+  // where the person could not read it while speaking (take 261008074903). It is rebuilt only
   // when something new arrived, so reading is not disturbed.
   async function loadThread() {
     var episode = select.value;
@@ -587,7 +587,7 @@
   }
 
   // A new reply is the conversation's first entry. Bring it into view under the sticky
-  // controls, so William never scrolls to find what just arrived (take 261008075240).
+  // controls, so the person never scrolls to find what just arrived (take 261008075240).
   function showNewest() {
     try {
       var first = thread.firstChild;
@@ -710,7 +710,7 @@
   }
 
   // The page tells gaia while the microphone is open, so a seat that posts a reply learns
-  // that William is recording. The heartbeat keeps it true; silence lets it lapse.
+  // that the person is recording. The heartbeat keeps it true; silence lets it lapse.
   function tellRecorder(recording) {
     var episode = select.value;
     if (!episode) return;
@@ -757,7 +757,7 @@
   }
 
   // The episode and the auto-play choice belong in the URL, so a reload, a bookmark or a
-  // shared link comes back the way William left it: ?episode=<folder>&play=1|0.
+  // shared link comes back the way the person left it: ?episode=<folder>&play=1|0.
   function urlKeepsState() {
     if (!select.value) return;
     try {
@@ -1010,7 +1010,7 @@
   }
 
   // Narrowing the native picker changes nothing a closed picker shows, so the matches
-  // are listed here as buttons William can tap.
+  // are listed here as buttons the person can tap.
   function showMatches(needle) {
     matches.textContent = "";
     var found = needle ? matching(needle) : [];
@@ -1064,7 +1064,7 @@
   async function loadEpisodes() {
     try {
       var answer = await (await fetch("api/episodes")).json();
-      // Only the link chooses an episode. Without one, William picks: a remembered
+      // Only the link chooses an episode. Without one, the person picks: a remembered
       // episode would quietly aim the next take at whatever he recorded last.
       var chosen = new URLSearchParams(location.search).get("episode") || "";
       episodes = answer.episodes;
@@ -1224,7 +1224,7 @@
   }
 
   // While recording, what the recorder captured goes to gaia every 10 seconds, so a
-  // recorder or a page that fails loses at most those seconds (William, 2026-10-12).
+  // recorder or a page that fails loses at most those seconds (the person, 2026-10-12).
   var recId = "", sentBytes = 0, partBusy = false, partTimer = null;
   var PART_EVERY_MS = 10000;
   function partsOn() { partsOff(); partTimer = setInterval(sendPart, PART_EVERY_MS); }
@@ -1268,7 +1268,7 @@
   function kb(bytes) { return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB"; }
 
   // A recording whose upload failed is kept, so a dropped connection never loses what
-  // William said. The button becomes Send again.
+  // the person said. The button becomes Send again.
   async function send(blob) {
     setState("sending");
     var episode = select.value;
@@ -1299,7 +1299,7 @@
           answered: " The session there hears it as soon as it listens again.",
         }[seen.state] || " No session is listening yet. It waits here, and her reply appears on this page when a session answers it."));
       // The words are in the conversation just below, newest first. Printing them here too
-      // pushed her reply out of sight while it played (William, 2026-10-08, 08:04).
+      // pushed her reply out of sight while it played (the person, 2026-10-08, 08:04).
       transcript.textContent = "";
       result.hidden = false;
       say("");
