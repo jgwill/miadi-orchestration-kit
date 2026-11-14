@@ -1,4 +1,4 @@
-# miadi-mentorship (draft, 0.0.1)
+# miadi-mentorship (draft, 0.1.0)
 
 A seat that mentors another user's session on the same host. It reads the mentee's hook capture, supplies information useful to the relationship, steers only after a person's go and a clear pane guard, and keeps the mentee's words verbatim. Each of those steps is an event that a person can receive on a webhook of their choice.
 
@@ -27,6 +27,8 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/mentee-watch.mjs" --session <id> [--session 
 - `--once` checks once and exits. Without it, it checks every 20 seconds until stopped.
 - `--dry-run` prints the envelopes and changes nothing: no events file, no POST, no offsets.
 - Exit codes: `0`, `2` usage, `3` a capture could not be read (nothing is reported for that session), `4` an event was kept locally but not delivered.
+
+Tests: `node --test scripts/mentor-event.test.mjs`.
 
 ## Configuration
 
@@ -63,6 +65,14 @@ CloudEvents 1.0, structured mode (`content-type: application/cloudevents+json`):
 | `mentor.steer_sent` | the seat typed one steer line into the mentee's pane, after a person's go and guard exit 0 | `steer_file`, `pane`, `go_by`, `go_at`, `guard_exit`, `read_back` | the seat |
 | `mentee.feedback_written` | a new entry appears in a watched folder's `feedback.md` | `file`, `heading`, `entry` (its number in the file) | the seat |
 | `mentor.landed` | the seat committed and pushed what the mentee's session wrote | `repo`, `commit`, `paths` (count), `ref` | the seat |
+| `mentor.message_sent` (0.1.0) | the seat sent one message to one of the mentee's identities | `channel` (`email`, `circle` or `pane`), `perspective` (the identity's code in the path, e.g. `P` or `L`), `to_identity` (a Unix account, or a factory person id), `ref` (a Sent UID, a ceremony and turn id, or a pane), `path` (the path file, when the message carries a step) | the seat |
+| `mentorship.step_reached` (0.1.0) | a step of a mentorship path shows the evidence its path file names | `path`, `step` (its code, e.g. `M1`), `identity`, `evidence` (the command or address that shows it) | the seat |
+
+## One mentee, several identities (0.1.0)
+
+A mentee can be more than one account. Jerry is the Unix account `gmusic` where his agents run, "Jerry (Gerico)" the person in the factory, and "gmusic (Jerry's label)", the musician's label his composition agent signs in as. Each identity should see something different, so each gets its own message on its own channel, and `mentor.message_sent` names which one a message was for. The `subject` of such an event is `identity:<id>` rather than `session:<id>`.
+
+A path file lists the steps a mentorship walks, each with the identity it concerns, what exists today, who owns it, and the evidence that shows it reached. The first is `_staging_for_new_episodes/jerry-label-musical-belt-261114/mentorship-path.md` in the chronicle (jgwill/episodes): from Jerry's Codex setup (M1) to music on a Wampum belt (M6). The skill says how to walk one.
 
 ## The mentee's words
 

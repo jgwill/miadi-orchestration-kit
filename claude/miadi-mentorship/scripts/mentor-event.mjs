@@ -35,6 +35,10 @@ export const TYPES = {
   "mentor.steer_sent": "the seat typed one steer line into the mentee's pane, after a go and a clear guard",
   "mentee.feedback_written": "a new entry in feedback.md, the mentee's words kept verbatim there",
   "mentor.landed": "the seat committed and pushed what the mentee's session wrote",
+  // 0.1.0 (2026-11-14): a mentee can be several identities (a Unix account, a person and a label in
+  // the factory), each reached on its own channel, and a mentorship can follow a path of steps.
+  "mentor.message_sent": "the seat sent one message to one of the mentee's identities, by email, in a circle or in a pane",
+  "mentorship.step_reached": "a step of the mentorship path shows the evidence its path file names",
 };
 
 const NODE_FLOOR = 18; // fetch and AbortSignal.timeout

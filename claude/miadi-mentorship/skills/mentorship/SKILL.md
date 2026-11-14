@@ -5,11 +5,14 @@ description: >
   hook capture, supply information useful to the relationship, steer only with a person's go
   and a clear pane guard, keep the mentee's words verbatim, land what the mentee's session
   wrote, and emit one mentorship event at each step so a person can follow it on a webhook.
+  It also says how to write to each of a mentee's identities (a Unix account, a person and a
+  label in the factory) on its own channel, and how to walk a mentorship path of steps.
   Triggers on "mentor", "mentorship", "watch Jerry's session", "another user's tmux session",
-  "send me events", "call my webhook", "what is the mentee doing".
+  "send me events", "call my webhook", "what is the mentee doing", "his label", "two
+  accounts", "mentorship path", "capture the events of mentorship".
 metadata:
   type: skill
-  version: 0.0.1
+  version: 0.1.0
   scope: a mentor seat beside a mentee's session, its steps and the event each one emits
 ---
 
@@ -94,6 +97,35 @@ The mentee's account often cannot commit where its session writes. Pull, add the
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/scripts/mentor-event.mjs" emit mentor.landed --subject session:<id> \
   --data '{"repo":"<path>","commit":"<sha>","paths":<n>,"ref":"<owner/repo#n>"}'
+```
+
+## 7. One message per identity
+
+A mentee can be several identities, and each sees something different. Jerry is three: the Unix account `gmusic` (H) where his agents run, the person "Jerry (Gerico)" (P) in the factory, and the label "gmusic (Jerry's label)" (L) that his composition agent signs in as. Write to each in its own place:
+
+- **P, the person**: the factory's reply in a thread the person started, so it reaches him (`miadi-factory-mail`'s `reply_mail.py` answers the sender), and a turn "for <name>" in a circle he sits in.
+- **L, the label**: a turn in the circle the label sits in, and a copy to the label's own address. The factory's mail tool only replies to a sender, so the copy rides on the person's thread with the label in Cc when the label never wrote.
+- **H, the home account**: what his agents should do, written as one sentence he can hand them. Never type into his panes for that; he decides what his agents see.
+
+Before sending, check each claim against the tool. A circle turn cannot be edited: a wrong one is corrected by a new turn that says what was wrong, never left. On 2026-11-14 Miette's turns twice stated a wish as a fact ("the circle will see", "nothing is written as the label") and each needed a correction.
+
+Then, for each message:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/mentor-event.mjs" emit mentor.message_sent --subject identity:<factory id or account> \
+  --data '{"channel":"email|circle|pane","perspective":"<H|P|L>","to_identity":"<id>","ref":"<Sent UID, or ceremony/turn id>","path":"<path file>"}'
+```
+
+## 8. Walk a path
+
+A path file lists the steps of a mentorship, each with the identity it concerns, what exists today (measured), who owns the step, and what shows it reached. The first one is `_staging_for_new_episodes/jerry-label-musical-belt-261114/mentorship-path.md` in the chronicle.
+
+- A step is reached when its evidence is there, read by a command in the same turn: a binding line, a record the connector lists, a desk that answers. Never on the seat's own sense that it went well.
+- Choices on the path (which composition, which episode) are the mentee's and the maintainer's. The path names them as questions and the seat leaves them open.
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/mentor-event.mjs" emit mentorship.step_reached --subject identity:<id> \
+  --data '{"path":"<path file>","step":"M1","identity":"H","evidence":"<the command or address>"}'
 ```
 
 ## What this seat never does
