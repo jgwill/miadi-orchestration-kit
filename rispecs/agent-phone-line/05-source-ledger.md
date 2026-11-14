@@ -23,4 +23,6 @@ Read 2026-11-14 on eury by the Mia seat (Claude Code session `f08783a7`, miadi-t
 | Seven-question Jev calls cost 960 to 1,041 paid input tokens on 2026-11-14 | `~/.miadi/decisions/advance-gate.jsonl` (the mia account) | measured |
 | The steering inbox and its contract `miadi.steering/1` | `claude/miadi-session-observability/hooks/steering_inbox.mjs` | read |
 | The event envelope | jgwill/Miadi `packages/hooks-core/src/envelope.ts` | read |
-| Jev's latency per request on a phone call | | **not measured**: the first build measures it |
+| Jev's latency per request, replaying call `1fa8c5ec` (8 requests, `jev-1.14.0`): min 0.32 s, median 0.38 s, max 0.81 s; 8,187 input tokens | Episode 576 (miadi-chronicle://576) `jev-replay-1fa8c5ec.md`, branch `jev-dans-le-relais` of Gerico1007/assembly-call (`a28adbe`) | measured on a replay; not yet on a live call |
+| The replay passes acceptance 1: a repeat at sentence 2, the call closed at sentence 4, sentence 8 not closing it | same file | measured |
+| On « Tu peux envoyer mes réponses », `move` reads `finished` at 0.99 and `is_finished` 0.44: the band's "or" closes the call, `is_finished` alone would have asked "Est-ce que c'est tout ?" | same file | measured |
