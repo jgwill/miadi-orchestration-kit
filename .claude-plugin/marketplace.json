@@ -62,8 +62,8 @@
     {
       "name": "miadi-film",
       "source": "./claude/miadi-film",
-      "description": "Film work for agents beside the miadi-film package: /scenes-timeline cuts an episode's videos (its Deep Diver explainers) into scenes and lays them on a Kdenlive timeline with black between them, an empty music track and a guide at each black, then checks it through melt and in Kdenlive on a hidden display.",
-      "version": "0.1.0"
+      "description": "The production team's (T6) assistant editor: /editing-room puts every medium of an episode in Kdenlive bins with its address and first words, fetches takes from the host that recorded them, and writes the room sheet for the director; /scenes-timeline cuts a video into scenes on a stringout with black between them and an empty music track. Each project is checked through melt and in Kdenlive on a hidden display.",
+      "version": "0.2.0"
     },
     {
       "name": "miadi-operator-desk",

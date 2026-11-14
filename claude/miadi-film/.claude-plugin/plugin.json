@@ -1,7 +1,7 @@
 {
   "name": "miadi-film",
-  "description": "Film work on a Miadi host for agents, beside the miadi-film package (Kdenlive, Ardour, ffmpeg). The scenes-to-timeline skill cuts videos (a Deep Diver explainer, a screenwalk) into their scenes and lays them on a Kdenlive timeline with a pause of black between scenes, an empty music track and a guide at each pause, for the editor and the composer to work on. Its scripts write the project, check it through melt (length, each black's place, silence under it) and open a copy in Kdenlive on a hidden display to show what Kdenlive keeps. /scenes-timeline runs the whole pass for an episode.",
-  "version": "0.1.0",
+  "description": "The production team's (T6) assistant editor, beside the miadi-film package (Kdenlive, Ardour, ffmpeg). The assistant-editor agent prepares an episode's editing room: the editing-room skill puts every medium of the episode in one Kdenlive project's bins, labelled with its address and the first words said in it, fetches a take recorded on another host when its sha256 matches, and writes the room sheet for the director. The scenes-to-timeline skill cuts a video into its scenes on a stringout with black between them, an empty music track and a guide at each black. Scripts check each project through melt and in Kdenlive on a hidden display. /editing-room and /scenes-timeline run the passes.",
+  "version": "0.2.0",
   "author": {
     "name": "jgwill"
   },

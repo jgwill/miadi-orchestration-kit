@@ -1,19 +1,26 @@
 # miadi-film (Claude Code plugin)
 
-Film work for agents on a Miadi host. The `miadi-film` deb (`packages/miadi/deb/miadi-film/`) installs the
-tools (Kdenlive, Ardour, ffmpeg). This plugin carries what an agent needs to repeat the work done with
-them: a skill, its scripts and a command.
+The production team's (T6) assistant editor. The `miadi-film` deb (`packages/miadi/deb/miadi-film/`)
+installs the tools (Kdenlive, Ardour, ffmpeg). This plugin carries the role that uses them: in a film, the
+assistant editor prepares the editing room, receives the media, sorts and labels it, logs what is said in it,
+lays out stringouts, and hands the editor and the director a project they can open. The editor and the
+director make the choices. T6's other plugin, `miadi-deepdiver`, makes media; this one prepares it for editing.
 
 | part | what |
 |---|---|
-| `skills/scenes-to-timeline/` | cut videos into scenes, lay them on a Kdenlive timeline with black between them, check it, land it in an episode |
-| `commands/scenes-timeline.md` | `/scenes-timeline <episode> [video ...]` runs the whole pass |
-| `scripts/scenes_to_kdenlive.py` | writes one `.kdenlive` per video and `scenes.json` |
-| `scripts/verify_timeline.py` | renders each project through melt and checks its length, each black and the silence under it |
-| `scripts/kdenlive_check.sh` | opens a copy in Kdenlive on a hidden display, saves it, counts what Kdenlive kept, takes a screenshot |
+| `agents/assistant-editor.md` | the role: prepares an episode's editing room and its stringouts, checks them, writes the room sheet, never makes the editor's choices |
+| `skills/editing-room/` | every medium of an episode in one Kdenlive project's bins, with its address and first words, takes fetched by sha256, the room sheet |
+| `skills/scenes-to-timeline/` | a video cut into its scenes on a stringout, black between them, an empty music track, a guide at each black |
+| `commands/editing-room.md` | `/editing-room <episode> [--fetch-from <host>] [--scenes]` |
+| `commands/scenes-timeline.md` | `/scenes-timeline <episode> [video ...]` |
+| `scripts/editing_room.py` | writes `room.kdenlive`, `room.json` and the room sheet |
+| `scripts/scenes_to_kdenlive.py` | writes one stringout `.kdenlive` per video and `scenes.json` |
+| `scripts/verify_timeline.py` | renders each stringout through melt and checks its length, each black and the silence under it |
+| `scripts/kdenlive_check.sh` | opens a copy in Kdenlive on a hidden display, saves it, counts what Kdenlive kept (tracks, bin, markers), takes a screenshot |
 
-First use: Episode 575 (miadi-chronicle://575), `film/deepdiver-scenes-261113/`, on 2026-11-13. The film's
-home is Episode 120 (miadi-chronicle://120). Issue: jgwill/miadi-orchestration-kit#153.
+First use: Episode 575 (miadi-chronicle://575) on 2026-11-13, `film/editing-room-261113/` and
+`film/deepdiver-scenes-261113/`. The film's home is Episode 120 (miadi-chronicle://120). Issue:
+jgwill/miadi-orchestration-kit#153.
 
 Install from this kit's marketplace:
 

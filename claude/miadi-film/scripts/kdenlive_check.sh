@@ -59,6 +59,11 @@ for tr in t.iter("tractor"):
         n = sum(len(pl[k.get("producer")].findall("entry")) for k in tr.findall("track"))
         print(f"track {pr.get('kdenlive:track_name') or tr.get('id')}: {n} clips")
 b = props(pl["main_bin"])
+media = [p for p in t.iter("producer") if p.get("id") != "black_track" and props(p).get("kdenlive:clipname")]
+folders = sorted(v for k, v in b.items() if k.startswith("kdenlive:folder."))
+print(f"bin: {len(pl['main_bin'].findall('entry'))} entries, {len(media)} named clips, "
+      f"{sum(1 for p in media if props(p).get('kdenlive:description'))} with a description, "
+      f"{sum(len(json.loads(props(p).get('kdenlive:markers') or '[]')) for p in media)} markers, folders {folders}")
 count = lambda k: len(json.loads(b.get(k) or "[]"))
 print(f"format {b.get('kdenlive:docproperties.version')}, Kdenlive {b.get('kdenlive:docproperties.kdenliveversion')}, "
       f"{count('kdenlive:docproperties.guides')} guides, {count('kdenlive:docproperties.groups')} groups")
