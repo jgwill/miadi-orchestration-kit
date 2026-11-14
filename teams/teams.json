@@ -1,11 +1,17 @@
 {
   "version": 1,
   "about": "Which team each session belongs to, for machines. teams/README.md is the text people read, and the two are kept in step. The session-observability plugin puts the team in every binding line (jgwill/miadi-orchestration-kit#56). Rules, in order: a declared team (MIADI_TEAM in the agent's environment, or the tmux session option @miadi-team), then sessions (the tmux session name or the agent session's name), then folders (the agent's folder or one below it, longest prefix wins), then name_patterns (regular expressions on the same two names). Otherwise the team is unassigned.",
+  "criteria_about": "criteria: each team's responsibility as a program reads it, so that a piece of work can be matched to the team that carries it (the routing step proposed in Episode 575's staging folder routing-a-decomposition-to-teams-261113, tried as an alpha in jgwill/mia-code `miaco route`). desired_outcome and makes are taken from each team's section of teams/README.md, quoting William where the README does. Only T8's section writes a boundary; the others were read from their sections' words on 2026-11-13 by the seat t8-miaco-route-alpha-2611132120, for each team's lead to correct. Change the README and these fields together.",
   "teams": [
     {
       "id": "T1",
       "name": "Session continuity",
       "level": "the machine",
+      "criteria": {
+        "desired_outcome": "After a reboot or a crash every terminal session comes back as it was, with the agent it held. William, 2026-09-28: \"I should not even know that the computer rebooted.\"",
+        "makes": "The capture hooks and the binding line (every agent session's start, end and rename with its tmux pane, launch, team and episode), tmux save and restore, tide's agent restore and snapshots, the session-observability plugins for Claude, Pi and Hermes, the session inventory format and the nightly inventory, and boot safety on gaia.",
+        "boundary": "The machine and the terminal layer: what keeps sessions alive and recorded. It does not build the Miadi app or shared packages (T8) and does not judge what a session produced (T3)."
+      },
       "human_lead": "William",
       "agent_lead": "gaia-tmux-rebooted-restore-finetuning-260928",
       "sessions": [
@@ -35,6 +41,11 @@
       "id": "T2",
       "name": "Event path",
       "level": "the application",
+      "criteria": {
+        "desired_outcome": "Miadi knows which events travel, what stays attached to them, and how anyone can see that an event arrived or visibly failed.",
+        "makes": "The event broker choice and its first proof (Episode 548), the trace, prompt and metric addresses and the door that opens them from a terminal or a page, and @miadi/llmops.",
+        "boundary": "Events and traces between the parts of the factory. Keeping sessions alive is T1's, and charts are T4's."
+      },
       "human_lead": "William",
       "agent_lead": "the episode 548 session",
       "sessions": [
@@ -60,6 +71,11 @@
       "id": "T3",
       "name": "Witness",
       "level": "between William and the teams that build",
+      "criteria": {
+        "desired_outcome": "William hears and judges what the building teams produce before anything is revised, and his answers reach them as clear messages.",
+        "makes": "Spoken first impressions and walkthroughs, revision messages, the session inventory, triage charts, reading what other sessions and parked drafts received and did, and the miadi-witness plugin (team-fit, drafts-witness, the inventory).",
+        "boundary": "Builds only its own tools. It hears, reads and reports other teams' work for William; it does not build their code."
+      },
       "human_lead": "William",
       "agent_lead": "Mino, the stcbot seat",
       "sessions": [
@@ -79,6 +95,11 @@
       "id": "T4",
       "name": "Chart path",
       "level": "the application",
+      "criteria": {
+        "desired_outcome": "Every structural tension chart an agent writes reaches one place where the people it concerns can read it and steer the agent that keeps it, and whether that place is public is decided per source.",
+        "makes": "coaia-narrative's Asterion writer, Asterion's mapper and registry sync, Asterion itself (miadisabelle/asterion) and its move into Miadi, and steering a chart's agent from the chart.",
+        "boundary": "A chart here is a structural tension chart (desired outcome, current reality, action steps) kept in a coaia-narrative .jsonl memory. Trading charts and stateloom drawings are not its work."
+      },
       "human_lead": "William",
       "agent_lead": "t4-chart-path-asterion-into-miadi-261003a",
       "sessions": [
@@ -105,6 +126,11 @@
       "stub": "2026-10-06; Guillaume's term; the name of record is his (the staging circle proposes 'the germination circle')",
       "level": "before an episode",
       "practice": "skills/production-context-exploration/SKILL.md",
+      "criteria": {
+        "desired_outcome": "Potential sparks of an episode are fed and explored in the staging area before any episode exists, rich enough to become an interactive TV series. William, 2026-10-15: \"The episode is created only when that foundation holds.\"",
+        "makes": "Concepts in _staging_for_new_episodes with their foundations packet, cases, potential script and potential plot threads, the Chronicle staging circle and its ceremonies, naming.md and production-context-exploration.md.",
+        "boundary": "Works before an episode exists. Minting an episode stays a person's choice, made with the chronicle-episode kit."
+      },
       "human_lead": "William",
       "agent_lead": "miadi-staging-episodes-circle:1791110394383:jj1ql8",
       "sessions": [
@@ -120,6 +146,11 @@
       "name": "Production",
       "stub": "2026-10-06; the name is held as William's decision D11",
       "level": "after an episode",
+      "criteria": {
+        "desired_outcome": "Video and media of what the agents' teams created: the move from where the work started to where it is now, and what the next team can do with it (William, review fcb78dc0).",
+        "makes": "The miadi-deepdiver plugin: Deep Diver notebooks built from Miadi reviews and screenwalk videos, their answered questions, infographics, video overviews, mind maps and reports kept under a manifest, and their landing in episodes with a beat for the writers.",
+        "boundary": "Works after an episode, on its media. App code in jgwill/Miadi that shows the media to people is T8's."
+      },
       "human_lead": "William",
       "agent_lead": "t6-production-deepdiver-into-episodes-261007",
       "sessions": [
@@ -139,6 +170,11 @@
       "id": "T7",
       "name": "Operator desk",
       "level": "between William and the whole factory",
+      "criteria": {
+        "desired_outcome": "Every question William asks about how the factory works gets a short answer from the owning team's text, checked against the tool itself. The question is kept, and when the docs or tools fail to answer it, that failure reaches the team that owns them.",
+        "makes": "The miadi-operator-desk plugin (the operator-desk skill, /desk-record and the desk ledger) and its teaching of how to use the factory, close a cycle and give feedback (closing-a-cycle).",
+        "boundary": "Answers and teaches how the factory works. It is not the Author's Desk (T9), and it does not change another team's tools: it hands the failure to their owner."
+      },
       "human_lead": "William",
       "agent_lead": "miadi-how-to-set-with-tide-a-team",
       "sessions": [
@@ -156,6 +192,11 @@
       "name": "Software development",
       "stub": "2026-10-21; asked for by William; the agent lead is not named and a folder rule for the jgwill/Miadi checkout is held (folders are decided before name patterns)",
       "level": "the code base",
+      "criteria": {
+        "desired_outcome": "Every package and app another team relies on builds, passes its tests, is released with a version, and reaches the hosts that run it (a draft, not yet in William's words).",
+        "makes": "The jgwill/Miadi app and the @miadi/* packages no team lists, their builds, tests, releases and delivery to the hosts that run them, mkepisode, and shared source tooling such as youtube-source.",
+        "boundary": "Code that two or more teams use, or that no team claims. A team keeps the code that exists only for its own outcome. A change to a running production service (:3335, the chronicle wheel, the factory mail) is made on a branch and a worktree, away from the running service."
+      },
       "human_lead": "William",
       "agent_lead": null,
       "sessions": [
@@ -171,6 +212,11 @@
       "name": "Story",
       "stub": "2026-11-07; William: \"the story team exists\"; the agent lead is the witness seat's placement, not his word",
       "level": "where the author writes, across episodes",
+      "criteria": {
+        "desired_outcome": "A team whose primary choice is to create fiction and explore plot points across the elements that hold them (William, 2026-11-06).",
+        "makes": "Creative plot threads and proposals at the Author's Desk (@miadi/authors-desk, app/ncp/desk), the writing host ecrire.sanctuaireagentique.com, the NCP story studio, passages sketch and validate, the Twine books, and the Wampum narrative packages.",
+        "boundary": "Offers fiction and threads that only William accepts, keeps fiction apart from what was observed, and writes no words in his place. What the desk needs built it asks of T8."
+      },
       "human_lead": "William",
       "agent_lead": "miadi-proto-2610150828-writers-authors-desk",
       "sessions": [
