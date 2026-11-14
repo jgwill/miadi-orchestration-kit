@@ -79,7 +79,7 @@ The title and description name no host, path or permission.
 
 ## Any episode video, and the prompt that holds these rules
 
-These rules also live as a versioned prompt a model is called with: `miadi-prompt:ceremony/episode-video-describe` (label `production`, version 1 since 2026-11-14), in `@miadi/llmops/episode-video` 0.5.0 (jgwill/Miadi#1016). It covers every episode video, not only screenwalks. A video overview or a podcast takes the safe title `ep<episode>-<stamp>-<slug>` and the title `ep<episode>-<stamp> | Human Title`. Besides the three names, it asks for the video's relations, follow-up inquiries for what the source does not explain, a prompt to reuse elsewhere, and the checks.
+These rules also live as a versioned prompt a model is called with: `miadi-prompt:ceremony/episode-video-describe` (label `production`, version 3 since 2026-11-14, pointing to the LangFuse skill `episode-video-describe` version 2), in `@miadi/llmops/episode-video` 0.5.1 (jgwill/Miadi#1016). Its consent rule follows `rispecs/episode-video-consent-checks/` in jgwill/Miadi: a person mentioned only in a source behind the video is recorded by role and never flagged or held, and the agent runs the Check record itself. It covers every episode video, not only screenwalks. A video overview or a podcast takes the safe title `ep<episode>-<stamp>-<slug>` and the title `ep<episode>-<stamp> | Human Title`. Besides the three names, it asks for the video's relations, follow-up inquiries for what the source does not explain, a prompt to reuse elsewhere, and the checks.
 
 ```bash
 npx @miadi/llmops episode-video                        # the template, and which version answered
