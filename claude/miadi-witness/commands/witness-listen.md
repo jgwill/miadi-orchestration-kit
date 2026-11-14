@@ -33,6 +33,13 @@ Arguments: `$ARGUMENTS`
 and the bar. Only a `holds_question` at or above the bar is for William; below the bar, read
 the thread yourself. One paid call per idle event; `--classify-dry` sends nothing.
 
+Watch with `--quiet` by default (it implies `--classify`). An idle event Jev reads above its bar
+as `running` or `idle_no_marks`, a thread going on by itself or stopping with nothing to report,
+is absorbed and the listener keeps waiting. Everything else still wakes the seat. If a wake
+still turns out to hold nothing for William, re-arm and write nothing to him: no "nothing new"
+line, and no line repeating what has not changed. Guillaume, 2026-11-13: "we don't need an
+output if nothing happens from your watchers."
+
 When the background task exits with a `WITNESS WAKE`, follow the turn budget it carries:
 hear from the wake, decide for each event, draft, run the `witness-editor` agent once with
 the draft and the open asks, revise against every span it returns, reply, then re-arm with

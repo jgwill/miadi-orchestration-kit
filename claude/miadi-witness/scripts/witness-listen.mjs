@@ -12,6 +12,12 @@
 // done, holds_question, idle_no_marks or running, one paid call per idle event. --classify-dry
 // builds the same request and sends nothing.
 //
+// --quiet (implies --classify) keeps listening through an idle event that Jev reads, above its
+// bar, as `running` or `idle_no_marks`: a thread that goes on by itself or stopped with nothing
+// to report. Such an event wakes no one and costs one Jev call instead of a seat's turn. Inputs,
+// new threads, `done`, `holds_question`, a reading under the bar and a failed reading still wake
+// the seat (2026-11-13, Guillaume: "we don't need an output if nothing happens from your watchers").
+//
 // What was present when the seat first listened is its baseline and never wakes it. State is
 // one file per seat: $WITNESS_STATE_DIR, else $XDG_STATE_HOME/miadi-witness/<seat>.json.
 
@@ -271,7 +277,14 @@ function tmuxOf(thread) {
   return thread.tmux ? `tmux ${thread.tmux.session} ${thread.tmux.pane_id ?? ""}`.trim() : "no tmux";
 }
 
-export function formatWake({ seat, events, threads, asks, sessiondata, rearm = true, watch = [], onlyWatched = false, classify = null }) {
+// An idle event --quiet keeps from the seat: Jev read it above its bar as nothing to report.
+export const QUIET_STATES = new Set(["running", "idle_no_marks"]);
+export function isQuiet(event) {
+  const c = event?.classification;
+  return event?.kind === "idle" && Boolean(c) && !c.error && !c.dry && c.above_bar === true && QUIET_STATES.has(c.state);
+}
+
+export function formatWake({ seat, events, threads, asks, sessiondata, rearm = true, watch = [], onlyWatched = false, classify = null, quiet = false }) {
   const lines = [`WITNESS WAKE · seat ${seat} · ${events.length} event${events.length === 1 ? "" : "s"} · ${new Date().toISOString()}`, ""];
   events.forEach((event, index) => {
     const n = `${index + 1}.`;
@@ -307,7 +320,7 @@ export function formatWake({ seat, events, threads, asks, sessiondata, rearm = t
   lines.push(`Open asks (${open.length}, ledger ${join(asksDir(), `${seat}.json`)}):`);
   for (const ask of open) lines.push(`  ${ask.id} ${ask.status} · ${ask.title}`);
   if (!open.length) lines.push("  none");
-  const watchArgs = watch.map((w) => ` --watch "${w}"`).join("") + (onlyWatched ? " --only-watched" : "") + (classify === "dry" ? " --classify-dry" : classify ? " --classify" : "");
+  const watchArgs = watch.map((w) => ` --watch "${w}"`).join("") + (onlyWatched ? " --only-watched" : "") + (quiet ? " --quiet" : classify === "dry" ? " --classify-dry" : classify ? " --classify" : "");
   lines.push(
     "",
     "Turn budget (miadi-witness): this wake carries what an ordinary event needs.",
@@ -323,7 +336,7 @@ export function formatWake({ seat, events, threads, asks, sessiondata, rearm = t
 // ---------- commands ----------
 
 function parseArgs(argv) {
-  const args = { _: [], seat: "mino", interval: 20, timeout: 0, watch: [], self: undefined, onlyWatched: false, classify: null };
+  const args = { _: [], seat: "mino", interval: 20, timeout: 0, watch: [], self: undefined, onlyWatched: false, classify: null, quiet: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--seat") args.seat = argv[++i];
@@ -334,9 +347,11 @@ function parseArgs(argv) {
     else if (arg === "--only-watched") args.onlyWatched = true;
     else if (arg === "--classify") args.classify = "jev";
     else if (arg === "--classify-dry") args.classify = "dry";
+    else if (arg === "--quiet") args.quiet = true;
     else if (arg === "-h" || arg === "--help") args.help = true;
     else args._.push(arg);
   }
+  if (args.quiet) args.classify = "jev";
   return args;
 }
 
@@ -346,7 +361,9 @@ const USAGE = `usage: witness-listen.mjs <command> [--seat mino] [--watch <sessi
   --classify      ask Jev what each idle event means (J7): done, holds_question, idle_no_marks or
                   running. One paid call per idle event, ledger ~/.miadi/decisions/wake-classify.jsonl.
                   Off by default. --classify-dry builds the request and sends nothing.
-  status   what this seat has seen, what is waiting, whether a listener runs
+  --quiet         implies --classify: an idle event Jev reads above its bar as running or
+                  idle_no_marks is absorbed and the listener keeps waiting; it wakes no one
+  status  what this seat has seen, what is waiting, whether a listener runs
   peek     print what is waiting as a wake, without marking it seen
   await    block until an event, print the wake, exit 0
            [--interval <sec>=20] [--timeout <sec>=0 (none)] → exit ${EXIT_TIMEOUT} on timeout,
@@ -432,8 +449,14 @@ async function main() {
     saveState(working);
     if (events.length) {
       await classifyEvents(events, args.classify, sessiondata);
-      console.log(formatWake({ seat: args.seat, events, threads: current.model.threads, asks: asks(), sessiondata, watch: args.watch, onlyWatched: args.onlyWatched, classify: args.classify }));
-      return 0;
+      const waking = args.quiet ? events.filter((e) => !isQuiet(e)) : events;
+      for (const e of events) {
+        if (!waking.includes(e)) console.error(`witness-listen: kept quiet · ${e.thread.name ?? e.thread.session_id} · ${e.classification.state} ${Number(e.classification.confidence).toFixed(2)}`);
+      }
+      if (waking.length) {
+        console.log(formatWake({ seat: args.seat, events: waking, threads: current.model.threads, asks: asks(), sessiondata, watch: args.watch, onlyWatched: args.onlyWatched, classify: args.classify, quiet: args.quiet }));
+        return 0;
+      }
     }
     if (Date.now() >= deadline) {
       console.log(`witness-listen: no event in ${args.timeout}s for seat ${args.seat}`);

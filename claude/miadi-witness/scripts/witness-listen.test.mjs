@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ownSessionId, parseInputBlocks } from "./witness-listen.mjs";
+import { formatWake, isQuiet, ownSessionId, parseInputBlocks } from "./witness-listen.mjs";
 
 const SCRIPT = fileURLToPath(new URL("./witness-listen.mjs", import.meta.url));
 const SEAT_DIR = "/fixture/seat";
@@ -254,4 +254,23 @@ test("helpers: block attributes with straight or curly quotes, and this process'
   const threads = { [ORIGINAL]: { session_id: ORIGINAL, live: true, pid: process.pid } };
   assert.equal(ownSessionId(threads), ORIGINAL);
   assert.equal(ownSessionId({}), null);
+});
+
+test("--quiet keeps only an idle event Jev reads above its bar as running or idle_no_marks", () => {
+  const idle = (classification) => ({ kind: "idle", thread: { session_id: ORIGINAL }, classification });
+  assert.equal(isQuiet(idle({ state: "running", above_bar: true, confidence: 0.9 })), true);
+  assert.equal(isQuiet(idle({ state: "idle_no_marks", above_bar: true, confidence: 0.85 })), true);
+  assert.equal(isQuiet(idle({ state: "running", above_bar: false, confidence: 0.4 })), false, "under the bar wakes the seat");
+  assert.equal(isQuiet(idle({ state: "done", above_bar: true })), false);
+  assert.equal(isQuiet(idle({ state: "holds_question", above_bar: true })), false);
+  assert.equal(isQuiet(idle({ error: "no decider" })), false, "a failed reading wakes the seat");
+  assert.equal(isQuiet(idle({ dry: true })), false);
+  assert.equal(isQuiet(idle(undefined)), false);
+  assert.equal(isQuiet({ kind: "input", block: {} }), false, "an input always wakes the seat");
+});
+
+test("a quiet listener re-arms itself with --quiet", () => {
+  const out = formatWake({ seat: "mino", events: [], threads: {}, asks: [], sessiondata: "/none", watch: [ORIGINAL], onlyWatched: true, classify: "jev", quiet: true });
+  assert.match(out, /--only-watched --quiet/);
+  assert.doesNotMatch(out, /--classify/);
 });
