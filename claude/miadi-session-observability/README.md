@@ -81,6 +81,11 @@ jgwill/miadi-orchestration-kit#56.
   `MIADI_TMUX_SERVER_GUARD=off` in the session's environment turns it off. Earned 2026-11-05, when
   a test reached the live server with `kill-server` and 69 running agents stopped.
   `tests/tmux-server-guard.sh`, 48 checks.
+- **Skill `codex-setup`** (0.1.47). The steps an agent in Claude Code runs to set up Codex on its
+  person's account so Codex sessions are observed too: the Codex version, the kit's Codex
+  marketplace and plugin, the terminal title, the hook review in `/hooks` that is the person's, the
+  proof, and the legacy hook cutover after it. Future ceremonies require Codex sessions
+  (Guillaume, 2026-11-14).
 - **Skill.** `session-continuity` carries T1's practice: the binding line, tmux save and
   restore, tide, and rebuilding what each pane held after a crash.
 

@@ -60,10 +60,12 @@ None yet. The first two questions are in the ledger.
 
 ## Log
 
+- **0.2.1, 2026-11-14.** Related names T1's `codex-setup` skill, for a desk asked how to get an account ready to start Codex sessions for ceremonies (Jerry's desk on the gmusic account among them).
 - **0.1.0, 2026-10-07.** Written by Mia in `miadi-how-to-set-with-tide-a-team`, the session where William named T7. The ledger starts with that session's two questions: setting a team with `tide` (a gap: `tide` has no team command) and which team such a session belongs to (answered by naming T7).
 
 ## Related
 
 - `teams/README.md`, section T7. `teams/teams.json`.
 - `claude/miadi-session-observability/skills/session-continuity/SKILL.md`, section Teams (T1): how the binding line finds a session's team.
+- `claude/miadi-session-observability/skills/codex-setup/SKILL.md` (T1): setting up Codex on an account so its sessions are observed, which future ceremonies require (Guillaume, 2026-11-14). The skill marks which steps are the person's.
 - jgwill/miadi-orchestration-kit#71

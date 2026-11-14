@@ -33,7 +33,7 @@
       "name": "miadi-session-observability",
       "source": "./claude/miadi-session-observability",
       "description": "Session capture installed once per host: every Claude Code event under <root>/<session_id>/, every file a tool call writes copied to written/, every publication (Artifact, GitHub, commit, push, npm) listed with its prompt, and a binding line per session start, end and rename with its tmux pane, command line, name history, team and chronicle episode, and every /btw side question with the story of its fork. Carries the session-continuity skill (T1).",
-      "version": "0.1.46"
+      "version": "0.1.47"
     },
     {
       "name": "miadi-session-issue",
@@ -69,7 +69,7 @@
       "name": "miadi-operator-desk",
       "source": "./claude/miadi-operator-desk",
       "description": "The operator desk (T7): William's questions about how the factory works answered from the owning team's text and checked against the tool, kept in a ledger, an unanswered one sent to the team that owns the tool, and a question that comes back turned into a pointer in the skill. Teaches how a cycle closes: what needs the person comes back as an explainer and as circle turns they answer, and the agents act on each answer.",
-      "version": "0.2.0"
+      "version": "0.2.1"
     },
     {
       "name": "tushell-keeper",
