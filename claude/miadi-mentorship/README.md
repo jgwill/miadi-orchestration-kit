@@ -1,4 +1,4 @@
-# miadi-mentorship (draft, 0.1.0)
+# miadi-mentorship (draft, 0.2.0)
 
 A seat that mentors another user's session on the same host. It reads the mentee's hook capture, supplies information useful to the relationship, steers only after a person's go and a clear pane guard, and keeps the mentee's words verbatim. Each of those steps is an event that a person can receive on a webhook of their choice.
 
@@ -66,6 +66,7 @@ CloudEvents 1.0, structured mode (`content-type: application/cloudevents+json`):
 | `mentee.feedback_written` | a new entry appears in a watched folder's `feedback.md` | `file`, `heading`, `entry` (its number in the file) | the seat |
 | `mentor.landed` | the seat committed and pushed what the mentee's session wrote | `repo`, `commit`, `paths` (count), `ref` | the seat |
 | `mentor.message_sent` (0.1.0) | the seat sent one message to one of the mentee's identities | `channel` (`email`, `circle` or `pane`), `perspective` (the identity's code in the path, e.g. `P` or `L`), `to_identity` (a Unix account, or a factory person id), `ref` (a Sent UID, a ceremony and turn id, or a pane), `path` (the path file, when the message carries a step) | the seat |
+| `mentorship.lesson_recorded` (0.2.0) | one lesson an agent received or gave | `lesson_id`, `version`, `learner` (the agent's name), `identity` (the account it writes as), `teacher`, `ceremony`, `time_slot` (`from`, `to`), `human_interactions` (how many times the person had to step in), `languages`, `concepts`, `notes_ref` (the agent's own diary entry or file), `content_refs` (texts, video), `node` (the learning's node, when one exists) | the seat, or the learning agent |
 | `mentorship.step_reached` (0.1.0) | a step of a mentorship path shows the evidence its path file names | `path`, `step` (its code, e.g. `M1`), `identity`, `evidence` (the command or address that shows it) | the seat |
 
 ## One mentee, several identities (0.1.0)
@@ -73,6 +74,32 @@ CloudEvents 1.0, structured mode (`content-type: application/cloudevents+json`):
 A mentee can be more than one account. Jerry is the Unix account `gmusic` where his agents run, "Jerry (Gerico)" the person in the factory, and "gmusic (Jerry's label)", the musician's label his composition agent signs in as. Each identity should see something different, so each gets its own message on its own channel, and `mentor.message_sent` names which one a message was for. The `subject` of such an event is `identity:<id>` rather than `session:<id>`.
 
 A path file lists the steps a mentorship walks, each with the identity it concerns, what exists today, who owns it, and the evidence that shows it reached. The first is `_staging_for_new_episodes/jerry-label-musical-belt-261114/mentorship-path.md` in the chronicle (jgwill/episodes): from Jerry's Codex setup (M1) to music on a Wampum belt (M6). The skill says how to walk one.
+
+## A lesson, as Jerry described it (0.2.0)
+
+Asked on 2026-11-14 what he would do with the events of a mentorship between agents, Jerry answered by phone (call `1d41243c`, his words verbatim in the chronicle's `_staging_for_new_episodes/jerry-label-musical-belt-261114/jerry-answers-261114.md`). Each thing he named is a field of `mentorship.lesson_recorded`:
+
+| Jerry's words | field |
+|---|---|
+| « Il devrait y avoir une version. » | `version` |
+| « du contenu éducatif qui peut être storé et enregistré » | `content_refs` |
+| « des notes de chacun des agents, c'est quoi qu'ils ont appris » | `learner`, `notes_ref` |
+| « les plages horaires où est-ce que le mentorat a eu lieu » | `time_slot` |
+| « le nombre d'interactions que l'humain a dû avoir pour que les agents soient aptes à recevoir le mentorat » | `human_interactions` |
+| « un catalogue d'apprentissage ou de leçons qui ont été données » | the catalogue: every `mentorship.lesson_recorded` of a mentorship, read together |
+| « Que ce soit bilingue, en français et en anglais, qu'il y ait aussi du contenu vidéo avec le débat » | `languages`, `content_refs` |
+| « qu'il y ait un nœud, en fait, sur cet apprentissage-là et tous les concepts qui ont été développés » | `node`, `concepts` |
+
+Not built: the catalogue as a page, and the node on the wheel. Today the catalogue is the events file, and each lesson's text lives where the mentorship happened (a ceremony's diary, an episode's files).
+
+## Each agent speaks in its own name (0.2.0)
+
+Jerry's point of 2026-11-14, through Guillaume: let each agent speak in the circle. A person's agents usually share one account in the factory (Jerry's share his label's, "gmusic (Jerry's label)"), and the person speaks with their own. So each agent:
+
+- speaks in the circle where it receives or gives mentorship, under the account its token belongs to;
+- opens every turn and diary entry with its own name and for whom it speaks ("JamAI, for Jerry:"), one agent per turn;
+- writes its own notes on what it learned as a diary entry of kind `learning`, which is the lesson's `notes_ref`;
+- never writes as the person.
 
 ## The mentee's words
 

@@ -39,6 +39,8 @@ export const TYPES = {
   // the factory), each reached on its own channel, and a mentorship can follow a path of steps.
   "mentor.message_sent": "the seat sent one message to one of the mentee's identities, by email, in a circle or in a pane",
   "mentorship.step_reached": "a step of the mentorship path shows the evidence its path file names",
+  // 0.2.0 (2026-11-14): Jerry's answer of 16:08 (call 1d41243c) on what a mentorship should keep.
+  "mentorship.lesson_recorded": "one lesson an agent received or gave, versioned, with its notes, time slot, the human's share and its concepts",
 };
 
 const NODE_FLOOR = 18; // fetch and AbortSignal.timeout

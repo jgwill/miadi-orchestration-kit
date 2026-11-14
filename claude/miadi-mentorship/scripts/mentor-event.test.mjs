@@ -20,6 +20,15 @@ test("a step reached on a path is an event", () => {
   assert.equal(e.type, `${TYPE_PREFIX}mentorship.step_reached`);
 });
 
+test("a lesson carries what Jerry named for it", () => {
+  const data = { lesson_id: "jev-in-the-line", version: 1, learner: "Miette (gmusic account)", identity: "node:human:label",
+    teacher: "Mia", time_slot: { from: "2026-11-14T20:20Z", to: "2026-11-14T21:10Z" }, human_interactions: 4,
+    languages: ["fr", "en"], concepts: ["Jev", "mid_thought"], notes_ref: "diary-1", content_refs: [] };
+  const e = buildEnvelope({ type: "mentorship.lesson_recorded", subject: "identity:node:human:label", data, env });
+  assert.equal(e.type, `${TYPE_PREFIX}mentorship.lesson_recorded`);
+  assert.deepEqual(e.data.languages, ["fr", "en"]);
+});
+
 test("every earlier type still builds, and an unknown one is refused", () => {
   for (const type of Object.keys(TYPES)) assert.equal(buildEnvelope({ type, env }).type, TYPE_PREFIX + type);
   assert.throws(() => buildEnvelope({ type: "mentor.guessed", env }), UsageError);

@@ -12,7 +12,7 @@ description: >
   accounts", "mentorship path", "capture the events of mentorship".
 metadata:
   type: skill
-  version: 0.1.0
+  version: 0.2.0
   scope: a mentor seat beside a mentee's session, its steps and the event each one emits
 ---
 
@@ -127,6 +127,21 @@ A path file lists the steps of a mentorship, each with the identity it concerns,
 node "${CLAUDE_PLUGIN_ROOT}/scripts/mentor-event.mjs" emit mentorship.step_reached --subject identity:<id> \
   --data '{"path":"<path file>","step":"M1","identity":"H","evidence":"<the command or address>"}'
 ```
+
+## 9. Each agent speaks in its own name
+
+When a mentee's agents share one account in the factory, as Jerry's share his label's, seat that account in each circle where the agents receive mentorship, and tell each agent the same rule: open every turn and diary entry with your own name and for whom you speak, one agent per turn, never the person's name as your own. The person speaks with their own account. The rule comes from Jerry (2026-11-14) and from his own line for the label: drafts alone, anything shown outside the community he signs.
+
+## 10. Record a lesson
+
+A lesson is what an agent learned or taught, kept the way Jerry described it (the README's table). The learning agent writes its notes as a diary entry of kind `learning` in the ceremony where it learned; the seat, or the agent, records the lesson:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/mentor-event.mjs" emit mentorship.lesson_recorded --subject identity:<account id> \
+  --data '{"lesson_id":"<slug>","version":1,"learner":"<agent name>","identity":"<account id>","teacher":"<name>","ceremony":"<ceremony id>","time_slot":{"from":"<iso>","to":"<iso>"},"human_interactions":<n>,"languages":["fr","en"],"concepts":["<…>"],"notes_ref":"<diary entry id>","content_refs":["<file or video>"]}'
+```
+
+A new version of a lesson is a new event with `version` raised, never an edit of the old one.
 
 ## What this seat never does
 
