@@ -34,6 +34,8 @@ The Jev decider is the one the Factory already shares: lane-check's `lib/decider
 5. Every decision of a call is in the decision ledger with its latency, and a `call-review` ruling names its decision by id.
 6. An inbound call reaches a running session as its next prompt through the steering inbox.
 7. No event that leaves the account carries the person's words unless their consent is recorded.
+8. On the phone page, « je suis over » closes the call within the listening window plus one Jev reading, and a silence closes it only after the one question « Est-ce que c'est tout ? » (section 4b). The record says `closed_on`.
+9. A call's loop reads `answered` only after the agent's `phone_reply` reached the person.
 
 ## Recording the export
 

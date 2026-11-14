@@ -36,3 +36,4 @@ Between a line that hears every word and a line that understands what each sente
 - Q-B. Whether the plugin copies the `appeler-jerry` skill or refers to `Gerico1007/assembly-call` and generalizes from it. The prototype and its specifications are Jerry's.
 - Q-C. Which Jev model and which thresholds. `jev-1.14.0` pinned, thresholds null until rulings set them (Episode 564's practice).
 - Q-D. Whether the line may ask the agent mid-call (the person asks something only the agent knows) or keeps that for after the call.
+- Q-E. The listening window and the pause that ends a sentence on a phone page (`03-specify.md` section 2b), and the two silences that close a call (section 4b), set from measured calls.

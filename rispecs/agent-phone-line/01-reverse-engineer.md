@@ -53,3 +53,16 @@ The call ended at sentence 8 because `FIN_RELAIS` matched « j'ai fini » inside
 Two calls before it, at 14:19 and 14:20, rang with no phone registered on extension 100. The agent had no way to know beforehand.
 
 What it shows: the line hears well and transcribes well. What it lacks is a judgment, after each sentence, of what the person means to do: go on, hear it again, finish, or ask the agent something. Fixed patterns cannot hold that judgment, and a conversational model was too slow and too eager. A typed decision model in the loop can, which is what `02-intent.md` sets out.
+
+## A second prototype: the companion's phone page
+
+`claude/mia-episode-companion/phone-capture/` in this kit records a person's voice in a phone's browser and lands each take in an episode. Read on 2026-11-14 (`public/index.html`, `server.mjs`, `test/phone-capture.test.mjs`). It solves a problem the phone line will meet once a call is a page instead of a ring: not losing what was said while it is still being said.
+
+- The page's recorder cuts the audio into one-second slices (`recorder.start(1000)`).
+- Every 10 seconds (`PART_EVERY_MS = 10000`) the page sends the bytes the server does not hold yet: `POST /api/takes/part?rec=<id>&offset=<bytes the page believes the server holds>`.
+- The server appends without harm: a part sent twice changes nothing, an overlapping part keeps only its new tail, and a part past the end is answered 409 with the bytes the server holds. The page's offset moves only when the server says so.
+- When the recorder fails, or the person leaves the page, what was sent is kept and becomes a take by itself.
+- The rule came from a loss: "a few minutes of recording were lost when the recorder failed at Stop. The page now sends what it captured every 10 seconds" (Ada, Episode 120 (miadi-chronicle://120), 2026-10-12, in the test file).
+- The page asks for the agent's reply every 4 seconds while it waits, and every 10 seconds otherwise, so the person hears the agent answer on the same page.
+
+What it adds to the line: a door without a phone number, where the person speaks in a page, the server holds every ten seconds of it, and the agent's answer comes back to the same page. That door ends what it hears only when the person presses Stop; the phone line's specification gives it a way to know without a button (`03-specify.md`, sections 2b and 4b).
