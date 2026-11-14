@@ -38,6 +38,10 @@ The Jev decider is the one the Factory already shares: lane-check's `lib/decider
 9. A call's loop reads `answered` only after the agent's `phone_reply` reached the person.
 10. **The call of 16:37 replays correctly** (`8d8d3f50`, Jerry's feedback call, sentences in Episode 576's `feedback-next-generation-261114.md` and the register): when Jerry asks for « les idées », the line says the introduction again, not only the question; « Demande à l'agent qu'il me rappelle » is noted as a callback (`asks_callback`).
 
+## Roadmap, from Jerry's answer
+
+Jerry, on callback `6abc1c1f`, refused none of the nine proposals of Episode 576's `feedback-request-next-generation-261114.md`: « selon tout ce qu'on a discuté, j'ai envie de les essayer. Donc, ça va peut-être faire partie d'un roadmap à mettre en place ». His first wish is the callback on request with a delay (section 3, `asks_callback`). The order of the rest is set with him and Guillaume.
+
 ## Recording the export
 
 - Prototype: published address `https://github.com/Gerico1007/assembly-call`; the clone on eury is `/home/gmusic/salix/production/agent-telephone`.

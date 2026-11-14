@@ -56,7 +56,7 @@ After each kept sentence, the line asks Jev one request. It runs while the voice
 | `is_finished` | noul | Does `sentence` say the person has nothing more to say on this call? | true: they are done. false: they are not. |
 | `mid_thought` | noul | Does `sentence` stop before the thought it started is complete? | true: it stops mid-thought. false: it is a complete thought. |
 | `asks_callback` | noul | Does `sentence` ask to be called back later? | true: it asks for a callback. false: it does not. |
-| `confirms` | noul | (discussion mode, after a read-back) Does `sentence` confirm that the read-back is their answer? | true: it confirms. false: it does not. |
+| `confirms` | noul | (discussion mode, after a read-back) Does `sentence` confirm that the read-back is their answer? | true: it confirms. false: it does not. On callback `6abc1c1f`, Jerry's « Yep » was not a yes to the prototype's pattern, and the summary was read back seven times. |
 
 The options of `move` are rotated between sentences and the order is recorded (Jev leans toward the first option). The model is pinned (`jev-1.14.0` today); an alias such as `jev-latest` is refused, because it resolves differently on the two hosts.
 
@@ -67,7 +67,7 @@ The options of `move` are rotated between sentences and the order is recorded (J
 | `is_finished` ≥ 0.8, or `move` = `finished` with confidence ≥ 0.6 | closes: relay mode says it passes everything on; discussion mode reads back the answer and waits for `confirms` |
 | `is_finished` between 0.4 and 0.6 | asks once: "Est-ce que c'est tout ?" The next sentence decides |
 | `asks_repeat` ≥ 0.7, or `move` = `repeat` with confidence ≥ 0.6 | says the point again from its beginning, the introduction included, then the questions one at a time, each by its number, waiting after each. When the person says they did not understand, discussion mode rephrases instead of repeating. On call `8d8d3f50` the repeat brought back only the question, and Jerry asked twice for « les idées ». His words for what is missing: « la capacité à refraser quand je ne comprends pas … recommence du début » |
-| `asks_callback` ≥ 0.7 | notes the callback and says so: "D'accord, l'agent te rappellera". The agent calls back with the same question and its context, in discussion mode. On call `8d8d3f50`, « Demande à l'agent qu'il me rappelle » read `ask_agent` at 0.39 and was not noted |
+| `asks_callback` ≥ 0.7 | notes the callback and says so: "D'accord, l'agent te rappellera". When the person names a delay (« rappelle-moi dans vingt minutes »), the delay is read from the sentence in code, since Jev does not compute times; the line says when it will call back and hangs up, and the agent calls back then, within the person's hours, with the same question and its context, in discussion mode. This is Jerry's first wish for the line (call `6abc1c1f`): « de pouvoir dire, OK, j'aimerais ça qu'on me rappelle dans 20 minutes, je suis occupé. Juste ça, puis je raccroche ». On call `8d8d3f50`, « Demande à l'agent qu'il me rappelle » read `ask_agent` at 0.39 and was not noted |
 | `mid_thought` ≥ 0.7 | says nothing and lengthens the next silence window |
 | `move` = `ask_agent` with confidence ≥ 0.6 | asks the agent at once (`phone_answer`, section 5) and says its answer if it comes within `ask_wait_s` (20 by default); otherwise says the agent will look and call back, and the agent does. Jerry settled Q-D on call `7292c704`: « Je crois qu'elle peut aller lui demander tout de suite », and asked whether an agent without the answer « peut se questionner lui-même et me revenir » |
 | `move` = `not_to_line` with confidence ≥ 0.6 | says nothing, keeps listening |
@@ -84,6 +84,10 @@ The options of `move` are rotated between sentences and the order is recorded (J
 **Outgoing, relay mode**: the prototype's flow, with section 3's decisions. Everything the person said is returned word for word, with the decisions beside it.
 
 **Inbound**: the person calls `inbound_extension`. The voice says one sentence of welcome, the same decisions apply (`finished` ends the call), and the words arrive in the agent's inbox (section 5).
+
+**A new version says so.** The first call after the line's version changes begins by saying a new version is in use, and what changed, so the person can compare. Jerry, call `6abc1c1f`: « Quand on a une nouvelle version, tu m'appelles, tu dis "nous sommes en train d'utiliser la nouvelle version". Je peux voir la différence un peu entre les deux ».
+
+**The voice says only what the line means it to say.** The model behind the voice is called without the host's agent instructions, and its reply is checked before it is spoken: one sentence or a few, addressed to the person, nothing else. On callback `6abc1c1f` the prototype's voice, a `claude -p` call, still loaded the host's managed instructions and spoke a sentence beginning with a flower glyph after each of its turns.
 
 **Rules before ringing** (unchanged): hours, interval, no second call for an unanswered question with the same fingerprint, and, new, a refusal with its reason when the phone is not registered.
 
@@ -109,7 +113,7 @@ An MCP server, so the same tools serve Claude Code and Codex. Every agent that h
 | tool | input | output |
 |---|---|---|
 | `phone_line` | | `{person, registered, hours, next_allowed_at}` |
-| `phone_call` | `question`, `context?`, `mode` (`discuss` or `relay`), `link?`, `work?` | `{call_id, status: "ringing"}` or `{status: "refused", reason}` |
+| `phone_call` | `question`, `context?`, `mode` (`discuss` or `relay`), `link?`, `work?`, `at?` (a callback's time), `follows?` (the call it calls back for) | `{call_id, status: "ringing"}` or `{status: "refused", reason}` |
 | `phone_status` | `call_id` | `{state: ringing | in_call | ended, elapsed_s}` |
 | `phone_result` | `call_id`, `wait_s?` | `{outcome, answer | words, discussion[], decisions[]}` |
 | `phone_inbox` | `wait_s?` | what the person said on the inbound line or texted, each marked `voice` or `text`, not yet read |
