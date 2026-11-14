@@ -10,6 +10,7 @@ both run by `miadi-node` (a private Node.js 24), and beside them `miadi-music` w
 `miadi-music-render`, `-measure` and `-video` (music for an album or an episode's score), `miadi-film`
 (Kdenlive, Ardour and the media tools for a film made with an episode), and for
 the maintainer's host `miadi-feedback` (an issue on the kit wakes a seat, jgwill/miadi-orchestration-kit#109).
+`miadi-kit` updates the kit's plugins in every harness an account uses (jgwill/miadi-orchestration-kit#155).
 README.md says what each package holds and how to build, test and publish it.
 
 ## Relationship with jgwill/gaia

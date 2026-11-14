@@ -1,0 +1,16 @@
+Package: miadi-kit
+Version: 0.1.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: python3, git
+Maintainer: Miadi <mia@jgwill.com>
+Homepage: https://github.com/jgwill/miadi-orchestration-kit
+Description: One command that updates the Miadi kit's plugins in every harness
+ miadi-kit update, run by each account, updates every plugin from
+ jgwill/miadi-orchestration-kit that the account has installed in Claude
+ Code, Codex, Copilot CLI, Gemini CLI and Pi, each with that harness's own
+ command, and fast-forwards a kit checkout that a harness reads in place.
+ miadi-kit update --check says what would move and changes nothing.
+ Installing the package changes no home directory. The harnesses and their
+ sign-in stay with each account.

@@ -1,0 +1,426 @@
+#!/usr/bin/python3
+"""miadi-kit: the Miadi orchestration kit's plugins, in every harness this account uses.
+
+Installed by miadi-kit (jgwill/miadi-orchestration-kit). From a checkout, source
+scripts/miadi-kit-plugins.sh for the same command.
+
+    miadi-kit update                          update every kit plugin this account has installed
+    miadi-kit update --check                  say what would move, change nothing
+    miadi-kit update --harness claude,codex   only these harnesses
+
+Harnesses: claude (Claude Code), codex (Codex), copilot (Copilot CLI), gemini (Gemini CLI),
+pi (Pi). One that is not on PATH is skipped.
+
+A harness that keeps its own copy of a plugin is updated with its own command. A kit checkout
+that a harness reads in place (Codex's local marketplace, `gemini extensions link`,
+`pi install <path>`, `copilot --plugin-dir`, and MIADI_ORCHESTRATION_KIT_ROOT) is
+fast-forwarded to its upstream first. A checkout with commits of its own, or not on a branch
+with an upstream, is reported and left as it is. --check fetches, which moves only remote refs.
+
+Running sessions keep the version they started with: start a new one to use an update.
+
+Exit 0: everything is current or was updated. Exit 1: a line says FAILED and why.
+Exit 2: a wrong argument.
+"""
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+MARKET = "miadi-orchestration-kit"
+KIT_URL = re.compile(r"[:/]jgwill/miadi-orchestration-kit(?:\.git)?/?$")
+HARNESSES = ("claude", "codex", "copilot", "gemini", "pi")
+TIMEOUT = 300
+COUNT = {"moved": 0, "held": 0, "failed": 0}
+
+
+def say(where, what, detail):
+    print(f"{where:<8} {what:<36} {detail}", flush=True)
+
+
+def fail(where, what, detail):
+    COUNT["failed"] += 1
+    say(where, what, "FAILED: " + detail)
+
+
+def held(where, what, detail):
+    """Left as it is: the line says what a person can run."""
+    COUNT["held"] += 1
+    say(where, what, detail)
+
+
+def moved(where, what, before, after, check):
+    COUNT["moved"] += 1
+    say(where, what, f"{before} -> {after}" + (", would update" if check else ""))
+
+
+def run(args, cwd=None):
+    """(exit code, stdout, stderr). stdin is closed, so no harness waits on a prompt."""
+    try:
+        done = subprocess.run(args, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True,
+                              text=True, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return 124, "", f"did not finish in {TIMEOUT} s"
+    except FileNotFoundError:
+        return 127, "", "not found"
+    return done.returncode, done.stdout, done.stderr
+
+
+def last_line(text):
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return lines[-1] if lines else ""
+
+
+def checked(args, cwd=None):
+    code, stdout, stderr = run(args, cwd)
+    if code:
+        raise RuntimeError(f"{' '.join(args)} exited {code}: {last_line(stderr or stdout)}")
+    return stdout
+
+
+def json_of(args):
+    return json.loads(checked(args))
+
+
+# --- kit checkouts ------------------------------------------------------------------------
+
+def git(root, *args):
+    code, stdout, _ = run(["git", "-C", str(root), *args])
+    return stdout.strip() if code == 0 else None
+
+
+def kit_root(path):
+    """The top of the kit checkout holding path, or None."""
+    p = Path(path).expanduser()
+    p = p if p.is_dir() else p.parent
+    if not p.is_dir():
+        return None
+    top = git(p, "rev-parse", "--show-toplevel")
+    url = top and git(top, "remote", "get-url", "origin")
+    return Path(top).resolve() if url and KIT_URL.search(url) else None
+
+
+class Checkout:
+    def __init__(self, root):
+        self.root = root
+        self.up = None          # its upstream, once fetched
+        self.forwards = False   # --check: it would fast-forward
+
+    def sync(self, check):
+        where, what = "checkout", str(self.root)
+        branch = git(self.root, "symbolic-ref", "--short", "-q", "HEAD")
+        up = git(self.root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+        if not branch or not up:
+            held(where, what, "not on a branch with an upstream: left as it is")
+            return
+        remote = git(self.root, "config", f"branch.{branch}.remote") or "origin"
+        code, _, err = run(["git", "-C", str(self.root), "fetch", "-q", remote])
+        if code:
+            fail(where, what, f"git fetch {remote}: {last_line(err)}")
+            return
+        self.up = up
+        ahead, behind = map(int, git(self.root, "rev-list", "--left-right", "--count", f"HEAD...{up}").split())
+        if not behind:
+            say(where, what, f"{branch} current with {up}")
+        elif ahead:
+            held(where, what, f"{branch} has {ahead} commit(s) of its own and is {behind} behind {up}: left as it is")
+        elif check:
+            self.forwards = True
+            COUNT["moved"] += 1
+            say(where, what, f"{branch} is {behind} commit(s) behind {up}, would fast-forward")
+        else:
+            code, _, err = run(["git", "-C", str(self.root), "merge", "--ff-only", "-q", up])
+            if code:
+                fail(where, what, f"git merge --ff-only {up}: {last_line(err)}")
+                return
+            COUNT["moved"] += 1
+            say(where, what, f"{branch} fast-forwarded {behind} commit(s) to {up}")
+
+    def show(self, ref, path):
+        rel = Path(path).resolve().relative_to(self.root).as_posix()
+        code, stdout, _ = run(["git", "-C", str(self.root), "show", f"{ref}:{rel}"])
+        return stdout if code == 0 else None
+
+
+CHECKOUTS = {}
+
+
+def checkout_of(path):
+    root = kit_root(path)
+    return CHECKOUTS.setdefault(root, Checkout(root)) if root else None
+
+
+def version_in(path):
+    """A manifest's version as a harness reading it in place will see it after the update."""
+    try:
+        c = checkout_of(path)
+        text = c.show(c.up, path) if c and c.forwards else None
+        return json.loads(text if text is not None else Path(path).read_text()).get("version", "?")
+    except (OSError, ValueError):
+        return "?"
+
+
+# --- harnesses ----------------------------------------------------------------------------
+
+class Claude:
+    name = "claude"
+
+    def discover(self):
+        self.rows = [p for p in json_of(["claude", "plugin", "list", "--json"])
+                     if p.get("id", "").endswith("@" + MARKET)]
+
+    def installed(self):
+        return {(p["id"], p.get("scope")): p.get("version") for p in json_of(["claude", "plugin", "list", "--json"])}
+
+    def update(self, check):
+        if not self.rows:
+            say(self.name, "-", "no kit plugin installed")
+            return
+        market = next((m for m in json_of(["claude", "plugin", "marketplace", "list", "--json"])
+                       if m.get("name") == MARKET), None)
+        if not market:
+            fail(self.name, "-", f"kit plugins are installed but the {MARKET} marketplace is not configured")
+            return
+        clone = Path(market["installLocation"])
+        manifest = clone / ".claude-plugin" / "marketplace.json"
+        if check:
+            # A refresh would update plugins itself when the marketplace has autoUpdate: read the
+            # clone's upstream instead, which Claude Code does not read.
+            c = Checkout(clone)
+            c.up = git(clone, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+            fetched = c.up and run(["git", "-C", str(clone), "fetch", "-q"])[0] == 0
+            text = c.show(c.up, manifest) if fetched else None
+            text = text if text is not None else manifest.read_text()
+        else:
+            checked(["claude", "plugin", "marketplace", "update", MARKET])
+            text = manifest.read_text()
+        offers = {p["name"]: p.get("version", "?") for p in json.loads(text)["plugins"]}
+        now = {} if check else self.installed()
+        for p in self.rows:
+            name, scope, before = p["id"].rsplit("@", 1)[0], p.get("scope", "user"), p.get("version", "?")
+            label, want = f"{name} ({scope})", offers.get(name)
+            if want is None:
+                say(self.name, label, f"{before}, no longer in the marketplace")
+            elif before == want:
+                say(self.name, label, f"{before} current")
+            elif check or now.get((p["id"], scope)) == want:   # a refresh with autoUpdate moved it
+                moved(self.name, label, before, want, check)
+            else:
+                code, out, err = run(["claude", "plugin", "update", p["id"], "--scope", scope],
+                                     cwd=p.get("projectPath"))
+                if code:
+                    fail(self.name, label, f"claude plugin update {p['id']} --scope {scope}: {last_line(err or out)}")
+                else:
+                    moved(self.name, label, before, want, check)
+
+
+class Codex:
+    name = "codex"
+
+    def listed(self):
+        return json_of(["codex", "plugin", "list", "--json", "--marketplace", MARKET]).get("installed", [])
+
+    def discover(self):
+        self.rows = [p for p in self.listed() if p.get("marketplaceName") == MARKET]
+        for p in self.rows:
+            ms = p.get("marketplaceSource") or {}
+            if ms.get("sourceType") == "local":
+                checkout_of(ms["source"])
+
+    def update(self, check):
+        if not self.rows:
+            say(self.name, "-", "no kit plugin installed")
+            return
+        if not check and any((p.get("marketplaceSource") or {}).get("sourceType") != "local" for p in self.rows):
+            checked(["codex", "plugin", "marketplace", "upgrade", MARKET])
+        for p in self.rows:
+            label, before, src = p["name"], p.get("version", "?"), p.get("source") or {}
+            if src.get("source") != "local":
+                held(self.name, label, f"{before}, from {src.get('source')}: miadi-kit reads local sources only")
+                continue
+            want = version_in(Path(src["path"]) / ".codex-plugin" / "plugin.json")
+            if before == want:
+                say(self.name, label, f"{before} current")
+                continue
+            if not check:
+                code, out, err = run(["codex", "plugin", "add", p["pluginId"]])
+                after = next((q.get("version") for q in self.listed() if q.get("pluginId") == p["pluginId"]), None)
+                if code or after != want:
+                    fail(self.name, label, f"codex plugin add {p['pluginId']} left {after}, expected {want}"
+                         + (f": {last_line(err or out)}" if code else ""))
+                    continue
+            moved(self.name, label, before, want, check)
+
+
+class Copilot:
+    name = "copilot"
+    # Copilot keeps a plugin installed from jgwill/miadi-orchestration-kit:<path> here.
+    DIRECT = Path.home() / ".copilot" / "installed-plugins" / "_direct"
+    PREFIX = "jgwill--miadi-orchestration-kit--"
+    MANIFESTS = (".github/plugin/plugin.json", "plugin.json", ".plugin/plugin.json", ".claude-plugin/plugin.json")
+
+    def discover(self):
+        self.dirs = sorted(d for d in self.DIRECT.glob(self.PREFIX + "*") if d.is_dir()) if self.DIRECT.is_dir() else []
+
+    def installed(self):
+        return {p["name"]: p.get("version", "?") for p in json_of(["copilot", "plugin", "list", "--json"])}
+
+    def manifest_name(self, d):
+        for rel in self.MANIFESTS:
+            if (d / rel).is_file():
+                return json.loads((d / rel).read_text()).get("name")
+        return d.name[len(self.PREFIX):]
+
+    def offered(self):
+        """name -> version on GitHub, read from a kit checkout's fetched upstream."""
+        offers = {}
+        for c in CHECKOUTS.values():
+            listing = c.up and git(c.root, "ls-tree", "-r", "--name-only", c.up, "--", "copilot")
+            for rel in (listing or "").splitlines():
+                if rel.endswith("/.github/plugin/plugin.json"):
+                    text = c.show(c.up, c.root / rel)
+                    try:
+                        j = json.loads(text or "")
+                        offers.setdefault(j.get("name"), j.get("version", "?"))
+                    except ValueError:
+                        pass
+        return offers
+
+    def update(self, check):
+        if not self.dirs:
+            say(self.name, "-", "no kit plugin installed (a --plugin-dir is read in place)")
+            return
+        offers, before_all = self.offered(), self.installed()
+        for d in self.dirs:
+            name = self.manifest_name(d)
+            before, want = before_all.get(name, "?"), offers.get(name)
+            if want == before:
+                say(self.name, name, f"{before} current")
+            elif check:
+                moved(self.name, name, before, want or "the version on GitHub", check)
+            else:
+                code, out, err = run(["copilot", "plugin", "update", name])
+                after = self.installed().get(name, "?")
+                if code:
+                    fail(self.name, name, f"copilot plugin update {name}: {last_line(err or out)}")
+                elif after == before:
+                    say(self.name, name, f"{before} current")
+                else:
+                    moved(self.name, name, before, after, check)
+
+
+class Gemini:
+    name = "gemini"
+    BASE = Path.home() / ".gemini" / "extensions"
+
+    def discover(self):
+        self.exts = []
+        for f in sorted(self.BASE.glob("*/.gemini-extension-install.json")) if self.BASE.is_dir() else []:
+            j = json.loads(f.read_text())
+            src, kind = j.get("source", ""), j.get("type", "?")
+            if kind == "link" and checkout_of(src) or MARKET in src:
+                self.exts.append((f.parent.name, src, kind))
+
+    def update(self, check):
+        if not self.exts:
+            say(self.name, "-", "no kit extension installed")
+            return
+        for name, src, kind in self.exts:
+            if kind == "link":
+                say(self.name, name, f"{version_in(Path(src) / 'gemini-extension.json')}, read in place from {src}")
+            else:
+                held(self.name, name, f"installed as {kind} from {src}: miadi-kit does not update this form. "
+                                     f"Run: gemini extensions update {name}")
+
+
+class Pi:
+    name = "pi"
+
+    def discover(self):
+        lines = checked(["pi", "list"]).splitlines()
+        self.pkgs = []
+        for i, line in enumerate(lines):
+            m = re.match(r"^ {4}(/\S.*)$", line)          # a package's resolved path, under its source
+            if not m or not i:
+                continue
+            src, path = lines[i - 1].strip(), m.group(1).strip()
+            local = src.startswith(("/", ".", "~"))
+            if local and checkout_of(path):
+                self.pkgs.append((src, path, True))
+            elif MARKET in src:
+                self.pkgs.append((src, path, False))
+
+    def update(self, check):
+        if not self.pkgs:
+            say(self.name, "-", "no kit package installed")
+            return
+        for src, path, local in self.pkgs:
+            name = Path(path).name
+            if local:
+                say(self.name, name, f"{version_in(Path(path) / 'package.json')}, read in place from {path}")
+            else:
+                held(self.name, name, f"installed from {src}: miadi-kit does not update this form. "
+                                     f"Run: pi update --extension {src}")
+
+
+ADAPTERS = {"claude": Claude, "codex": Codex, "copilot": Copilot, "gemini": Gemini, "pi": Pi}
+
+
+def update(check, wanted):
+    adapters = []
+    for h in wanted:
+        if not shutil.which(h):
+            say(h, "-", "not on PATH")
+            continue
+        a = ADAPTERS[h]()
+        try:
+            a.discover()
+        except (RuntimeError, OSError, ValueError, KeyError) as e:
+            fail(h, "-", str(e))
+            continue
+        adapters.append(a)
+    if os.environ.get("MIADI_ORCHESTRATION_KIT_ROOT"):
+        checkout_of(os.environ["MIADI_ORCHESTRATION_KIT_ROOT"])
+    for c in list(CHECKOUTS.values()):
+        c.sync(check)
+    for a in adapters:
+        try:
+            a.update(check)
+        except (RuntimeError, OSError, ValueError, KeyError) as e:
+            fail(a.name, "-", str(e))
+    n, kept, failed = COUNT["moved"], COUNT["held"], COUNT["failed"]
+    if check:
+        print(f"{n} would move. Nothing changed.")
+    elif n:
+        print(f"{n} updated. Start a new session in each harness to use them.")
+    elif not kept and not failed:
+        print("Everything is current.")
+    if kept:
+        print(f"{kept} left as it is: its line says why.")
+    if failed:
+        print(f"{failed} failed.")
+    return 1 if failed else 0
+
+
+def main(argv):
+    ap = argparse.ArgumentParser(prog="miadi-kit", description=__doc__.split("\n\n")[0])
+    sub = ap.add_subparsers(dest="command", required=True)
+    up = sub.add_parser("update", help="update every kit plugin this account has installed")
+    up.add_argument("--check", action="store_true", help="say what would move, change nothing")
+    up.add_argument("--harness", default=",".join(HARNESSES),
+                    help="comma-separated, from: " + ", ".join(HARNESSES))
+    args = ap.parse_args(argv)
+    wanted = [h.strip() for h in args.harness.split(",") if h.strip()]
+    unknown = [h for h in wanted if h not in ADAPTERS]
+    if unknown:
+        ap.error("unknown harness: " + ", ".join(unknown) + " (known: " + ", ".join(HARNESSES) + ")")
+    return update(args.check, wanted)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

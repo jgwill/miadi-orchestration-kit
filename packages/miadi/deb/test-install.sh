@@ -385,6 +385,15 @@ PY
     apt-get remove -y -qq miadi-feedback >/dev/null 2>&1 && test ! -e /usr/bin/miadi-feedback && echo "remove takes the command with it"
   fi
 
+  if dpkg -s miadi-kit >/dev/null 2>&1; then
+    dpkg -s miadi-kit | sed -n "s/^Version: /installed miadi-kit /p"
+    out=$(miadi-kit update --check)
+    for h in claude codex copilot gemini pi; do echo "$out" | grep -q "^$h .* not on PATH$"; done
+    echo "$out" | grep -qx "0 would move. Nothing changed." && echo "miadi-kit skips each harness a clean host lacks"
+    if miadi-kit update --harness nope 2>/dev/null; then echo "miadi-kit took an unknown harness" >&2; exit 1; fi
+    apt-get remove -y -qq miadi-kit >/dev/null 2>&1 && test ! -e /usr/bin/miadi-kit && echo "remove takes the command with it"
+  fi
+
   if dpkg -s miadi-server >/dev/null 2>&1; then
     test -x /usr/bin/miadi-server
     grep -qx "ExecStart=/usr/bin/miadi-server" /usr/lib/systemd/user/miadi-server.service

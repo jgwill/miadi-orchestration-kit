@@ -35,6 +35,7 @@ sudo apt update && sudo apt install miadi
 | `miadi-music-video` | score videos for an episode: ImageMagick and ffmpeg beside the two above (recommended by `miadi-music`) | 0.1.0 |
 | `miadi-film` | a film made with an episode: Kdenlive (editing), Ardour (sound design), ffmpeg, mediainfo, exiftool, sox, v4l-utils, and the `miadi-film` command; recommends `miadi-music`, OBS Studio, frei0r, mkvtoolnix | 0.1.0 |
 | `miadi-feedback` | for a maintainer's host: an issue opened with one of the kit's forms wakes a seat that ships a minor fix, answers a question, or brings the rest to a maintainer | 0.1.0 |
+| `miadi-kit` | `miadi-kit update`: each account updates the kit's plugins in every harness it uses (Claude Code, Codex, Copilot CLI, Gemini CLI, Pi) with one command. Not part of `miadi` | 0.1.0 |
 
 Each package is a directory here holding its `DEBIAN/control` and the files it
 installs. The packages are MIT-licensed (`LICENSE`, as in jgwill/Miadi), and
@@ -300,6 +301,26 @@ settings and directories, not the runtime.
 `MIADI_SRC` (default `/a/src/Miadi`), `GAIA_SRC` (`/a/src/gaia`, for the review
 script) and `PANE_WRITE_GUARD_SRC`, and caches builds under `MIADI_DEB_CACHE`
 (`~/.cache/miadi-deb`).
+
+## miadi-kit
+
+Run as the account whose plugins should move:
+
+```bash
+miadi-kit update --check                  # what would move; changes nothing
+miadi-kit update                          # update every kit plugin this account has installed
+miadi-kit update --harness claude,codex   # only these harnesses
+```
+
+Each harness is updated with its own command: `claude plugin update`, `codex plugin add`,
+`copilot plugin update`. Gemini extensions added with `link` and Pi packages added from a
+path read a kit checkout in place, so that checkout, and the one
+`MIADI_ORCHESTRATION_KIT_ROOT` names, is fast-forwarded instead. A checkout with commits
+of its own is left as it is, and its line says so. `--check` reads Claude Code's
+marketplace from its upstream, because a refresh of a marketplace with `autoUpdate`
+moves the plugins itself.
+From a kit checkout without the package, `source scripts/miadi-kit-plugins.sh` gives the
+same command.
 
 ## miadi-feedback
 

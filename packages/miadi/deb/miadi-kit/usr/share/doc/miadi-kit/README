@@ -1,0 +1,30 @@
+miadi-kit
+=========
+
+Run as the account whose plugins you want updated:
+
+    miadi-kit update                          update every kit plugin this account has installed
+    miadi-kit update --check                  say what would move, change nothing
+    miadi-kit update --harness claude,codex   only these harnesses
+
+One line per checkout and per plugin, then a count. A harness not on PATH is
+skipped.
+
+| harness | what miadi-kit runs |
+|---|---|
+| Claude Code | claude plugin marketplace update, then claude plugin update <id> --scope <scope> |
+| Codex | codex plugin add <id> when the kit's local marketplace holds a newer version |
+| Copilot CLI | copilot plugin update <name>, for a plugin installed from jgwill/miadi-orchestration-kit:<path> |
+| Gemini CLI | nothing: an extension added with gemini extensions link reads the checkout |
+| Pi | nothing: a package added with pi install <path> reads the checkout |
+
+A kit checkout that a harness reads in place, and the one MIADI_ORCHESTRATION_KIT_ROOT
+names, is fast-forwarded to its upstream. One with commits of its own, or not on a
+branch with an upstream, is left as it is, and its line says so.
+
+Running sessions keep the version they started with: start a new one to use an
+update.
+
+From a kit checkout without the package:
+
+    source <checkout>/scripts/miadi-kit-plugins.sh
