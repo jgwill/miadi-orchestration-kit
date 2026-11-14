@@ -132,7 +132,8 @@ done
 link="$url/"
 [ -n "$episode" ] && link="$url/?episode=$episode"
 
-context="phone-capture is running on this host. William can record from the iPhone in Safari at $link$serve_note. Takes land in the chosen episode's captures/ uncommitted; mia-listen wakes on them."
+person="${MIADI_MIA_COMPANION_PERSON_NAME:-the person}"
+context="phone-capture is running on this host. ${person^} can record from the iPhone in Safari at $link$serve_note. Takes land in the chosen episode's captures/ uncommitted; mia-listen wakes on them."
 case "$started" in
   yes) report "📱 phone-capture ${restarted:+re}started · $link$serve_note" "$context" ;;
   serve) report "📱 phone-capture: tailscale serve restored · $link" "$context" ;;

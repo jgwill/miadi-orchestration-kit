@@ -47,7 +47,7 @@ const EPISODE_NAME = /^\d{4}-\d{2}-\d{2}-episode-(\d+)-[a-z0-9-]+$/;
 const EXTENSIONS = { "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/wav": "wav", "audio/x-wav": "wav" };
 
 // A take is uploaded in parts while it records, so a recorder that fails on the phone
-// loses at most the last seconds. William, Episode 120, 2026-10-12: "as soon as I'm
+// loses at most the last seconds. The person, Episode 120, 2026-10-12: "as soon as I'm
 // recording something longer ... when you press stop it just says recording fail and
 // that's it. You lose everything." A part nobody finishes becomes a take on its own.
 const RECORDING_ID = /^[A-Za-z0-9-]{8,64}$/;
@@ -94,7 +94,7 @@ function listEpisodes(chronicleRoot) {
     .filter((entry) => existsSync(join(chronicleRoot, entry.name, "episode.yaml")))
     .map((entry) => ({ path: entry.name, number: Number(entry.name.match(EPISODE_NAME)[1]) }))
     // Every episode that can receive a take, highest number first. A cap of 80 once hid
-    // everything below Episode 120, including the one William wanted. A folder without
+    // everything below Episode 120, including the one the person wanted. A folder without
     // episode.yaml is not listed, because a take cannot be stored there.
     .sort((a, b) => b.number - a.number || b.path.localeCompare(a.path));
 }
@@ -132,7 +132,7 @@ async function receive(req, uploadsDir, extension) {
   return { path, bytes };
 }
 
-// William speaks English to Mia (his word, 2026-09-21), so English is assumed.
+// The person speaks English to Mia (his word, 2026-09-21), so English is assumed.
 // capture-service writes one transcript per sidecar field, named by language: spoken
 // English would otherwise come out as two outputs both named transcription_<take>_EN.txt,
 // the second overwriting the first and breaking its receipt. Spoken English is returned
@@ -152,7 +152,7 @@ export class SpokenLanguageTranscriber {
   }
 }
 
-// Whisper drops the last words when speech runs to the very end of the file. William, Episode
+// Whisper drops the last words when speech runs to the very end of the file. The person, Episode
 // 295, 2026-10-21: "if I press stop right after finish talking we lose 10 seconds". The audio
 // held every second; the transcript stopped at "when the". The transcriber hears a copy with
 // silence after it, and the take keeps its own bytes. When ffmpeg is missing or refuses, it
@@ -189,7 +189,7 @@ export class TrailingSilenceTranscriber {
 const MAX_REPLY_CHARS = 20_000;
 
 // mia-listen writes a heartbeat per episode (listenerOf in mia-listen.mjs holds the same
-// rules). The page asks for it, so William can see who is in the room: a seat listening,
+// rules). The page asks for it, so the person can see who is in the room: a seat listening,
 // a seat answering a take, a seat that has just answered and is re-arming, or nobody.
 const LISTENER_STALE_MS = 120_000;
 const ANSWERING_STALE_MS = 15 * 60 * 1000;
@@ -215,14 +215,14 @@ export function listenerState(dir, episode) {
   }
 }
 
-// The page says when William is recording, so a reply that lands then waits in silence
+// The page says when the person is recording, so a reply that lands then waits in silence
 // and the seat that posts it is told. On 2026-10-08 (Episode 339) a reply started playing
 // in the middle of a take and cut it. Held in memory and kept alive by the page's
 // heartbeat: a page that goes quiet stops counting as recording.
 const RECORDING_STALE_MS = 45_000;
 
-// The conversation, one thread: William's takes and Mia's replies in the order they
-// happened. A sent take used to hide every earlier reply (William, 2026-10-08).
+// The conversation, one thread: the person's takes and Mia's replies in the order they
+// happened. A sent take used to hide every earlier reply (the person, 2026-10-08).
 const THREAD_LIMIT = 40;
 const TAKE_ID = /^\d{12}$/;
 
@@ -256,7 +256,7 @@ function listTakes(dir) {
 }
 
 // ---------- marks (smcraft Spec 83) ----------
-// William marks the episode's drawings on his stateloom canvas or in the room: elements or
+// The person marks the episode's drawings on his stateloom canvas or in the room: elements or
 // an area, a few words, a thread of replies. The hub keeps them beside each drawing as
 // `<name>.<smdf|erdf|sqdf>.marks.json`. On 2026-10-20 he held a seven-mark conversation on
 // Episode 550's drawings, and this page said nothing had been said (lane U, U1 and U14).
@@ -494,13 +494,13 @@ function findReply(repliesDir, id) {
   return null;
 }
 
-// William's thumbs on her replies (Episode 120, 2026-10-12: "with your last message I would
+// The person's thumbs on her replies (Episode 120, 2026-10-12: "with your last message I would
 // have really pressed a thumbs up"). One line per press, the latest counts. The text's hash
 // lets a Jev run on the same words be matched to his judgment of them.
 const FEEDBACK = new Set(["up", "down", ""]);
 
 // Cards under a reply for what it names (a diagram, a review, an issue, a file in the
-// episode). Few, short, and only links William can open: the seat resolves them.
+// episode). Few, short, and only links the person can open: the seat resolves them.
 // The loop that made a reply (its Jev run, what was flagged, what the turn did), posted by
 // mia-listen. A thumb on the reply becomes a ruling on that run in the decisions ledger, in
 // lane-check's shape, so the thumbs calibrate the check (Episode 120, 2026-10-12).
@@ -788,10 +788,10 @@ export function createApp({
     if (loop) reply.loop = loop;
     mkdirSync(repliesDir, { recursive: true });
     appendFileSync(join(repliesDir, `${reply.episode}.jsonl`), `${JSON.stringify(reply)}\n`, { mode: 0o600 });
-    // Told to the seat that posts: while William records, the reply shows on his page and
+    // Told to the seat that posts: while the person records, the reply shows on his page and
     // waits in silence until he has sent his take.
     const recording = recorderState(reply.episode).recording ? { recording: true } : {};
-    // The text is kept either way: William can still read and copy it.
+    // The text is kept either way: the person can still read and copy it.
     const problem = originProblem(reply.origin);
     const counted = { ...(steps.length ? { steps: steps.length } : {}), ...(mark ? { mark } : {}) };
     // `voiced` says whether her voice for it exists when this answers; false with no
@@ -829,7 +829,7 @@ export function createApp({
     return { success: true, episode, listening: presence.state !== "away", presence, recorder: recorderState(episode), replies };
   }
 
-  // POST /api/replies/<id>/feedback {value: "up" | "down" | ""} — William's judgment of one reply.
+  // POST /api/replies/<id>/feedback {value: "up" | "down" | ""} — the person's judgment of one reply.
   async function giveFeedback(req, id) {
     const reply = findReply(repliesDir, id);
     if (!reply) throw new Refusal(404, `no such reply: ${id}`);
@@ -844,7 +844,7 @@ export function createApp({
     mkdirSync(join(repliesDir, "feedback"), { recursive: true });
     appendFileSync(join(repliesDir, "feedback", `${reply.episode}.jsonl`), `${JSON.stringify(entry)}\n`, { mode: 0o600 });
     log(`reply ${id}: feedback ${value || "taken back"}`);
-    // A thumb is William's ruling on the Jev run that checked this reply. Taking a thumb
+    // A thumb is the person's ruling on the Jev run that checked this reply. Taking a thumb
     // back writes no ruling; the feedback file keeps that he did.
     let ruling = null;
     if (value && reply.loop?.jev_record && decisionsLedger) {
@@ -861,7 +861,7 @@ export function createApp({
 
   // ---- The read gate's rulings (Episode 567, fork 01, 2026-11-03). The witness plugin's
   // read-gate.mjs asks Jev whether a file bears on a seat's mission and keeps each verdict in
-  // ~/.miadi/decisions/read-gate.jsonl. Here William rules on each verdict, one tap: read or
+  // ~/.miadi/decisions/read-gate.jsonl. Here the person rules on each verdict, one tap: read or
   // skip. The ruling record keeps read-gate.mjs's shape, so its `rulings` and `calibrate`
   // read what this page writes. A ruling after a ruling counts; the latest is in force.
   const READ_GATE_RULINGS = new Set(["read", "skip"]);
@@ -886,7 +886,7 @@ export function createApp({
     };
   }
 
-  // POST /api/rulings/<decision id> {verdict: "read" | "skip", words?} — William's ruling on one verdict.
+  // POST /api/rulings/<decision id> {verdict: "read" | "skip", words?} — the person's ruling on one verdict.
   async function postRuling(req, id) {
     const records = readGateRecords();
     const decision = records.find((r) => r.kind === "decision" && r.id === id);

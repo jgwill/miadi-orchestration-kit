@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildState, isFlagged, parseArgs } from "./jev-check.mjs";
+import { buildState, isFlagged, loadQuestions, parseArgs } from "./jev-check.mjs";
 
 const SCRIPT = fileURLToPath(new URL("./jev-check.mjs", import.meta.url));
 const QUESTIONS = JSON.parse(readFileSync(new URL("./jev/questions.json", import.meta.url), "utf8"));
@@ -55,12 +55,12 @@ test("several takes reach Jev in order, each under its id", () => {
 test("a dry check reads the take and the draft from stdin, sends nothing, and exits 0", { skip: deciderMissing && "lane-check's decider is not on this host" }, () => {
   const root = episodeWithTake("261012000000", "Mia, check your reply before I read it.");
   const out = join(root, "record.json");
-  const result = run(["check", "--episode", root, "--take", "261012000000", "--draft", "-", "--fact", "commit abc pushed", "--dry", "--out", out], "William, it is checked.");
+  const result = run(["check", "--episode", root, "--take", "261012000000", "--draft", "-", "--fact", "commit abc pushed", "--dry", "--out", out], "Ada, it is checked.");
   assert.equal(result.status, 0, result.stderr);
   const record = JSON.parse(readFileSync(out, "utf8"));
   assert.equal(record.sent, false);
   assert.equal(record.requested_model, QUESTIONS.model);
-  assert.equal(record.draft, "William, it is checked.");
+  assert.equal(record.draft, "Ada, it is checked.");
   assert.deepEqual(record.evidence, ["commit abc pushed"]);
   assert.deepEqual(record.answers.map((a) => a.id), Object.keys(QUESTIONS.questions));
 });
@@ -70,4 +70,13 @@ test("a check that cannot run says to deliver anyway, and exits 1", () => {
   const result = run(["check", "--episode", root, "--take", "999999999999", "--draft", "-", "--dry"], "draft");
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Deliver the return anyway/);
+});
+
+test("questions.json names no one: {{person}} becomes MIADI_MIA_COMPANION_PERSON_NAME, or the person", () => {
+  const file = fileURLToPath(new URL("./jev/questions.json", import.meta.url));
+  assert.doesNotMatch(readFileSync(file, "utf8"), /William|Guillaume/);
+  const named = JSON.stringify(loadQuestions(file, { MIADI_MIA_COMPANION_PERSON_NAME: "Ada" }));
+  assert.match(named, /send to Ada as an answer/);
+  assert.doesNotMatch(named, /\{\{person\}\}/);
+  assert.match(JSON.stringify(loadQuestions(file, {})), /send to the person as an answer/);
 });

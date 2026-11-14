@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read the tone of a take: what the voice did, beside the words it said.
 
-William, Episode 339, 2026-09-23: the transcript keeps the words and loses the
+The person, Episode 339, 2026-09-23: the transcript keeps the words and loses the
 laugh, the slowing down, the rise in pitch. This measures those from the audio
 that is already kept, and writes them next to the transcript, never inside it.
 

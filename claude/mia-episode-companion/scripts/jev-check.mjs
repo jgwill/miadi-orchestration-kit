@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// jev-check — before a return reaches William, ask Jev the questions in jev/questions.json
+// jev-check — before a return reaches the person, ask Jev the questions in jev/questions.json
 // about it, and print each answer with its flag. Step 5 of the mia-episode-companion turn.
 //
 //   node jev-check.mjs check --episode <dir> --take <id> [--take <id>] --draft <file|->
 //        [--fact "<what this turn did>"]... [--evidence <file>] [--model <m>] [--dry] [--out <file>]
 //   node jev-check.mjs models          # the key's service and models; no inference, no charge
 //
-// What leaves the host: William's take (its validated English text), the draft, the facts,
+// What leaves the host: the person's take (its validated English text), the draft, the facts,
 // and the typed questions. Nothing else. The key is read by lane-check's decider from the
 // environment or one literal line of ~/.env, and it is never printed. `--dry` sends nothing.
 //
@@ -14,7 +14,7 @@
 // 0 whenever answers came back, flags or not, and 1 only when the check did not run.
 //
 // Each run appends one record to ${MIADI_DECISIONS_DIR:-~/.miadi/decisions}/mia-return.jsonl,
-// outside every repository, beside lane-check.jsonl and proposal-score.jsonl. William's
+// outside every repository, beside lane-check.jsonl and proposal-score.jsonl. The person's
 // rulings on those records are what the thresholds will be set from.
 //
 // The decider is lane-check's (jgwill/smcraft examples/decision-gate/lane-check), imported by
@@ -68,6 +68,13 @@ export function buildState({ takes, draft, evidence }) {
   return { take, draft: draft.trim(), evidence };
 }
 
+// questions.json says {{person}} where it means the one Mia companions; the name comes from
+// MIADI_MIA_COMPANION_PERSON_NAME on this host, never from the file ("the person" when unset).
+export function loadQuestions(file, env = process.env) {
+  const name = String(env.MIADI_MIA_COMPANION_PERSON_NAME ?? "").trim() || "the person";
+  return JSON.parse(readFileSync(file, "utf8").replaceAll("{{person}}", JSON.stringify(name).slice(1, -1)));
+}
+
 export function wireQuestions(questions) {
   return Object.fromEntries(Object.entries(questions).map(([id, q]) => [id, { type: q.type, instructions: q.instructions, criteria: q.criteria }]));
 }
@@ -92,7 +99,7 @@ async function loadDecider() {
 async function check(args) {
   if (!args.episode) throw new Error("check needs --episode <dir>");
   if (!args.take.length) throw new Error("check needs --take <id>");
-  const set = JSON.parse(readFileSync(args.questions, "utf8"));
+  const set = loadQuestions(args.questions);
   const takes = args.take.map((id) => ({ id, text: readTake(args.episode, id) }));
   const draft = readDraft(args.draft);
   const evidence = [

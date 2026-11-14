@@ -1,6 +1,6 @@
 # mia-episode-companion — Mia in a Claude Code seat
 
-William records a voice take on his phone inside an episode. Mia hears it and answers.
+The person records a voice take on their phone inside an episode. Mia hears it and answers.
 Episode 339 built that loop for the Pi coding agent on ilex
 (`.pi/extensions/episode-companion/` in the vessel). This plugin gives a Claude Code session
 the same loop.
@@ -30,6 +30,19 @@ never read.
 claude --plugin-dir /workspace/repos/jgwill/miadi-orchestration-kit/claude/mia-episode-companion
 ```
 
+### Who Mia companions
+
+The plugin names no one. Set the person's name on the host, where the seat starts:
+
+```bash
+export MIADI_MIA_COMPANION_PERSON_NAME="<their name>"
+```
+
+A SessionStart hook (`hooks/person.sh`) tells Mia the name, and the wake
+(`NEW TAKE FROM <NAME>`), the delivery lines, phone-capture's context and Jev's questions
+(`{{person}}` in `scripts/jev/questions.json`) all use it. Unset, they say "the person" and
+Mia is told not to guess a name.
+
 Or through `/plugin` from the `miadi-orchestration-kit` marketplace. Commands, the skill,
 the agent, and the SessionStart hook load at session start. Hooks do not hot-swap, so a
 plugin enabled mid-session starts phone-capture only from the next session.
@@ -54,12 +67,12 @@ and the next `/mia-listen` wakes on them at once.
 
 ## The Jev check before a reply
 
-Before a return reaches William, `scripts/jev-check.mjs` asks Jev the typed questions in
+Before a return reaches the person, `scripts/jev-check.mjs` asks Jev the typed questions in
 `scripts/jev/questions.json` about it: does it answer each ask, hand a decision back to him
 alone, claim something done without evidence, assume something he did not say, or limit what
 he asked for by citing an outside authority. Mia revises or keeps each flagged sentence and
 says why. A flag never blocks delivery. Each run is kept in
-`~/.miadi/decisions/mia-return.jsonl` for William's rulings. The model is pinned in the
+`~/.miadi/decisions/mia-return.jsonl` for the person's rulings. The model is pinned in the
 questions file.
 
 ```bash
@@ -73,7 +86,7 @@ node --test scripts/jev-check.test.mjs      # no call leaves the host
 
 `phone-capture/` is a small service carried by this plugin. It lets Safari on the iPhone
 record straight into an episode's `captures/`, and the listener wakes on those takes too.
-Mia's reply comes back to the same page with `mia-listen reply`. There, William can copy
+Mia's reply comes back to the same page with `mia-listen reply`. There, the person can copy
 it or tap **Hear Mia** to have the Miadi voice layer render it in her voice.
 
 The plugin's SessionStart hook runs `phone-capture/ensure.sh`. On a host with
@@ -86,7 +99,7 @@ The plugin's SessionStart hook runs `phone-capture/ensure.sh`. On a host with
 A running service is left alone. A lock keeps two sessions from starting two services.
 See `phone-capture/README.md`.
 
-A take is not held only in the phone (0.3.0, Episode 120, 2026-10-12). William lost a take
+A take is not held only in the phone (0.3.0, Episode 120, 2026-10-12). The person lost a take
 of a few minutes when Safari's recorder failed at Stop, and the page said nothing was sent.
 - **While recording**, the page sends what it captured every 10 seconds to
   `POST /api/takes/part`. Stop still sends the whole take, under the same recording id.
@@ -98,7 +111,7 @@ of a few minutes when Safari's recorder failed at Stop, and the page said nothin
   never a second one.
 - **A reply that arrives while another plays** waits for it to end, then plays.
 
-Under each reply (0.4.0, same day): a 👍 and a 👎 William can press, kept with the reply,
+Under each reply (0.4.0, same day): a 👍 and a 👎 the person can press, kept with the reply,
 and cards for what the reply names, passed with `mia-listen.mjs reply --related
 "<label>=<target>"` (a file of the episode opens in the chronicle room).
 
