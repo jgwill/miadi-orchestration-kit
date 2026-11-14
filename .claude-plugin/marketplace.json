@@ -60,6 +60,12 @@
       "version": "0.9.0"
     },
     {
+      "name": "miadi-film",
+      "source": "./claude/miadi-film",
+      "description": "Film work for agents beside the miadi-film package: /scenes-timeline cuts an episode's videos (its Deep Diver explainers) into scenes and lays them on a Kdenlive timeline with black between them, an empty music track and a guide at each black, then checks it through melt and in Kdenlive on a hidden display.",
+      "version": "0.1.0"
+    },
+    {
       "name": "miadi-operator-desk",
       "source": "./claude/miadi-operator-desk",
       "description": "The operator desk (T7): William's questions about how the factory works answered from the owning team's text and checked against the tool, kept in a ledger, an unanswered one sent to the team that owns the tool, and a question that comes back turned into a pointer in the skill. Teaches how a cycle closes: what needs the person comes back as an explainer and as circle turns they answer, and the agents act on each answer.",

@@ -1,0 +1,9 @@
+{
+  "name": "miadi-film",
+  "description": "Film work on a Miadi host for agents, beside the miadi-film package (Kdenlive, Ardour, ffmpeg). The scenes-to-timeline skill cuts videos (a Deep Diver explainer, a screenwalk) into their scenes and lays them on a Kdenlive timeline with a pause of black between scenes, an empty music track and a guide at each pause, for the editor and the composer to work on. Its scripts write the project, check it through melt (length, each black's place, silence under it) and open a copy in Kdenlive on a hidden display to show what Kdenlive keeps. /scenes-timeline runs the whole pass for an episode.",
+  "version": "0.1.0",
+  "author": {
+    "name": "jgwill"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/claude/miadi-film"
+}
