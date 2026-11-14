@@ -37,5 +37,6 @@ The Jev decider is the one the Factory already shares: lane-check's `lib/decider
 
 ## Recording the export
 
-- Episode: the one minted for this work on 2026-11-14 holds this folder under `rispecs:` and the prototype under `prototypes:` (published address `https://github.com/Gerico1007/assembly-call`; the clone on eury is `/home/gmusic/salix/production/agent-telephone`).
-- Issues: the kit's issue for this plugin, and the issue Jerry's agent opens in `Gerico1007/assembly-call` for the relay voice that could not repeat. Both are named in the episode.
+- Prototype: published address `https://github.com/Gerico1007/assembly-call`; the clone on eury is `/home/gmusic/salix/production/agent-telephone`.
+- Episode: Episode 576 (miadi-chronicle://576), minted 2026-11-14, holds this folder under `rispecs:` (commit `7b5e1c2`) and the prototype under `prototypes:`.
+- Issues: jgwill/miadi-orchestration-kit#154 for this plugin, and Gerico1007/assembly-call#1, opened by the Miette seat of Jerry's account for the relay limits of call `1fa8c5ec`, with the smallest fix proposed for Jerry to choose. Both are named in Episode 576.
