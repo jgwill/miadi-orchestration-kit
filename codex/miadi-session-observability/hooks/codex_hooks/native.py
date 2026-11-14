@@ -15,6 +15,7 @@ import tempfile
 HERE = Path(__file__).resolve().parent
 CODEX_HOME = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
+PROPOSED_PLAN = re.compile(r"<proposed_plan>\s*(.*?)\s*</proposed_plan>", re.S)
 
 
 def dumps(value):
@@ -167,6 +168,101 @@ def archive(transcript, output, agent_id=None):
                     progressive.extend(line)
         for name in ("_responses_progressive.jsonl", "_codex_responses_progressive.jsonl"):
             atomic(output / name, progressive)
+        plans(dest, output)
+
+
+
+def turn_plan(transcript, turn):
+    """The plan one turn proposed, read from the live rollout at Stop: its Plan item, else the
+    <proposed_plan> block of its assistant message. Unsanitized; the caller sanitizes."""
+    found = block = ""
+    with contextlib.suppress(OSError), Path(transcript).open("rb") as lines:
+        for line in lines:
+            if b"Plan" not in line and b"proposed_plan" not in line:
+                continue
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            payload = record.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            item = payload.get("item") or {}
+            if payload.get("type") == "item_completed" and payload.get("turn_id") == turn \
+                    and isinstance(item, dict) and item.get("type") == "Plan":
+                found = item.get("text") or found
+            elif payload.get("type") == "message" and payload.get("role") == "assistant" and \
+                    (payload.get("internal_chat_message_metadata_passthrough") or {}).get("turn_id") == turn:
+                text = "".join(c.get("text", "") for c in payload.get("content") or [] if isinstance(c, dict))
+                match = PROPOSED_PLAN.search(text)
+                block = match[1] if match else block
+    return found or block
+
+
+def plans(transcript, output):
+    """Keep each Plan Mode plan as plans/session_<id>_<yyMMddHHmm>.md, the Claude plugin's name.
+
+    Codex holds a proposed plan as its own rollout item (event_msg item_completed, item type
+    Plan) and leaves it out of the Stop hook's last_assistant_message. An assistant message
+    carrying a <proposed_plan> block stands in when a turn has no Plan item. The transcript
+    read here is the sanitized archive, so nothing unsanitized reaches plans/.
+    """
+    found = {}
+    sid = output.name
+    with Path(transcript).open("rb") as lines:
+        for line in lines:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            payload = record.get("payload") or {}
+            if not isinstance(payload, dict):
+                continue
+            item = payload.get("item") or {}
+            if record.get("type") == "event_msg" and payload.get("type") == "item_completed" \
+                    and isinstance(item, dict) and item.get("type") == "Plan" and item.get("text"):
+                turn = payload.get("turn_id") or ""
+                found[turn] = {"plan_id": item.get("id") or turn + "-plan", "turn_id": turn,
+                               "text": item["text"], "at": record.get("timestamp"), "source": "codex Plan item"}
+            elif record.get("type") == "response_item" and payload.get("type") == "message" \
+                    and payload.get("role") == "assistant":
+                text = "".join(c.get("text", "") for c in payload.get("content") or [] if isinstance(c, dict))
+                match = PROPOSED_PLAN.search(text)
+                meta = payload.get("internal_chat_message_metadata_passthrough") or {}
+                turn = meta.get("turn_id") or payload.get("id") or ""
+                if match and turn not in found:
+                    found[turn] = {"plan_id": turn + "-plan", "turn_id": turn, "text": match[1],
+                                   "at": record.get("timestamp"), "source": "codex <proposed_plan> block"}
+    if not found:
+        return
+    index = output / "_codex_plans.jsonl"
+    with (output / ".plans.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        kept = set()
+        with contextlib.suppress(OSError):
+            for line in index.read_text().splitlines():
+                with contextlib.suppress(ValueError):
+                    kept.add(json.loads(line).get("plan_id"))
+        for plan in found.values():
+            if plan["plan_id"] in kept or not SAFE_ID.fullmatch(plan["plan_id"]):
+                continue
+            import datetime
+            try:
+                when = datetime.datetime.fromisoformat(plan["at"].replace("Z", "+00:00")).astimezone()
+            except (AttributeError, ValueError):
+                when = datetime.datetime.now().astimezone()
+            stem = "session_%s_%s" % (sid, when.strftime("%y%m%d%H%M"))
+            path, n = output / "plans" / (stem + ".md"), 2
+            while path.exists():
+                path, n = output / "plans" / ("%s-%d.md" % (stem, n)), n + 1
+            head = "---\nsession_id: %s\nturn_id: %s\nplan_id: %s\ntimestamp: %s\nharness: codex\nsource: %s\n---\n\n" % (
+                sid, plan["turn_id"], plan["plan_id"], when.isoformat(timespec="seconds"), plan["source"])
+            atomic(path, (head + plan["text"].rstrip("\n") + "\n").encode())
+            entry = {"session_id": sid, "turn_id": plan["turn_id"], "plan_id": plan["plan_id"],
+                     "path": str(path.relative_to(output)), "chars": len(plan["text"]),
+                     "source": plan["source"], "planned_at": when.isoformat(timespec="seconds")}
+            with index.open("ab") as out:
+                out.write((dumps(entry) + "\n").encode())
 
 
 def sweep(root):
@@ -252,6 +348,8 @@ def main():
         archive(*args)
     elif mode == "sweep":
         sweep(*args)
+    elif mode == "turn-plan":
+        sys.stdout.write(turn_plan(*args))
     elif mode == "publications":
         publications(json.load(sys.stdin), args[0])
     elif mode == "patch-paths":

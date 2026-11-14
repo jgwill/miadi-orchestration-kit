@@ -15,7 +15,7 @@
 #   find whose start path is /                         a walk of every mount
 #   find, grep -r, rg, ls -R over a sessiondata root   a fleet scan of the capture
 #   cat, jq, grep, head, tail, sed, awk, less, wc, python on a raw capture file
-#     <root>/<session uuid>/_claude_*, last_claude_*, _responses_*, _transcript*
+#     <root>/<session uuid>/_claude_*, last_claude_*, _codex_*, last_codex_*, _responses_*, _transcript*
 #
 # WHAT IT ALLOWS
 #   find under any other folder. A relative path is read against the folder the command `cd`s
@@ -26,7 +26,7 @@
 # OFF  MIADI_SESSION_LOOKUP_GUARD=off in the session's environment, for work on the capture
 #      itself (hooks-core, hooks-interpreter). A prefix in the command text does not count.
 #
-# ROOTS  CLAUDE_SESSIONDATA_ROOT, MIADI_SESSION_DIR, MIADI_SESSIONDATA_ROOT,
+# ROOTS  CLAUDE_SESSIONDATA_ROOT, CODEX_SESSIONDATA_ROOT, MIADI_SESSION_DIR, MIADI_SESSIONDATA_ROOT,
 #        SESSION_DATA_ROOT, /src/_sessiondata; each resolved through its links.
 #
 # EXIT  0 allow, also on any internal failure. 2 block, the doors on stderr.
@@ -50,7 +50,7 @@ cmd = (p.get("tool_input") or {}).get("command") or ""
 cwd = p.get("cwd") or os.getcwd()
 
 roots = set()
-for name in ("CLAUDE_SESSIONDATA_ROOT", "MIADI_SESSION_DIR", "MIADI_SESSIONDATA_ROOT", "SESSION_DATA_ROOT"):
+for name in ("CLAUDE_SESSIONDATA_ROOT", "CODEX_SESSIONDATA_ROOT", "MIADI_SESSION_DIR", "MIADI_SESSIONDATA_ROOT", "SESSION_DATA_ROOT"):
     v = os.environ.get(name)
     if v:
         roots.add(os.path.realpath(v))
@@ -66,8 +66,8 @@ def under_root(path, base):
     r = resolve(path, base)
     return any(r == root or r.startswith(root + os.sep) for root in roots)
 
-RAW = re.compile(r"/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\*)/(_claude_|last_claude_|_responses_|_transcript)")
-RAW_NAMES = ("_claude_", "last_claude_", "_responses_", "_transcript")
+RAW = re.compile(r"/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\*)/(_claude_|last_claude_|_codex_|last_codex_|_responses_|_transcript)")
+RAW_NAMES = ("_claude_", "last_claude_", "_codex_", "last_codex_", "_responses_", "_transcript")
 READERS = {"cat", "jq", "grep", "egrep", "rg", "head", "tail", "sed", "awk", "less", "wc", "python", "python3"}
 
 try:

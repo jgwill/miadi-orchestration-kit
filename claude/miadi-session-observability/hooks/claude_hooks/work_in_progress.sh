@@ -39,9 +39,17 @@ miadi_repo_of() {  # <folder>
     printf '%s' "$here"
 }
 
-# True while a Claude Code process holds this session (its live registry, ~/.claude/sessions/<pid>.json).
-miadi_session_live() {  # <session id>
+# True while the session can still be working. A Claude Code session is held by a process in its
+# live registry (~/.claude/sessions/<pid>.json). A Codex session's marker carries its agent pid
+# (codex_hooks/work_in_progress.sh); one written under Codex's shared app-server has none and
+# counts as live for the 12 hours the scan already allows.
+miadi_session_live() {  # <session id> [agent pid] [harness]
     local file
+    if [ -n "${2:-}" ]; then
+        kill -0 "$2" 2>/dev/null
+        return
+    fi
+    [ "${3:-}" = codex ] && return 0
     file=$(grep -ls "\"sessionId\":\"$1\"" "$HOME"/.claude/sessions/*.json 2>/dev/null | head -n 1)
     [ -n "$file" ] && kill -0 "$(basename "$file" .json)" 2>/dev/null
 }
@@ -51,25 +59,25 @@ miadi_session_live() {  # <session id>
 # A person should not have to say "another agent is working here". One jq reads every marker
 # and a repository is worked out once per folder: this runs on every prompt.
 claude_work_neighbours() {  # <hook input json>
-    local sid cwd repo dir other other_cwd started prompt where files shown=0 extra=0 lines=""
+    local sid cwd repo dir other other_cwd started prompt pid harness where files shown=0 extra=0 lines=""
     local -A repo_of_cwd=()
     IFS=$'\t' read -r sid cwd < <(jq -r '[.session_id // "", .cwd // ""] | @tsv' <<< "$1" 2>/dev/null)
     [ -n "$sid" ] && [ -n "$cwd" ] || return 0
     dir=$(miadi_working_dir)
     [ -d "$dir" ] || return 0
     repo=$(miadi_repo_of "$cwd") || return 0
-    while IFS=$'\t' read -r other other_cwd started prompt; do
+    while IFS=$'\t' read -r other other_cwd started prompt pid harness; do
         [ "$other" != "$sid" ] && [ -n "$other_cwd" ] || continue
         [ -n "${repo_of_cwd[$other_cwd]+x}" ] || repo_of_cwd[$other_cwd]=$(miadi_repo_of "$other_cwd" 2>/dev/null)
         [ "${repo_of_cwd[$other_cwd]}" = "$repo" ] || continue
         if [ "$shown" -ge 3 ]; then extra=$((extra + 1)); continue; fi
-        miadi_session_live "$other" || continue
+        miadi_session_live "$other" "$pid" "$harness" || continue
         shown=$((shown + 1))
         where=$(tail -n 1 "$CLAUDE_SESSIONDATA_ROOT/$other/_terminal_binding.jsonl" 2>/dev/null | jq -r '.tmux.session // empty' 2>/dev/null)
-        files=$(tail -n 60 "$CLAUDE_SESSIONDATA_ROOT/$other/_claude_files_written.jsonl" 2>/dev/null | jq -r '.path // empty' 2>/dev/null \
+        files=$(cat "$CLAUDE_SESSIONDATA_ROOT/$other/_claude_files_written.jsonl" "$CLAUDE_SESSIONDATA_ROOT/$other/_codex_files_written.jsonl" 2>/dev/null | tail -n 60 | jq -r '.path // empty' 2>/dev/null \
             | grep -F "$repo/" | sed "s#^$repo/##" | tac | awk '!seen[$0]++' | head -n 5 | paste -sd, - | sed 's/,/, /g')
-        lines+="- ${where:-a session} ($other), since $started: \"${prompt:0:120}\"${files:+. Recent files: $files}"$'\n'
-    done < <(find "$dir" -maxdepth 1 -name '*.json' -mmin -720 -exec jq -r '[.session_id // "", .cwd // "", .started_at // "", .prompt // ""] | @tsv' {} + 2>/dev/null)
+        lines+="- ${where:-a ${harness:-claude} session} ($other), since $started: \"${prompt:0:120}\"${files:+. Recent files: $files}"$'\n'
+    done < <(find "$dir" -maxdepth 1 -name '*.json' -mmin -720 -exec jq -r '[.session_id // "", .cwd // "", .started_at // "", .prompt // "", (.agent_pid // "" | tostring), .harness // ""] | @tsv' {} + 2>/dev/null)
     [ "$shown" -gt 0 ] || return 0
     printf 'Other sessions have a reply in progress in this repository (%s). Keep off what they hold. For what one did: miadi-hooks-interpret digest <id>\n%s' "$repo" "$lines"
     [ "$extra" -eq 0 ] || printf 'And %d more.\n' "$extra"

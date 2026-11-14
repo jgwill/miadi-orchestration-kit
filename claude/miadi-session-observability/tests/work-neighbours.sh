@@ -47,4 +47,15 @@ case "$told" in *"(b)"*) echo "FAIL a session whose process ended was named"; fa
 
 case "$(prompt d "$repo" 'fifth')" in *"(a)"*) echo "FAIL a marker a crash left behind was named"; failures=$((failures + 1)) ;; *) echo "ok   a marker older than 12 hours is left out" ;; esac
 
+# A Codex session has no ~/.claude/sessions entry; its marker carries its agent pid and harness.
+sleep 60 & codex_pid=$!
+printf '{"session_id":"cx","started_at":"2026-11-14T18:00:00Z","cwd":"%s","prompt":"codex request","harness":"codex","agent_pid":%d}' "$repo" "$codex_pid" > "$XDG_STATE_HOME/miadi/working/cx.json"
+mkdir -p "$CLAUDE_SESSIONDATA_ROOT/cx"
+printf '%s\n' "{\"path\":\"$repo/codex/made.py\"}" > "$CLAUDE_SESSIONDATA_ROOT/cx/_codex_files_written.jsonl"
+told=$(prompt e "$repo" 'sixth')
+contains "a live Codex session is named" '(cx), since' "$told"
+contains "with the files Codex wrote" "Recent files: codex/made.py" "$told"
+kill "$codex_pid"; wait "$codex_pid" 2>/dev/null
+case "$(prompt e "$repo" 'seventh')" in *"(cx)"*) echo "FAIL a Codex session whose process ended was named"; failures=$((failures + 1)) ;; *) echo "ok   a Codex session whose process ended is left out" ;; esac
+
 [ "$failures" -eq 0 ] && echo "all passed" || { echo "$failures failed"; exit 1; }

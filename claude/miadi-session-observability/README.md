@@ -71,6 +71,8 @@ jgwill/miadi-orchestration-kit#56.
   `cd <repo> && grep -r … <dir>` from a shell whose folder is in the capture is allowed, and
   `cd <session folder>; cat _claude_…` is refused. A `cd` ends at a pipe, a background `&` or
   the `)` of its subshell, and one the guard cannot read falls back to the shell's folder.
+  Since 0.1.46 a Codex session's raw `_codex_*` and `last_codex_*` files are refused the same way,
+  and the Codex plugin carries this guard as the same text.
 - **tmux server guard** (0.1.36). A Bash command that ends the shared tmux server is refused:
   `tmux kill-server` and `tmux kill-session -a` without `-L` or `-S`, `pkill` or `killall` on
   tmux, `kill` of the server's pid, `systemctl stop` or `restart` of `tmux-server`. `TMUX_TMPDIR`

@@ -43,6 +43,8 @@ expect "jq on one session's raw capture is refused" 2 "jq -c . $ROOT/$SID/_claud
 expect "tail on a last_claude file is refused" 2 "tail -5 $ROOT/$SID/last_claude_PreToolUse.json"
 expect "a glob over every session's capture is refused" 2 "cat $ROOT/*/_claude_PreToolUse.jsonl | wc -l"
 expect "a reader behind timeout is still seen" 2 "timeout 30 grep -c Bash $ROOT/$SID/_claude_PostToolUse.jsonl"
+expect "jq on a Codex session's raw capture is refused" 2 "jq -c . $ROOT/$SID/_codex_user_inputs.jsonl"
+expect "tail on a last_codex file is refused" 2 "tail -5 $ROOT/$SID/last_codex_Stop.json"
 
 expect "tide agents list is allowed" 0 "timeout 30 tide agents list | grep mw-rwl-repo"
 expect "miadi-hooks-interpret on a session dir is allowed" 0 "miadi-hooks-interpret digest $ROOT/$SID"

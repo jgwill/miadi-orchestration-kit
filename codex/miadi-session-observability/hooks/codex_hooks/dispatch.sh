@@ -7,6 +7,7 @@ for dependency in python3 jq perl; do
 done
 . "$SCRIPT_DIR/lib.sh"
 . "$SCRIPT_DIR/terminal_binding.sh"
+. "$SCRIPT_DIR/work_in_progress.sh"
 
 if [ "${2:-}" = --job ]; then
     raw=$(cat "$3")
@@ -26,6 +27,8 @@ if { [ "$event" = SessionEnd ] || [ "$event" = Interrupt ]; } && [ "${2:-}" != -
     # detaching, and leave only sanitized data in the short-lived job file.
     export _TB_AGENT_PID="$(_tb_agent_pid "$CODEX_SESSION_ID")"
     export _TB_ARGV_JSON="$(_tb_argv_json "$_TB_AGENT_PID")"
+    # The reply ended or the session closed: no longer working on a prompt.
+    codex_work_finished "$input"
     job=$(mktemp "$output_dir/.end-event.XXXXXX")
     hook_secret_sanitize_text "$raw" > "$job"
     codex_detach bash "$SCRIPT_DIR/dispatch.sh" "$event" --job "$job"
@@ -55,6 +58,14 @@ case "$event" in
         ;;
     UserPromptSubmit)
         alias_event user_inputs
+        # The session works on this prompt until its reply ends (work_in_progress.sh). The
+        # notice names other live sessions replying in the same repository, either harness.
+        codex_work_started "$input"
+        neighbours=$(codex_work_neighbours "$input")
+        if [ -n "$neighbours" ]; then
+            jq -nc --arg text "$neighbours" \
+                '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:$text}}'
+        fi
         codex_check_terminal_binding_rename "$input"
         codex_check_terminal_binding_mission "$input"
         codex_artifact_comments_prompt_queue "$output_dir" "$input"
@@ -80,6 +91,12 @@ case "$event" in
             command=$(jq -r '.tool_input.command // empty' <<< "$input")
             bash "$_CODEX_HOOKS_ROOT/git_command_validator.sh" "$command" || exit 2
             alias_event bash_commands
+            # The Claude plugin's Bash guards, one text in both plugins: no find over / or raw
+            # capture reads for session lookups, no kill-server on the shared tmux, no command
+            # that would print a credential. Each exits 2 with its reason on stderr.
+            for guard in session_lookup_guard.sh tmux_server_guard.sh secret_print_guard.sh; do
+                printf '%s' "$input" | bash "$_CODEX_HOOKS_ROOT/$guard" || exit 2
+            done
         fi
         printf '%s' "$input" | bash "$_CODEX_HOOKS_ROOT/workspace_clone_guard.sh" || exit 2
         if codex_files_written_scans "$tool"; then
@@ -139,10 +156,24 @@ case "$event" in
         ;;
     Stop|Interrupt|PreCompact|PostCompact|SessionEnd)
         codex_check_terminal_binding_rename "$input"
-        if [ -n "$(jq -r '.last_assistant_message // empty' <<< "$input")" ]; then
+        # Codex leaves a Plan Mode plan out of last_assistant_message (it is its own rollout
+        # item). The AssistantResponse stream carries the reply as the model wrote it, plan
+        # included; _codex_Stop.jsonl keeps the event as Codex sent it.
+        plan=""
+        if [ "$event" = Stop ]; then
+            plan=$(python3 "$SCRIPT_DIR/native.py" turn-plan "$(jq -r '.transcript_path // empty' <<< "$input")" \
+                "$(jq -r '.turn_id // empty' <<< "$input")" 2>/dev/null)
+        fi
+        if [ -n "$plan" ]; then
+            alias_event AssistantResponse "$(hook_secret_sanitize_text "$(jq -c --arg plan "$plan" '. + {
+                stop_last_assistant_message: (.last_assistant_message // ""),
+                last_assistant_message: ((.last_assistant_message // "") + "\n<proposed_plan>\n" + $plan + "\n</proposed_plan>"),
+                proposed_plan: $plan, plan_restored_from: "rollout"}' <<< "$raw")")"
+        elif [ -n "$(jq -r '.last_assistant_message // empty' <<< "$input")" ]; then
             alias_event AssistantResponse
         fi
         [ "$event" != SessionEnd ] || codex_write_terminal_binding session.end "$input"
+        case "$event" in Stop|Interrupt|SessionEnd) codex_work_finished "$input" ;; esac
         archive_turn
         ;;
 esac

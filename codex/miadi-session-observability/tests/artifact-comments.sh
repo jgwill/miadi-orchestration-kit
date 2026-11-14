@@ -9,7 +9,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOKS="$HERE/hooks/codex_hooks"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-export CODEX_SESSIONDATA_ROOT="$WORK/root"
+export CODEX_SESSIONDATA_ROOT="$WORK/root" XDG_STATE_HOME="$WORK/state"
 mkdir -p "$CODEX_SESSIONDATA_ROOT"
 
 failures=0

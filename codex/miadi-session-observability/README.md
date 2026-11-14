@@ -71,6 +71,12 @@ fall back to `${CODEX_HOME:-$HOME/.codex}/miadi-session-observability/_sessionda
 | Terminal, team, episode and mission | Shared `_terminal_binding.jsonl` and `data/terminal_bindings.jsonl`; nearest Codex ancestor, optional read-only thread name lookup, same team/episode/mission precedence |
 | Files written | Bash/MCP scan between tool marks; direct Write/Edit files; explicit apply_patch add/update/move targets, including outside cwd; versions in `written/` |
 | Proposals and plans | Sanitized per-call patches in `proposed/`; Write's basename copy retained; `update_plan`/ExitPlanMode inputs in `plans/` |
+| Plan Mode plans (0.1.4) | Codex keeps a proposed plan as its own rollout item (`item_completed`, type `Plan`) and leaves it out of Stop's `last_assistant_message`. Each archive writes it to `plans/session_<id>_<yyMMddHHmm>.md`, the Claude plugin's name, indexed once in `_codex_plans.jsonl`; a `<proposed_plan>` block stands in when a turn has no Plan item. At Stop, `_codex_AssistantResponse.jsonl` carries the reply with its plan (`proposed_plan`, `stop_last_assistant_message`); `_codex_Stop.jsonl` keeps the event as sent |
+| Work in progress (0.1.4) | The Claude marker `<state>/miadi/working/<id>.json` from UserPromptSubmit to Stop, Interrupt or SessionEnd, with `harness: codex` and `agent_pid`, read by `tide agents restore`. A Codex turn ends when it proposes a plan, so a marker never stands for a waiting plan |
+| Sessions replying in the same repository (0.1.4) | At each prompt, `hookSpecificOutput.additionalContext` names the other live sessions with a reply in progress in the repository, Claude or Codex, with their prompt and last files. Liveness is the marker's `agent_pid`; Claude 0.1.46 reads it too |
+| Bash guards (0.1.4) | `session_lookup_guard.sh`, `tmux_server_guard.sh`, `secret_print_guard.sh`/`.py`, the Claude plugin's text and tests unchanged; each refusal exits 2 with its reason, measured to stop the command in Codex 0.167.0 and 0.169.0-alpha.11.1 |
+| Credential exposure alert | Not ported: its scrub (`miadi-scrub-secrets.py`) reads Claude transcripts only |
+| Steering inbox | The separate `codex/miadi-steering` package |
 | Publications | Inherited shell GitHub/npm/commit/push parser plus returned URLs from explicit GitHub connector writes; read calls are excluded |
 | Artifact publication/comment parser | Carried for compatible Artifact/ArtifactComments payloads; this does not provide a Claude Artifact service in Codex |
 | Session fork | Native `codex fork SESSION_ID` and `codex resume SESSION_ID`, guided by the packaged skill |
@@ -148,6 +154,9 @@ The shared capture helpers and tests were ported from
 The shared sanitizer and Git validator were copied unchanged; the workspace
 guard adds native patch targets. Compare future Claude changes before porting;
 never blindly substitute harness-specific transcript or process assumptions.
+The plan capture, the work-in-progress marker, the neighbour notice and the three Bash
+guards were added in 0.1.4 from `claude/miadi-session-observability` 0.1.46 (jgwill/miadi-orchestration-kit#98).
+`tests/runtime-smoke.py` also proves the neighbour notice reaches the model.
 Changes to this package reach installed users through a version bump and
 reinstallation, followed by a fresh session and hook review when definitions
 change.

@@ -19,12 +19,14 @@ PLUGIN = Path(__file__).resolve().parents[1]
 
 class Fixture(http.server.BaseHTTPRequestHandler):
     calls = 0
+    bodies = []
 
     def log_message(self, *args):
         pass
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        type(self).bodies.append(json.dumps(body))
         type(self).calls += 1
         count = type(self).calls
         if count > 3:
@@ -93,7 +95,15 @@ wire_api = "responses"
 requires_openai_auth = false
 ''')
         env = {**os.environ, "CODEX_HOME": str(home), "CODEX_SESSIONDATA_ROOT": str(root),
-               "MIADI_TEAM": "T1", "MIADI_SESSION_NAME": "runtime-fixture"}
+               "MIADI_TEAM": "T1", "MIADI_SESSION_NAME": "runtime-fixture", "XDG_STATE_HOME": str(base / "state")}
+        # A live session of the other harness replying in the same repository.
+        subprocess.run(["git", "init", "-q", str(project)], check=True)
+        working = base / "state/miadi/working"
+        working.mkdir(parents=True)
+        neighbour = subprocess.Popen(["sleep", "120"])
+        (working / "neighbour-fixture.json").write_text(json.dumps({
+            "session_id": "neighbour-fixture", "started_at": "2026-11-14T18:00:00Z", "cwd": str(project),
+            "prompt": "the neighbour's request", "agent_pid": neighbour.pid}))
         # Authentication and provider routing must remain inside the fixture.
         for key in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_RESPONSES_WEBSOCKET_BASE_URL"):
             env.pop(key, None)
@@ -103,7 +113,8 @@ requires_openai_auth = false
                 subprocess.run(["codex", *args], env=env, capture_output=True, text=True, check=True, timeout=30)
             result = subprocess.run(["codex", "exec", "--json", "--skip-git-repo-check", "--sandbox", "danger-full-access",
                                      "--dangerously-bypass-hook-trust", "-C", str(project),
-                                     "Run the local observability fixture."], env=env, capture_output=True, text=True, timeout=60)
+                                     "Run the local observability fixture."], env=env, capture_output=True, text=True, timeout=60,
+                                    stdin=subprocess.DEVNULL)  # codex exec reads a non-terminal stdin to EOF
             if result.returncode:
                 raise AssertionError(result.stderr[-3000:] + result.stdout[-3000:])
             assert (project / "runtime-proof.txt").read_text() == "observability fixture\n", result.stdout[-3000:]
@@ -131,10 +142,17 @@ requires_openai_auth = false
             bindings = [json.loads(line) for line in (out / "_terminal_binding.jsonl").read_text().splitlines()]
             assert bindings[0]["event"] == "session.start" and bindings[-1]["event"] == "session.end", bindings
             assert bindings[0]["agent"] == "codex" and bindings[0]["pid"], bindings[0]
+            assert "neighbour-fixture" in Fixture.bodies[0] and "the neighbour's request" in Fixture.bodies[0], \
+                "the UserPromptSubmit neighbour notice did not reach the model"
+            assert [p.name for p in working.glob("*.json")] == ["neighbour-fixture.json"], list(working.iterdir())
             print(json.dumps({"codex": subprocess.check_output(["codex", "--version"], text=True).strip(),
                               "events": counts, "binding": "start/end with agent pid", "archive": "nonempty",
-                              "written_file": "captured", "provider": "local fixture", "requests": Fixture.calls}))
+                              "written_file": "captured", "neighbour_notice": "reached the model",
+                              "working_marker": "removed at the end", "provider": "local fixture",
+                              "requests": Fixture.calls}))
         finally:
+            neighbour.kill()
+            neighbour.wait()
             server.shutdown()
             server.server_close()
 
