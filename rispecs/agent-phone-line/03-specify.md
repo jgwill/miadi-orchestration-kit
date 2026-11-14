@@ -6,11 +6,15 @@ A plugin that gives an agent a phone line to its person, built on the shape of J
 
 **PersonProfile**: `name` (spoken in greetings), `language` (the transcription language and the voice's), `extension` (the phone the agent calls), `inbound_extension` (where the person calls the agent), `hours` (default 8 to 22), `min_interval_minutes` (default 10), `voice`, `consented_at` (when the person heard what leaves the host, `02-intent.md` boundary 3). No name is in a command or a file path; "Jerry" becomes `name`.
 
+**People and their devices.** The line keeps a list of people it may call, each with their profile and one or more devices: an extension, a phone page, a number. Adding a device, a number or a person widens the line without changing it. Jerry, 2026-11-14 (call `4bbd87c1`, Episode 576, `feedback-next-generation-261114.md`): « à partir du moment qu'on a l'option d'ajouter des appareils, d'ajouter des numéros de téléphone à appeler, … des personnes à appeler, bien là, on peut élargir la fonctionnalité ». His example of a device is his phone, Larix as he spells it.
+
 **Line readiness** is a fact the agent can ask for before calling: is the person's phone registered on the extension now, which hours apply, when the next call is allowed. In the prototype the agent learned that the phone was not registered only after two calls rang unanswered.
 
 ## 2. Hearing a sentence
 
 As in the prototype: audio in short frames, a sentence ends after a silence (800 ms by default) or a maximum length, the sentence is transcribed, and transcription phantoms (lone dots, "merci d'avoir regardé") are dropped. Each kept sentence is appended to the call's discussion with who said it.
+
+**A listening tone, as an option.** `listening_tone`, off by default and set per mode: a short beep when the line starts listening, so the person knows what they say is being kept. Jerry, call `7292c704`: « quand ça fait bip, elle est en train d'écouter. Donc, ça me rassurait que quand je parle, tout est retenu », and « ce serait vraiment une option qu'on active ».
 
 **Continuity of listening.** The silence that ends a sentence is not fixed. When Jev reads the last sentence as stopping mid-thought (`mid_thought`, below), the next sentence may run longer before it is cut (1,600 ms by default) and the voice says nothing in between, so a person who pauses to think is not interrupted by an acknowledgement.
 
@@ -20,6 +24,7 @@ A second door, taken from the companion's phone page (`01-reverse-engineer.md`, 
 
 - **The keeping window**: every 10 seconds, the bytes the server does not hold yet, as the companion does (`PART_EVERY_MS`). Nothing said is lost if the page or the network fails.
 - **The listening window**: during a call, a shorter part, `listen_window_s`, 2 seconds by default and between 1 and 10. A sentence such as « je suis over » must be heard within about a second of the person's last word, and a 10-second window could hear it 10 seconds late.
+- **One button per agent.** The page lists the person's agents, one button each, so the person knows which agent a call reaches, and each button calls that agent. Jerry, call `7292c704`: « en sachant déjà quel agent est relié à quel appel. Donc, j'aurais plusieurs boutons ».
 - The parts follow the companion's rules: each names the offset the page believes the server holds; a part sent twice changes nothing, an overlap keeps its new tail, a gap is answered 409 with what the server holds.
 - The server measures speech and silence in code on each new part (frames above a loudness threshold, as the prototype's line does). It transcribes the audio since the last sentence end once it finds a pause (`sentence_pause_ms`, 800 by default), and Jev reads each new sentence (section 3). Jev is asked once per sentence, not once per window, so its cost follows what the person says: about a thousand input tokens per sentence, measured on 2026-11-14.
 
@@ -50,6 +55,7 @@ After each kept sentence, the line asks Jev one request. It runs while the voice
 | `asks_repeat` | noul | Does `sentence` ask to hear the point or the questions again? | true: it asks for a repeat. false: it does not. |
 | `is_finished` | noul | Does `sentence` say the person has nothing more to say on this call? | true: they are done. false: they are not. |
 | `mid_thought` | noul | Does `sentence` stop before the thought it started is complete? | true: it stops mid-thought. false: it is a complete thought. |
+| `asks_callback` | noul | Does `sentence` ask to be called back later? | true: it asks for a callback. false: it does not. |
 | `confirms` | noul | (discussion mode, after a read-back) Does `sentence` confirm that the read-back is their answer? | true: it confirms. false: it does not. |
 
 The options of `move` are rotated between sentences and the order is recorded (Jev leans toward the first option). The model is pinned (`jev-1.14.0` today); an alias such as `jev-latest` is refused, because it resolves differently on the two hosts.
@@ -60,9 +66,10 @@ The options of `move` are rotated between sentences and the order is recorded (J
 |---|---|
 | `is_finished` ≥ 0.8, or `move` = `finished` with confidence ≥ 0.6 | closes: relay mode says it passes everything on; discussion mode reads back the answer and waits for `confirms` |
 | `is_finished` between 0.4 and 0.6 | asks once: "Est-ce que c'est tout ?" The next sentence decides |
-| `asks_repeat` ≥ 0.7, or `move` = `repeat` with confidence ≥ 0.6 | says the point again. With several questions, one at a time, each by its number, and waits after each |
+| `asks_repeat` ≥ 0.7, or `move` = `repeat` with confidence ≥ 0.6 | says the point again from its beginning, the introduction included, then the questions one at a time, each by its number, waiting after each. When the person says they did not understand, discussion mode rephrases instead of repeating. On call `8d8d3f50` the repeat brought back only the question, and Jerry asked twice for « les idées ». His words for what is missing: « la capacité à refraser quand je ne comprends pas … recommence du début » |
+| `asks_callback` ≥ 0.7 | notes the callback and says so: "D'accord, l'agent te rappellera". The agent calls back with the same question and its context, in discussion mode. On call `8d8d3f50`, « Demande à l'agent qu'il me rappelle » read `ask_agent` at 0.39 and was not noted |
 | `mid_thought` ≥ 0.7 | says nothing and lengthens the next silence window |
-| `move` = `ask_agent` with confidence ≥ 0.6 | relay mode: "Je note ta question pour l'agent", marked in the discussion. Asking the agent during the call is open question Q-D |
+| `move` = `ask_agent` with confidence ≥ 0.6 | asks the agent at once (`phone_answer`, section 5) and says its answer if it comes within `ask_wait_s` (20 by default); otherwise says the agent will look and call back, and the agent does. Jerry settled Q-D on call `7292c704`: « Je crois qu'elle peut aller lui demander tout de suite », and asked whether an agent without the answer « peut se questionner lui-même et me revenir » |
 | `move` = `not_to_line` with confidence ≥ 0.6 | says nothing, keeps listening |
 | anything else | the next acknowledgement, as today |
 
@@ -85,7 +92,7 @@ The options of `move` are rotated between sentences and the order is recorded (J
 A call ends in one of three ways, and the record says which (`closed_on`):
 
 1. **The person says so**, in any words: « je suis over », « c'est tout », « terminé », « tu peux envoyer ». Jev reads it (`is_finished`, or `move` = `finished`, section 3) and the line closes. `closed_on: words`.
-2. **Silence.** Time is measured in code, never by Jev, which does not count. After the line has said its point or an acknowledgement, if no speech comes for `silence_ask_s` (6 by default), the line asks once « Est-ce que c'est tout ? ». If no speech comes for `silence_close_s` (6 by default) after that, it closes. A silence is not read as an answer. `closed_on: silence`.
+2. **Silence.** Time is measured in code, never by Jev, which does not count. After the line has said its point or an acknowledgement, if no speech comes for `silence_ask_s` (6 by default; Jerry, call `7292c704`: « six secondes, ça semble assez bien. C'est un délai raisonnable »), the line asks once « Est-ce que c'est tout ? ». If no speech comes for `silence_close_s` (6 by default) after that, it closes. A silence is not read as an answer. `closed_on: silence`.
 3. **The connection ends**: the person hangs up or leaves the page. What was said is kept and passed on, as the prototype already does. `closed_on: hangup`.
 
 **The calling loop** is complete only when the person has heard the agent's reply to what they said:
@@ -97,7 +104,7 @@ A call ends in one of three ways, and the record says which (`closed_on`):
 
 ## 5. What the agent gets: MCP tools
 
-An MCP server, so the same tools serve Claude Code and Codex. A call returns at once and the agent keeps working; no tool holds a shell for the length of a call.
+An MCP server, so the same tools serve Claude Code and Codex. Every agent that has the plugin may call the person when the person needs to know something or decide; the person may name agents that never call. Jerry, call `4bbd87c1`: « je crois que tous les agents pourraient appeler … C'est vraiment quand j'ai besoin d'être au courant, de prendre une décision ». He named no agent that must never call. A call returns at once and the agent keeps working; no tool holds a shell for the length of a call.
 
 | tool | input | output |
 |---|---|---|
@@ -107,13 +114,14 @@ An MCP server, so the same tools serve Claude Code and Codex. A call returns at 
 | `phone_result` | `call_id`, `wait_s?` | `{outcome, answer | words, discussion[], decisions[]}` |
 | `phone_inbox` | `wait_s?` | what the person said on the inbound line or texted, each marked `voice` or `text`, not yet read |
 | `phone_text` | `message` | `{sent}` |
+| `phone_answer` | `call_id`, `question_id`, `text` | the agent's answer to a question asked during the call, spoken by the line if it arrives within `ask_wait_s` |
 | `phone_reply` | `call_id`, `text` | `{delivered_by: "page" | "text" | "next_call", loop_state}`: the agent's reply that closes the calling loop (section 4b) |
 | `phone_calls` | `limit?` | the register, newest first |
 
 ## 6. What the plugin carries besides the server
 
 **Skills.**
-- `call-my-person`: when to call and when not to, how to write a question for the ear and a context for a discussion, relay or discussion, one question at a time when there are several. Generalized from `appeler-jerry` (open question Q-B).
+- `call-my-person`: when to call and when not to, how to write a question for the ear and a context for a discussion, relay or discussion, one question at a time when there are several. Inspired by `appeler-jerry` and made generic, with the person to call as an argument: Jerry settled Q-B on call `4bbd87c1`, « on peut s'en inspirer et la rendre utilisable … on va utiliser un mot plus générique et avoir un argument avec le nom de la personne qu'on va appeler ».
 - `line-setup`: the extension, the audio bridge, the phone app's registration, the transcription and voice keys, with the audible sign that proves each step (from the prototype's `INSTALLATION.md` and `poste-interne.spec.md`).
 - `call-review`: read a finished call, decision by decision, and record a ruling on each (section 7).
 

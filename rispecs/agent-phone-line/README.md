@@ -4,7 +4,7 @@ A RISE packet for a plugin that gives an agent a phone line to its person: the a
 
 Reverse-engineered from Jerry's prototype `Gerico1007/assembly-call` (the "agent-telephone", in Jerry's account on eury), and from its call `1fa8c5ec` of 2026-11-14, in which a request to repeat and three ways of saying "I'm done" were not heard. The prototype and its own French specifications are Jerry's.
 
-Status: specified; prototyped by Jerry's agent on branch `jev-dans-le-relais` of Gerico1007/assembly-call (`a28adbe`), whose replay of call `1fa8c5ec` passed acceptance 1 on 2026-11-14 (Episode 576, `jev-replay-1fa8c5ec.md`). The neutral acknowledgement during the Jev request is not built yet. Issue: jgwill/miadi-orchestration-kit#154. Asked for by Guillaume on 2026-11-14; his words and the decomposition are in `.pde/2611141514--b47769d5-6a45-4c4f-a7f4-cd3fad02678f/`.
+Status: specified; prototyped by Jerry's agent on branch `jev-dans-le-relais` of Gerico1007/assembly-call (`a28adbe`), whose replay of call `1fa8c5ec` passed acceptance 1 on 2026-11-14 (Episode 576, `jev-replay-1fa8c5ec.md`). The neutral acknowledgement during the Jev request is not built yet. Jerry gave his feedback on the next generation by phone the same afternoon (Episode 576, `feedback-next-generation-261114.md`); eight of his answers are in the specification, and the name waits for Guillaume. Issue: jgwill/miadi-orchestration-kit#154. Asked for by Guillaume on 2026-11-14; his words and the decomposition are in `.pde/2611141514--b47769d5-6a45-4c4f-a7f4-cd3fad02678f/`.
 
 ## Desired outcome
 

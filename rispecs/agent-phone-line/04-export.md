@@ -36,6 +36,7 @@ The Jev decider is the one the Factory already shares: lane-check's `lib/decider
 7. No event that leaves the account carries the person's words unless their consent is recorded.
 8. On the phone page, « je suis over » closes the call within the listening window plus one Jev reading, and a silence closes it only after the one question « Est-ce que c'est tout ? » (section 4b). The record says `closed_on`.
 9. A call's loop reads `answered` only after the agent's `phone_reply` reached the person.
+10. **The call of 16:37 replays correctly** (`8d8d3f50`, Jerry's feedback call, sentences in Episode 576's `feedback-next-generation-261114.md` and the register): when Jerry asks for « les idées », the line says the introduction again, not only the question; « Demande à l'agent qu'il me rappelle » is noted as a callback (`asks_callback`).
 
 ## Recording the export
 
