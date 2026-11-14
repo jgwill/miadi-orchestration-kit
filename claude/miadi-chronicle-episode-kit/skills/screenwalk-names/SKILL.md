@@ -77,6 +77,17 @@ Never register a source as withheld only because a name is spoken in it. William
 
 The title and description name no host, path or permission.
 
+## Any episode video, and the prompt that holds these rules
+
+These rules also live as a versioned prompt a model is called with: `miadi-prompt:ceremony/episode-video-describe` (label `production`, version 1 since 2026-11-14), in `@miadi/llmops/episode-video` 0.5.0 (jgwill/Miadi#1016). It covers every episode video, not only screenwalks. A video overview or a podcast takes the safe title `ep<episode>-<stamp>-<slug>` and the title `ep<episode>-<stamp> | Human Title`. Besides the three names, it asks for the video's relations, follow-up inquiries for what the source does not explain, a prompt to reuse elsewhere, and the checks.
+
+```bash
+npx @miadi/llmops episode-video                        # the template, and which version answered
+npx @miadi/llmops episode-video --render values.json   # the prompt, filled with the video's values
+```
+
+The first video named with it: Episode 575's `video-names-convergence.md`. When the prompt and this skill disagree, the prompt's newest version wins, and this skill is corrected.
+
 ## Keep it
 
 Commit it in the episode the recording belongs to:
