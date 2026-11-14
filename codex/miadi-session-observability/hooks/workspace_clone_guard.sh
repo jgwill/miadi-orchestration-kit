@@ -9,15 +9,15 @@
 #
 # WHAT IT BLOCKS
 #   A write whose target lies in <autoClonePath>/<owner>/<repo>/ when the config maps
-#   owner/repo to another localPath that exists on this host:
+#   owner/repo to another localPath that is a git checkout on this host:
 #     Write, Edit, MultiEdit, NotebookEdit    the file_path / notebook_path
 #     Bash  >  >>                             the redirect target
 #     Bash  git commit / git push             run in the clone (cwd, a `cd`, or `git -C`)
 #
 # WHAT IT ALLOWS
 #   Reads, git fetch and git pull in the clone. A repo with no entry, or whose entry points at
-#   the clone itself. An entry whose localPath does not exist on this host (the clone is then
-#   the only copy here). A host with no Miadi checkout (MIADI_SRC unset) or no config.
+#   the clone itself. An entry whose localPath does not exist on this host, or is not a git
+#   checkout there (the clone is then the only copy here). A host with no Miadi checkout (MIADI_SRC unset) or no config.
 #
 # CONFIG
 #   STC_WORKSPACES_CONFIG, else $MIADI_SRC/config/stc-workspaces.json. MIADI_SRC names the
@@ -73,7 +73,9 @@ def check(target):
     mapped = homes.get(repo)
     if not mapped or any(under(t, h) for h in mapped):
         return None
-    live = [h for h in mapped if os.path.isdir(h)]
+    # A mapped folder is the working directory only when it is a checkout. On eury /src/Miadi is
+    # a folder of another repository, and the only jgwill/Miadi clone there was refused (2026-11-14).
+    live = [h for h in mapped if os.path.exists(os.path.join(h, ".git"))]
     if not live:
         return None
     return repo, os.path.join(root, parts[0], parts[1]), live

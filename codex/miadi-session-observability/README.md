@@ -103,7 +103,8 @@ in the same tree can be its author. Hosted tools and tools bypassing Codex's
 local function path have no tool hooks. Background processes can outlive their
 PostToolUse scan window.
 
-The workspace clone guard accepts Codex patch paths as well as the inherited
+Since 0.1.5 the clone guard treats a mapped folder as the working directory only when it is
+a git checkout, as the Claude plugin does from 0.1.48. The workspace clone guard accepts Codex patch paths as well as the inherited
 Write/Edit/Bash forms. It reads `STC_WORKSPACES_CONFIG` or
 `$MIADI_SRC/config/stc-workspaces.json`; absent configuration leaves capture
 enabled. The scoped Git-add validator is bundled and has no host-specific path.

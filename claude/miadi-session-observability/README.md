@@ -20,7 +20,9 @@ jgwill/miadi-orchestration-kit#56.
   directory is not written, committed or pushed from its second clone under the auto-clone
   root (`/workspace/repos` on gaia). `hooks/workspace_clone_guard.sh` refuses and names the
   working directory. It reads `$MIADI_SRC/config/stc-workspaces.json`, so a host without a
-  Miadi checkout gets the capture and no guard. jgwill/workspace#60.
+  Miadi checkout gets the capture and no guard. jgwill/workspace#60. Since 0.1.48 a mapped
+  folder counts as the working directory only when it is a git checkout: on eury `/src/Miadi`
+  is a folder of another repository, and the only jgwill/Miadi clone there was refused.
 - **Secret exposure alert** (0.1.29). The capture under `<root>/<session_id>/` was already
   redacted, but a credential printed in a tool's output reaches the model and Claude Code's
   own transcript before any hook runs, and Claude Code lets a hook replace only an MCP tool's

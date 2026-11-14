@@ -11,13 +11,14 @@ trap 'rm -rf "$WORK"' EXIT
 
 CLONES="$WORK/repos"
 HOME_TREE="$WORK/home-mia"
-mkdir -p "$CLONES/me/home" "$CLONES/me/self" "$CLONES/me/free" "$CLONES/me/away" "$HOME_TREE"
+mkdir -p "$CLONES/me/home" "$CLONES/me/self" "$CLONES/me/free" "$CLONES/me/away" "$CLONES/me/plain" "$HOME_TREE/.git" "$WORK/plain-folder"
 cat > "$WORK/stc.json" <<EOF
 {"defaults": {"autoClonePath": "$CLONES"},
  "workspaces": [
   {"repository": "me/home", "localPath": "$HOME_TREE"},
   {"repository": "me/self", "localPath": "$CLONES/me/self"},
-  {"repository": "me/away", "localPath": "$WORK/not-on-this-host"}
+  {"repository": "me/away", "localPath": "$WORK/not-on-this-host"},
+  {"repository": "me/plain", "localPath": "$WORK/plain-folder"}
  ]}
 EOF
 export STC_WORKSPACES_CONFIG="$WORK/stc.json"
@@ -43,6 +44,7 @@ expect "Edit in the mapped working directory is allowed" 0 "$(edit "$HOME_TREE/.
 expect "Edit in a clone mapped to itself is allowed" 0 "$(edit "$CLONES/me/self/README.md")"
 expect "Edit in a clone with no entry is allowed" 0 "$(edit "$CLONES/me/free/README.md")"
 expect "Edit where the mapped directory is not on this host is allowed" 0 "$(edit "$CLONES/me/away/README.md")"
+expect "Edit where the mapped folder is not a checkout is allowed" 0 "$(edit "$CLONES/me/plain/README.md")"
 expect "a file directly under the owner folder is allowed" 0 "$(edit "$CLONES/me/AGENTS.md")"
 expect "Read is never blocked" 0 \
     "$(printf '{"tool_name":"Read","tool_input":{"file_path":"%s"}}' "$CLONES/me/home/x")"
