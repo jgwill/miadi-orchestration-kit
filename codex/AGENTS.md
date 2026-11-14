@@ -38,3 +38,16 @@ session-control plugins in this folder.
 Use `miadi-storyweaver-orchestration-kit` as the Storyweaver reference
 implementation for Codex-native storytelling, Chronicle episode, voice packet,
 visual prompt packet, continuity, review, protocol, and export workflows.
+
+## A release of a hooked plugin needs the person's trust again
+
+Codex keeps, for each trusted plugin hook, a `trusted_content_hash` in `~/.codex/config.toml`.
+A release that changes the plugin's hook files changes that hash, and Codex then skips the
+hooks without a word. Measured on eury 2026-11-14: `miadi-session-observability` 0.1.4,
+trusted by Guillaume, recorded live turns; after 0.1.5 (one line of the clone guard) the next
+turn, `01a1db73-…`, recorded nothing. With the legacy hooks cleared, that is a host whose
+Codex sessions go unrecorded until the person opens `/hooks` and trusts the new version.
+
+So: release a hooked Codex plugin knowing it asks the person for one act, say so in the same
+turn, and verify with one live `codex exec` turn after they trust it. Never write
+`trusted_hash` or `trusted_content_hash` yourself: that review is theirs.
