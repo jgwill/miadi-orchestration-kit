@@ -52,6 +52,7 @@ section { display: grid; gap: 12px; }
 .head { display: flex; gap: 8px; align-items: flex-start; }
 .head .ico { margin-top: 3px; }
 .code { font: 600 12.5px/1.7 var(--mono); color: var(--text); background: var(--ground); border: 1px solid var(--border); border-radius: 6px; padding: 0 7px; flex: 0 0 auto; }
+.head h3 .code { margin-right: 8px; position: relative; top: -1px; }
 .st-open { color: var(--gold); } .st-read { color: var(--dim); } .st-await { color: var(--faint); } .st-warn { color: var(--red); }
 .said { color: var(--dim); border-left: 2px solid var(--border); padding-left: 10px; font-style: italic; }
 .line { display: grid; grid-template-columns: 84px 1fr; gap: 8px; }
@@ -155,7 +156,7 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--borde
 <section aria-labelledby="s-decide">
   <h2 id="s-decide">Decide</h2>
   <article id="D1" class="card decide">
-    <div class="head"><svg class="ico st-open" aria-hidden="true"><use href="#i-dashed"/></svg><span class="code">D1</span><h3>The decision, as a question</h3></div>
+    <div class="head"><svg class="ico st-open" aria-hidden="true"><use href="#i-dashed"/></svg><h3><span class="code">D1</span>The decision, as a question</h3></div>
     <div class="line"><b>Today</b><p>What is true now, with a path.</p></div>
     <div class="line"><b>Suggested</b><p>The recommendation.</p></div>
     <div class="line"><b>Effect</b><p>What it changes and what it costs.</p></div>
@@ -187,7 +188,7 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--borde
 <section aria-labelledby="s-open">
   <h2 id="s-open">Questions</h2>
   <article id="Q1" class="card">
-    <div class="head"><svg class="ico st-await" aria-hidden="true"><use href="#i-dashed"/></svg><span class="code">Q1</span><h3>The question</h3></div>
+    <div class="head"><svg class="ico st-await" aria-hidden="true"><use href="#i-dashed"/></svg><h3><span class="code">Q1</span>The question</h3></div>
     <p class="said">"The person's own words, when they asked it."</p>
     <div class="line"><b>Today</b><p>What exists, with a path.</p></div>
     <div class="line"><b>Suggested</b><p>The answer you would give.</p></div>
@@ -197,7 +198,7 @@ footer { color: var(--faint); font-size: 13px; border-top: 1px solid var(--borde
 
 <section aria-labelledby="s-risk">
   <h2 id="s-risk">Risks</h2>
-  <article id="R1" class="card"><div class="head"><svg class="ico st-warn" aria-hidden="true"><use href="#i-alert"/></svg><span class="code">R1</span><h3>The risk</h3></div><p>What could happen, and what was seen or only read.</p></article>
+  <article id="R1" class="card"><div class="head"><svg class="ico st-warn" aria-hidden="true"><use href="#i-alert"/></svg><h3><span class="code">R1</span>The risk</h3></div><p>What could happen, and what was seen or only read.</p></article>
 </section>
 
 <!--jev:lists-->

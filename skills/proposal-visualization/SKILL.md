@@ -166,6 +166,10 @@ now", 61 "after your go" and 45 "needs you".
   and say what it stands for the first time it appears.
 - One card per item, each with `id="<code>"`, so a comment tool or an
   annotation tool anchors to exactly one item and a link can jump to it.
+- Put the code inside the card's heading: `<h3><span class="code">D1</span>The
+  question</h3>`. The artifact viewer labels a comment with the nearest heading
+  before the place it sits. With the code before the heading, a comment placed
+  on `D5` was shown under D4's title (2026-11-14, on the owner's phone).
 - A code keeps its meaning for the whole conversation and across revisions.
   Never reassign one. When a step is replaced, give the replacement a new code
   and say which codes it replaces.
@@ -223,7 +227,15 @@ const ratio = (a, b) => { const x = L(a), y = L(b); return (Math.max(x, y) + 0.0
 
 When the owner comments:
 
-1. Read every comment, including the threads your tools cannot reply to.
+1. Read every comment, including the threads your tools cannot reply to. The
+   artifact comments tool returns only the threads the owner sent to Claude,
+   and the owner often sends the last one and leaves the others unsent. Read
+   those from the page in the owner's browser (Claude in Chrome): open the
+   artifact, enter comment mode, "More comment options", "Show all comments",
+   then read each thread in the "All comments" panel. A script result is cut at
+   about 1,000 characters, so read a long comment in slices. Clicking a thread
+   scrolls the page to the card it sits on. Keep the comments word for word in
+   the work's vessel before acting on them.
 2. Add a "Revision N" band under the header. It lists each comment and what it
    changed, by code ("D1 approved", "Q4 answered: …", "N1 added from your
    /chronicle comment").
