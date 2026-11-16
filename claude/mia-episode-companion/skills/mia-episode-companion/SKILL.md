@@ -192,6 +192,29 @@ A take asking for work gets the smallest reversible act that the thread already
 authorized. Exploring an idea does not authorize acting on it. Consent to one act does not
 carry over to the next one.
 
+### A take that names several threads and asks for the work
+
+Some takes run ten minutes, name several threads and ask for the work, with a message per
+part. Held twice: Episode 567 (`routing-261105/`) and Episode 44 (`routing-261116/`, and
+`practice-notes/one-take-one-overview-one-note-per-part-261116.md`). The person's words on
+why: "when I'm asking you to do what you did, it's harder for you to flatten and discard
+important elements."
+
+1. **Route before drafting.** One Jev `choice` per thread among the candidate episodes, the
+   factory, a new episode, and the circle already holding the conversation. Copy `ask.mjs`
+   from the latest `routing-*/`. Write your departures beside Jev's answers in `rulings.md`.
+2. **Return one overview** through the turn above: every part, its domain, and the act
+   planned for it. Correct your own earlier claims first.
+3. **Decompose the take with MiaCo** in the episode's `.pde/` before filing any issue
+   (`pde-vessel-ceremony`). The decomposition checks the overview: say where they differ.
+4. **One phone note per part, as it lands.** `reply` without a take id, a few spoken
+   sentences, a `--related` card for what it made. These notes skip the editor pass.
+5. **Record the run in the episode**: what happened, what the structure found that the
+   person had not said, and what the person credited to you that was theirs.
+
+The person's answer to the notes often arrives while they are still landing. It is a new
+take: give it its own overview, then its own notes.
+
 ## What the person says to your subagents and forks
 
 The person can open one of your subagents in the agent view and talk to it, or fork a `/btw`
