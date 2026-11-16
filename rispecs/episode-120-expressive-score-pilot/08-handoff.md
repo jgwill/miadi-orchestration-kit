@@ -11,7 +11,9 @@ cue through a replayable expressive-take receipt.
 - Miadi#1043 holds the adapter implementation.
 - Miadi#1035 holds the Shared Spark MusicalDesire/workspace transition.
 - The on-set-performance skill, field-kit profiles and T10 pilot inventory are
-  implemented on branch `iris-codex/157-episode120-expressive-score`.
+  proposed in jgwill/miadi-orchestration-kit#159 at commit `af72b2a`.
+- The expressive-take adapter is proposed in jgwill/Miadi#1046 at commit
+  `9ae9d9c9`.
 - Episode 575's verified text evidence supports a no-new-media reference
   rehearsal. No Episode 120 field take has been claimed.
 
@@ -36,4 +38,5 @@ fallback and a shared clock/slate. Until those exist, remain `held`.
 - `miadi-chronicle://044`, `miadi-chronicle://120`, `miadi-chronicle://257`,
   `miadi-chronicle://575`
 - `jgwill/miadi-orchestration-kit#157`, `#158`
-- `jgwill/Miadi#1035`, `#1043`
+- `jgwill/miadi-orchestration-kit#159`
+- `jgwill/Miadi#1035`, `#1043`, `#1046`
