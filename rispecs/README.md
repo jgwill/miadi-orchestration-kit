@@ -33,6 +33,7 @@ Open the folder's `README.md` first. A folder holding a single file is read from
 | [`community-layer-spec-plugins/`](./community-layer-spec-plugins/) | Spec plugins for the Miadi community/security layer: context mapper, security review, spec decomposer | — |
 | [`discord-integration-patterns/`](./discord-integration-patterns/) | Discord channels, threads, webhooks and bot events as agent delivery and event-sourcing contexts (read-only research posture) | #15 |
 | [`east-pde-session-orchestration/`](./east-pde-session-orchestration/) | Strategy-aware PDE decomposition and the Intent Analyst for EAST sessions | #37 |
+| [`episode-120-expressive-score-pilot/`](./episode-120-expressive-score-pilot/) | One custody-preserving embodied take becomes one human-accepted composition cue and film-timeline placement; T10 pilot, field-kit practice and `@miadi/expressive-take` bridge | #157 |
 | [`gemini/`](./gemini/) | Guidance for rispecs that may become Gemini CLI extensions (`AGENTS.md`) | #31 |
 | [`hosted-witness-service/`](./hosted-witness-service/) | `miadi-hosted-witness`: a witness seat hosted on a relative's machine that watches their sessions from the capture, lands their work, keeps their feedback verbatim and sends the next step to the factory as a decision (specified, not built; prototype run with Jerry, 2026-11-04) | #138 |
 | [`medicine-wheel/`](./medicine-wheel/) | Medicine Wheel as a harness-neutral orchestration substrate: Four Directions, Fire Keeper gates, ceremony context | #36 |

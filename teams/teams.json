@@ -190,6 +190,23 @@
       "name_patterns": [
         "^t9-"
       ]
+    },
+    {
+      "id": "T10",
+      "name": "Embodied Performance & Capture",
+      "stub": "2026-11-16 pilot for jgwill/miadi-orchestration-kit#157; permanent lead and team status follow the Episode 120 proof",
+      "level": "the set and performance field",
+      "practice": "skills/on-set-performance/SKILL.md",
+      "human_lead": "William",
+      "agent_lead": null,
+      "pilot_coordinator": "episode-120-mia-companion",
+      "sessions": [
+        "episode-120-mia-companion"
+      ],
+      "folders": [],
+      "name_patterns": [
+        "^t10-"
+      ]
     }
   ]
 }
