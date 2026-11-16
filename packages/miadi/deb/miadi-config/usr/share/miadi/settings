@@ -15,6 +15,9 @@ MIADI_SESSION_ISSUE_REPO         the repository a session's issue opens in (defa
 MIADI_NGROK_MCP_API_URLX         a public door to the medicine wheel (or MCP server) for cloud agents, open only while the host's owner starts it (gaia: ngrok http --url excited-ostrich-superb.ngrok-free.app 8040); offline is its normal state, never remove it as stale
 MIADI_WEBHOOK_URL                where repository webhooks are pointed (default $MIADI_URL_BASE/api/workflow/webhook); the intended name for it; set it on its own while webhooks still arrive through another front. Not read yet (2026-09-24): binscripts' add_webhook OWNER REPO [URL] (bash_aliases_common, fn_github.sh) reads WEBHOOK_URL, else a hard-coded ngrok URL, and should read this instead
 
+# Read by @miadi/connector, where it runs, and by a person's shell where they connect from
+MIADI_CONNECTOR_PUBLIC_URL       the Miadi connector's public address, without /mcp: its OAuth issuer, and what a person adds to ChatGPT or Claude as $MIADI_CONNECTOR_PUBLIC_URL/mcp (claude mcp add --transport http miadi "$MIADI_CONNECTOR_PUBLIC_URL/mcp" ...). Unset, a connector answers only on its own host (http://127.0.0.1:3337); its links to the app use MIADI_PUBLIC_URL, else MIADI_URL_BASE
+
 # Read by miadi-terminal, on a client
 MIADI_CHRONICLE_OPEN_URL         the Miadi front a clicked miadi-chronicle: reference opens on; unset, miadi-chronicle-open uses MIADI_URL_BASE
 
