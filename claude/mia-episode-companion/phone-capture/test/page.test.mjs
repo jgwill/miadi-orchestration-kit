@@ -312,13 +312,13 @@ test("pressing Record pauses a reply that is playing", async () => {
   assert.ok((h.elements.replyAudio.pauses || 0) > pausesBefore, "her voice stops before the microphone opens");
 });
 
-test("after the take is sent, the reply that waited is offered, not played, and the conversation keeps every turn", async () => {
+test("after the take is sent with ?play=0, the reply that waited is offered, not played, and the conversation keeps every turn", async () => {
   const items = [
     { kind: "take", take: "260922085900", at: "2026-10-08T10:59:00.000Z", text: "First take." },
     { kind: "reply", ...OLD },
     { kind: "reply", ...NEW },
   ];
-  const h = harness({ pollEvery: 20, extraReplies: (ms) => (ms < 60 ? [OLD] : [NEW, OLD]), thread: () => items });
+  const h = harness({ search: "?episode=" + EPISODE + "&play=0", pollEvery: 20, extraReplies: (ms) => (ms < 60 ? [OLD] : [NEW, OLD]), thread: () => items });
   await settle(15);
   h.tap();
   await settle(140);
@@ -333,6 +333,51 @@ test("after the take is sent, the reply that waited is offered, not played, and 
   assert.equal(first.appended[0].textContent, "Mia", "newest first: the reply that waited sits right under the controls");
   assert.equal(h.elements.thread.appended[0].appended[1].textContent, "Arrived mid-take.");
   assert.equal(h.elements.transcript.textContent, "", "the take's words are in the conversation, not printed again above it");
+});
+
+// Guillaume, Episode 44, 2026-11-16: "as soon as I press send for your message to get
+// transcribed and sent to you, it's going to start playing if I received a message while I
+// was recording." It did not: he had to scroll down and press play.
+test("after the take is sent, the replies that arrived while he recorded play by themselves, oldest first", async () => {
+  const early = { id: "r-a", take: null, text: "First while recording.", at: "2026-11-16T19:50:00.000Z", audio: null };
+  const late = { id: "r-b", take: null, text: "Second while recording.", at: "2026-11-16T19:51:00.000Z", audio: null };
+  const h = harness({ pollEvery: 20, extraReplies: (ms) => (ms < 60 ? [] : ms < 110 ? [early] : [late, early]) });
+  h.elements.autoplay.checked = true;
+  await settle(15);
+  h.tap();
+  await settle(180);
+  assert.equal(h.made[0].state, "recording", "nothing interrupted the take");
+  await h.tap();
+  await settle(60);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r-a/audio", "the oldest waiting reply plays without a tap");
+  assert.match(h.elements.replyNotice.textContent, /1 more of her replies wait after this one/);
+  h.elements.replyAudio.paused = true;
+  h.elements.replyAudio.ended = true;
+  await h.elements.replyAudio.fire("ended");
+  await settle(10);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r-b/audio", "then the next one");
+});
+
+// Guillaume, Episode 44, 2026-11-16: "the message was playing. And then your new message came
+// in. And it interrupted my playback." Her voice renders on demand, and the element can read
+// paused until it arrives.
+test("a reply that arrives while another is still loading waits for it too", async () => {
+  const at = new Date().toISOString();
+  const h = harness({ pollEvery: 20, extraReplies: (ms) => [ms > 150
+    ? { id: "r2", take: null, text: "Second.", at, audio: null }
+    : { id: "r1", take: null, text: "First.", at, audio: null }] });
+  h.elements.autoplay.checked = true;
+  await settle(80);
+  h.elements.hearReply.fire("click");
+  await settle(10);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r1/audio");
+  h.elements.replyAudio.paused = true;
+  h.elements.replyAudio.readyState = 0;
+  const pausesBefore = h.elements.replyAudio.pauses || 0;
+  await settle(200);
+  assert.equal(h.elements.replyAudio.getAttribute("src"), "api/replies/r1/audio", "the first reply is not replaced while it loads");
+  assert.equal(h.elements.replyAudio.pauses || 0, pausesBefore, "nothing paused it");
+  assert.match(h.elements.replyNotice.textContent, /It plays when this one ends/);
 });
 
 // Ada, Episode 120, 2026-10-12: a few minutes in, the recorder failed at Stop and the
