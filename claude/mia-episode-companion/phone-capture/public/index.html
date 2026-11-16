@@ -178,6 +178,12 @@
 
   // Her voice is playing (not the silence that holds the audio session open).
   var queued = [];
+  // The reply being voiced, from play() until it ends. iOS can report the element paused while
+  // her voice is still rendering, and a reply that arrived then cut off the one he had started
+  // (the person, Episode 44, 2026-11-16).
+  var voicingId = null;
+  // Replies that arrived while he recorded, played in order once the take is sent.
+  var heldDuringTake = [];
   // Replies already on the page: shown, queued or played. Only a reply the page has not seen
   // joins the sequence and may play by itself. Once he taps ▶ himself, the sequence is over
   // and each reply plays only when he chooses it (the person, 2026-10-12, take 261012193110).
@@ -262,8 +268,9 @@
   if (rulingsBox) loadRulings();
 
   function speaking() {
-    return !replyAudio.paused && !replyAudio.ended && replyAudio.loop !== true
-      && (replyAudio.getAttribute("src") || "").indexOf("api/replies/") === 0;
+    if (replyAudio.loop === true || replyAudio.ended) return false;
+    if ((replyAudio.getAttribute("src") || "").indexOf("api/replies/") !== 0) return false;
+    return !replyAudio.paused || (voicingId !== null && !(replyAudio.readyState >= 3));
   }
 
   var THUMB = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 10.5v9H4.5v-9zM7.5 10.5l3.5-6.5a2 2 0 0 1 2.5 2.2l-.6 3.3h5.4a2 2 0 0 1 2 2.4l-1.3 6.2a2 2 0 0 1-2 1.4H7.5"/></svg>';
@@ -477,9 +484,11 @@
     if (isNew) loadThread().then(showNewest);
     if (isNew && busy()) {
       unheard[reply.id] = true;
+      if (!heldDuringTake.some(function (r) { return r.id === reply.id; })) heldDuringTake.push(reply);
       replyNotice.textContent = "Mia replied at " + when(reply.at) + ". Read it just below. Her voice waits until you have sent your take.";
     }
     if (isNew && !busy()) {
+      voicingId = null;
       replyAudio.pause();
       replyAudio.removeAttribute("src");
       replyAudio.hidden = true;
@@ -503,6 +512,7 @@
   function playReply() {
     if (!current || busy()) return;
     measureSteps(current);
+    voicingId = current.id;
     delete unheard[current.id];
     replyNotice.textContent = "";
     replyAudio.loop = false;
@@ -533,6 +543,26 @@
       var started = replyAudio.play();
       if (started && started.catch) started.catch(function () {});
     } catch (_) {}
+  }
+
+  // Replies that arrived while he recorded play as soon as the take is sent, oldest first,
+  // each after the one before (the person, Episode 44, 2026-11-16: "as soon as I press send
+  // ... it's going to start playing"). The element still plays the silence started at Stop,
+  // so only its source changes and iOS lets it go on without a tap.
+  function playHeld() {
+    var held = heldDuringTake.splice(0).filter(function (r) { return unheard[r.id] && !r.unvoiced; });
+    if (!held.length || !autoplay.checked) return false;
+    held.sort(function (a, b) { return String(a.at).localeCompare(String(b.at)); });
+    var first = held.shift();
+    held.reverse().forEach(function (r) {
+      if (!queued.some(function (q) { return q.id === r.id; })) queued.unshift(r);
+    });
+    current = first;
+    seen[first.id] = true;
+    showReplyBox(true);
+    playReply();
+    replyNotice.textContent = queued.length ? queued.length + " more of her replies wait after this one." : "";
+    return true;
   }
 
   function releaseAudioHold() {
@@ -734,7 +764,9 @@
     heartbeat = null;
     tellRecorder(false);
     var waitingIds = Object.keys(unheard);
-    if (waitingIds.length) replyNotice.textContent = "Mia replied while you were recording. Tap ▶ New in the conversation when you are ready.";
+    if (waitingIds.length) replyNotice.textContent = autoplay.checked
+      ? "Mia replied while you were recording. Her replies play as soon as your take is sent."
+      : "Mia replied while you were recording. Tap ▶ New in the conversation when you are ready.";
   }
 
   async function replies(episode, take) {
@@ -898,6 +930,7 @@
   // The next queued reply starts when the one playing ends. The element was started by a
   // tap or a primed play, so iOS lets it go on to the next source.
   replyAudio.addEventListener("ended", function () {
+    if (replyAudio.loop !== true) voicingId = null;
     if (replyAudio.loop === true || busy()) return;
     var next = queued.shift();
     if (!next) return;
@@ -908,6 +941,7 @@
 
   // The player only knows that the audio failed. The server knows why, so ask it.
   replyAudio.addEventListener("error", function () {
+    voicingId = null;
     hearButton.textContent = "Hear Mia";
     hearButton.disabled = false;
     var src = replyAudio.getAttribute("src") || "";
@@ -1115,6 +1149,7 @@
   async function start() {
     if (state !== "idle" && state !== "retry") return;
     pending = null;
+    voicingId = null;
     try { replyAudio.pause(); } catch (_) {}
     releaseAudioHold();
     setState("starting");
@@ -1306,6 +1341,7 @@
       timer.textContent = "";
       setState("idle");
       loadThread();
+      playHeld();
       // Wait even when nobody is listening: a session can start at any moment, and her
       // reply should still play by itself when it comes.
       if (answer.transcriptError) releaseAudioHold(); else waitForReply(episode, answer.take);
