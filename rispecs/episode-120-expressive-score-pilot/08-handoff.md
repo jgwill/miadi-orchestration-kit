@@ -14,6 +14,10 @@ cue through a replayable expressive-take receipt.
   proposed in jgwill/miadi-orchestration-kit#159 at commit `af72b2a`.
 - The expressive-take adapter is proposed in jgwill/Miadi#1046 at commit
   `9ae9d9c9`.
+- The editable worktrees are persistent across reboot at
+  `/home/mia/workspace/worktrees/miadi-orchestration-kit/episode-120-expressive-score`
+  and `/home/mia/workspace/worktrees/Miadi/expressive-take`; do not recreate
+  temporary `/tmp` copies.
 - Episode 575's verified text evidence supports a no-new-media reference
   rehearsal. No Episode 120 field take has been claimed.
 
