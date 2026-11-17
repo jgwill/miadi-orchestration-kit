@@ -45,7 +45,7 @@ checkout, only `npx`:
 |---|---|---|
 | `inquiry-weave` | `${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.18.14}` | the episode verbs: `chronicle_episode_mint`, `_status`, `_land`, `_review`, `_foundation` (hold a foundation packet, jgwill/Miadi#713), `_lineage` (relate two episodes with the sentence saying why), `_inquiry`, `_register`, `chronicle_resolve` (also `miadi-foundation:` and `<episode>/prototypes`, `<episode>/compaction`), the attention tools |
 | `miadi-voice` | `${MIADI_VOICE_MCP:-@miadi/voice-mcp@0.5.0}` | an episode's voice: `voice_resolve_episode`, `voice_publish_to_episode`, `voice_play_episode`, `voice_list_episode_voices`, `voice_create_episode`, `voice_episode_closing_status`. The only sanctioned voice path (the `miadi-voice` skill). 0.4.4 is the first version whose bin starts under npx (jgwill/Miadi#704). |
-| `medicine-wheel-miadi-chronicle` | `${MWCV:-@medicine-wheel/mcp@4.27.15}` | the chronicle wheel itself: nodes, edges (`create_relational_edge` takes a `description`), ceremonies, circles |
+| `medicine-wheel-miadi-chronicle` | `${MIADI_CHRONICLE_MW_MCP:-@medicine-wheel/mcp@4.27.15}` | the chronicle wheel itself: nodes, edges (`create_relational_edge` takes a `description`), ceremonies, circles |
 
 `inquiry-weave` runs with `MIADI_EPISODE_DOOR=http`: every episode write goes through the app at
 `MIADI_API_URL`, the same door the episode page uses, so manifest, wheel and commit move together.
@@ -128,7 +128,7 @@ rather than proceeding, per `claude/AGENTS.md` rule 3.
 | `MIADI_PERSON_TOKEN` | optional; names the person who opens a review's talking circle. |
 | `MIADI_ASSEMBLY_VOICE_AUDIO_DIR` | where `miadi-voice` finds generated audio; default `/srv/miadi/voice-audio`. |
 | `MIADI_SRC` | optional; `miadi-voice` reads the writer token from `$MIADI_SRC/.env` when the environment lacks it. |
-| `MIADI_INQUIRY_WEAVE_MCP`, `MIADI_VOICE_MCP`, `MWCV` | optional package pins for the three servers. |
+| `MIADI_INQUIRY_WEAVE_MCP`, `MIADI_VOICE_MCP`, `MIADI_CHRONICLE_MW_MCP` | optional package overrides for the three servers, for trying a version by hand. Nothing on a host sets them, so the pins in `.mcp.json` govern and a plugin upgrade moves the version every new session starts. The host-wide `MWCV` (`/opt/binscripts/etc/bash_env_common`) is not read here: a seat launched from a shell that carried a stale `MWCV` kept 4.27.10 after the plugin moved to 4.27.15 (2026-11-17). |
 
 ## No `agents/`
 
