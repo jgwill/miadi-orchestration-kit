@@ -1,0 +1,9 @@
+{
+  "name": "miadi-release-notes",
+  "description": "A release note with the road ahead, written as a key moment of the session that made the release: what changed and for whom, the pull requests the next release carries (each test-merged into main), and what the sessions are working toward. Kept in the repository's RELEASE-NOTES.md, left as a beat on the episode's plot thread, and sent by the factory's mail to the people it concerns, whose replies reach the sessions that hold the road ahead. /release-notes.",
+  "version": "0.1.0",
+  "author": {
+    "name": "jgwill"
+  },
+  "homepage": "https://github.com/jgwill/miadi-orchestration-kit/tree/main/claude/miadi-release-notes"
+}

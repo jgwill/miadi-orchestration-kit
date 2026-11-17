@@ -76,6 +76,12 @@
       "source": "./claude/tushell-keeper",
       "description": "Tushell, the Keeper of Echoes: a developmental-editor subagent that reads a Lake of Whispers scene, a session chronicle, a journal page or a reply to Guillaume and returns exact-span recommendations and a route, so Tushell revises his own draft before it is written or published.",
       "version": "0.1.0"
+    },
+    {
+      "name": "miadi-release-notes",
+      "source": "./claude/miadi-release-notes",
+      "description": "A release note with the road ahead, written as a key moment of the session that made the release: what changed, the pull requests the next release carries (test-merged into main), and what the sessions work toward. Kept in RELEASE-NOTES.md, left as a beat on the episode's plot thread, and sent by the factory's mail to the people it concerns. /release-notes.",
+      "version": "0.1.0"
     }
   ]
 }

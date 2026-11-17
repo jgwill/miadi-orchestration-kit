@@ -1,0 +1,422 @@
+{
+  "id": "5dbbb015-fd49-4b86-804c-5782412c8031",
+  "timestamp": "2026-11-17T14:03:34.208Z",
+  "engine": "claude",
+  "model": "opus",
+  "prompt": "# Guillaume, 2026-11-17, seat t8-fix-plugin-upgrade-and-working-failure-2611170842 (voice transcription, verbatim)\n\nContext: in this session the wheel MCP server of the miadi-chronicle-episode-kit plugin failed to reconnect in Jerry's mailing seat (f1-t6-mailing-and-prep-atelier-jerry-2611131123). Cause: the host-wide MWCV variable (4.27.10) shadowed the plugin pin (4.27.15) and the npx cache for 4.27.10 was broken. Fix: kit 0.3.61 (commit 3619785) reads MIADI_CHRONICLE_MW_MCP instead of MWCV. A review of the 12 open PRs of jgwill/miadi-orchestration-kit followed.\n\n---\n\nOkay, there's a lot of implications on the future steps, and I think that this is not a human stretch to actually work with that much relation. I'm not looking basically at what you actually did, and it's great, you know, you remove the dependency for the variable, which is really great. After that, it's okay that we left the variable there because there are other configuration on the systems that are using it, and we will not search, we will not fix anything. It's just we're jumping into a new way of working with the plugin, and it seems like you resolved all of that. So we'll want to report by email. You know, if you look at use the factory email in the recent threads, that needs this plugin to work fine with all of the actual commands. We'll need to report on these fixes, you know, pretty much like we write platform upgrades or fixes, you know, this file that we put at the root of a repository, like release notes that by version that nobody reads. But knowing that human participant and agents that you might observe emails when they receive it, they're going to be able to interpret these release notes, and it's going to give us an example of something that we would publish once or twice a week. And if I go back to the PR review, you know, it could be part of your actual release note, which PR are actually, you know, going on. I would say the next release, basically, so it would create a very interesting narrative form to the actual implementation. So I think I'm going to send you this message right away, like this, and you're going to do all of that and come back. I'm still going to read, you know, I'm at that section where it says ready after a read, and I see that there's a, you know, the skill onset performance seems to be ready, and it would be good to have a few paragraphs that expresses in this release note. There would be an additional section that would be called the road ahead, in which, you know, what we're basically going to do in this session and we're envisioning to do is going to be part of that section. And also, because we're doing something very important, I think it should be a plugin where the skill of drafting a release notes with the road ahead is a plot thread key moment in terms of narrative beat inside of a session such as the one I'm doing with you right now, that we will want to use the plugin to actually write to the community to whom is relevant. And you could also fill a new issue inside of the factory, because we will want to develop a mailing list or something through which some type of users that we gave them the adequate role of being, of subscribing to such mailing lists, so they would receive the release notes as readers. And there would be another permission that we will want, which is when the user that have that permission actually received a release note with the road ahead. When the factory received an email from them, she's going to consider their feedback as influencing the sessions and the ceremonies that will work on the roads ahead.\n",
+  "result": {
+    "primary": {
+      "action": "write and send by email",
+      "target": "a versioned release note for miadi-chronicle-episode-kit 0.3.61 (the wheel MCP fix: MIADI_CHRONICLE_MW_MCP replaces MWCV), including the open-PR review as the next release and a 'The road ahead' section, posted to the factory email threads that depend on the plugin",
+      "urgency": "immediate",
+      "confidence": 0.85
+    },
+    "secondary": [
+      {
+        "action": "leave in place",
+        "target": "the host-wide MWCV variable and every other configuration that still reads it (no search, no fix)",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.9
+      },
+      {
+        "action": "write",
+        "target": "a release-notes file at the repository root, organised by version",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.75
+      },
+      {
+        "action": "find",
+        "target": "the recent factory email threads that need the plugin to work with all its commands (Jerry's mailing seat f1-t6-mailing-and-prep-atelier-jerry-2611131123)",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.8
+      },
+      {
+        "action": "include",
+        "target": "the review of the 12 open PRs of jgwill/miadi-orchestration-kit, listing the PRs that make up the next release",
+        "implicit": false,
+        "dependency": "review of the 12 open PRs",
+        "confidence": 0.85
+      },
+      {
+        "action": "write a few paragraphs on",
+        "target": "the 'skill onset performance' PR from the 'ready after a read' section of the PR review",
+        "implicit": false,
+        "dependency": "identification of that PR among the 12 open PRs",
+        "confidence": 0.6
+      },
+      {
+        "action": "write",
+        "target": "a 'The road ahead' section covering what this session will do and what it envisions",
+        "implicit": false,
+        "dependency": "the session plan derived from this message",
+        "confidence": 0.85
+      },
+      {
+        "action": "create",
+        "target": "a plugin (or a skill in a kit plugin) that drafts a release note with a road-ahead section, treated as a key narrative beat (plot thread moment) of a session, and sends it to the relevant community",
+        "implicit": false,
+        "dependency": "the first release note, which serves as its worked example",
+        "confidence": 0.75
+      },
+      {
+        "action": "file",
+        "target": "a new GitHub issue in the factory for a mailing list whose subscribers hold a 'release-note reader' role",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.85
+      },
+      {
+        "action": "specify in the same issue",
+        "target": "a second permission: emails from users holding it, in reply to a release note, are taken by the factory as feedback that steers the sessions and ceremonies working on the road ahead",
+        "implicit": false,
+        "dependency": "the mailing-list issue",
+        "confidence": 0.85
+      },
+      {
+        "action": "report back",
+        "target": "Guillaume, once everything is done",
+        "implicit": false,
+        "dependency": "all other actions",
+        "confidence": 0.9
+      },
+      {
+        "action": "verify",
+        "target": "that kit 0.3.61 actually reconnects the wheel MCP and that all plugin commands work in the mailing seat ('it seems like you resolved all of that')",
+        "implicit": true,
+        "dependency": null,
+        "confidence": 0.6
+      },
+      {
+        "action": "write for",
+        "target": "two kinds of readers, human participants and agents that read the email when it arrives",
+        "implicit": true,
+        "dependency": null,
+        "confidence": 0.75
+      },
+      {
+        "action": "set up",
+        "target": "a cadence of one or two release notes a week",
+        "implicit": true,
+        "dependency": "the release-notes plugin",
+        "confidence": 0.6
+      },
+      {
+        "action": "link",
+        "target": "the release-notes commit and the plugin work to a GitHub issue (kit AGENTS.md rule), then commit and push",
+        "implicit": true,
+        "dependency": "the release-notes file and the plugin",
+        "confidence": 0.7
+      },
+      {
+        "action": "reuse as prior art",
+        "target": "the deb-tester feedback loop (issue forms, miadi-feedback waking a seat per issue, jgwill/miadi-orchestration-kit#109) when designing the feedback permission",
+        "implicit": true,
+        "dependency": "the mailing-list issue",
+        "confidence": 0.5
+      }
+    ],
+    "context": {
+      "files_needed": [
+        "claude/miadi-chronicle-episode-kit/.claude-plugin/plugin.json",
+        "claude/miadi-chronicle-episode-kit CHANGELOG or version notes for 0.3.60 and 0.3.61",
+        "commit 3619785 diff",
+        "commit fbdab86 diff",
+        "the 12-open-PR review written earlier in this session (seat t8-fix-plugin-upgrade-and-working-failure-2611170842)",
+        "existing root release-notes or CHANGELOG convention in jgwill/miadi-orchestration-kit",
+        "AGENTS.md (kit)",
+        "/home/mia/.claude/projects/-workspace-repos-jgwill-miadi-orchestration-kit/memory/wheel-mcp-reconnect-failure.md",
+        "/home/mia/.claude/projects/-workspace-repos-jgwill-miadi-orchestration-kit/memory/deb-tester-feedback-loop.md",
+        "factory email threads (Gmail) tied to Jerry's mailing seat"
+      ],
+      "tools_required": [
+        "git",
+        "gh (pr list, pr view, issue create)",
+        "Gmail MCP (search_threads, get_thread, create_draft, reply or send_message)",
+        "Skill: structural-issue-authoring",
+        "Skill: plugin-dev:create-plugin or plugin-dev:skill-development",
+        "plugin-dev:plugin-validator",
+        "tmux capture of the mailing seat to verify the fix"
+      ],
+      "assumptions": [
+        "Kit 0.3.61 fixes the reconnect failure for all of the plugin's commands",
+        "Leaving MWCV on the hosts is safe because other configurations read it",
+        "A factory email account exists and has recent threads that depend on this plugin",
+        "Release notes are rarely read by people, but agents and participants who receive them by email will interpret them",
+        "The 'skill onset performance' PR is ready to merge",
+        "Release notes will be published once or twice a week",
+        "The factory can assign subscription and feedback roles to users",
+        "Writing a release note with its road ahead is a key narrative beat in a session"
+      ]
+    },
+    "outputs": {
+      "artifacts": [
+        "RELEASE-NOTES.md (or release-notes/<version>.md) at the kit root, first entry for miadi-chronicle-episode-kit 0.3.61",
+        "a new plugin or skill for drafting release notes with a road-ahead section as a session narrative beat",
+        "an email (draft or sent) carrying the release note"
+      ],
+      "updates": [
+        "plugin marketplace manifest if a new plugin is added",
+        "kit README or AGENTS.md entry pointing at the release-notes practice"
+      ],
+      "communications": [
+        "release-note email to the factory threads and the community it concerns (Jerry's mailing seat thread)",
+        "GitHub issue in the factory: release-note mailing list with a subscriber role and a feedback role whose replies steer road-ahead sessions and ceremonies",
+        "possibly a tracking issue for the release-notes plugin under the AGENTS.md hygiene rule",
+        "report back to Guillaume"
+      ]
+    },
+    "directions": {
+      "east": [
+        {
+          "text": "Release notes become a narrative publication, once or twice a week, that human participants and agents both read and interpret",
+          "confidence": 0.75,
+          "implicit": false
+        },
+        {
+          "text": "Each release note includes a road ahead that ties the session's intended work to the community",
+          "confidence": 0.85,
+          "implicit": false
+        },
+        {
+          "text": "Readers with a feedback role reply by email, and their replies steer the sessions and ceremonies that carry out the road ahead",
+          "confidence": 0.85,
+          "implicit": false
+        },
+        {
+          "text": "Drafting a release note becomes a recognised narrative beat inside a session",
+          "confidence": 0.7,
+          "implicit": false
+        },
+        {
+          "text": "The system moves to a new way of working with the plugin and does not chase old MWCV consumers",
+          "confidence": 0.85,
+          "implicit": false
+        }
+      ],
+      "south": [
+        {
+          "text": "Read commit 3619785 and the 0.3.60 and 0.3.61 changes to describe the fix accurately",
+          "confidence": 0.85,
+          "implicit": true
+        },
+        {
+          "text": "Classify the 12 open PRs and choose the ones that make up the next release",
+          "confidence": 0.8,
+          "implicit": false
+        },
+        {
+          "text": "Identify the 'skill onset performance' PR and what it delivers",
+          "confidence": 0.6,
+          "implicit": false
+        },
+        {
+          "text": "Find the factory email threads that depend on the plugin and who is in them",
+          "confidence": 0.8,
+          "implicit": false
+        },
+        {
+          "text": "Check the repo for an existing release-notes or changelog convention",
+          "confidence": 0.7,
+          "implicit": true
+        },
+        {
+          "text": "Study the deb-tester feedback loop (#109) as prior art for email feedback steering sessions",
+          "confidence": 0.5,
+          "implicit": true
+        }
+      ],
+      "west": [
+        {
+          "text": "Verify in the mailing seat that the wheel MCP reconnects and the plugin commands work under 0.3.61",
+          "confidence": 0.65,
+          "implicit": true
+        },
+        {
+          "text": "Check that the release note reads clearly for humans and for agents that receive it",
+          "confidence": 0.7,
+          "implicit": true
+        },
+        {
+          "text": "Validate the new plugin or skill structure",
+          "confidence": 0.65,
+          "implicit": true
+        },
+        {
+          "text": "Confirm recipients before an email reaches a human audience",
+          "confidence": 0.6,
+          "implicit": true
+        }
+      ],
+      "north": [
+        {
+          "text": "Write and commit the versioned release-notes file with fixes, next-release PRs, skill paragraphs and The road ahead",
+          "confidence": 0.8,
+          "implicit": false
+        },
+        {
+          "text": "Send the release note by email in the relevant factory thread",
+          "confidence": 0.8,
+          "implicit": false
+        },
+        {
+          "text": "File the factory issue for the release-note mailing list and the feedback permission",
+          "confidence": 0.85,
+          "implicit": false
+        },
+        {
+          "text": "Build the release-notes-with-road-ahead plugin",
+          "confidence": 0.75,
+          "implicit": false
+        },
+        {
+          "text": "Report back to Guillaume",
+          "confidence": 0.9,
+          "implicit": false
+        }
+      ]
+    },
+    "actionStack": [
+      {
+        "text": "Confirm scope: release note for kit 0.3.61 MWCV fix plus open-PR review, MWCV stays on hosts untouched",
+        "direction": "east",
+        "dependency": null,
+        "completed": false
+      },
+      {
+        "text": "Read commits 3619785 and fbdab86 and the plugin's 0.3.60 and 0.3.61 notes",
+        "direction": "south",
+        "dependency": "Confirm scope: release note for kit 0.3.61 MWCV fix plus open-PR review, MWCV stays on hosts untouched",
+        "completed": false
+      },
+      {
+        "text": "Re-read the review of the 12 open PRs and select those forming the next release",
+        "direction": "south",
+        "dependency": "Confirm scope: release note for kit 0.3.61 MWCV fix plus open-PR review, MWCV stays on hosts untouched",
+        "completed": false
+      },
+      {
+        "text": "Identify the 'skill onset performance' PR in the ready-after-a-read section",
+        "direction": "south",
+        "dependency": "Re-read the review of the 12 open PRs and select those forming the next release",
+        "completed": false
+      },
+      {
+        "text": "Search the factory mailbox for recent threads that depend on the plugin",
+        "direction": "south",
+        "dependency": "Confirm scope: release note for kit 0.3.61 MWCV fix plus open-PR review, MWCV stays on hosts untouched",
+        "completed": false
+      },
+      {
+        "text": "Check the kit root for an existing release-notes or changelog convention",
+        "direction": "south",
+        "dependency": "Confirm scope: release note for kit 0.3.61 MWCV fix plus open-PR review, MWCV stays on hosts untouched",
+        "completed": false
+      },
+      {
+        "text": "Verify the wheel MCP reconnects and plugin commands work in Jerry's mailing seat under 0.3.61",
+        "direction": "west",
+        "dependency": "Read commits 3619785 and fbdab86 and the plugin's 0.3.60 and 0.3.61 notes",
+        "completed": false
+      },
+      {
+        "text": "Draft the versioned release note: fixes, next-release PRs, skill paragraphs, The road ahead",
+        "direction": "north",
+        "dependency": "Identify the 'skill onset performance' PR in the ready-after-a-read section",
+        "completed": false
+      },
+      {
+        "text": "Review the release note for readability by human participants and observing agents",
+        "direction": "west",
+        "dependency": "Draft the versioned release note: fixes, next-release PRs, skill paragraphs, The road ahead",
+        "completed": false
+      },
+      {
+        "text": "Load structural-issue-authoring and file the factory issue for release-note subscription and feedback permissions",
+        "direction": "north",
+        "dependency": "Confirm scope: release note for kit 0.3.61 MWCV fix plus open-PR review, MWCV stays on hosts untouched",
+        "completed": false
+      },
+      {
+        "text": "Commit the release-notes file linked to an issue and push",
+        "direction": "north",
+        "dependency": "Review the release note for readability by human participants and observing agents",
+        "completed": false
+      },
+      {
+        "text": "Send the release-note email in the relevant factory thread",
+        "direction": "north",
+        "dependency": "Commit the release-notes file linked to an issue and push",
+        "completed": false
+      },
+      {
+        "text": "Design the release-notes-with-road-ahead skill as a session narrative beat, using this note as its example",
+        "direction": "east",
+        "dependency": "Review the release note for readability by human participants and observing agents",
+        "completed": false
+      },
+      {
+        "text": "Scaffold the release-notes plugin in the kit, validate it, commit and push",
+        "direction": "north",
+        "dependency": "Design the release-notes-with-road-ahead skill as a session narrative beat, using this note as its example",
+        "completed": false
+      },
+      {
+        "text": "Report back to Guillaume with the email, the file, the issue and the plugin state",
+        "direction": "north",
+        "dependency": "Scaffold the release-notes plugin in the kit, validate it, commit and push",
+        "completed": false
+      }
+    ],
+    "ambiguities": [
+      {
+        "text": "'skill onset performance' is a voice transcription and may not be the PR's real name",
+        "suggestion": "Match it against the ready-after-a-read PRs in the review (possibly an on-set performance skill PR) and name the PR by owner/repo#number"
+      },
+      {
+        "text": "'the factory email' and 'the community to whom it is relevant' do not name an address or recipients",
+        "suggestion": "Use the factory mailbox thread tied to Jerry's mailing seat and list the recipients in the report"
+      },
+      {
+        "text": "Send directly or prepare a draft: an email to people is outward-facing",
+        "suggestion": "Reply in the existing thread if the recipients are the ones already in it, otherwise create a draft and name it in the report"
+      },
+      {
+        "text": "'it should be a plugin': a new plugin, or a skill inside miadi-chronicle-episode-kit or mia-episode-companion",
+        "suggestion": "Default to a skill in an existing kit plugin unless it needs its own commands or hooks, and state the choice"
+      },
+      {
+        "text": "'inside of the factory' does not name a repository for the issue",
+        "suggestion": "File in jgwill/miadi-orchestration-kit unless a dedicated Miadi Factory repo owns mailing and roles"
+      },
+      {
+        "text": "Release-notes file name and layout ('this file that we put at the root', 'by version')",
+        "suggestion": "Use a single RELEASE-NOTES.md at the root, newest version first, one section per plugin version"
+      },
+      {
+        "text": "Which versions and plugins the first note covers (0.3.61 only, or 0.3.60 and the recent mia-episode-companion and chronicle-client releases)",
+        "suggestion": "Cover the releases since the last tagged note, with 0.3.61 as the lead entry"
+      },
+      {
+        "text": "'The road ahead' refers to 'what we're going to do in this session', which this message does not spell out",
+        "suggestion": "Derive it from the next-release PRs, the release-notes plugin and the mailing-list issue"
+      },
+      {
+        "text": "'mailing list or something': no mechanism or role store named",
+        "suggestion": "Leave the mechanism open in the issue and state the two roles (reader, feedback giver) as the desired state"
+      },
+      {
+        "text": "How a release note is recorded as a 'plot thread key moment' or narrative beat",
+        "suggestion": "Tie it to the session's chronicle episode or a narrative-engine beat, and name the open choice in the issue"
+      }
+    ]
+  },
+  "options": {
+    "extractImplicit": true,
+    "mapDependencies": true
+  },
+  "folder_name": "2611170903--5dbbb015-fd49-4b86-804c-5782412c8031",
+  "pde_dir": "/workspace/repos/jgwill/miadi-orchestration-kit/.pde/2611170903--5dbbb015-fd49-4b86-804c-5782412c8031"
+}
