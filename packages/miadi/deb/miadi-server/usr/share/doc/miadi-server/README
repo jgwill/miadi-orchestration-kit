@@ -1,50 +1,32 @@
-miadi-server — the Miadi web app as a per-user service
+miadi-server — the Miadi web app, built and ready to run
 
   sudo apt install miadi-server
 
-The package holds a launcher and a per-user systemd unit. The checkout, its
-dependencies and its build stay with the checkout, and the package starts
-nothing.
+The package holds the built app, its launcher and a per-user systemd unit. It
+needs no checkout, no pnpm and no build on the host, and it starts nothing.
 
-Set up a host, as the user who will run the service:
-
-  git clone https://github.com/jgwill/Miadi.git <checkout>
-  sudo miadi-config set MIADI_PROJECT_DIR <checkout>
-  cd <checkout> && pnpm install
-  pnpm --filter "miadi-project^..." --filter "@miadi/voice-client..." run build     # install does not build these
-  pnpm build
-  miadi-server check
+  miadi-server init /path/to/.env     # the app's settings, kept at mode 600
+  miadi-server check                  # what would run and what stops it
+  miadi-server                        # run it in the foreground on 127.0.0.1:3335
   systemctl --user enable --now miadi-server
-  sudo loginctl enable-linger "$USER"     # so it starts at boot, with nobody logged in
 
-Building needs pnpm and npm on PATH, and the checkout's .env. miadi-node, which runs the service, carries neither.
+`miadi-server --help` lists every command and setting.
 
-Three host settings, in /etc/miadi/miadi.env through `sudo miadi-config set`:
+Settings are in ~/.config/miadi-server/env. What the app saves goes in
+~/.local/state/miadi-server, and is kept across upgrades.
 
-  MIADI_PROJECT_DIR   the checkout, else MIADI_SRC
-  MIADI_MODE_FILE     a file holding dev or prod (default /etc/miadi/mode);
-                      no file means prod
-  MIADI_PORT          the port (default 3335)
-
-The app's own settings stay in the checkout's .env. The launcher passes the
-app nothing else from miadi.env, so a host value such as MIADI_URL_BASE has
-to be set in .env as well to reach the app.
-
-Rebuild an installed service with scripts/ops/miadi-refresh.sh in the
-checkout. It builds beside the running server and swaps the build in.
-
-The app needs two services it can reach: the Redis in KV_REST_API_URL and
-the medicine wheel in MIADI_CHRONICLE_MW_URL. Without the wheel, person
-tokens answer 502.
+The app has to reach a Redis (KV_REST_API_URL) and a medicine wheel
+(MIADI_CHRONICLE_MW_URL), and `miadi-server check` says whether each answers.
 
 Person and seat tokens are checked against credentials.jsonl in
 MIADI_IDENTITY_DIR (default /srv/miadi/identity), a file local to each host.
 A new host needs that file from the host that issued the tokens, or new
-tokens from its own /me page.
+tokens from its own /me page. Shared reader and writer tokens need neither.
+
+A host that runs the app from its own checkout sets MIADI_PROJECT_DIR, and the
+launcher runs that checkout instead. Building a checkout needs pnpm and npm.
 
 An exit status of 2 from miadi-server is a setup problem. The unit does not
 restart on it, and `miadi-server check` names it.
-
-  journalctl --user -u miadi-server
 
 Source: https://github.com/jgwill/miadi-orchestration-kit, packages/miadi/deb
