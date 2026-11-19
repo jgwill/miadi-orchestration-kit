@@ -214,15 +214,23 @@ claude_archive_session() {
     claude_btw_capture "$output_dir"
 }
 
-# Write the images the person attached to a prompt into <output_dir>/images/<prompt_id>/,
-# one line each in _claude_images.jsonl (user_images.py). The prompt's hook input holds its
-# text only. Read from Claude Code's transcript, or from the archived copy once Claude Code
-# deleted it. Without python3 (Termux) nothing is written.
+# Write the images the person attached to a prompt into <output_dir>/images/<message_uuid>/,
+# one line each in _claude_images.jsonl (user_images.py, layout 2 since 0.1.52). The prompt's
+# hook input holds its text only. Read from Claude Code's transcript, or from the archived copy
+# once Claude Code deleted it. A source whose size and mtime are those of the last pass is not
+# read and python does not start: the sweep visits every session, and most have not changed
+# (643 sessions and 1.79 GB on gaia, 2026-11-19). Without python3 (Termux) nothing is written.
 claude_user_images_capture() {
-    local transcript="$1" output_dir="$2" src="$1"
+    local transcript="$1" output_dir="$2" src="$1" stamp last=""
     command -v python3 >/dev/null 2>&1 || return 0
     [ -f "$src" ] || src="$output_dir/_transcript_final.jsonl"
     [ -f "$src" ] || return 0
+    if stamp=$(stat -c '%s %.9Y' "$src" 2>/dev/null); then
+        stamp="2 ${stamp%% *} ${stamp#* }"
+        stamp="${stamp/./} $src"
+        [ -f "$output_dir/.images.state" ] && IFS= read -r last < "$output_dir/.images.state"
+        [ "$last" = "$stamp" ] && return 0
+    fi
     claude_with_lock "$output_dir/.images.lock" \
         python3 "$_CLAUDE_HOOKS_ROOT/claude_hooks/user_images.py" capture "$src" "$output_dir" 2>/dev/null
     return 0

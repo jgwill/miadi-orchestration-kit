@@ -15,19 +15,36 @@ jgwill/miadi-orchestration-kit#56.
   person on the wheel the local account acts for (`MIADI_ACCOUNT_PERSON`, else
   `~/.miadi/person.env`, jgwill/Miadi#887). tmux restore and `tide agents restore` read
   these lines to bring agents back.
-- **Images attached to a prompt** (0.1.50). The prompt's hook input holds its text only, and
-  an image Guillaume attached from the iOS app or pasted on the desktop reached the capture as
-  base64 inside `_transcript_final.jsonl`, and only at the turn's end. Each one is now written
-  to `images/<prompt_id>/<NN>-<name>` in the session folder, with a line in
-  `_claude_images.jsonl` (prompt id, message uuid, position, media type, bytes, sha256, and
-  `kept_from`). An upload from the app or the web is kept from the original Claude Code saves
-  in `~/.claude/uploads/<session_id>/` while it exists, because the transcript copy may be
-  downscaled for the model (the 14th of 14 photos on 2026-11-19: 357,156 bytes uploaded,
-  234,840 in the transcript). A pasted image has no original and is decoded from the
-  transcript. UserPromptSubmit starts a detached capture that waits for the prompt's line, and
-  every archive pass (Stop, SubagentStop, SessionEnd, the SessionStart sweep) catches what it
-  missed, so the sweep fills in every earlier session too. Images inside tool results, subagent
-  and meta lines are left out. Needs `python3`. `tests/user-images.sh`, 18 checks.
+- **Images attached to a prompt** (0.1.50, layout 2 since 0.1.52). The prompt's hook input
+  holds its text only, and an image Guillaume attached from the iOS app or pasted on the
+  desktop reached the capture as base64 inside `_transcript_final.jsonl`, and only at the
+  turn's end. Each one is now written to `images/<message_uuid>/<NN>-<name>` in the session
+  folder, one folder per transcript line, with a line in `_claude_images.jsonl`: prompt id,
+  message uuid, the start of the prompt's text (`prompt_text`), how many of the person's lines
+  carry that prompt id (`prompt_lines`), position, media type, bytes, sha256, `kept_from` and
+  `read_from`. A reader joins an image to its prompt by id and text, because one id can sit on
+  many lines: a forked session's copied history carries one id on every copied prompt.
+  - An upload from the app or the web is kept from the original Claude Code saves in
+    `~/.claude/uploads/<session_id>/` while it exists, found through the `inlined_image_paths`
+    attachment and the attachments between it and the prompt's line. The transcript copy may
+    be downscaled for the model (the 14th of 14 photos on 2026-11-19: 357,156 bytes uploaded,
+    234,840 in the transcript). A pasted image has no original and is decoded from the
+    transcript, strictly: base64 the secret sanitizer changed in the archived copy is listed
+    with that reason, not written as broken bytes.
+  - An image on a slash command's expansion line is kept. Images inside tool results and
+    subagent lines are left out.
+  - UserPromptSubmit starts a detached capture that waits for the prompt's line, reading only
+    the bytes added each second. Every archive pass (Stop, SubagentStop, SessionEnd, the
+    SessionStart sweep) catches what it missed, so the sweep fills in earlier sessions. A
+    transcript whose size and mtime are those of the last pass (`.images.state`) costs one
+    `stat` and starts no python: 16 ms, where reading the 38 MB transcript takes 2 s.
+  - A folder written in layout 1 (`images/<prompt_id>/`, 0.1.50 and 0.1.51) is moved to
+    `images/v1/` with its index, never deleted, and captured again. A session started before
+    0.1.52 keeps its loaded hooks and may add layout 1 lines until it restarts. The reader
+    takes both.
+  - Needs `python3`. `tests/user-images.sh`, 31 checks. Found by an adversarial review of
+    0.1.50: originals skipped in 24 of 42 uploads, fork images overwritten, slash-command
+    images dropped, a 165 s sweep.
 - **Workspace clone guard** (0.1.13). A repo that `stc-workspaces.json` maps to a working
   directory is not written, committed or pushed from its second clone under the auto-clone
   root (`/workspace/repos` on gaia). `hooks/workspace_clone_guard.sh` refuses and names the
