@@ -188,6 +188,7 @@ claude_archive_session() {
     [ -n "$transcript" ] && [ -n "$output_dir" ] || return 0
     mkdir -p "$output_dir"
     claude_archive_jsonl "$transcript" "$output_dir/_transcript_final.jsonl"
+    claude_user_images_capture "$transcript" "$output_dir"
 
     local base="${transcript%.jsonl}" f rel name
     [ -d "$base" ] || { claude_btw_capture "$output_dir"; return 0; }
@@ -211,6 +212,20 @@ claude_archive_session() {
     # files of the session it forked from.
     done < <(find "$base" \( -type f -o -type l \) -print0 2>/dev/null)
     claude_btw_capture "$output_dir"
+}
+
+# Write the images the person attached to a prompt into <output_dir>/images/<prompt_id>/,
+# one line each in _claude_images.jsonl (user_images.py). The prompt's hook input holds its
+# text only. Read from Claude Code's transcript, or from the archived copy once Claude Code
+# deleted it. Without python3 (Termux) nothing is written.
+claude_user_images_capture() {
+    local transcript="$1" output_dir="$2" src="$1"
+    command -v python3 >/dev/null 2>&1 || return 0
+    [ -f "$src" ] || src="$output_dir/_transcript_final.jsonl"
+    [ -f "$src" ] || return 0
+    claude_with_lock "$output_dir/.images.lock" \
+        python3 "$_CLAUDE_HOOKS_ROOT/claude_hooks/user_images.py" capture "$src" "$output_dir" 2>/dev/null
+    return 0
 }
 
 # Archive every session in <projects_dir> (~/.claude/projects) that the hooks

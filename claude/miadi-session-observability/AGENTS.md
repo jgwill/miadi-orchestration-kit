@@ -34,6 +34,10 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
 - `commands/inventory-exit-reason.md`: the same record for a session exited before its work is
   done, with the person's reason in an `exit` block and `status: "aborted"` (0.1.49). Its
   fields are in the inventory folder's `SCHEMA.md`, "Exit reasons".
+- `hooks/claude_hooks/user_images.py` and `tests/user-images.sh`: the images a person attached
+  to a prompt, kept under `images/<prompt_id>/` with `_claude_images.jsonl` (0.1.50), 18 checks.
+  Called by `claude_user_images_capture` in `lib.sh` from every archive pass, and detached from
+  UserPromptSubmit through `transcript_archive.sh images`.
 - `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a

@@ -21,6 +21,11 @@ claude_write_json "$output_dir/last_claude_user_inputs.jsonl" "$input" # We migh
 # A comment sent to Claude from an Artifact thread, or the notice of an auto-reply
 # (lib.sh, claude_artifact_comments_prompt_queue).
 claude_artifact_comments_prompt_queue "$output_dir" "$input"
+# The images attached to this prompt are in the transcript only (lib.sh,
+# claude_user_images_capture). Detached: it waits for the prompt's line.
+IFS=$'\t' read -r prompt_id transcript_path < <(echo "$input" | jq -r '[.prompt_id // "", .transcript_path // ""] | @tsv')
+[ -n "$prompt_id" ] && [ -n "$transcript_path" ] \
+    && claude_detach bash "$SCRIPT_DIR/transcript_archive.sh" images "$transcript_path" "$output_dir" "$prompt_id"
 
 #echo "" >> "$output_dir/_claude_user_inputs.jsonl"
 

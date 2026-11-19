@@ -16,6 +16,19 @@ jgwill/miadi-orchestration-kit#56.
   person on the wheel the local account acts for (`MIADI_ACCOUNT_PERSON`, else
   `~/.miadi/person.env`, jgwill/Miadi#887). tmux restore and `tide agents restore` read
   these lines to bring agents back.
+- **Images attached to a prompt** (0.1.50). The prompt's hook input holds its text only, and
+  an image Guillaume attached from the iOS app or pasted on the desktop reached the capture as
+  base64 inside `_transcript_final.jsonl`, and only at the turn's end. Each one is now written
+  to `images/<prompt_id>/<NN>-<name>` in the session folder, with a line in
+  `_claude_images.jsonl` (prompt id, message uuid, position, media type, bytes, sha256, and
+  `kept_from`). An upload from the app or the web is kept from the original Claude Code saves
+  in `~/.claude/uploads/<session_id>/` while it exists, because the transcript copy may be
+  downscaled for the model (the 14th of 14 photos on 2026-11-19: 357,156 bytes uploaded,
+  234,840 in the transcript). A pasted image has no original and is decoded from the
+  transcript. UserPromptSubmit starts a detached capture that waits for the prompt's line, and
+  every archive pass (Stop, SubagentStop, SessionEnd, the SessionStart sweep) catches what it
+  missed, so the sweep fills in every earlier session too. Images inside tool results, subagent
+  and meta lines are left out. Needs `python3`. `tests/user-images.sh`, 18 checks.
 - **Workspace clone guard** (0.1.13). A repo that `stc-workspaces.json` maps to a working
   directory is not written, committed or pushed from its second clone under the auto-clone
   root (`/workspace/repos` on gaia). `hooks/workspace_clone_guard.sh` refuses and names the
