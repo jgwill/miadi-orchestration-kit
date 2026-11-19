@@ -31,6 +31,9 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   `inventory.mjs` in SessionEnd's detached half (0.1.41) and with its meaning by the session's
   own agent at `/inventory-exit` (0.1.42), then the decision of miadi-witness
   `inventory-at-exit.mjs` on how the record gets its meaning (0.1.43), 17 checks.
+- `commands/inventory-exit-reason.md`: the same record for a session exited before its work is
+  done, with the person's reason in an `exit` block and `status: "aborted"` (0.1.49). Its
+  fields are in the inventory folder's `SCHEMA.md`, "Exit reasons".
 - `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4
   checks.
 - `tests/binding-mission.sh`: the binding line names the miadi-run mission that started a

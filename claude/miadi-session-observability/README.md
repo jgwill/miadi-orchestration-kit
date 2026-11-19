@@ -321,6 +321,11 @@ installed plugin is a copy of this folder, so it cannot reach the kit by a relat
   work_completed, held_decisions, next_steps, team_fit from miadi-witness `team-fit.mjs`,
   disposition), commits only that record in the inventory's repository and pushes, then tells
   the person to type `/exit`. It never runs `/exit` itself.
+- `/inventory-exit-reason [reason]` (0.1.49): the same record for a session the person exits
+  before its work is done, with their reason in an `exit` block (`aborted`, `wrong_model`,
+  `wrong_setup`, `superseded` or `other`, their words verbatim, the models the session ran and
+  the line that restarts it) and `status: "aborted"`. Without a reason it asks for one. It lists
+  the session's uncommitted files in the record and commits none of them.
 - The session's inventory record is written when it ends (0.1.41). The SessionEnd hook's
   detached half runs miadi-witness `scripts/inventory.mjs write --session <id>`, no model call,
   from the installed `miadi-witness` plugin (a user install, or a project install whose folder
