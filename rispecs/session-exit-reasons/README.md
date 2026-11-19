@@ -9,7 +9,7 @@ pattern becomes a change the person decides, and the change is checked by the ex
 The packet stays in specification. Nothing here is built except the first door,
 `/inventory-exit-reason` (miadi-session-observability 0.1.49, jgwill/miadi-orchestration-kit@4a4f169).
 
-**Issue**: drafted in [`issues/01-kit-session-exit-reasons.md`](./issues/01-kit-session-exit-reasons.md), not sent.
+**Issues**: jgwill/miadi-orchestration-kit#162 and jgwill/Miadi#1062, children of jgwill/miadi-orchestration-kit#160 (bodies in [`issues/`](./issues/)).
 Current anchor: jgwill/miadi-orchestration-kit#56.
 **Status**: specified 2026-11-19, not built ([`STATUS.md`](./STATUS.md)).
 **Born in**: session `5ffaf964-f4cb-470d-a1da-35fdd040073a`,
@@ -25,7 +25,7 @@ miadi-tmux://mia@gaia:t1-exit-not-on-completion-2611190727.
 | [`04-export.md`](./04-export.md) | E | Where each part is built, in which repository, and the gates |
 | [`05-source-ledger.md`](./05-source-ledger.md) | | Sources, claim confidence, related issues |
 | [`STATUS.md`](./STATUS.md) | | What exists, what is held |
-| [`issues/`](./issues/) | | Two issue bodies, drafted and not sent |
+| [`issues/`](./issues/) | | The two issue bodies as sent |
 
 ## Acceptance
 

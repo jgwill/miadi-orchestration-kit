@@ -8,7 +8,8 @@ Measured on gaia on 2026-11-19 (rispecs/session-exit-reasons/01-reverse-engineer
 - 2295 of 3760 starts are resumes, so an exit is often not the end of the work.
 - 3189 of 3312 interactive starts name no `--model`. The model each session ran is in its
   capture and transcript, and no door an agent may use exposes it.
-- The inventory holds 465 records and none carries a reason for exiting. Known reasons live in
+- The inventory held 477 records on 2026-11-19. One carries a reason for exiting: session 675a74db
+  recorded `wrong_model` with `/inventory-exit-reason` that day. Other known reasons live in
   issue bodies (jgwill/Miadi#1060, jgwill/Miadi#1028).
 - `/inventory-exit-reason` (miadi-session-observability 0.1.49,
   jgwill/miadi-orchestration-kit@4a4f169) now lets a session record the person's reason at exit.

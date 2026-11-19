@@ -4,7 +4,7 @@
 
 - **Exists:** S1, `/inventory-exit-reason`, miadi-session-observability 0.1.49
   (jgwill/miadi-orchestration-kit@4a4f169), with SCHEMA.md "Exit reasons" in the inventory folder.
-  No record carries an `exit` block yet.
+  Since 2026-11-19T12:45Z one record does: session 675a74db-cbb8-4c91-a1f6-fe06c30851aa, `wrong_model`.
 - **Specified, not built:** S2 `inventory.mjs exit`, S3 `miadi-hooks-interpret exits` and the
   `digest` fields, the guard text, S4 the investigation pass, S5 recurrence.
 - **Issues:** jgwill/miadi-orchestration-kit#162 and jgwill/Miadi#1062, under jgwill/miadi-orchestration-kit#160.

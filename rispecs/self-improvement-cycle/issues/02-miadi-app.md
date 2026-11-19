@@ -35,7 +35,7 @@ Four views in the app, reading what the kit's passes write and writing nothing t
 
 - [ ] Runs, read from the inventory records and the publications index (S1)
 - [ ] A run's page, read through `@miadi/hooks-interpreter` (S1), after jgwill/Miadi#1062
-- [ ] Self-improvement, read from the proposals the kit's pass records with `propose_work` (S5, S6)
+- [ ] Self-improvement, read from the proposals' wheel nodes (jgwill/medicine-wheel#178) and their rulings in the circle (S5, S6)
 - [ ] Dashboard, Scorers, from each record's `scores[]` (S9)
 - [ ] Dashboard, Spending, from what jgwill/Miadi#1019 makes (S9)
 - [ ] Each view checked on gaia against the records of one real day

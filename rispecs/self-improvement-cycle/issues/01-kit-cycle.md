@@ -3,9 +3,11 @@
 Part of jgwill/miadi-orchestration-kit#160. Domain: Engineering. Team: T1, session continuity, with
 the witness plugin for the passes.
 
-- Every session has an inventory record (477 on gaia on 2026-11-19), written at exit and nightly by
-  `miadi-witness` `inventory.mjs`, and read once at exit by Jev (`inventory-at-exit.mjs`, a bar of
-  0.6). No record carries a score.
+- The nightly pass writes an inventory record for every session that ran since its last run (477
+  on gaia on 2026-11-19, against 1002 interactive sessions since 2026-09-28), with `miadi-witness`
+  `inventory.mjs`, and Jev reads each once at exit (`inventory-at-exit.mjs`, a bar of 0.6). No record
+  carries a score. Proposals, drafts and lanes are already scored
+  (`skills/proposal-visualization/scoring/`, `score-lanes.mjs`, `~/.miadi/decisions/`).
 - The factory states rules agents break again and again, and each is fixed by hand when Guillaume
   notices it: work left uncommitted (the kit's `AGENTS.md`, "Agent ownership of repo state"), the
   reversible finish handed back as a question (`/etc/claude-code/CLAUDE.md`, "Infer the Trivial
@@ -22,18 +24,21 @@ passes, its threshold and who set it. The nightly pass writes their results to e
 `scores[]`. Failures that share a condition (three sessions in fourteen days) form a pattern. A seat
 investigates it and says, for each session, whether a definition was missing, ambiguous, ignored or
 the run varied. Only a missing or ambiguous definition becomes a proposal: problem, solution,
-target, evidence, expected effect and the experience it creates, recorded with `propose_work` and
-ruled in the cycle's talking circle. After the change lands, the next windows say whether it held.
+target, evidence, expected effect and the experience it creates, written in the pass folder and
+on the wheel, and ruled in the cycle's talking circle, the only place it is ruled. Nothing is pushed
+before the ruling. After the change lands, the next windows say whether it held.
 `factory/definitions.yaml` names every place a definition lives, so a proposal can target only those.
 
 ## Action Steps
 
 - [ ] S8: `factory/definitions.yaml`, first version by hand: the kit's plugins, `teams/`, `scorers/`, `/etc/claude-code` (jgwill/etc-claude-code), jgwill/llms-txt, stateloom drawings, each with its owning team and how a change lands
-- [ ] S2: the scorer format and the first four scorers: `exit-reason`, `wrong-model`, `left-uncommitted` (counted) and `handed-back-finish` (one Jev choice)
+- [ ] S2: the scorer format, reusing the fields of the existing scoring, and the scorers that read only the record and the capture: `exit-reason`, `left-uncommitted` (counted) and `handed-back-finish` (one Jev choice), without waiting on jgwill/Miadi#1062
+- [ ] S2: `wrong-model`, after jgwill/Miadi#1062 gives each session's models
 - [ ] S2: the nightly pass writes `scores[]` to each record it reads, never rewriting a score already written, and SCHEMA.md in the inventory folder gets a "Scores" section
-- [ ] S3: patterns with ids kept across passes, checked after the nightly pass
+- [ ] S3: patterns with ids kept across passes (three sessions in fourteen days), checked after the nightly pass, written to `~/workspace/.mino/self-improvement/<yymmdd>/`
 - [ ] S4: the investigation, a `miadi-witness` skill writing its file in the pass folder, changing nothing else
-- [ ] S5: the proposal recorded with `propose_work`, its branch pushed, its PR opened after a "makes sense" ruling
+- [ ] S5: the proposal written in the pass folder with its diff, and its node and evidence edges on the wheel (jgwill/medicine-wheel#178)
+- [ ] S6: each proposal posted as one turn in the cycle's talking circle with `circle-dialogue.mjs`, as `closing-a-cycle` does; on "makes sense", the branch and PR
 - [ ] S7: recurrence per landed proposal: `held`, `partly` or `returned`
 - [ ] The exit-reasons issue (jgwill/miadi-orchestration-kit#162) builds its pass as these steps for the scorer `exit-reason`
 

@@ -58,14 +58,14 @@ end" gets a verb there.
 
 ## S4 · The investigation pass
 
-A seat (the witness seat by default) reads exits and writes patterns. It runs when asked, or on a
-cadence Guillaume chooses (held, see STATUS).
+A seat (the witness seat by default) reads exits and writes patterns. It runs after the nightly pass
+(D2 in STATUS), and is built as `../self-improvement-cycle/` S3 and S4 for the scorer `exit-reason`.
 
 - **Behavior:**
   1. Reads `exits --since <last pass> --json`.
   2. Groups exits with a given reason by `exit.kind`, then by the condition they share: launch
      alias, `mct` team or launcher, model named at launch, cwd, account, the mission or request
-     that started the seat. A group of two or more sessions sharing a condition is a pattern.
+     that started the seat. A group of three or more sessions sharing a condition within fourteen days is a pattern (D2).
   3. For exits with no reason, it may propose `inferred_kind` when the evidence is in the row
      (a started model that differs from the launch, a resume into another cwd). These are
      listed apart and never join a pattern's count until a person confirms one.
@@ -84,10 +84,11 @@ When a pattern's change lands, its `landed` field is filled (by the person or by
 merged it, with the commit or release). Every later pass reports, for that pattern:
 
 - exits matching it since `landed`, and the same count for the same span before it.
-- `held` when no matching exit occurred over the window Guillaume sets, `recurring` when one did,
-  `displaced` when a pattern sharing its condition rose over the same span.
+- `held` when no matching exit occurred over the next window, `partly` when fewer did, `returned`
+  when as many or more did, as `../self-improvement-cycle/` S7 names them. A pattern sharing its
+  condition that rose over the same span is reported beside it.
 
-A recurring pattern returns to S4 step 5 with its new sessions. A held one stays listed with its
+A returned pattern goes back to S4 step 5 with its new sessions. A held one stays listed with its
 last count, so it can be reopened.
 
 ## Data
@@ -103,13 +104,13 @@ last count, so it can be reopened.
 - `exit`: the record's `exit` block when present, with `source: "command" | "after"`
 
 ### ExitPattern
-- `id`: `X1`, `X2`, … kept across passes
+- `id`: `P1`, `P2`, … kept across passes, shared with `../self-improvement-cycle/`
 - `kind`, `title` (the condition in plain words), `condition` (the fields the sessions share)
 - `sessions[]`, `count`, `first_seen`, `last_seen`
 - `issue`: `owner/repo#n` or the path of a drafted body
 - `decided`: `{by, at, choice}` or null
 - `landed`: `{at, ref}` or null
-- `recurrence`: `{since_landed, before_landed, state: held | recurring | displaced}` or null
+- `recurrence`: `{since_landed, before_landed, state: held | partly | returned}` or null
 
 ### InvestigationPass
 - `at`, `by`, `window: {since, until}`, `exits_read`, `with_reason`, `inferred[]`

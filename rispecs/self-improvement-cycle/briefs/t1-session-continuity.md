@@ -8,8 +8,9 @@ new one.
 ## Your task
 
 Build jgwill/miadi-orchestration-kit#161 in the order of `rispecs/self-improvement-cycle/03-specify.md`:
-S8 `factory/definitions.yaml`, then S2 the scorer format and the first four scorers, written to
-`scores[]` by the nightly pass. jgwill/miadi-orchestration-kit#162 (exit reasons) builds its pass as
+S8 `factory/definitions.yaml`, then S2 the scorer format and the scorers that read only the
+record and the capture (`exit-reason`, `left-uncommitted`, `handed-back-finish`), written to
+`scores[]` by the nightly pass. These do not wait on jgwill/Miadi#1062. `wrong-model` follows it. jgwill/miadi-orchestration-kit#162 (exit reasons) builds its pass as
 #161's steps for the scorer `exit-reason`.
 
 ## Where things are
@@ -24,10 +25,11 @@ S8 `factory/definitions.yaml`, then S2 the scorer format and the first four scor
 - Version 9 of miadi-review:d47ef197-8fc2-4f81-be25-67d4e335d104, its section on how the factory uses
   the talk: staged in `rispecs/self-improvement-cycle/review/`, published only on Guillaume's
   approval of the exact text.
-- The 26 inventory commits that exist only in `~/workspace` (F1 of the session): their pushes
-  fail, and whoever integrates them rebases them onto origin.
+- The inventory commits stranded on gaia since 2026-11-16 were merged and pushed on 2026-11-19
+  (miadisabelle/workspace@8280093), and eury was brought to the same commit. The writers still push
+  once and stop: jgwill/miadi-orchestration-kit#163 holds the fix.
 
-## Not yours
+## Outside this brief
 
 - jgwill/Miadi#1062 and #1063 (T8), jgwill/medicine-wheel#178, the episode (the production team).
 

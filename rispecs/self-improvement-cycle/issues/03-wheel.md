@@ -1,9 +1,9 @@
 ## Context
 
-Part of jgwill/miadi-orchestration-kit#160. Domain: Ceremonial.
+Part of jgwill/miadi-orchestration-kit#160. Domain: Ceremonial. Team: T8, for shared code that no team claims (the boundary rule in jgwill/miadi-orchestration-kit `teams/README.md`); T7 teaches the ruling.
 
 The factory's self-improvement cycle (specified in `rispecs/self-improvement-cycle/`,
-jgwill/miadi-orchestration-kit) runs EAST to NORTH: a session's question is received, sessions are
+jgwill/miadi-orchestration-kit, not built) is specified to run EAST to NORTH: a session's question is received, sessions are
 scored and their failures investigated, a proposal changes one factory definition, and a person
 rules on it, after which the next cycle shows whether the change held.
 
@@ -43,9 +43,9 @@ The factory's rulings already happen in talking circles, and what they rule on l
 wheel. Recording the proposal, its evidence and its ruling on the wheel keeps the person's judgment
 tied to what it judged, across cycles.
 
-The cycle places the ruling in NORTH, following `DIRECTION_INFO` (the session altitude), where
-integration sits. `narrative-engine` places `integrating` on west. That question is held for a
-knowledge holder in jgwill/medicine-wheel#113, and this issue does not settle it.
+The ruling is the consent the change needs, so it comes before the change is made: under the Sunwise
+Law WEST acts only on what was consented to. Where integration sits between WEST and NORTH is held
+for a knowledge holder in jgwill/medicine-wheel#113, and this issue does not settle it.
 
 ## Related
 
