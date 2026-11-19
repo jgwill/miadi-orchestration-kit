@@ -178,15 +178,17 @@ function runAsk(plan, root) {
 
 // ---------- open ----------
 
-export function planOpen(parent, { topic, addPlugins = [], same = false, id = randomUUID(), existing = [], kitRoot, date, flagsFrom = parent, episode: given, team: givenTeam, prompt } = {}) {
+export function planOpen(parent, { topic, addPlugins = [], same = false, id = randomUUID(), existing = [], kitRoot, date, flagsFrom = parent, episode: given, team: givenTeam, prompt, name: givenName, remoteControl = false } = {}) {
   if (!parent.cwd) throw new Error(`the binding line of ${parent.session_id} has no cwd`);
   if (givenTeam && !/^T\d+$/.test(givenTeam)) throw new Error(`--team takes a team id from teams/teams.json, such as T2, not "${givenTeam}"`);
   const episodeId = workedEpisode(parent);
   const episode = given ? String(given).replace(/^ep/, "") : episodeNumber(episodeId);
-  const name = forkName({ episode, topic: topic ?? parent.name?.name ?? parent.session_id.slice(0, 8), existing, date });
+  // a name chosen by the person (team prefix, parent's name, stamp) wins over the episode-first default
+  if (givenName && /[:.\s]/.test(givenName)) throw new Error(`a tmux name has no colon, dot or space (gaia did not restore sessions named with a colon): "${givenName}"`);
+  const name = givenName ?? forkName({ episode, topic: topic ?? parent.name?.name ?? parent.session_id.slice(0, 8), existing, date });
   const flags = withPlugins(parentFlags(flagsFrom.argv), addPlugins, kitRoot);
   const branch = same ? ["--resume", parent.session_id] : ["--resume", parent.session_id, "--fork-session", "--session-id", id];
-  const launch = ["claude", ...flags, ...branch, "-n", name, ...(prompt ? [prompt] : [])].map((a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : shellQuote(a))).join(" ");
+  const launch = ["claude", ...flags, ...branch, "-n", name, ...(remoteControl ? ["--remote-control", name] : []), ...(prompt ? [prompt] : [])].map((a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : shellQuote(a))).join(" ");
   const team = givenTeam ?? (parent.team?.id && parent.team.id !== "unassigned" ? parent.team.id : null);
   const commands = [
     ["tmux", "new-session", "-d", "-s", name, "-c", parent.cwd],
@@ -238,6 +240,8 @@ function parseArgs(argv) {
     else if (a === "--episode") opts.episode = argv[++i];
     else if (a === "--add-plugin") opts.addPlugins.push(argv[++i]);
     else if (a === "--team") opts.team = argv[++i];
+    else if (a === "--name") opts.name = argv[++i];
+    else if (a === "--remote-control") opts.remoteControl = true;
     else if (a === "--prompt-file") opts.prompt = readFileSync(argv[++i], "utf8").trim();
     else if (a === "--same") opts.same = true;
     else if (a === "--dry-run") opts.dryRun = true;
@@ -248,7 +252,7 @@ function parseArgs(argv) {
 }
 
 const USAGE = `miadi-fork ask  <session> "<question>"
-miadi-fork open <session> [--topic <words>] [--episode <N>] [--team <Tn>] [--prompt-file <file>] [--add-plugin <kit-plugin|dir>]... [--same] [--dry-run]
+miadi-fork open <session> [--topic <words>] [--episode <N>] [--team <Tn>] [--name <tmux name>] [--remote-control] [--prompt-file <file>] [--add-plugin <kit-plugin|dir>]... [--same] [--dry-run]
 miadi-fork list [<session>]`;
 
 function main(argv) {

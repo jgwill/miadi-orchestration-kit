@@ -86,3 +86,11 @@ test("open takes a team and a first prompt of its own", () => {
   assert.match(plan.launch, / -n ep140-261008-fork-01-closing 'You are a branch\. Do not watch the mailbox\.'$/);
   assert.throws(() => planOpen(parent, { topic: "x", team: "two" }), /team/);
 });
+
+test("open takes the tmux name it is given, and Remote Control under that name", () => {
+  const plan = planOpen(parent, { name: "t8-mia-trading-disc-2611190932", team: "T8", remoteControl: true, id: "cccccccc-0000-4000-8000-000000000003" });
+  assert.equal(plan.name, "t8-mia-trading-disc-2611190932");
+  assert.deepEqual(plan.commands[0], ["tmux", "new-session", "-d", "-s", "t8-mia-trading-disc-2611190932", "-c", "/srv/ep140"]);
+  assert.match(plan.launch, / -n t8-mia-trading-disc-2611190932 --remote-control t8-mia-trading-disc-2611190932$/);
+  assert.throws(() => planOpen(parent, { name: "has:colon" }), /colon/);
+});

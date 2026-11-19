@@ -13,7 +13,7 @@ script, a remembered alias, a remembered folder and a hand-made tmux name. jgwil
 ```bash
 F="node ${CLAUDE_PLUGIN_ROOT}/scripts/miadi-fork.mjs"   # or $MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-session-observability/scripts/miadi-fork.mjs
 $F ask  <session> "<question>"                  # headless branch, no tools, no MCP; prints the answer
-$F open <session> --topic "<words>" [--episode <N>] [--team <Tn>] [--prompt-file <brief>] [--add-plugin miadi-witness]... [--dry-run]
+$F open <session> --topic "<words>" [--episode <N>] [--team <Tn>] [--name <tmux name>] [--remote-control] [--prompt-file <brief>] [--add-plugin miadi-witness]... [--dry-run]
 $F open <branch-id> --same                       # talk to a branch an `ask` made
 $F list [<session>]
 ```
@@ -35,6 +35,12 @@ the parent's binding line in `$CLAUDE_SESSIONDATA_ROOT/data/terminal_bindings.js
   what stays the parent's.
 - **Takes a team.** `--team <Tn>` (an id from `teams/teams.json`) sets `@miadi-team` and the
   record's team. Without it the branch keeps the parent's team, or none.
+- **Takes the name the person gives.** Guillaume names a handle by team, then the parent's tmux
+  name, then the stamp: `t8-f1-t6-mailing-and-prep-atelier-jerry-2611131123-2611190932`, so the
+  name shows which session it came from and which team holds it. `--name` sets it (no `:`, `.`
+  or space), and `--remote-control` turns Remote Control on under it. Without `--name` the
+  episode-first name above is used. With Remote Control on, send the first prompt after
+  `~/.claude/sessions/<pid>.json` holds `bridgeSessionId`, not as a launch argument.
 - **Names the tmux session `ep<N>-<yymmdd>-fork-<NN>-<topic>`.** It has no `:`, because
   William found that sessions named with one did not come back after gaia rebooted. The episode comes first, so the name points at
   miadi-chronicle://N. The episode is the one the parent's folder is in, or `--episode`. The
