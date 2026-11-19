@@ -6,8 +6,8 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
 
 ## What is here
 
-- `hooks/hooks.json`: the 12 events and 14 commands that `/opt/binscripts/hooks/claude_hooks`
-  wires by hand in `settings.json`, with every path through `${CLAUDE_PLUGIN_ROOT}`.
+- `hooks/hooks.json`: the 12 capture events and their commands, with every path through
+  `${CLAUDE_PLUGIN_ROOT}`.
 - `hooks/claude_hooks/`: the capture scripts, with `terminal_binding.sh` (the binding line,
   its name history, the team and the episode).
 - `hooks/secret_capture_sanitizer.sh`, `hooks/git_command_validator.sh`: bundled copies.
@@ -57,14 +57,12 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   at its next continuation in the same turn. Its own entries in `hooks.json`, so the capture scripts
   stay unchanged. The contract is at the top of the `.mjs`.
 - `hooks/workspace_clone_guard.sh` and `tests/workspace-clone-guard.sh`: the workspace clone
-  guard (0.1.13), 21 checks. A separate PreToolUse entry in `hooks.json`, so the capture
-  scripts carried to `/opt/binscripts/hooks/claude_hooks` stay unchanged.
+  guard (0.1.13), 21 checks. A separate PreToolUse entry in `hooks.json`.
 
 ## This is the canonical copy
 
-Change the hooks here first. `/opt/binscripts/hooks/claude_hooks` stays a live copy for the
-hosts and users that still wire it in `settings.json`. Carry each change there, byte for byte,
-until nothing wires it any more.
+This plugin is the only Claude Code capture. The hand-wired hooks it replaced are deprecated
+(the kit's `AGENTS.md`): a change to Claude capture is made here and nowhere else.
 
 `/opt/binscripts/hooks/terminal_binding.sh` writes the same binding line for the other agents
 (hermes and pi since jgwill/binscripts@c99dd89) with the same tmux and team rules. A change to
@@ -204,8 +202,8 @@ jgwill/miadi-orchestration-kit#89.
   load only at the next start. Its last tool calls, its Stop and its SessionEnd were not written.
 - gaia, ava: installed on 2026-10-06 from the GitHub marketplace (0.1.5), with the 14
   `claude_hooks` commands removed from `~/.claude/settings.json` (backup:
-  `~/.claude/settings.json.bak.261006-before-session-observability`). They pointed at
-  `/opt/binscripts/hooks/claude_hooks`. Checked: a headless session wrote each event once, with
+  `~/.claude/settings.json.bak.261006-before-session-observability`).
+  Checked: a headless session wrote each event once, with
   `_transcript_final.jsonl` and a start and end binding line.
 - ilex (Termux, Pixel 2), u0_a194: installed on 2026-10-14 from the GitHub marketplace
   (0.1.14) by Guillaume. `settings.json` had no `hooks` block, so nothing was removed. The root

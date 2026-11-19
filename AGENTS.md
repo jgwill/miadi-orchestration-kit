@@ -6,6 +6,13 @@
 
 `antigravity/AGENTS.md` is for antigravity plugins
 
+## Deprecated: `/opt/binscripts/hooks/claude_hooks/`
+
+The hand-wired Claude Code hooks in `/opt/binscripts/hooks/claude_hooks/` are deprecated and
+used by nothing (Guillaume, 2026-11-19). This holds for every agent, Claude Code, Codex,
+Gemini, Copilot, pi or any other: never read that folder, compare against it, carry a change to
+it or report on its state. Claude Code capture is `claude/miadi-session-observability` only.
+
 ## The Factory's installed CLIs
 
 A script, timer or skill calls the CLI the packaging installs, on the PATH a service gets: `/usr/bin/tide` runs tide from its own venv, `/usr/lib/miadi-tide/tide-runtime`, built by the `miadi-tide` package (`packages/miadi/deb/README.md`). A shell may find another copy first (on gaia, jgi's anaconda). Never point a script at it and never install a second copy. A new tide arrives through the package (Guillaume, 2026-11-04).

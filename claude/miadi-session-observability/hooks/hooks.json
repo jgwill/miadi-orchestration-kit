@@ -1,5 +1,5 @@
 {
-  "description": "Miadi session capture: the 12 events and 14 commands that /opt/binscripts/hooks/claude_hooks wires by hand today, writing the same <root>/<session_id>/ layout, plus the binding line (pane, command line, name history, team). Hooks load at session start and do not hot-swap.",
+  "description": "Miadi session capture: the 12 events and their commands, writing the <root>/<session_id>/ layout, plus the binding line (pane, command line, name history, team). Hooks load at session start and do not hot-swap.",
   "hooks": {
     "SessionStart": [
       {

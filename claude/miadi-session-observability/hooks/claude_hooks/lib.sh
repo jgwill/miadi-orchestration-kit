@@ -231,7 +231,7 @@ claude_user_images_capture() {
 # Archive every session in <projects_dir> (~/.claude/projects) that the hooks
 # captured under this root. This catches what no hook copied: sessions killed
 # or crashed before SessionEnd, turns after the last Stop, and sessions captured
-# by the legacy /opt/binscripts hooks, whose SessionEnd copy was often empty.
+# by the hand-wired hooks before the plugin, whose SessionEnd copy was often empty.
 # A session whose copies are current costs a few stat calls.
 claude_archive_sweep() {
     local projects_dir="$1" t sid out
