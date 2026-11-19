@@ -60,14 +60,26 @@ export function resolveSession(byId, ref) {
 const DROP_WITH_VALUE = new Set(["--resume", "-r", "--session-id", "-n", "--name", "--tools", "--output-format"]);
 const DROP_ALONE = new Set(["--fork-session", "-c", "--continue", "-p", "--print", "--strict-mcp-config"]);
 
+// flags that take no value: a word after one of them, or before any flag, is the prompt the
+// session was started with, never a flag value
+const TAKE_NO_VALUE = new Set(["--dangerously-skip-permissions", "--allow-dangerously-skip-permissions", "--verbose", "--ide",
+  "--chrome", "--no-chrome", "--include-partial-messages", "--replay-user-messages", "--disable-slash-commands", "--mcp-debug", ...DROP_ALONE]);
+
 export function parentFlags(argv = []) {
   const out = [];
   // a headless run ends with its prompt, which is not a flag of the session
   const end = (argv.includes("-p") || argv.includes("--print")) && !String(argv.at(-1)).startsWith("-") ? argv.length - 1 : argv.length;
+  let takesValue = false;
   for (let i = 1; i < end; i += 1) {
     const arg = argv[i];
+    if (!String(arg).startsWith("-")) {
+      // a prompt the parent started with (a restore prompt re-arms the parent's own waits): the branch gets its own
+      if (takesValue) out.push(arg);
+      continue;
+    }
+    takesValue = !TAKE_NO_VALUE.has(arg) && !arg.includes("=");
     if (DROP_ALONE.has(arg)) continue;
-    if (DROP_WITH_VALUE.has(arg)) { i += 1; continue; }
+    if (DROP_WITH_VALUE.has(arg)) { i += 1; takesValue = false; continue; }
     if (/^--(resume|session-id|name)=/.test(arg)) continue;
     out.push(arg);
   }
@@ -166,15 +178,16 @@ function runAsk(plan, root) {
 
 // ---------- open ----------
 
-export function planOpen(parent, { topic, addPlugins = [], same = false, id = randomUUID(), existing = [], kitRoot, date, flagsFrom = parent, episode: given } = {}) {
+export function planOpen(parent, { topic, addPlugins = [], same = false, id = randomUUID(), existing = [], kitRoot, date, flagsFrom = parent, episode: given, team: givenTeam, prompt } = {}) {
   if (!parent.cwd) throw new Error(`the binding line of ${parent.session_id} has no cwd`);
+  if (givenTeam && !/^T\d+$/.test(givenTeam)) throw new Error(`--team takes a team id from teams/teams.json, such as T2, not "${givenTeam}"`);
   const episodeId = workedEpisode(parent);
   const episode = given ? String(given).replace(/^ep/, "") : episodeNumber(episodeId);
   const name = forkName({ episode, topic: topic ?? parent.name?.name ?? parent.session_id.slice(0, 8), existing, date });
   const flags = withPlugins(parentFlags(flagsFrom.argv), addPlugins, kitRoot);
   const branch = same ? ["--resume", parent.session_id] : ["--resume", parent.session_id, "--fork-session", "--session-id", id];
-  const launch = ["claude", ...flags, ...branch, "-n", name].map((a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : shellQuote(a))).join(" ");
-  const team = parent.team?.id && parent.team.id !== "unassigned" ? parent.team.id : null;
+  const launch = ["claude", ...flags, ...branch, "-n", name, ...(prompt ? [prompt] : [])].map((a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : shellQuote(a))).join(" ");
+  const team = givenTeam ?? (parent.team?.id && parent.team.id !== "unassigned" ? parent.team.id : null);
   const commands = [
     ["tmux", "new-session", "-d", "-s", name, "-c", parent.cwd],
     ["tmux", "set-option", "-t", name, "@miadi-parent", parent.session_id],
@@ -189,7 +202,7 @@ export function planOpen(parent, { topic, addPlugins = [], same = false, id = ra
 function runOpen(plan, root) {
   if (tmuxSessions().includes(plan.name)) throw new Error(`tmux session ${plan.name} already exists`);
   for (const c of plan.commands) execFileSync(c[0], c.slice(1), { stdio: ["ignore", "pipe", "pipe"] });
-  record(root, { at: new Date().toISOString(), mode: plan.mode, parent: plan.parent, fork: plan.fork, cwd: plan.cwd, tmux: plan.name, episode: plan.episode });
+  record(root, { at: new Date().toISOString(), mode: plan.mode, parent: plan.parent, fork: plan.fork, cwd: plan.cwd, tmux: plan.name, episode: plan.episode, team: plan.team });
   return { ...plan, opened: true, attach: `tmux attach -t ${plan.name}` };
 }
 
@@ -224,6 +237,8 @@ function parseArgs(argv) {
     if (a === "--topic") opts.topic = argv[++i];
     else if (a === "--episode") opts.episode = argv[++i];
     else if (a === "--add-plugin") opts.addPlugins.push(argv[++i]);
+    else if (a === "--team") opts.team = argv[++i];
+    else if (a === "--prompt-file") opts.prompt = readFileSync(argv[++i], "utf8").trim();
     else if (a === "--same") opts.same = true;
     else if (a === "--dry-run") opts.dryRun = true;
     else if (a === "--json") opts.json = true;
@@ -233,7 +248,7 @@ function parseArgs(argv) {
 }
 
 const USAGE = `miadi-fork ask  <session> "<question>"
-miadi-fork open <session> [--topic <words>] [--episode <N>] [--add-plugin <kit-plugin|dir>]... [--same] [--dry-run]
+miadi-fork open <session> [--topic <words>] [--episode <N>] [--team <Tn>] [--prompt-file <file>] [--add-plugin <kit-plugin|dir>]... [--same] [--dry-run]
 miadi-fork list [<session>]`;
 
 function main(argv) {

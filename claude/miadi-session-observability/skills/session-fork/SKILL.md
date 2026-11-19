@@ -13,7 +13,7 @@ script, a remembered alias, a remembered folder and a hand-made tmux name. jgwil
 ```bash
 F="node ${CLAUDE_PLUGIN_ROOT}/scripts/miadi-fork.mjs"   # or $MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-session-observability/scripts/miadi-fork.mjs
 $F ask  <session> "<question>"                  # headless branch, no tools, no MCP; prints the answer
-$F open <session> --topic "<words>" [--episode <N>] [--add-plugin miadi-witness]... [--dry-run]
+$F open <session> --topic "<words>" [--episode <N>] [--team <Tn>] [--prompt-file <brief>] [--add-plugin miadi-witness]... [--dry-run]
 $F open <branch-id> --same                       # talk to a branch an `ask` made
 $F list [<session>]
 ```
@@ -28,6 +28,13 @@ the parent's binding line in `$CLAUDE_SESSIONDATA_ROOT/data/terminal_bindings.js
   episode from the folder.
 - **Keeps the parent's flags.** Its plugins, MCP configs and permission mode come from the parent's
   command line. `--add-plugin <kit plugin>` adds one.
+- **Never takes the parent's first prompt.** A seat brought back after a reboot was started with a
+  prompt that restarts its waits ("Wait in the background until the next email arrives…"). Copied,
+  it made the branch a second watcher of the parent's mailbox (found 2026-11-19 forking the mail
+  seat). The branch gets its own first prompt with `--prompt-file`: who opened it, its task, and
+  what stays the parent's.
+- **Takes a team.** `--team <Tn>` (an id from `teams/teams.json`) sets `@miadi-team` and the
+  record's team. Without it the branch keeps the parent's team, or none.
 - **Names the tmux session `ep<N>-<yymmdd>-fork-<NN>-<topic>`.** It has no `:`, because
   William found that sessions named with one did not come back after gaia rebooted. The episode comes first, so the name points at
   miadi-chronicle://N. The episode is the one the parent's folder is in, or `--episode`. The

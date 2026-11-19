@@ -70,3 +70,19 @@ test("the production episode every shell exports does not name a branch; a folde
   assert.equal(planOpen(here, { topic: "x", date, episode: "551" }).name, "ep551-261008-fork-01-x");
   assert.ok(!planOpen(here, { topic: "x", date }).commands.some((c) => c.includes("@miadi-episode")));
 });
+
+test("a prompt the parent was started with is not copied into the branch", () => {
+  // a seat brought back after a reboot starts with a prompt that re-arms what it was waiting on
+  const argv = ["claude", "--plugin-dir", "/kit/a", "--dangerously-skip-permissions", "You were cut off while background work you started was still running", "--resume", "76e7c574-8218-4da9-948d-1adb24e2f7ce"];
+  assert.deepEqual(parentFlags(argv), ["--plugin-dir", "/kit/a", "--dangerously-skip-permissions"]);
+  assert.deepEqual(parentFlags(["claude", "first words", "--model", "opus", "--verbose"]), ["--model", "opus", "--verbose"]);
+  assert.deepEqual(parentFlags(["claude", "--mcp-config", "/a.json", "/b.json", "--verbose"]), ["--mcp-config", "/a.json", "/b.json", "--verbose"]);
+});
+
+test("open takes a team and a first prompt of its own", () => {
+  const plan = planOpen(parent, { topic: "closing", id: "cccccccc-0000-4000-8000-000000000003", date: new Date(2026, 9, 8), team: "T2", prompt: "You are a branch. Do not watch the mailbox." });
+  assert.equal(plan.team, "T2");
+  assert.ok(plan.commands.some((c) => c.join(" ") === "tmux set-option -t ep140-261008-fork-01-closing @miadi-team T2"));
+  assert.match(plan.launch, / -n ep140-261008-fork-01-closing 'You are a branch\. Do not watch the mailbox\.'$/);
+  assert.throws(() => planOpen(parent, { topic: "x", team: "two" }), /team/);
+});
