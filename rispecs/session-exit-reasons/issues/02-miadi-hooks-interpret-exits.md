@@ -1,9 +1,3 @@
-<!-- Draft. Send with:
-gh issue create -R jgwill/Miadi \
-  --title "miadi-hooks-interpret answers how and why sessions ended and which model each ran, so the lookup guard has a door to name" \
-  --body-file rispecs/session-exit-reasons/issues/02-miadi-hooks-interpret-exits.md
-(run from a jgwill/miadi-orchestration-kit checkout, and remove this comment block first) -->
-
 ## Context
 
 On 2026-11-19, session `5ffaf964-f4cb-470d-a1da-35fdd040073a`
@@ -52,7 +46,8 @@ guard stay on and the question be answered.
 
 ## Related
 
+- Parent: jgwill/miadi-orchestration-kit#160, the self-improvement cycle. This is step 1 of its build order (rispecs/self-improvement-cycle/03-specify.md): every scorer reads sessions through `exits`.
 - jgwill/miadi-orchestration-kit rispecs/session-exit-reasons/ (S3)
 - jgwill/miadi-orchestration-kit#56 (the capture plugin and its lookup guard)
 - jgwill/Miadi#1060, jgwill/Miadi#1028 (wrong-model cases read by hand)
-- Kit issue drafted beside this one: rispecs/session-exit-reasons/issues/01-kit-session-exit-reasons.md
+- The kit's exit-reasons issue: jgwill/miadi-orchestration-kit#162

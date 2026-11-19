@@ -7,11 +7,17 @@
   No record carries an `exit` block yet.
 - **Specified, not built:** S2 `inventory.mjs exit`, S3 `miadi-hooks-interpret exits` and the
   `digest` fields, the guard text, S4 the investigation pass, S5 recurrence.
-- **Issues:** two bodies drafted in [`issues/`](./issues/), not sent.
+- **Issues:** jgwill/miadi-orchestration-kit#162 and jgwill/Miadi#1062, under jgwill/miadi-orchestration-kit#160.
 
-## Held for Guillaume
+## Decided 2026-11-19 by the T1 seat
 
-- Whether to build, and which part first. The packet proposes S3.
-- The cadence of the pass (weekly, or after a number of new reasons) and the window that makes
-  a pattern `held`.
-- Sending the two drafted issues.
+Guillaume, 2026-11-19: what is built first is the agents' coordination, not his.
+
+- **D1, the order:** S3 first (jgwill/Miadi#1062), then S2. S4 and S5 are built as
+  `rispecs/self-improvement-cycle/` S3, S4 and S7 for the scorer `exit-reason`.
+- **D2, the cadence:** the nightly pass checks the counts, and a pattern of three sessions in
+  fourteen days starts the investigation, as Warp's "37 failed runs" item comes from a count
+  (`../self-improvement-cycle/03-specify.md` S3). The figures are starting values, and recurrence
+  shows whether they are adequate.
+- **D3, the drafts:** sent as children of jgwill/miadi-orchestration-kit#160:
+  jgwill/miadi-orchestration-kit#162 and jgwill/Miadi#1062.

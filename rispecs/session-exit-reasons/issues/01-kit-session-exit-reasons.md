@@ -1,9 +1,3 @@
-<!-- Draft. Send with:
-gh issue create -R jgwill/miadi-orchestration-kit \
-  --title "Every session exited short carries its reason, and a periodic pass turns recurring reasons into proposed changes whose recurrence is counted" \
-  --body-file rispecs/session-exit-reasons/issues/01-kit-session-exit-reasons.md
-(remove this comment block first) -->
-
 ## Context
 
 Measured on gaia on 2026-11-19 (rispecs/session-exit-reasons/01-reverse-engineer.md):
@@ -28,11 +22,11 @@ The pass after a change landed reports whether that pattern recurred.
 
 ## Action Steps
 
-- [ ] S3: `miadi-hooks-interpret exits` and the `digest` model and end fields (jgwill/Miadi, issue drafted beside this one)
+- [ ] S3: `miadi-hooks-interpret exits` and the `digest` model and end fields (jgwill/Miadi#1062)
 - [ ] S3: the lookup guard's refusal names `exits`
 - [ ] S2: `inventory.mjs exit` adds a reason after the session ended, never rewriting one given at exit
-- [ ] S4: the investigation pass, a miadi-witness skill that writes `~/workspace/.mino/exit-investigations/<stamp>.json` and drafts, and changes no record
-- [ ] S5: recurrence counted for each pattern whose change landed
+- [ ] S4: the investigation pass, built as jgwill/miadi-orchestration-kit#161 S3 and S4 for the scorer `exit-reason`
+- [ ] S5: recurrence, built as jgwill/miadi-orchestration-kit#161 S7
 - [ ] Gates G1 to G8 of rispecs/session-exit-reasons/04-export.md pass on gaia
 
 ## Structural Tension
@@ -43,6 +37,8 @@ be chosen from evidence and judged by the exits that follow it.
 
 ## Related
 
+- Parent: jgwill/miadi-orchestration-kit#160. Domain: Engineering. Team: T1.
+- jgwill/miadi-orchestration-kit#161 (the cycle: scorers, patterns, investigation, proposals)
 - Specification: rispecs/session-exit-reasons/ (jgwill/miadi-orchestration-kit)
 - jgwill/miadi-orchestration-kit#56, jgwill/miadi-orchestration-kit#76, jgwill/miadi-orchestration-kit#89
 - jgwill/Miadi#1060, jgwill/Miadi#1028, jgwill/Miadi#1008, jgwill/Miadi#913
