@@ -219,16 +219,16 @@ def move_layout_1(output_dir):
 
 
 def source_stamp(transcript):
+    """The state line, and the transcript's mtime when the pass starts."""
     try:
         st = os.stat(transcript)
     except OSError:
-        return None
-    # lib.sh builds the same line from `stat -c '%s %.9Y'` and skips python when it matches.
-    return "%d %d %d %s" % (LAYOUT, st.st_size, st.st_mtime_ns, transcript)
+        return None, None
+    return "%d %d %d %s" % (LAYOUT, st.st_size, st.st_mtime_ns, transcript), st.st_mtime_ns
 
 
 def capture(transcript, output_dir):
-    stamp = source_stamp(transcript)
+    stamp, mtime_ns = source_stamp(transcript)
     if stamp is None:
         return 0
     state_path = os.path.join(output_dir, STATE)
@@ -236,6 +236,7 @@ def capture(transcript, output_dir):
     try:
         with open(state_path) as handle:
             if handle.read().strip() == stamp:
+                os.utime(state_path, ns=(mtime_ns, mtime_ns))
                 return 0
     except OSError:
         pass
@@ -311,6 +312,9 @@ def capture(transcript, output_dir):
             written += 1
     with open(state_path, "w") as handle:
         handle.write(stamp + "\n")
+    # The state file takes the transcript's mtime from the start of this pass, so lib.sh
+    # skips the next pass with two builtin tests: a line written since makes it newer.
+    os.utime(state_path, ns=(mtime_ns, mtime_ns))
     return written
 
 

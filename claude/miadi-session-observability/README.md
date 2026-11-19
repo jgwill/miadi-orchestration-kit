@@ -36,13 +36,16 @@ jgwill/miadi-orchestration-kit#56.
   - UserPromptSubmit starts a detached capture that waits for the prompt's line, reading only
     the bytes added each second. Every archive pass (Stop, SubagentStop, SessionEnd, the
     SessionStart sweep) catches what it missed, so the sweep fills in earlier sessions. A
-    transcript whose size and mtime are those of the last pass (`.images.state`) costs one
-    `stat` and starts no python: 16 ms, where reading the 38 MB transcript takes 2 s.
+    transcript not changed since the last pass starts no process (0.1.53): `.images.state`
+    takes the transcript's mtime from the start of each pass, and two builtin `-nt` tests
+    compare them. Reading the 38 MB transcript takes 2 s. Measured on gaia, 2026-11-19: the
+    first 0.1.52 sweep took 218 s with the archive, and the image check over 645 unchanged
+    sessions now costs no process.
   - A folder written in layout 1 (`images/<prompt_id>/`, 0.1.50 and 0.1.51) is moved to
     `images/v1/` with its index, never deleted, and captured again. A session started before
     0.1.52 keeps its loaded hooks and may add layout 1 lines until it restarts. The reader
     takes both.
-  - Needs `python3`. `tests/user-images.sh`, 31 checks. Found by an adversarial review of
+  - Needs `python3`. `tests/user-images.sh`, 33 checks. Found by an adversarial review of
     0.1.50: originals skipped in 24 of 42 uploads, fork images overwritten, slash-command
     images dropped, a 165 s sweep.
 - **Workspace clone guard** (0.1.13). A repo that `stc-workspaces.json` maps to a working

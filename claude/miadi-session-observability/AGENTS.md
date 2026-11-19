@@ -36,7 +36,7 @@ jgwill/miadi-orchestration-kit#56. The README says how to install it and how tea
   fields are in the inventory folder's `SCHEMA.md`, "Exit reasons".
 - `hooks/claude_hooks/user_images.py` and `tests/user-images.sh`: the images a person attached
   to a prompt, kept under `images/<message_uuid>/` with `_claude_images.jsonl` (0.1.50, layout 2
-  since 0.1.52), 31 checks. `@miadi/hooks-interpreter` 0.13.1 joins each to its prompt.
+  since 0.1.52), 33 checks. `@miadi/hooks-interpreter` 0.13.1 joins each to its prompt.
   Called by `claude_user_images_capture` in `lib.sh` from every archive pass, and detached from
   UserPromptSubmit through `transcript_archive.sh images`.
 - `tests/binding-agent.sh`: the binding line names the agent process of its own session, 4

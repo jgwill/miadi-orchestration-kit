@@ -87,7 +87,12 @@ expect "tool-result and subagent images are left out" 6 "$(find "$out/images" -t
 before=$(cat "$index")
 claude_user_images_capture "$t" "$out"
 expect "a second pass writes nothing" "$before" "$(cat "$index")"
-expect "the pass records the transcript it read, as lib.sh's stat reads it" "2 $(stat -c '%s %.9Y' "$t" | tr -d .) $t" "$(cat "$out/.images.state")"
+expect "the pass records the transcript it read" "2 $(stat -c '%s %.9Y' "$t" | tr -d .) $t" "$(cat "$out/.images.state")"
+expect "the state file takes the transcript's mtime" "$(stat -c %.9Y "$t")" "$(stat -c %.9Y "$out/.images.state")"
+# A line written after a pass makes the transcript newer than the state: the next pass reads it.
+touch -d '@1' "$out/.images.state"
+claude_user_images_capture "$t" "$out"
+expect "a transcript newer than the state is read again" "$(stat -c %.9Y "$t")" "$(stat -c %.9Y "$out/.images.state")"
 # F4: an unchanged transcript is not read. A pass that read it would list the new image.
 printf 'NEW' > "$WORK/marker"
 size_mtime=$(stat -c '%s %Y' "$t")
