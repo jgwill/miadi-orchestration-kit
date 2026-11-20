@@ -1,0 +1,415 @@
+{
+  "id": "d8adf1f3-232b-45b2-9e42-7fa62b29028a",
+  "timestamp": "2026-11-20T15:15:16.585Z",
+  "engine": "claude",
+  "model": "opus",
+  "prompt": "<!-- Guillaume, 2026-11-20 near 09:40 local, session dfb7bd97-73ec-4d11-b1ba-77f22a6680dc (miadi-tmux://mia@gaia:t8-bug-hooks-cant-run-deepdiver-prompts-2611200939). Verbatim, including the pasted content. -->\n\n\"\"\"\n\n<pasted_content>\n● Write(/srv/miadi/episodes/miadi-chronicle/2026-11-14-episode-257-shared-spark-the-album-of-two-creators-who-share-s…/issue-draft-prompt-hooks.md)\n  ⎿  Error: PreToolUse:Write hook error: [command hook 3]: Refused by the word gate (miadi-deepdiver):\n     /srv/miadi/episodes/miadi-chronicle/2026-11-14-episode-257-shared-spark-the-album-of-two-creators-who-share-sparks/scratch/t8-screenwalk-regis\n     tration-2611200830/issue-draft-prompt-hooks.md is a prompt or kept text, and the text carries a forbidden word.\n       \"gap\" at line 17 of the added text: - A cancelled hook leaves a line saying what it did not capture, so the gap is visible where session    \n     continuity is read.\n     System rule: write \"resolve tension\", never \"gap\", for the space between current reality and the desired outcome.\n     Rewrite the sentence and write the file again. A package name that carries the word, such as `@medicine-wheel/gap-analysis`, passes. The list:\n     /workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-deepdiver/forbidden-words.txt\n\n     This hook comes from the miadi-deepdiver@inline plugin.\n</pasted_content>\n\n\"\"\"\n\n\"\"\"/btw fork returned: \"UserPromptSubmit hook [command hook 2] timed out after 30s ... is unacceptable for session continuit       \n         y and branching\".\"\"\"\n\n\n\nfrom miadi-tmux://mia@gaia/t8-screenwalk-registration-2611200830\n\nIt feels like the agent was not capable of completing its work. And I think that, you know, there's something about the fact that we use prompts as input. You know, we generate prompts in our process, but we are also capturing words that we try to adjust in our output. So I think that there might be little adjustments to make, observability, hooks, captures, limitation. I don't know exactly how we call what we are actually doing, which basically is ensuring right usage of vocabulary, but I will want you to investigate and propose changes in terms of drafting or upgrading RISE framework specifications according to their potential domain of application that are implied in this email, not this email, but sorry, this very input, to ensure that agents are actually capable of actually participating in generating what they have to generate. So basically, it's a little like we are searching for flexibility, but we want to make sure that we're not regressing the work that we are actually doing. So it might imply developing tools that enable the agent to actually create and inject the prompts that they are actually accessing, because my feeling is that the agent was trying to prepare some generative prompt or use some generative prompts, but he was stopped by the hook. So this is one of the aspects of the little mission that you are going to work on.\n\n@claude/ \n\nWe will also want production contextual exploration on the domain of application, and you can ground yourself in academic and any existing deep research foundation that we already have inside of the factory, and upgrade any existing one that we have. I know that there are observability, there's also agent harness, where we try to put them in an harness so that they reach their purpose, and also the practices that was the agent was actually tried to do when he was stopped. We will want to ensure that we are covering this angle, and you're obviously going to document this little grounding that you're doing with the actual revision of that to support the rest of the technical work that you're actually starting to do.\n",
+  "result": {
+    "primary": {
+      "action": "investigate and propose",
+      "target": "RISE specification drafts or upgrades, one per domain of application named in this input, that let agents finish generative prompt work under Claude Code hooks (the miadi-deepdiver vocabulary gate and the UserPromptSubmit capture hooks) while the vocabulary discipline keeps holding",
+      "urgency": "session",
+      "confidence": 0.85
+    },
+    "secondary": [
+      {
+        "action": "diagnose",
+        "target": "the miadi-deepdiver PreToolUse Write refusal of issue-draft-prompt-hooks.md in the Episode 257 scratch folder: why an issue draft was classed as 'a prompt or kept text', and why the gate matched the forbidden word when the sentence used it for a missing stretch of capture rather than for the space between current reality and the desired outcome",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.85
+      },
+      {
+        "action": "diagnose",
+        "target": "the UserPromptSubmit [command hook 2] timeout after 30s reported by the /btw fork: which plugin owns the hook, what it waits on, and what the timeout costs session continuity and branching",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.8
+      },
+      {
+        "action": "reconstruct",
+        "target": "the practice the stopped agent in miadi-tmux://mia@gaia:t8-screenwalk-registration-2611200830 was carrying out when the hook stopped it (screenwalk registration, drafting an issue about prompt hooks, preparing or using generative prompts)",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.75
+      },
+      {
+        "action": "name",
+        "target": "the practice the gate performs: ensuring right usage of vocabulary (controlled vocabulary, controlled natural language, terminology governance, prose linting)",
+        "implicit": true,
+        "dependency": "academic and factory grounding",
+        "confidence": 0.7
+      },
+      {
+        "action": "explore",
+        "target": "production context: real session transcripts, hook logs, refusals and timeouts across factory seats, to measure how often the gate and the capture hooks stop legitimate work",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.65
+      },
+      {
+        "action": "ground",
+        "target": "academic sources and the factory's existing deep-research foundations on observability, agent harness and controlled language",
+        "implicit": false,
+        "dependency": null,
+        "confidence": 0.85
+      },
+      {
+        "action": "upgrade",
+        "target": "existing foundations and rispecs covering observability and agent harness (foundations/agent-harness-and-controlled-language, rispecs/agent-harness-hooks, rispecs/self-improvement-cycle, rispecs/session-exit-reasons)",
+        "implicit": false,
+        "dependency": "inventory of existing foundations and rispecs",
+        "confidence": 0.7
+      },
+      {
+        "action": "design",
+        "target": "tools that let an agent create and inject the prompts it works with: a write path to the prompt store, a marker the gate honours for verbatim quotes and mentions, a rewrite-and-retry helper",
+        "implicit": true,
+        "dependency": "diagnosis of the word gate refusal",
+        "confidence": 0.55
+      },
+      {
+        "action": "protect",
+        "target": "the vocabulary work from regression: refusals that are correct today stay refusals",
+        "implicit": false,
+        "dependency": "drafted RISE specifications",
+        "confidence": 0.8
+      },
+      {
+        "action": "document",
+        "target": "the grounding beside the revision so it supports the technical work (foundation README, source ledger, synthesis, links from each rispec)",
+        "implicit": false,
+        "dependency": "academic and factory grounding",
+        "confidence": 0.85
+      },
+      {
+        "action": "coordinate",
+        "target": "with session dfb7bd97-73ec-4d11-b1ba-77f22a6680dc (t8-bug-hooks-cant-run-deepdiver-prompts-2611200939), which already holds untracked foundations/agent-harness-and-controlled-language and rispecs/agent-harness-hooks",
+        "implicit": true,
+        "dependency": null,
+        "confidence": 0.7
+      },
+      {
+        "action": "open or link",
+        "target": "a GitHub issue in jgwill/miadi-orchestration-kit for this work, as the kit's AGENTS.md requires for every meaningful change",
+        "implicit": true,
+        "dependency": "reviewed RISE specifications",
+        "confidence": 0.6
+      },
+      {
+        "action": "commit and push",
+        "target": "the scoped foundation, rispecs and .pde vessel files only",
+        "implicit": true,
+        "dependency": "GitHub issue",
+        "confidence": 0.6
+      }
+    ],
+    "context": {
+      "files_needed": [
+        "/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-deepdiver/forbidden-words.txt",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-deepdiver/hooks/hooks.json and the word gate script it calls",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-session-observability/hooks/hooks.json (UserPromptSubmit entries)",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/claude/miadi-witness/hooks/hooks.json (UserPromptSubmit entries)",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/claude/AGENTS.md",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/AGENTS.md",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/foundations/agent-harness-and-controlled-language/",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/foundations/ (other packets on observability and harness)",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/rispecs/agent-harness-hooks/",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/rispecs/self-improvement-cycle/",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/rispecs/session-exit-reasons/",
+        "/workspace/repos/jgwill/miadi-orchestration-kit/.pde/_incoming-2611201025-input-prompt.md",
+        "/srv/miadi/episodes/miadi-chronicle/2026-11-14-episode-257-shared-spark-the-album-of-two-creators-who-share-sparks/scratch/t8-screenwalk-registration-2611200830/",
+        "transcript of the session in miadi-tmux://mia@gaia:t8-screenwalk-registration-2611200830 and of its /btw fork",
+        "/etc/claude-code/CLAUDE.md (source of the rule on the forbidden word)",
+        "/etc/claude-code/llms-rise-framework.txt"
+      ],
+      "tools_required": [
+        "Read",
+        "Grep (command grep, since grep is ugrep with --ignore-files)",
+        "Bash",
+        "git",
+        "gh",
+        "miadi-hooks-interpret digest",
+        "rise-framework skill",
+        "deep-research-foundations skill",
+        "pde-vessel-ceremony skill",
+        "structural-issue-authoring skill",
+        "Miadi Factory Chimera (search_sessions, get_session, read_episode_file, list_research_artifacts)",
+        "WebSearch for academic sources"
+      ],
+      "assumptions": [
+        "The agent in t8-screenwalk-registration-2611200830 could not complete its work because of the hook. The refusal offered rewrite-and-retry, so whether it was blocked or only stalled is unverified.",
+        "The agent was preparing or using generative prompts when it was stopped (Guillaume's feeling, unverified).",
+        "The refused file was an issue draft, yet the gate classed it as a prompt or kept text, possibly from 'prompt' in its file name or from its episode scratch location.",
+        "The gate matches the forbidden word without regard to sense or to quotation, so a plain-sense use and a verbatim mention are refused alike.",
+        "The UserPromptSubmit timeout and the word gate refusal belong to one family: hooks limiting the work they are meant to support.",
+        "The factory already holds deep-research foundations on observability and agent harness that can be upgraded.",
+        "RISE specifications are the right vehicle for the proposed changes.",
+        "Vocabulary discipline is working today and must not regress.",
+        "'@claude/' points to the kit's claude/ plugin lane as the scope for hook and plugin changes."
+      ]
+    },
+    "outputs": {
+      "artifacts": [
+        "foundations/agent-harness-and-controlled-language/ completed: README, source ledger, synthesis, PREDICTIONS.md",
+        "rispecs/agent-harness-hooks/ with 01-reverse-engineer, 02-intent, 03-specify, 04-export",
+        "a rispec for a prompt authoring and injection tool, if it does not fit inside agent-harness-hooks",
+        "a .pde/<yymmddHHMM>--hooks-limit-generative-prompt-work/ vessel holding this decomposition and the incoming prompt"
+      ],
+      "updates": [
+        "claude/miadi-deepdiver word gate: file classification rule and sense or quotation handling (proposal in the spec, code on Guillaume's decision)",
+        "claude/miadi-deepdiver/forbidden-words.txt annotations (proposal)",
+        "claude/miadi-session-observability UserPromptSubmit hook time budget and fork behaviour (proposal)",
+        "existing foundations and rispecs on observability and harness",
+        "rispecs/self-improvement-cycle and rispecs/session-exit-reasons, where hook refusals and timeouts touch them"
+      ],
+      "communications": [
+        "GitHub issue in jgwill/miadi-orchestration-kit (owner/repo#n references), or a comment on an existing one",
+        "compact read-back to Guillaume in miadi-tmux://mia@gaia:t8-bug-hooks-cant-run-deepdiver-prompts-2611200939",
+        "note to the stopped seat or to Episode 257 (miadi-chronicle://257) that its issue draft can be written again"
+      ]
+    },
+    "directions": {
+      "east": [
+        {
+          "text": "Desired outcome: agents finish generative prompt work under hooks, and the vocabulary rule still refuses what it should refuse",
+          "confidence": 0.85,
+          "implicit": false
+        },
+        {
+          "text": "Name what the gate does (controlled vocabulary or controlled natural language applied at write time)",
+          "confidence": 0.7,
+          "implicit": true
+        },
+        {
+          "text": "Name the domains of application: vocabulary gate, hook time budget for continuity and forks, observability of refusals and timeouts, prompt authoring and injection, the screenwalk and issue drafting practice",
+          "confidence": 0.7,
+          "implicit": true
+        }
+      ],
+      "south": [
+        {
+          "text": "Diagnose the word gate refusal: classification of the file and a sense-blind match",
+          "confidence": 0.85,
+          "implicit": false
+        },
+        {
+          "text": "Diagnose the UserPromptSubmit command hook 2 timeout in the /btw fork",
+          "confidence": 0.8,
+          "implicit": false
+        },
+        {
+          "text": "Reconstruct the stopped agent's practice in t8-screenwalk-registration-2611200830",
+          "confidence": 0.75,
+          "implicit": false
+        },
+        {
+          "text": "Inventory existing foundations and rispecs, including what session dfb7bd97 already wrote",
+          "confidence": 0.75,
+          "implicit": true
+        },
+        {
+          "text": "Academic grounding: controlled natural languages, terminology standards (ISO 704, ISO 1087), the use-mention distinction, runtime guardrails and policy as code, alarm fatigue from false positives, agent harness design, OpenTelemetry GenAI conventions",
+          "confidence": 0.7,
+          "implicit": true
+        },
+        {
+          "text": "Production exploration: count refusals and timeouts across real seats",
+          "confidence": 0.65,
+          "implicit": false
+        }
+      ],
+      "west": [
+        {
+          "text": "Regression checks: true positives still refused, verbatim quotes, package names and plain-sense uses pass, hooks finish inside their budget",
+          "confidence": 0.8,
+          "implicit": false
+        },
+        {
+          "text": "Review the specs against the RISE framework text and the two incidents",
+          "confidence": 0.7,
+          "implicit": true
+        },
+        {
+          "text": "Check that the .pde record and this decomposition, which quote the incoming prompt, are not refused by the same gate",
+          "confidence": 0.55,
+          "implicit": true
+        }
+      ],
+      "north": [
+        {
+          "text": "Write or upgrade the foundation packet with its source ledger and production evidence",
+          "confidence": 0.85,
+          "implicit": false
+        },
+        {
+          "text": "Draft or upgrade RISE specifications per domain",
+          "confidence": 0.85,
+          "implicit": false
+        },
+        {
+          "text": "Propose the prompt authoring and injection tool",
+          "confidence": 0.55,
+          "implicit": true
+        },
+        {
+          "text": "Open or link the issue, commit the scoped files, push, read back to Guillaume",
+          "confidence": 0.6,
+          "implicit": true
+        }
+      ]
+    },
+    "actionStack": [
+      {
+        "text": "Read the incoming prompt, the refused Write and the fork timeout as current reality",
+        "direction": "east",
+        "dependency": null,
+        "completed": false
+      },
+      {
+        "text": "State the desired outcome: agents finish generative prompt work under hooks while the vocabulary rule keeps refusing what it should",
+        "direction": "east",
+        "dependency": "Read the incoming prompt, the refused Write and the fork timeout as current reality",
+        "completed": false
+      },
+      {
+        "text": "Check what session dfb7bd97 already holds in foundations/agent-harness-and-controlled-language and rispecs/agent-harness-hooks",
+        "direction": "south",
+        "dependency": "Read the incoming prompt, the refused Write and the fork timeout as current reality",
+        "completed": false
+      },
+      {
+        "text": "Diagnose the miadi-deepdiver word gate refusal: file classification and sense-blind match",
+        "direction": "south",
+        "dependency": "Read the incoming prompt, the refused Write and the fork timeout as current reality",
+        "completed": false
+      },
+      {
+        "text": "Diagnose the UserPromptSubmit command hook 2 timeout after 30s in the /btw fork",
+        "direction": "south",
+        "dependency": "Read the incoming prompt, the refused Write and the fork timeout as current reality",
+        "completed": false
+      },
+      {
+        "text": "Reconstruct what the stopped agent in t8-screenwalk-registration-2611200830 was doing",
+        "direction": "south",
+        "dependency": "Read the incoming prompt, the refused Write and the fork timeout as current reality",
+        "completed": false
+      },
+      {
+        "text": "Gather production evidence of hook refusals and timeouts across factory seats",
+        "direction": "south",
+        "dependency": "Diagnose the miadi-deepdiver word gate refusal: file classification and sense-blind match",
+        "completed": false
+      },
+      {
+        "text": "Inventory existing factory foundations and rispecs on observability, agent harness and controlled vocabulary",
+        "direction": "south",
+        "dependency": "Check what session dfb7bd97 already holds in foundations/agent-harness-and-controlled-language and rispecs/agent-harness-hooks",
+        "completed": false
+      },
+      {
+        "text": "Ground the practice in academic sources and the inventoried foundations",
+        "direction": "south",
+        "dependency": "Inventory existing factory foundations and rispecs on observability, agent harness and controlled vocabulary",
+        "completed": false
+      },
+      {
+        "text": "Name the practice the gate performs and the domains of application",
+        "direction": "east",
+        "dependency": "Ground the practice in academic sources and the inventoried foundations",
+        "completed": false
+      },
+      {
+        "text": "Write or upgrade the foundation packet with source ledger, synthesis and production evidence",
+        "direction": "north",
+        "dependency": "Name the practice the gate performs and the domains of application",
+        "completed": false
+      },
+      {
+        "text": "Draft or upgrade RISE specifications per domain: vocabulary gate, hook time budget for continuity and forks, observability of refusals and timeouts, prompt authoring and injection tool",
+        "direction": "north",
+        "dependency": "Write or upgrade the foundation packet with source ledger, synthesis and production evidence",
+        "completed": false
+      },
+      {
+        "text": "Specify regression checks: true positives refused, verbatim quotes and plain-sense uses pass, hooks inside their budget",
+        "direction": "west",
+        "dependency": "Draft or upgrade RISE specifications per domain: vocabulary gate, hook time budget for continuity and forks, observability of refusals and timeouts, prompt authoring and injection tool",
+        "completed": false
+      },
+      {
+        "text": "Review the specifications against the RISE framework text and the two incidents",
+        "direction": "west",
+        "dependency": "Specify regression checks: true positives refused, verbatim quotes and plain-sense uses pass, hooks inside their budget",
+        "completed": false
+      },
+      {
+        "text": "Open or link a GitHub issue in jgwill/miadi-orchestration-kit for the work",
+        "direction": "north",
+        "dependency": "Review the specifications against the RISE framework text and the two incidents",
+        "completed": false
+      },
+      {
+        "text": "Commit the scoped foundation, rispecs and .pde vessel files and push",
+        "direction": "north",
+        "dependency": "Open or link a GitHub issue in jgwill/miadi-orchestration-kit for the work",
+        "completed": false
+      },
+      {
+        "text": "Return a compact read-back to Guillaume naming the decisions that need him",
+        "direction": "north",
+        "dependency": "Commit the scoped foundation, rispecs and .pde vessel files and push",
+        "completed": false
+      }
+    ],
+    "ambiguities": [
+      {
+        "text": "'this email, not this email, but sorry, this very input'",
+        "suggestion": "Scope is this input: the refused Write, the fork timeout and Guillaume's narrative."
+      },
+      {
+        "text": "'according to their potential domain of application' does not list the domains",
+        "suggestion": "Propose five and confirm: vocabulary gate, hook time budget for continuity and forks, observability of refusals and timeouts, prompt authoring and injection, the screenwalk and issue drafting practice."
+      },
+      {
+        "text": "'tools that enable the agent to actually create and inject the prompts that they are actually accessing'",
+        "suggestion": "Choose among a write path to the prompt store (miadi-run create, the ceremonial prompt store), a quote or mention marker the gate honours, or a class of files the gate treats differently."
+      },
+      {
+        "text": "'investigate and propose changes' versus changing the hooks now",
+        "suggestion": "Default to specifications and proposals. Hook code changes wait for Guillaume, because the rule text lives in /etc/claude-code/CLAUDE.md."
+      },
+      {
+        "text": "'upgrade any existing one' does not name the foundations",
+        "suggestion": "Inventory first. Treat foundations/agent-harness-and-controlled-language as the in-flight packet."
+      },
+      {
+        "text": "'production contextual exploration'",
+        "suggestion": "Read real session logs and hook outcomes from production seats, not synthetic cases."
+      },
+      {
+        "text": "'@claude/' with no further text",
+        "suggestion": "Read it as the kit's claude/ plugin lane, the scope for hook and plugin changes."
+      },
+      {
+        "text": "'[command hook 2]' does not name its plugin",
+        "suggestion": "Resolve it from the fork's hook configuration and session log before proposing a time budget."
+      },
+      {
+        "text": "Whether the forbidden-word rule is meant to apply only to the space between current reality and the desired outcome",
+        "suggestion": "Ask the owner of the rule whether the gate should check sense and quotation or stay strict with a sanctioned override."
+      },
+      {
+        "text": "This decomposition and the .pde incoming file quote the refused text",
+        "suggestion": "Write .pde records through a path the gate admits as verbatim record, or confirm that the gate exempts .pde/."
+      }
+    ]
+  },
+  "options": {
+    "extractImplicit": true,
+    "mapDependencies": true
+  },
+  "folder_name": "2611201015--d8adf1f3-232b-45b2-9e42-7fa62b29028a",
+  "pde_dir": "/workspace/repos/jgwill/miadi-orchestration-kit/.pde/2611201015--d8adf1f3-232b-45b2-9e42-7fa62b29028a"
+}

@@ -1,5 +1,14 @@
 # STATUS
 
+## 2026-11-20 · evidence note from `../agent-harness-hooks/`
+
+- **Corrections hold guard text.** 58 of the 1196 records in `_claude_CorrectiveFeedback.jsonl`
+  across the capture root are a hook's refusal filed as a person's words, 32 of 116 in November
+  (`../agent-harness-hooks/01-reverse-engineer.md`). A scorer that reads corrections reads them
+  through S4 of that packet, once built, or filters them the same way.
+- **A scorer is proposed:** `guard-fit` (`../agent-harness-hooks/03-specify.md` S8), over the guard
+  ledger that packet specifies.
+
 ## 2026-11-19 · specified and exported
 
 - **Exists:** `/inventory-exit-reason` (miadi-session-observability 0.1.49), the input of the

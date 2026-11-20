@@ -25,6 +25,7 @@ Open the folder's `README.md` first. A folder holding a single file is read from
 
 | Folder | Surface | Issue |
 |--------|---------|-------|
+| [`agent-harness-hooks/`](./agent-harness-hooks/) | Hooks that let a seat finish its work: the word gate reads a file's kind and a word's sense, every guard refuses the same way and records it, the capture keeps a person's corrections apart from guard refusals and holds a latency budget, agents make prompts through one door (specified 2026-11-20, not built; grounded in jgwill/Miadi `foundations/agent-harness-and-controlled-language/`) | #165 |
 | [`agent-memory-provenance-framework/`](./agent-memory-provenance-framework/) | Observed, inferred and user-confirmed agent memory: provenance metadata, trust, scope | #15 |
 | [`chronicle-github-sessions-observability/`](./chronicle-github-sessions-observability/) | A session that asks opens one GitHub issue from its first prompt and comments on it at each exit: the ilex prototype, built as its own plugin `claude/miadi-session-issue` (0.1.0, 2026-10-14), opted into per session, with a tracing sink as option (specified, not built) | #89 |
 | [`claude-session-orchestrator-plugin/`](./claude-session-orchestrator-plugin/) | The first native Claude Code plugin of the kit, `claude/miadi-session-orchestrator` | — |
