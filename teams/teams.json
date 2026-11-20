@@ -1,16 +1,40 @@
 {
   "version": 1,
   "about": "Which team each session belongs to, for machines. teams/README.md is the text people read, and the two are kept in step. The session-observability plugin puts the team in every binding line (jgwill/miadi-orchestration-kit#56). Rules, in order: a declared team (MIADI_TEAM in the agent's environment, or the tmux session option @miadi-team), then sessions (the tmux session name or the agent session's name), then folders (the agent's folder or one below it, longest prefix wins), then name_patterns (regular expressions on the same two names). Otherwise the team is unassigned.",
-  "criteria_about": "criteria: each team's responsibility as a program reads it, so that a piece of work can be matched to the team that carries it (the routing step proposed in Episode 575's staging folder routing-a-decomposition-to-teams-261113, tried as an alpha in jgwill/mia-code `miaco route`). desired_outcome and makes are taken from each team's section of teams/README.md, quoting William where the README does. Only T8's section writes a boundary; the others were read from their sections' words on 2026-11-13 by the seat t8-miaco-route-alpha-2611132120, for each team's lead to correct. Change the README and these fields together.",
+  "criteria_about": "criteria: each team's responsibility as a program reads it, so that a piece of work can be matched to the team that carries it (the routing step proposed in Episode 575's staging folder routing-a-decomposition-to-teams-261113, tried as an alpha in jgwill/mia-code `miaco route`, which reads desired_outcome, makes and boundary). purpose says in one sentence what the team is for. desired_outcome quotes William where the README does. relations names, for each other team (or the production team, the people who decide), what passes between them. Boundaries other than T8's were read from their sections on 2026-11-13 by the seat t8-miaco-route-alpha-2611132120; purpose and relations were written on 2026-11-20 by the seat t8-team-definitions-2611201455 from the sources its README section names. Each lead corrects them. Change the README and these fields together.",
+  "production_team": {
+    "name": "The production team",
+    "kind": "people, not a session team: no session or agent belongs to it, so the resolver never assigns it",
+    "criteria": {
+      "purpose": "Make the films and media the factory publishes: decide what a recording becomes, which names, cuts and cues are kept, and what is published.",
+      "desired_outcome": "Guillaume, 2026-11-07: \"We're the production team here, and I don't see how the platform is actually going to facilitate the usage of that. Like, either put this into a user interface, put this into a service that we can use\".",
+      "makes": "Decisions: approving, changing or rejecting a screenwalk's proposed names, choosing recordings, making the cuts on the timeline, accepting or refusing a proposed cue, and choosing whether an exploration becomes an episode.",
+      "boundary": "People: Guillaume leads, with the director, editor, composer and performers of a production. Agents prepare and propose; no agent decides in their place (Episode 120's film-toolchain SPEC, principle 1: \"People decide, agents prepare\").",
+      "relations": {
+        "T5": "Chooses which production context exploration becomes an episode.",
+        "T6": "Receives what T6 prepares (named and questioned recordings, purpose lists, the editing room, the purpose report) and decides what is made of it.",
+        "T8": "Works in the software T8 builds, from a page and never from a terminal (SPEC principle 6).",
+        "T10": "Performs and directs on set; T10 keeps the field practice and the maker's custody of each take."
+      }
+    }
+  },
   "teams": [
     {
       "id": "T1",
       "name": "Session continuity",
       "level": "the machine",
       "criteria": {
+        "purpose": "Keep every terminal session and the agent it holds alive and recorded, across reboots and crashes.",
         "desired_outcome": "After a reboot or a crash every terminal session comes back as it was, with the agent it held. William, 2026-09-28: \"I should not even know that the computer rebooted.\"",
         "makes": "The capture hooks and the binding line (every agent session's start, end and rename with its tmux pane, launch, team and episode), tmux save and restore, tide's agent restore and snapshots, the session-observability plugins for Claude, Pi and Hermes, the session inventory format and the nightly inventory, and boot safety on gaia.",
-        "boundary": "The machine and the terminal layer: what keeps sessions alive and recorded. It does not build the Miadi app or shared packages (T8) and does not judge what a session produced (T3)."
+        "boundary": "The machine and the terminal layer: what keeps sessions alive and recorded. It does not build the Miadi app or shared packages (T8) and does not judge what a session produced (T3).",
+        "relations": {
+          "T2": "Its session events are among the events T2 carries.",
+          "T3": "T3 reads the binding line and the capture to know what each session did.",
+          "T7": "T7 reads the binding line to know a session's team.",
+          "T8": "T1 keeps its own hooks and plugins; shared app code is T8's.",
+          "T10": "Keeps session and device identity across a restart for the Episode 120 pilot (03 spec of jgwill/miadi-orchestration-kit#159)."
+        }
       },
       "human_lead": "William",
       "agent_lead": "gaia-tmux-rebooted-restore-finetuning-260928",
@@ -42,9 +66,15 @@
       "name": "Event path",
       "level": "the application",
       "criteria": {
+        "purpose": "Make the events that travel between the factory's parts visible: what arrived, what failed, and what stays attached to each.",
         "desired_outcome": "Miadi knows which events travel, what stays attached to them, and how anyone can see that an event arrived or visibly failed.",
         "makes": "The event broker choice and its first proof (Episode 548), the trace, prompt and metric addresses and the door that opens them from a terminal or a page, and @miadi/llmops.",
-        "boundary": "Events and traces between the parts of the factory. Keeping sessions alive is T1's, and charts are T4's."
+        "boundary": "Events and traces between the parts of the factory. Keeping sessions alive is T1's, and charts are T4's.",
+        "relations": {
+          "T1": "Carries T1's session events.",
+          "T4": "A chart arriving is one of its events.",
+          "T10": "Carries a take's started, completed, held, linked and failed events idempotently (03 spec of #159, not built)."
+        }
       },
       "human_lead": "William",
       "agent_lead": "the episode 548 session",
@@ -72,9 +102,17 @@
       "name": "Witness",
       "level": "between William and the teams that build",
       "criteria": {
+        "purpose": "Let William hear and judge what the building teams produce before anything is revised, and carry his answers back to them.",
         "desired_outcome": "William hears and judges what the building teams produce before anything is revised, and his answers reach them as clear messages.",
         "makes": "Spoken first impressions and walkthroughs, revision messages, the session inventory, triage charts, reading what other sessions and parked drafts received and did, and the miadi-witness plugin (team-fit, drafts-witness, the inventory).",
-        "boundary": "Builds only its own tools. It hears, reads and reports other teams' work for William; it does not build their code."
+        "boundary": "Builds only its own tools. It hears, reads and reports other teams' work for William; it does not build their code.",
+        "relations": {
+          "T1": "Reads T1's binding line and capture.",
+          "T6": "Hands T6 a recorded screenwalk with the witness seat's closing (Episode 120's T6 contract, 2026-10-09).",
+          "T8": "Reads and feeds T8's capability registry.",
+          "T9": "Leaves plot threads for the open concerns a drafts pass finds.",
+          "all": "Hears every building team's work for William and sends his answers back as revision messages."
+        }
       },
       "human_lead": "William",
       "agent_lead": "Mino, the stcbot seat",
@@ -96,9 +134,16 @@
       "name": "Chart path",
       "level": "the application",
       "criteria": {
+        "purpose": "Carry every structural tension chart an agent writes to the people it concerns, who read it and steer the agent that keeps it.",
         "desired_outcome": "Every structural tension chart an agent writes reaches one place where the people it concerns can read it and steer the agent that keeps it, and whether that place is public is decided per source.",
         "makes": "coaia-narrative's Asterion writer, Asterion's mapper and registry sync, Asterion itself (miadisabelle/asterion) and its move into Miadi, and steering a chart's agent from the chart.",
-        "boundary": "A chart here is a structural tension chart (desired outcome, current reality, action steps) kept in a coaia-narrative .jsonl memory. Trading charts and stateloom drawings are not its work."
+        "boundary": "A chart here is a structural tension chart (desired outcome, current reality, action steps) kept in a coaia-narrative .jsonl memory. Trading charts and stateloom drawings are not its work.",
+        "relations": {
+          "T2": "A chart arriving is one of T2's events.",
+          "T3": "Mino's triage chart is its first private source.",
+          "T6": "When T6's sixth Blue step routes work into a goal, a new goal or a subgoal kept as a chart, T4's path carries that chart (a reading, for the leads to correct).",
+          "T10": "Gives each proposed cue one chart (03 spec of #159)."
+        }
       },
       "human_lead": "William",
       "agent_lead": "t4-chart-path-asterion-into-miadi-261003a",
@@ -127,9 +172,16 @@
       "level": "before an episode",
       "practice": "skills/production-context-exploration/SKILL.md",
       "criteria": {
+        "purpose": "Hold the germination phase: explore concepts for possible episodes before any is chosen, so that an episode is created only when its foundation holds.",
         "desired_outcome": "Potential sparks of an episode are fed and explored in the staging area before any episode exists, rich enough to become an interactive TV series. William, 2026-10-15: \"The episode is created only when that foundation holds.\"",
-        "makes": "Concepts in _staging_for_new_episodes with their foundations packet, cases, potential script and potential plot threads, the Chronicle staging circle and its ceremonies, naming.md and production-context-exploration.md.",
-        "boundary": "Works before an episode exists. Minting an episode stays a person's choice, made with the chronicle-episode kit."
+        "makes": "Concepts in _staging_for_new_episodes with their foundations packet, cases, potential script and potential plot threads, the Chronicle staging circle and its ceremonies, naming.md and production-context-exploration.md. The explorer (explorer.sanctuaireagentique.com), where William reads explorations and answers them.",
+        "boundary": "Works before an episode exists, in germination: a concept is explored until a person chooses it and it becomes a vision. Minting stays a person's choice, made with the chronicle-episode kit. Producing resources from episodes or reviews is T6's lane (skills/production-context-exploration).",
+        "relations": {
+          "T6": "Receives T6's recommendations for new episodes as seeds for explorations (Guillaume, 2026-11-20; proposed, nothing carried yet).",
+          "T9": "Leaves potential-threads.yaml for the writers.",
+          "T10": "Prepares the capture intention: scene, participants, purpose, consent, custody, devices, expected rates, fallback (03 spec of #159).",
+          "production_team": "Offers explorations; a person chooses which one becomes an episode."
+        }
       },
       "human_lead": "William",
       "agent_lead": "miadi-staging-episodes-circle:1791110394383:jj1ql8",
@@ -147,9 +199,19 @@
       "stub": "2026-10-06; the name is held as William's decision D11",
       "level": "after an episode",
       "criteria": {
-        "desired_outcome": "Video and media of what the agents' teams created: the move from where the work started to where it is now, and what the next team can do with it (William, review fcb78dc0).",
-        "makes": "The miadi-deepdiver plugin: Deep Diver notebooks built from Miadi reviews and screenwalk videos, their answered questions, infographics, video overviews, mind maps and reports kept under a manifest, and their landing in episodes with a beat for the writers.",
-        "boundary": "Works after an episode, on its media. App code in jgwill/Miadi that shows the media to people is T8's."
+        "purpose": "Receive everything the factory records (screenwalks, takes, notebook media) and prepare it for the people who decide: name it, question it for every purpose it serves with one list per purpose, report which existing episodes each purpose fits, recommend new episodes, and prepare the editing room.",
+        "desired_outcome": "Video and media of what the agents' teams created: the move from where the work started to where it is now, and what the next team can do with it (William, review fcb78dc0). Guillaume's steering of 2026-11-20 (seat t8-team-definitions-2611201455): \"If there were a handle that receives all of the work Guillaume and Iggy have been designing since this morning (the Blue screenwalk work: the registration, the per-purpose lists, the routing), T6 is that team. It would go over each purpose that was found, and everything that was shot. It would report, somehow, which existing episodes fit each purpose. It would supply recommendations for potential new future episodes.\"",
+        "makes": "The Blue responsibility on each screenwalk, through the screenwalk registry: safe title, description built by questioning the video, purpose lists (follow-ups, unfinished stretches, talking-circle topics, review references, edit cuts), reports, research questions and follow-ups, and where each segment was routed. The miadi-deepdiver plugin (notebooks, answered questions, media, landed in episodes with a beat for the writers). The miadi-film plugin, the assistant editor that prepares an episode's editing room. Proposed, not made yet: the report of which existing episodes fit each purpose, and recommendations for new episodes.",
+        "boundary": "Works after a recording, on its media. It prepares and proposes; the production team decides names, cuts and what is made, and the assistant editor never makes the editor's cuts. It records where a purpose segment was sent; the team that receives it carries the work. The registry, the media editor and the app pages are code that T8 builds and T6 uses. It recommends new episodes; exploring them before a choice is T5's, and minting is a person's.",
+        "relations": {
+          "T3": "Receives a recorded screenwalk with the witness seat's closing.",
+          "T4": "Routes what cannot be followed up today into a goal, a new goal or a subgoal (Blue step 6).",
+          "T5": "Gives its recommendations for new episodes, each a seed for a production context exploration.",
+          "T8": "Uses the screenwalk registry and Episode 120's media editor that T8 builds, and states what it needs from them.",
+          "T9": "Leaves a beat for the writers for each landing.",
+          "T10": "Receives approved takes and compositions from the field and places them on the editing room's guides.",
+          "production_team": "Prepares for it: named and questioned recordings, purpose lists, the editing room, the purpose report. Never decides in its place."
+        }
       },
       "human_lead": "William",
       "agent_lead": "t6-production-deepdiver-into-episodes-261007",
@@ -172,9 +234,15 @@
       "name": "Operator desk",
       "level": "between William and the whole factory",
       "criteria": {
+        "purpose": "Answer every question about how the factory works from the owning team's text, and send each failure to answer to that team.",
         "desired_outcome": "Every question William asks about how the factory works gets a short answer from the owning team's text, checked against the tool itself. The question is kept, and when the docs or tools fail to answer it, that failure reaches the team that owns them.",
         "makes": "The miadi-operator-desk plugin (the operator-desk skill, /desk-record and the desk ledger) and its teaching of how to use the factory, close a cycle and give feedback (closing-a-cycle).",
-        "boundary": "Answers and teaches how the factory works. It is not the Author's Desk (T9), and it does not change another team's tools: it hands the failure to their owner."
+        "boundary": "Answers and teaches how the factory works. It is not the Author's Desk (T9), and it does not change another team's tools: it hands the failure to their owner.",
+        "relations": {
+          "T1": "Reads the binding line to know a session's team.",
+          "T10": "Publishes one short readiness answer for the set (03 spec of #159).",
+          "all": "Reads every team's section and skill to answer, and hands what fails to the team that owns it."
+        }
       },
       "human_lead": "William",
       "agent_lead": "miadi-how-to-set-with-tide-a-team",
@@ -194,9 +262,18 @@
       "stub": "2026-10-21; asked for by William; the agent lead is not named and a folder rule for the jgwill/Miadi checkout is held (folders are decided before name patterns)",
       "level": "the code base",
       "criteria": {
+        "purpose": "Build, test, release and deliver the code that two or more teams use or that no team claims, from what each team states it needs.",
         "desired_outcome": "Every package and app another team relies on builds, passes its tests, is released with a version, and reaches the hosts that run it (a draft, not yet in William's words).",
-        "makes": "The jgwill/Miadi app and the @miadi/* packages no team lists, their builds, tests, releases and delivery to the hosts that run them, mkepisode, and shared source tooling such as youtube-source.",
-        "boundary": "Code that two or more teams use, or that no team claims. A team keeps the code that exists only for its own outcome. A change to a running production service (:3335, the chronicle wheel, the factory mail) is made on a branch and a worktree, away from the running service."
+        "makes": "The jgwill/Miadi app and the @miadi/* packages no team lists, their builds, tests, releases and delivery to the hosts that run them, mkepisode, and shared source tooling such as youtube-source. For the film work: the screenwalk registry (record, doors and pages, jgwill/Miadi#1016, on a branch), the expressive-take adapter (jgwill/Miadi#1046), and Episode 120's media editor, an editor a language model can work in that builds timeline reports with variations (not built).",
+        "boundary": "Code that two or more teams use, or that no team claims. A team keeps the code that exists only for its own outcome. A change to a running production service (:3335, the chronicle wheel, the factory mail) is made on a branch and a worktree, away from the running service. It does not decide names, cuts, art or field placement.",
+        "relations": {
+          "T1": "T1 keeps its own hooks and plugins; T8 builds the shared app around them.",
+          "T6": "Builds the screenwalk registry and the media editor T6 uses; T6 states what it needs.",
+          "T9": "Builds what the Author's Desk needs, including mkepisode.",
+          "T10": "Builds the shared adapter, lifecycle, checks, package and host delivery the field uses (03 spec of #159).",
+          "production_team": "Builds the pages people decide from.",
+          "all": "Receives each team's statement of what it needs and hands back a released, delivered version."
+        }
       },
       "human_lead": "William",
       "agent_lead": null,
@@ -214,9 +291,17 @@
       "stub": "2026-11-07; William: \"the story team exists\"; the agent lead is the witness seat's placement, not his word",
       "level": "where the author writes, across episodes",
       "criteria": {
+        "purpose": "Offer fiction and plot threads at the Author's Desk from what other teams leave, keeping fiction apart from what was observed.",
         "desired_outcome": "A team whose primary choice is to create fiction and explore plot points across the elements that hold them (William, 2026-11-06).",
         "makes": "Creative plot threads and proposals at the Author's Desk (@miadi/authors-desk, app/ncp/desk), the writing host ecrire.sanctuaireagentique.com, the NCP story studio, passages sketch and validate, the Twine books, and the Wampum narrative packages.",
-        "boundary": "Offers fiction and threads that only William accepts, keeps fiction apart from what was observed, and writes no words in his place. What the desk needs built it asks of T8."
+        "boundary": "Offers fiction and threads that only William accepts, keeps fiction apart from what was observed, and writes no words in his place. What the desk needs built it asks of T8.",
+        "relations": {
+          "T3": "Reads T3's inventory.",
+          "T5": "Receives the potential plot threads a production context exploration leaves.",
+          "T6": "Receives one beat for each landing of T6's media.",
+          "T8": "Asks T8 to build what the desk needs, and checks that it arrived.",
+          "T10": "Writes the scene-to-score brief and hands accepted direction to the composer and T6 (03 spec of #159)."
+        }
       },
       "human_lead": "William",
       "agent_lead": "miadi-proto-2610150828-writers-authors-desk",
@@ -252,7 +337,23 @@
       "folders": [],
       "name_patterns": [
         "^t10-"
-      ]
+      ],
+      "criteria": {
+        "purpose": "Hold the field practice on set (devices, calibration, alignment, monitoring, placement, custody, fallback) so that a captured gesture stays in its maker's custody and reaches the composer and the editor as traceable material.",
+        "desired_outcome": "A gesture made on set remains in its maker's custody and becomes traceable musical material a composer can shape and an editor can place.",
+        "makes": "Device profiles, calibration and time-alignment receipts, live monitoring, physical placement, raw-media custody practice, local fallback, the on-set-performance skill and field-kit.yaml.",
+        "boundary": "The set and the devices present when an expressive act is captured. It decides calibration, placement, monitoring, custody and fallback there. It builds no shared software (T8), opens no competing recorder, prepares no editing room (T6), and decides nothing about what the film or the score becomes (the production team).",
+        "relations": {
+          "T1": "Uses session and device identity across a restart.",
+          "T2": "Its take events travel on T2's idempotent path.",
+          "T3": "T3 witnesses consent, feedback and corrections.",
+          "T5": "Receives the capture intention, with consent and custody, from T5.",
+          "T6": "Hands approved takes and their receipts to T6's editing room.",
+          "T8": "Uses the adapter, events and host delivery T8 builds.",
+          "T9": "Receives the scene-to-score direction.",
+          "production_team": "Serves the performers and the director on set; the composer and the editor take up the material."
+        }
+      }
     }
   ]
 }
