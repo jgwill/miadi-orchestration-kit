@@ -213,7 +213,7 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 ## T10 · Embodied Performance & Capture (pilot, 2026-11-16)
 
 - **Purpose:** hold the field practice on set (devices, calibration, alignment, monitoring, placement, custody, fallback) so that a captured gesture stays in its maker's custody and reaches the composer and the editor as traceable material.
-- **Status:** a pilot for Episode 120's film work, held by jgwill/miadi-orchestration-kit#157, which calls it "a pilot complement to T8": T8 builds the software it uses, and T10 holds the field. It becomes a permanent team only after one Episode 120 take yields a verified receipt, linked composition, timeline placement, human decision and replay.
+- **Status:** a pilot in Episode 120 (miadi-chronicle://120), held by jgwill/miadi-orchestration-kit#157, which calls it "a pilot complement to T8": T8 builds the software it uses, and T10 holds the field. It becomes a permanent team only after one Episode 120 take yields a verified receipt, linked composition, timeline placement, human decision and replay.
 - **Level:** the set and performance field: the bodies, devices, clocks, power, storage and local network present when an expressive act is captured.
 - **Desired outcome:** a gesture made on set remains in its maker's custody and becomes traceable musical material a composer can shape and an editor can place.
 - **Leads:** William (human). The permanent agent lead is not named. `episode-120-mia-companion` coordinates the pilot without becoming the permanent lead.
