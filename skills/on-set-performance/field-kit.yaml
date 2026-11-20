@@ -1,0 +1,99 @@
+schema: miadi.field-kit.v1
+issue: jgwill/miadi-orchestration-kit#157
+team: T10
+status: pilot
+
+boundaries:
+  raw_media: device-local-or-ignored-capture-storage
+  git_carries: [profiles, references, sha256, rates, drift, channel-state, guides]
+  git_never_carries: [recordings, participant-words, participant-names, credentials, consent-assumptions]
+  export_requires: explicit-participant-and-custodian-authority
+  creative_choices:
+    composition: creator-and-composer
+    timeline: editor-and-director
+
+app_workspace:
+  meaning: analogous-place-that-holds-relations-not-media
+  pilot_episode: miadi-chronicle://120
+  teaching_ground: miadi-chronicle://044
+  creative_lineage:
+    episode: miadi-chronicle://257
+    thread: PT1
+    musical_desire: jgwill/Miadi#1035
+  adapter: jgwill/Miadi#1043
+
+profiles:
+  episode-575-rehearsal:
+    mode: no-new-media-rehearsal
+    source: miadi-chronicle://575
+    stringout: miadi-chronicle://575/film/deepdiver-scenes-261113/scenes.json
+    room_sheet: miadi-chronicle://575/film/editing-room-261113/README.md
+    actions:
+      - identify-empty-music-track-and-guides
+      - create-reference-only-receipt
+      - replay-duplicate-events
+      - verify-refusal-boundaries
+    forbidden:
+      - edit-episode-575-source
+      - copy-episode-575-media
+      - claim-a-composer-placement
+
+  episode-120-current-devices:
+    mode: field-pilot
+    episode: miadi-chronicle://120
+    equipment:
+      camera:
+        required: true
+        device: select_on_site
+        calibration: [record-test-card, observe-frame-rate, slate-visible]
+        fallback: phone-camera-local
+      microphone_recorder:
+        required: true
+        device: select_on_site
+        calibration: [set-levels, monitor-noise-floor, slate-audible]
+        fallback: phone-audio-local
+      monitoring:
+        required: true
+        device: select_on_site
+        calibration: [hear-each-intended-channel]
+        fallback: local-meter-and-playback-check
+      phone_sensors:
+        required: true
+        device: select_on_site
+        calibration: [record-requested-rate, measure-observed-rate, slate-motion]
+        fallback: partial-channel-receipt
+      midi_osc_controller:
+        required: false
+        device: select_on_site
+        calibration: [record-port, observe-source, exercise-one-marker]
+        fallback: omit-channel
+      slate_clock:
+        required: true
+        device: select_on_site
+        calibration: [one-shared-event, record-clock-reference, measure-drift]
+        fallback: audible-and-visible-hand-slate
+      power:
+        required: true
+        device: select_on_site
+        calibration: [record-battery, verify-external-power]
+        fallback: stop-before-reserve-threshold
+      storage:
+        required: true
+        device: select_on_site
+        calibration: [record-free-space, write-read-test, verify-ignored-location]
+        fallback: second-local-volume
+      local_network:
+        required: false
+        device: select_on_site
+        calibration: [record-offline-state, verify-local-addresses]
+        fallback: offline-event-spool
+    offline:
+      media: remains-on-capturing-device
+      events: spool-deterministic-expressive-take-events
+      reconnect: replay-exact-duplicates-once
+    stop_conditions:
+      - consent-indicator-unknown-or-withdrawn
+      - custodian-unknown
+      - no-local-storage-fallback
+      - no-working-start-stop-path
+      - clock-reference-missing

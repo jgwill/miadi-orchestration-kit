@@ -1,0 +1,156 @@
+{
+  "schema": "miadi.expressive-take.rehearsal.v1",
+  "status": "reference-only",
+  "sourceEvidence": {
+    "sceneIndex": {
+      "ref": "miadi-chronicle://575/film/deepdiver-scenes-261113/scenes.json",
+      "sha256": "3f8d1128463b6654fe37322dc19edc43a6be1ddf467ca076097d8bab0638d90f"
+    },
+    "roomSheet": {
+      "ref": "miadi-chronicle://575/film/editing-room-261113/README.md",
+      "sha256": "bf6c13e395f40e7c07561daeb7509eacca8180c5fc29689d19e6c019d0b04c7b"
+    }
+  },
+  "guide": {
+    "project": "convergence-episode-575.scenes.kdenlive",
+    "scene": 2,
+    "frame": 604,
+    "seconds": 25.167,
+    "fps": 24
+  },
+  "events": [
+    {
+      "schema": "miadi.expressive-take.event.v1",
+      "eventId": "ep575-reference-rehearsal-01:r1:started",
+      "type": "miadi.expressive-take.started",
+      "takeId": "ep575-reference-rehearsal-01",
+      "revision": 1,
+      "at": "2026-11-16T21:30:00.000Z",
+      "manifest": {
+        "schema": "miadi.expressive-take.v1",
+        "id": "ep575-reference-rehearsal-01",
+        "revision": 1,
+        "status": "started",
+        "episodeRef": {
+          "kind": "episode",
+          "ref": "miadi-chronicle://575"
+        },
+        "deviceProfileRef": {
+          "kind": "device-profile",
+          "ref": "field-kit:episode-575-rehearsal"
+        },
+        "consentRef": {
+          "kind": "consent",
+          "ref": "consent:reference-rehearsal/no-participants"
+        },
+        "custodyRef": {
+          "kind": "custody",
+          "ref": "custody:chronicle/575/no-media-access"
+        },
+        "timebase": {
+          "kind": "timecode",
+          "clockRef": {
+            "kind": "clock",
+            "ref": "clock:kdenlive/24fps"
+          },
+          "startedAt": "2026-11-16T21:30:00.000Z",
+          "requestedRateHz": 24
+        },
+        "markers": {
+          "scene": "scene-02",
+          "cue": "reference-only",
+          "slate": "timeline-frame-604"
+        },
+        "channels": [
+          {
+            "id": "picture-guide",
+            "kind": "kdenlive-stringout-reference",
+            "state": "missing",
+            "refs": [
+              {
+                "kind": "device-receipt",
+                "ref": "chronicle-receipt:575/scenes-index"
+              }
+            ],
+            "rate": {
+              "requestedHz": 24
+            }
+          }
+        ],
+        "updatedAt": "2026-11-16T21:30:00.000Z"
+      }
+    },
+    {
+      "schema": "miadi.expressive-take.event.v1",
+      "eventId": "ep575-reference-rehearsal-01:r2:completed",
+      "type": "miadi.expressive-take.completed",
+      "takeId": "ep575-reference-rehearsal-01",
+      "revision": 2,
+      "at": "2026-11-16T21:30:01.000Z",
+      "manifest": {
+        "schema": "miadi.expressive-take.v1",
+        "id": "ep575-reference-rehearsal-01",
+        "revision": 2,
+        "status": "completed",
+        "episodeRef": {
+          "kind": "episode",
+          "ref": "miadi-chronicle://575"
+        },
+        "deviceProfileRef": {
+          "kind": "device-profile",
+          "ref": "field-kit:episode-575-rehearsal"
+        },
+        "consentRef": {
+          "kind": "consent",
+          "ref": "consent:reference-rehearsal/no-participants"
+        },
+        "custodyRef": {
+          "kind": "custody",
+          "ref": "custody:chronicle/575/no-media-access"
+        },
+        "timebase": {
+          "kind": "timecode",
+          "clockRef": {
+            "kind": "clock",
+            "ref": "clock:kdenlive/24fps"
+          },
+          "startedAt": "2026-11-16T21:30:00.000Z",
+          "endedAt": "2026-11-16T21:30:01.000Z",
+          "requestedRateHz": 24,
+          "observedRateHz": 24,
+          "driftMs": 0
+        },
+        "markers": {
+          "scene": "scene-02",
+          "cue": "reference-only",
+          "slate": "timeline-frame-604"
+        },
+        "channels": [
+          {
+            "id": "picture-guide",
+            "kind": "kdenlive-stringout-reference",
+            "state": "complete",
+            "refs": [
+              {
+                "kind": "artifact",
+                "ref": "miadi-film:episode-575/convergence-stringout",
+                "sha256": "3f8d1128463b6654fe37322dc19edc43a6be1ddf467ca076097d8bab0638d90f"
+              }
+            ],
+            "rate": {
+              "requestedHz": 24,
+              "observedHz": 24
+            }
+          }
+        ],
+        "updatedAt": "2026-11-16T21:30:01.000Z"
+      }
+    }
+  ],
+  "claims": {
+    "mediaCopied": false,
+    "sourceEdited": false,
+    "compositionAccepted": false,
+    "timelinePlacementAccepted": false
+  }
+}

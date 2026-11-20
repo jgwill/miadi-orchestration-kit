@@ -166,6 +166,22 @@ From William's @stckin note in `bash_aliases_common` (2026-09-29): this work "sh
 - **Sessions:** `miadi-proto-2610150828-writers-authors-desk`, `ep560-261020-fork-02-creative-space`, `episode-567-mia-companion`, `ep120-261009-fork-01-plot-threads`, `ep120-261013-pto-codex-author-desk`, `miadi-ncp-permissions-granularity-quickfix`, `miadiRun-2610131406-twinery-passages-episode2books`, `miadi-ncp-story-studio`, `miadi-orchestration-kit-storytelling`, and `fork1-t5-miadi-film-apt-what-can-I-do-2611071058`, which keeps his words as script and the desk's threads in Episode 572 (miadi-chronicle://572). William said of its input: "we could assume that we are inside of that team." Its tmux option still declares T5, and a declared team comes first, so the tools read it as T5 until that option changes. Its root, `t5-miadi-film-apt-what-can-I-do-2611071058`, stays on T5.
 - **Rules:** a tmux session named `t9-…` is on T9 by its name. A session named `desk-…` stays on T7, the Operator desk, which is not the Author's Desk. There is no folder rule, so sessions working in the Miadi checkout keep their teams.
 
+## T10 · Embodied Performance & Capture (pilot, 2026-11-16)
+
+- **Status:** a pilot complement to T8, held by jgwill/miadi-orchestration-kit#157. It becomes a permanent team only after one Episode 120 take yields a verified receipt, linked composition, timeline placement, human decision and replay.
+- **Level:** the set and performance field: the bodies, devices, clocks, power, storage and local network present when an expressive act is captured.
+- **Desired outcome:** a gesture made on set remains in its maker's custody and becomes traceable musical material a composer can shape and an editor can place.
+- **Leads:** William (human). The permanent agent lead is not named. `episode-120-mia-companion` coordinates the pilot without becoming the permanent lead.
+- **Makes:** device profiles, calibration and time-alignment receipts, live monitoring, physical placement, raw-media custody practice, local fallback, [`on-set-performance`](../skills/on-set-performance/SKILL.md), and `field-kit.yaml`.
+- **Field-kit has two readings:** T10 keeps the physical kit used on set. Episode 120's App Workspace is the analogous place that keeps episode, consent, composition, timeline and session relations. The `@miadi/expressive-take` adapter is the portable receipt between them; it is neither recorder nor workspace.
+- **Initial kit:** camera; microphone/recorder; monitoring; phone sensors; optional MIDI/OSC controller; slate/clock; power; storage; local network. Current devices come first; procurement follows measured gaps.
+- **Uses:** T8's shared adapter, events and host delivery; T1's session/device identity; T2's idempotent path; T3's witness; T5's capture intention and consent context; T6's editing room; T9's scene-to-score direction.
+- **Boundary with T8:** T10 decides calibration, placement, monitoring, custody and fallback in the field. T8 builds shared software, tests, packages and delivery. T8 does not decide artistic or hardware placement; T10 does not open a competing recorder.
+- **Accountability gates:** Story, Stewardship, Engineering, Evaluation and Continuity each answer their own gate for the pilot. This does not permanently map legacy teams to circles.
+- **Existing lanes:** continue T3 for witnessing, T5 for consent/context and T6 for musical/film integration. Consume the present T8 mentorship and T1 parity work as dependencies. Do not launch duplicates.
+- **Creative lineage:** Episode 257's PT1 says the music Episode 44's film asks for comes from Shared Spark; jgwill/Miadi#1035 holds that musical desire. The pilot supplies reusable capture-to-score structure and does not claim that cue is already composed.
+- **Rules:** `episode-120-mia-companion` is explicitly bound to T10 for this pilot. A tmux session named `t10-…` is on T10 by its name. There is no folder rule.
+
 ## Not named yet
 
 Other sessions point to teams William has not named: trading (`trading-draw-on-ao-issue-154`, `mia-trading-wave-labeler-blueprint-service`), research (`ep316-concordia-pitch-revising`). Film production (`mw-film-prod-devops-credibility`) moved to the T6 stub on 2026-10-06. Naming them is William's.
