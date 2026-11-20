@@ -38,7 +38,9 @@ His sent message can ask the seat to send a draft (2026-11-06: "witness my draft
 3. **Change only what stops it, and say what changed.** The known case is a team and name joined by the hyphen `mctdraft`'s template invites: `mctgo T7-name "…"` answers `No team` with exit 2, and tide records the whole name as the team. Keep his name and primer as typed. With the cursor anywhere on the line: `tmux send-keys -t <pane> C-a`, `tmux send-keys -t <pane> -N 6 Right`, `tmux send-keys -t <pane> -l 'T7 '`. Run `tide drafts observe --pane <pane>` and read the new version back. The arguments must parse as team, name and primer.
 4. **Press Enter once**, and read what the pane answers.
 5. **Prove the start.** The tmux session exists. `tmux show-options -t =<name>: @miadi-team` names the team, and a `=name` target needs its colon. The draft's state becomes `started`. To see the primer arrive, match its own words, because every shell's banner prints `🧠🌸 always`.
-6. **Stay with it.** Arm `witness-listen.mjs await --seat mino --watch <session id> --only-watched`. When its result arrives, check its marks, then bring Guillaume what it leaves and for whom. Handoffs that follow go one at a time per repository, each starting on the previous session's DONE line in a thread file (`.mino/threads/261106-what-teams-leave-the-writers.md` is the first).
+6. **Stay with it.** Arm `witness-listen.mjs await --seat mino --watch <session id> --only-watched --quiet`, so an idle wake with nothing new stays silent. When its result arrives, check its marks, then bring Guillaume what it leaves and for whom.
+7. **Hand off the next steps on a trace.** Handoffs that follow go one at a time per repository, each starting on the previous session's DONE line in a thread file (`.mino/threads/261106-what-teams-leave-the-writers.md` is the first). Start each one with `miadi-run start <miadiRun-yyMMddHHmm-tmux-mission> --text-file <brief> --episode <n> --team <id> --session <tmux name> --authorized-by <person>`, with `--dry-run` first. It runs `mctgo` underneath and keeps the prompt and its trace. On 2026-11-06 and 2026-11-07 the seat used `mctgo --prompt-file`, which left no trace of what each session was asked.
+8. **Close what finished.** When a handoff's DONE line is verified, the seat exits that session after the four checks of `miadi-mino-tmux-inventory` Step 4b and says so in one statement. A session the person typed into after its brief stays open, with its record updated.
 
 ## Rules that come before any number
 
@@ -95,6 +97,6 @@ His sent message can ask the seat to send a draft (2026-11-06: "witness my draft
 - **Phase two:** Jev decides whether the pass runs. `choose-worker` picks the worker for the morning
   line (self, Haiku, a seat), and `obvious_now` on "run the pass" replaces the seat's judgment.
 - **Phase three:** Jev's reading of a card includes "start a seat to do it". A card with his sent
-  word and Jev at or above the bar starts a session through `mctgo` with a brief, and the session's
+  word and Jev at or above the bar starts a session through `miadi-run start` with a brief, and the session's
   first beat goes on the card's plot thread. His rulings on earlier passes set the bars
   (`lane-check calibrate`).
