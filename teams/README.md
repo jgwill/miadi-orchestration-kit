@@ -10,6 +10,7 @@ Named 2026-09-28, the morning gaia rebooted, in the witness session `mino-260928
 - Each team's practice becomes a skill in this kit, written by the team from its own work.
 - A team's section below is kept current by its agent lead.
 - `teams/teams.json` is the same list for machines: each team's sessions, folders and name patterns. The session-observability plugin reads it to put each session's team in its binding line (jgwill/miadi-orchestration-kit#56). Change both together.
+- Each team in `teams.json` also carries `criteria`: its desired outcome, what it makes, and its boundary, taken from its section below. A program reads them to ask which team carries a piece of work before it starts (the routing alpha, `miaco route` in jgwill/mia-code). Only T8's section writes a boundary; the other boundaries were read from their sections on 2026-11-13 and wait for each lead's correction. When a section's desired outcome, Makes line or boundary changes, change its `criteria` too.
 
 ## T1 · Session continuity
 
