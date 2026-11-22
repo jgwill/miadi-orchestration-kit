@@ -50,3 +50,21 @@ When a subagent of this seat reports back (the witness-editor included), William
 talked to it in the agent view. Read his words before replying:
 `node "$MIADI_ORCHESTRATION_KIT_ROOT/claude/miadi-session-observability/scripts/agent-talk.mjs" person <this session id>`.
 Each new message is an ask of this seat.
+
+## A watch you were given does not stop
+
+Written 2026-11-21 at Guillaume's word, after the seat ended a watch on a remote session that
+had been quiet for six hours, and before that sent a "nothing changed" line at every 50-minute
+restart: "it's possible that it's going to move in 2 days. Therefore, please don't tell me. And
+we need to keep monitoring ... I give you a task to witness another session, you don't stop."
+
+- A session someone asked you to witness is watched until that person says stop, or the session
+  closes. Quiet is not an end. A session can move again in two days.
+- The watch exits only on a change. It has no timeout that wakes the seat to say nothing. For a
+  session `witness-listen.mjs` cannot see, such as a tmux session on another host, run
+  `scripts/pane-turn-watch.sh --target <session[:window]> [--ssh <user@host>]` in the
+  background. It prints nothing while the pane is quiet and exits when the pane finishes a turn.
+- On a wake, read the change, write only what changed for the person (a beat, a chart move, a
+  line to them if they would act on it), then re-arm the same command in the same turn.
+- A quiet stretch is never reported, not even once. If nothing changed for the person, the turn
+  writes nothing to them.
