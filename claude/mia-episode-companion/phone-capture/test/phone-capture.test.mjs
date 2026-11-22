@@ -682,6 +682,29 @@ test("a reply with steps is voiced step by step, joined in order, and the thread
   }
 });
 
+test("a marked answer is found after newer replies have passed the normal list limit", async () => {
+  const b = await bridge({ transcriber: stubTranscriber });
+  try {
+    const mark = { id: "m-0mwr1ouro2kww", doc: join(b.chronicleRoot, EPISODE, "diagrams", "wave.smdf.json") };
+    const answer = { id: "answer", episode: EPISODE, at: "2026-09-20T23:00:00Z", text: "The marked answer", mark };
+    const recent = Array.from({ length: 10 }, (_, index) => ({
+      id: `recent-${index}`, episode: EPISODE, at: `2026-09-20T23:01:0${index}Z`, text: "Another answer",
+    }));
+    const dir = join(b.base, "replies");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${EPISODE}.jsonl`), [answer, ...recent].map((reply) => JSON.stringify(reply)).join("\n") + "\n");
+
+    const list = `${b.url}/api/replies?episode=${EPISODE}`;
+    const ordinary = await (await fetch(list)).json();
+    assert.equal(ordinary.replies.length, 10);
+    assert.ok(ordinary.replies.every((reply) => reply.id !== answer.id));
+    const marked = await (await fetch(`${list}&mark=${mark.id}`)).json();
+    assert.deepEqual(marked.replies.map((reply) => reply.id), [answer.id]);
+  } finally {
+    b.close();
+  }
+});
+
 test("steps and a canvas context are cleaned before they are kept", () => {
   assert.deepEqual(cleanSteps("nope"), []);
   assert.deepEqual(cleanSteps([{ say: " x ", doc: "relative.json", system: "/a/b.smdf.json", focus: "bogus" }]), [{ say: "x" }]);

@@ -820,8 +820,9 @@ export function createApp({
     const episode = url.searchParams.get("episode") || defaultEpisode;
     episodeDir(chronicleRoot, episode);
     const take = url.searchParams.get("take");
+    const mark = url.searchParams.get("mark");
     const replies = readReplies(repliesDir, episode)
-      .filter((reply) => !take || reply.take === take)
+      .filter((reply) => (!take || reply.take === take) && (!mark || reply.mark?.id === mark))
       .reverse()
       .slice(0, 10)
       .map((reply) => publicReply(reply, repliesDir, readFeedback(repliesDir, episode)));
