@@ -1,224 +1,89 @@
-# Sub-Agent Prompt Templates
+# Lane brief templates
 
-Detailed templates for common research decompositions. Copy and adapt these when spawning sub-agents.
+Briefs for the lanes of a foundations packet. Each lane is independent, writes one file and
+reports back in a few lines. Fill every bracket. A brief that leaves one empty is not ready.
 
-## Content Platform Research (YouTube, TikTok, Shorts)
+Every brief carries the five parts a lane needs: its own task, the store by path, the scope
+boundary, facts verified in the same turn the brief was written, and the completion marks.
 
-### Agent 1: General Best Practices & Algorithm
+## Field lane (SR3)
 
-```
-You are researching [PLATFORM] [SPECIFIC ASPECT] best practices and current algorithm
-behavior for Olle Dyberg, a 25-year-old Swedish AI content creator (@olleai on TikTok,
-~5.5K followers, 1.1M+ views). His niche is AI tools — Claude Code, agents, context engineering.
+```text
+You are research lane [CODE] of a repository-local foundations packet.
+The lead is [model class]; you run on [model class].
 
-PURPOSE: Olle will feed this research into a meta-prompt that generates optimized
-[titles/descriptions/hooks/etc.] for maximum engagement, viewers, and growth. The research
-needs to be exhaustive enough to serve as the knowledge base behind that prompt.
+TODAY'S DATE: [date]
 
-YOUR ANGLE: General best practices and algorithm mechanics for [PLATFORM] [ASPECT].
-Cover: character limits, algorithm ranking signals, what the platform rewards/penalizes,
-formatting rules, proven formulas, A/B test data, engagement metrics that matter.
-DO NOT cover: niche-specific advice (another agent handles that), X discourse, or vault knowledge.
+INTENT: [the opening statement, quoted, or its path]
 
-TOOLS: Use web search (mcp__exa__web_search_exa, WebSearch) to find the most current
-information. Prioritize sources from late 2025 and 2026. Fetch and deep-dive any
-particularly rich articles with WebFetch.
+PURPOSE: [why this packet matters, and what it will be used for]
 
-QUALITY BAR: Be exhaustive. I need specific numbers (character counts, engagement
-percentages, algorithm thresholds), not generalities. If a source says "keep titles short,"
-I need to know EXACTLY how short and why. Include every framework, formula, and data point
-you find. Sources for everything.
-```
+AUDIENCE: [who will read it, and what they will decide]
 
-### Agent 2: Niche-Specific Strategies
+YOUR ANGLE: [the field]. Cover, opening each source yourself: [named works, standards,
+specifications]. For each, state [the question this lane answers of every source].
 
-```
-You are researching [PLATFORM] [SPECIFIC ASPECT] strategies specifically for the AI/tech
-content niche, for Olle Dyberg (@olleai, AI tools creator, ~5.5K TikTok followers).
+BOUNDARIES: Do not cover [the other lanes' fields, by code]. Change nothing in [repo paths]
+except your output file. [Any cultural or consent limit that applies, with its source.]
 
-PURPOSE: [Same as above — what the research will be used for]
+SOURCE QUALITY: Prefer standards, peer-reviewed papers with DOIs, official documentation and
+primary sources. Mark any claim you could not open yourself as unverified. Never invent a DOI,
+URL, page number, quotation or result.
 
-YOUR ANGLE: How [ASPECT] works differently in the AI/tech/developer niche compared to
-general content. Cover: what AI creators specifically do, what hooks/formats work for
-technical content, how to translate complex topics into engaging [titles/descriptions/etc.],
-examples from successful AI/tech creators, what the AI audience responds to.
-DO NOT cover: general best practices (another agent handles that) or vault knowledge.
+OUTPUT: Write [packet path]/lanes/[CODE]-[field].md with: (1) a comparison table; (2) canonical
+concepts; (3) key findings; (4) cautions; (5) implications for [the artifact], marked as ours
+where no source states them; (6) sources, each with URL or DOI, date opened, verified true/false.
+Under [N] words. Do not commit, stage or push.
 
-TOOLS: Use web search to find AI/tech creator-specific advice. Search for specific creators
-in this space (Fireship, NetworkChuck, AI Jason, Matt Wolfe, etc.) and analyze their patterns.
-
-QUALITY BAR: I need SPECIFIC examples from real AI/tech creators with actual metrics where
-possible. "Tech content should be educational" is useless. "Fireship's Shorts averaging 500K
-views use [specific pattern]" is gold.
+REPLY: the file path, the number of sources and how many you verified, and the three findings
+that matter most, in under 150 words.
 ```
 
-### Agent 3: Real Examples & Pattern Analysis
+## Local context lane (SR3, no web)
 
-```
-You are analyzing real-world examples of high-performing [PLATFORM] [ASPECT] to extract
-patterns, for Olle Dyberg (@olleai, AI tools creator).
+```text
+You are lane [CODE] (local context, no web research) of a repository-local foundations packet.
 
-PURPOSE: [What the research will be used for]
+TODAY'S DATE: [date]
 
-YOUR ANGLE: Find and analyze 15-30 real examples of high-performing [titles/descriptions/hooks]
-on [PLATFORM]. Extract patterns: word choice, structure, length, emotional triggers, formatting.
-Focus on both general viral content AND AI/tech niche content.
-DO NOT cover: theory or general advice (other agents handle that).
+PURPOSE: [what will be redesigned from this inventory]
 
-TOOLS: Use web search and grep MCP if applicable. Look for case studies, creator breakdowns,
-and analysis posts that include actual performance data.
+STORES, by path (verified [date]): [repo checkouts]. Never read build output, dependencies or
+worktrees. [Paths other sessions are working in, which this lane must not touch.]
 
-QUALITY BAR: I need REAL examples with REAL numbers. Not hypothetical titles — actual titles
-from actual [videos/shorts] with actual view counts. The more examples the better. Organize
-by pattern type.
-```
+QUESTIONS, answer each with path:line evidence or a command and its output:
+1. [what each file holds]
+2. [which live code reads it, and who calls that code]
+3. [which open issues already decide something about it]
 
-### Agent 4: Psychology & Copywriting
+READ GATE: before opening more than three files not named above, send them through the read gate
+the repo provides and read by its verdict.
 
-```
-You are researching the psychological and copywriting principles behind high-engagement
-[PLATFORM] [ASPECT], for Olle Dyberg (@olleai, AI content creator).
+BOUNDARIES: Read only. Change nothing except your one output file. Do not commit, open issues or
+comment.
 
-PURPOSE: [What the research will be used for]
+OUTPUT: [packet path]/lanes/[CODE]-[name].md, one section per question.
 
-YOUR ANGLE: The WHY behind what works. Cover: cognitive biases exploited by viral content
-(curiosity gap, loss aversion, social proof, pattern interrupt), copywriting frameworks
-adapted for short-form, attention psychology, the neuroscience of scrolling behavior,
-power words and trigger words with data on their effectiveness.
-DO NOT cover: platform-specific algorithm mechanics (another agent handles that).
-
-TOOLS: Use web search. Look for research papers, marketing studies, copywriting resources,
-and behavioral psychology applied to short-form content.
-
-QUALITY BAR: I need frameworks I can codify into rules, not vague psychology. "Curiosity
-works" is useless. "Open loops increase watch time by 47% (Source: [study])" is gold.
-Specific power words, specific emotional triggers, specific formulas.
+REPLY: the file path and the five findings that matter most, in under 150 words.
 ```
 
-### Agent 5: X/Twitter Discourse
+## Gap-finding pass (SR4)
 
-```
-You are searching X/Twitter for current creator discourse about [PLATFORM] [ASPECT],
-for Olle Dyberg (@olleai, AI content creator, ~5.5K TikTok followers).
+```text
+You did not write the lanes below. Read every file in [packet path]/lanes/ and the opening
+statement in [packet path]/intent-understanding.md.
 
-PURPOSE: [What the research will be used for]. X discourse captures what creators are
-ACTUALLY experiencing right now vs. what blog posts from 6 months ago say.
-
-YOUR ANGLE: What are creators saying RIGHT NOW about [ASPECT] on [PLATFORM]? Recent
-algorithm changes, what's working this month, creator tips that haven't made it to blog
-posts yet, contrarian takes, pain points, and wins.
-DO NOT cover: general best practices from web search (other agents handle that).
-
-TOOLS: Use the x-research CLI:
-cd ~/clawd/skills/x-research && source ~/.config/env/global.env
-bun run x-search.ts search "[query]" --quality --quick
-
-Run 3-5 different queries to cover the topic from multiple angles.
-Include the actual tweets with engagement metrics in your findings.
-
-QUALITY BAR: I need actual tweets from actual creators with actual engagement numbers.
-Filter for signal — a tweet with 500 likes from a known creator matters more than 50
-tweets with 2 likes each.
+List: (1) questions in the opening statement no lane answers; (2) claims a lane makes without a
+source; (3) contradictions between lanes; (4) a field the decomposition missed. For each, say
+whether a follow-up lane is worth its cost. Write [packet path]/gaps.md. Do not edit the lanes.
 ```
 
-### Agent 6: Vault Knowledge
+## Verification pass (SR5)
 
-```
-You are searching Olle's Obsidian vault for existing knowledge about [TOPIC],
-located at /mnt/c/Users/olled/Documents/Obsidian/Notes/.
+```text
+You did not write the claims below. For each claim listed, open the source its ledger row names
+and say whether the source supports the claim as written: holds, narrower, different, or not
+found. Quote the sentence that decides it. Do not search for new sources.
 
-PURPOSE: [What the research will be used for]. The vault contains distilled insights
-from 120+ articles, client work, and Olle's personal experience. This knowledge should
-inform the research — not be duplicated.
-
-YOUR ANGLE: Find EVERYTHING the vault already knows about [TOPIC]. Check:
-- 04 - Areas/AI Knowledge/ (distilled playbooks)
-- 02 - Content/ (Ideas.md, Strategies.md, Research/)
-- 05 - Resources/ (Tools, articles)
-- _Index.md (for navigation)
-
-DO NOT do web research — other agents handle that. Your job is internal knowledge only.
-
-TOOLS: Use Glob to find relevant files, Grep to search content, Read to extract insights.
-
-QUALITY BAR: Report everything found, organized by source file. Note what seems current
-vs. potentially outdated. Flag any contradictions with what other agents might find.
-```
-
-## Technology Research
-
-### Agent 1: Current State & Ecosystem
-
-```
-[Same WHO/WHY preamble, adapted]
-
-YOUR ANGLE: Current state of [TECHNOLOGY] as of February 2026. Ecosystem overview,
-major players, recent changes, adoption trends, key features, limitations. Focus on
-what's NEW and current — not evergreen docs.
-
-TOOLS: Web search (mcp__exa__web_search_exa, WebSearch). Prioritize 2026 sources.
-```
-
-### Agent 2: Real Code Patterns
-
-```
-[Same WHO/WHY preamble, adapted]
-
-YOUR ANGLE: How developers are ACTUALLY using [TECHNOLOGY] in real projects. Find
-shipped code patterns, not tutorial examples.
-
-TOOLS: Use mcp__grep__searchGitHub to search over a million GitHub repos. Search for
-actual code patterns like function calls, configuration, imports — not keywords.
-Examples of good searches:
-- 'import { X } from' for library usage
-- Function signatures for API patterns
-- Config file patterns for setup
-```
-
-### Agent 3: Community Sentiment (X)
-
-```
-[Same structure as X agent above, adapted for technology topic]
-```
-
-### Agent 4: Vault Knowledge
-
-```
-[Same structure as vault agent above, adapted for technology topic]
-```
-
-## Business/Strategy Research
-
-### Agent 1: Market Data & Benchmarks
-
-```
-[Same WHO/WHY preamble, adapted]
-
-YOUR ANGLE: Hard numbers. Market size, pricing benchmarks, conversion rates, revenue
-data, growth metrics. Focus on data that informs strategy decisions.
-
-TOOLS: Web search. Look for reports, surveys, creator economy data, SaaS metrics.
-```
-
-### Agent 2: Expert Frameworks & Strategies
-
-```
-[Same WHO/WHY preamble, adapted]
-
-YOUR ANGLE: Frameworks, mental models, and strategies from practitioners who've
-done this successfully. Not theory — proven approaches with results.
-
-TOOLS: Web search. Look for creator/founder breakdowns, case studies, strategy posts.
-```
-
-### Agent 3: X Discourse
-
-```
-[Same structure as X agent, adapted for business topic]
-```
-
-### Agent 4: Vault Knowledge
-
-```
-[Same structure as vault agent, adapted for business topic]
+CLAIMS: [claim, ledger id] ...
 ```

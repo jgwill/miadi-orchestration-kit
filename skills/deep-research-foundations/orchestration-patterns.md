@@ -1,9 +1,8 @@
 # Multi-Agent Research Orchestration Patterns
 
-Full reference on proven patterns for multi-agent research. Extracted from Anthropic's engineering blog, production systems (GPT-Researcher, Onyx, LangChain), and 40+ sources.
+Reference on patterns for multi-agent research, carried from the upstream `deep-research` skill. It drew on Anthropic's engineering post "How we built our multi-agent research system" (2025-06-13), production systems (GPT-Researcher, Onyx, LangChain) and other sources it did not list.
 
-For the comprehensive research document with all sources, see:
-`/mnt/c/Users/olled/Documents/Obsidian/Notes/02 - Content/Research/Multi-Agent Research Orchestration Patterns 2026.md`
+Verification: the 90.2%, 80% of variance and ~15x figures below were re-opened in Anthropic's post on 2026-11-22 (lane L3 of `miadi-foundation:personas-capabilities-and-research-stewardship`, source S12). The other figures are carried from the upstream skill and not re-checked.
 
 ## Key Statistics
 
@@ -53,6 +52,15 @@ User Query
 8. **"Good enough" stopping** — Require 2+ sources per sub-question before report.
 9. **Excessive inter-agent chatter** — Sub-agents report only to lead. No broadcasting.
 10. **Single model bias** — Use Opus for lead, Sonnet for workers when possible.
+
+## What persona evidence adds
+
+From lane L3 of `miadi-foundation:personas-capabilities-and-research-stewardship` (17 sources, opened 2026-11-22):
+
+- Persona text alone does not reliably raise accuracy: no gain across 162 roles and 2,410 questions (Zheng et al., Findings of EMNLP 2024).
+- Where roles helped, the role text carried a procedure with outputs (ChatDev: executability 0.88 to 0.58 without roles).
+- Perspectives widen the sources more than they raise recall (STORM), and a moderator that asks from unused information mattered more than adding experts (Co-STORM).
+- So brief lanes with an objective, output format, tools and boundaries, and give each stewardship responsibility named outputs. Do not rely on a persona's voice for coverage.
 
 ## Decomposition Strategies
 
