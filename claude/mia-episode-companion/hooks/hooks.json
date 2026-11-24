@@ -1,5 +1,5 @@
 {
-  "description": "Tell Mia the name of the person she companions (MIADI_MIA_COMPANION_PERSON_NAME), and start phone-capture when it is not answering, so the iPhone can record into episodes on this host. phone-capture is silent on a host without MIADI_CHRONICLE_ROOT.",
+  "description": "Tell Mia the name of the person she companions (MIADI_MIA_COMPANION_PERSON_NAME), and start phone-capture when it is not answering, so the iPhone can record into episodes on this host. phone-capture is silent on a host without MIADI_CHRONICLE_ROOT. On a resume, tell a seat that has listened on its episode that its listener ended with the earlier process and must be started again.",
   "hooks": {
     "SessionStart": [
       {
@@ -13,6 +13,16 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/phone-capture/ensure.sh\" --hook",
             "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/listener.sh\"",
+            "timeout": 10
           }
         ]
       }

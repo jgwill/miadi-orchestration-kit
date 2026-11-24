@@ -188,6 +188,21 @@ while the canvas lights what she means. So each mark gets **one act**, in one Ba
 
 Then re-arm, as after a take.
 
+### When the listener ended without a wake
+
+The listener runs in the background of one Claude Code process and ends with it: an exit, a
+crash, a reboot. No wake comes, and Claude Code only shows "Background shell command didn't
+finish before the previous session ended", which starts no reply. On 2026-11-24 five seats
+stayed deaf after gaia rebooted. Three things say the listener is gone: that note on the screen,
+the plugin's SessionStart hook on a resume ("This Mia seat was resumed…", `hooks/listener.sh`),
+and a first prompt from the restore ("You were cut off while background work you started was
+still running…", `tide agents restore`, ironsilk 0.9.86 and later).
+
+On any of them: run `status`, start the listener with Bash `run_in_background: true`, and say in
+one line that Mia is listening on the episode and how many takes are unheard. Takes recorded
+meanwhile wake it at once, and each gets the ordinary turn. Leave it stopped only when the person
+had asked Mia to stop listening.
+
 A take asking for work gets the smallest reversible act that the thread already
 authorized. Exploring an idea does not authorize acting on it. Consent to one act does not
 carry over to the next one.

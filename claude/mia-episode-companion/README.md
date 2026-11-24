@@ -43,6 +43,13 @@ A SessionStart hook (`hooks/person.sh`) tells Mia the name, and the wake
 (`{{person}}` in `scripts/jev/questions.json`) all use it. Unset, they say "the person" and
 Mia is told not to guess a name.
 
+A second SessionStart hook (`hooks/listener.sh`) runs on a resume. The listener ends with the
+Claude Code process that started it, so a resumed seat that has listened on its episode is told
+that nothing is listening and to start the listener again in its first turn. A hook starts no
+reply: the seat re-arms at its first prompt. After a reboot that prompt comes from
+`tide agents restore` (ironsilk 0.9.86 and later), which wakes every session that had a shell of
+its own running.
+
 Or through `/plugin` from the `miadi-orchestration-kit` marketplace. Commands, the skill,
 the agent, and the SessionStart hook load at session start. Hooks do not hot-swap, so a
 plugin enabled mid-session starts phone-capture only from the next session.
