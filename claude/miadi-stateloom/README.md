@@ -54,6 +54,10 @@ Tools arrive under the plugin prefix, e.g. `mcp__plugin_miadi-stateloom_stateloo
 Where MCP tools are deferred, load them with ToolSearch first. Servers start with the session;
 a new pin needs a new session.
 
+The server inherits the session's environment, so the variables below reach it when they are
+exported. The plugin sets only `STATELOOM_BRIDGE_URL`'s default. It passes no empty value: an
+empty `STATELOOM_PROJECT_FILE` made the active document the session folder itself.
+
 Environment it reads (all optional):
 
 | variable | default | what |

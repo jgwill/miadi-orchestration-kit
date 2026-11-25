@@ -2,16 +2,16 @@
   "mcpServers": {
     "stateloom": {
       "command": "npx",
-      "args": ["--prefix", "${CLAUDE_PLUGIN_ROOT}", "-y", "-p", "${STATELOOM_MCP:-@miadi/stateloom-mcp@0.4.1}", "stateloom-mcp"],
+      "args": [
+        "--prefix",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "-y",
+        "-p",
+        "${STATELOOM_MCP:-@miadi/stateloom-mcp@0.4.1}",
+        "stateloom-mcp"
+      ],
       "env": {
-        "STATELOOM_PROJECT_FILE": "${STATELOOM_PROJECT_FILE:-}",
-        "STATELOOM_BRIDGE_URL": "${STATELOOM_BRIDGE_URL:-http://127.0.0.1:4599}",
-        "STATELOOM_BRIDGE_TOKEN": "${STATELOOM_BRIDGE_TOKEN:-}",
-        "STATELOOM_CANVAS_URL": "${STATELOOM_CANVAS_URL:-}",
-        "STATELOOM_AGENT_NAME": "${STATELOOM_AGENT_NAME:-}",
-        "STATELOOM_STAGE": "${STATELOOM_STAGE:-}",
-        "STATELOOM_RECONCILE": "${STATELOOM_RECONCILE:-}",
-        "MIADI_CHRONICLE_ROOT": "${MIADI_CHRONICLE_ROOT:-}"
+        "STATELOOM_BRIDGE_URL": "${STATELOOM_BRIDGE_URL:-http://127.0.0.1:4599}"
       }
     }
   }
