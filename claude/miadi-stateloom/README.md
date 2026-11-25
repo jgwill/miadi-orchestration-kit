@@ -45,6 +45,11 @@ Loading the plugin starts one stdio server from npm, so a host needs `npx` and n
 |---|---|
 | `stateloom` | `${STATELOOM_MCP:-@miadi/stateloom-mcp@<pin>}` |
 
+`npx` runs with `--prefix ${CLAUDE_PLUGIN_ROOT}`, so it never reads the session folder's own
+`node_modules`. Without it, a session opened in a large pnpm checkout such as `/a/src/Miadi-18`
+spent 18 s loading that tree and passed the 30 s connect limit when several servers started at once.
+The server still resolves its default document from the session folder.
+
 Tools arrive under the plugin prefix, e.g. `mcp__plugin_miadi-stateloom_stateloom__check_system`.
 Where MCP tools are deferred, load them with ToolSearch first. Servers start with the session;
 a new pin needs a new session.
