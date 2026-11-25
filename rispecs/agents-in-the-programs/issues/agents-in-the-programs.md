@@ -19,8 +19,8 @@ An agent works in Kdenlive (then Ardour and MuseScore) on the person's own displ
 - [x] E2 `film_desk_check.sh`: every verb on a copy, private display and D-Bus session (18 of 18 on gaia)
 - [x] E3 `in-the-program` skill, `/in-the-program`, the `assistant-editor` agent names it; `miadi-film` 0.3.0
 - [x] E4 PostToolUse hook: improvised display commands logged as acts
-- [ ] E5 `.miadi/capabilities.jsonl` written by `mw-repomap capabilities scan --write`, `in-the-program` stated with its specification, this issue and Episode 120
-- [ ] E10 Episode 120 `episode.yaml`: `rispecs:` and `capabilities:`; its `rispecs/film-toolchain/SPEC.md` and `STATUS.md` name this specification
+- [x] E5 `.miadi/capabilities.jsonl` written by `mw-repomap capabilities scan --write`, `in-the-program` stated with its specification, this issue and Episode 120 (98 skills, 56 with a statement, 42 needing one)
+- [x] E10 Episode 120 `episode.yaml`: `rispecs:` and `capabilities:`; its `rispecs/film-toolchain/SPEC.md` and `STATUS.md` name this specification
 - [ ] E6 `mw-repomap` learns the kinds `plugin`, `command`, `agent`, `hook`, `mcp-server`, `deb` (jgwill/medicine-wheel), then this kit's inventory is written again
 - [ ] E7 Episode 120's `proposal_timeline.py` becomes the plugin's `proposal-timeline` skill
 - [ ] E8 Ardour driven by name through its OSC surface, measured on a session on gaia
