@@ -2,12 +2,10 @@
 # cockpit read through $MIADI_HOME/daemon.sock. It observes one user's tmux, so
 # it is a user unit, off until that user turns it on:
 #   systemctl --user enable --now tide-runtime.service tide-store-prune.timer
-# The name is the one ironsilk's own `tide service install` writes, so a user's
-# ~/.config/systemd/user/tide-runtime.service overrides this one and runs another
-# install of ironsilk that drifts from this package (gaia until 2026-11-25,
-# jgwill/Miadi#1081). Do not write one: `tide service install` refuses here from
-# ironsilk 0.9.89 and `tide doctor` warns on one. Run one daemon per MIADI_HOME:
-# on a host where an older unit (hermes-navigator.service) runs it, stop that one first.
+# `tide service install --now` enables it with tide-store-prune.timer. Per-user
+# settings go in ~/.config/systemd/user/tide-runtime.service.d/*.conf; a unit file
+# of this name there would replace this one, and tide refuses to run beside such a
+# unit. A new ironsilk arrives in a new miadi-tide.
 [Unit]
 Description=Tide runtime context daemon (miadi-tide)
 Documentation=https://github.com/jgwill/miadi-orchestration-kit/issues/55 https://github.com/jgwill/Miadi/issues/265

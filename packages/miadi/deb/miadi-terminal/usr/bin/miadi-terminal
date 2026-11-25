@@ -523,7 +523,7 @@ class Restore:
         linger = run("loginctl", "show-user", os.environ.get("USER") or HOME.name, "-p", "Linger", "--value")
         if linger and linger.returncode == 0 and linger.stdout.strip() != "yes":
             print(f"  linger is off: tmux starts at login, not at boot (sudo loginctl enable-linger {HOME.name})")
-        if not shutil.which("tide") and not (HOME / ".local/share/tide-runtime/venv/bin/tide").exists():
+        if not shutil.which("tide"):
             print("  tide is not installed: tmux restores the panes, and no agent comes back (sudo apt install miadi-tide)")
         self.switch_over()
 

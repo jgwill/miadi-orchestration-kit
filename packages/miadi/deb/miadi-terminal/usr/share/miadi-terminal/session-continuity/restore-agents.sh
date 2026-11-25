@@ -23,8 +23,7 @@ log="$log_dir/hook-$(date +%y%m%d-%H%M%S).log"
 
 tide="${MIADI_TIDE_BIN:-}"
 if [ -z "$tide" ]; then
-    for candidate in "$HOME/.local/share/tide-runtime/venv/bin/tide" /usr/lib/miadi-tide/tide-runtime/bin/tide \
-                     "$(command -v tide 2>/dev/null)"; do
+    for candidate in /usr/bin/tide "$(command -v tide 2>/dev/null)"; do  # miadi-tide's, then Termux's on PATH
         if [ -n "$candidate" ] && [ -x "$candidate" ]; then
             tide="$candidate"
             break

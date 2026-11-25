@@ -5,7 +5,8 @@
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 node_bin="$(command -v node)"
-tide_bin="$(command -v tide || echo tide)"
+tide_bin=/usr/bin/tide  # the miadi-tide package's, the binary its daemon unit runs
+[ -x "$tide_bin" ] || tide_bin="$(command -v tide || echo tide)"
 unit="$(sed -e "s|@NODE@|${node_bin}|" -e "s|@SERVICE_DIR@|${here}|" -e "s|@TIDE@|${tide_bin}|" "${here}/miadi-witness.service")"
 if [[ "${1:-}" == "--print" ]]; then
   printf '%s\n' "$unit"

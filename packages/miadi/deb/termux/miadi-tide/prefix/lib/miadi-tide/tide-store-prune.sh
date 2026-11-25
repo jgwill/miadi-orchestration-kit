@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Copied for the Termux build from jgwill/Miadi scripts/ops/tide-store-prune.sh at ea3a2971.
-# The Ubuntu build's prep/miadi-tide.sh copies it from MIADI_SRC. Keep the two alike.
+# Copied for the Termux build from jgwill/Miadi scripts/ops/tide-store-prune.sh; only the venv's
+# prefix differs. The Ubuntu build's prep/miadi-tide.sh copies it from MIADI_SRC. Keep the two alike.
 # Keep the tide runtime's snapshot store bounded.
 #
 # WHY THIS EXISTS. The daemon appends one context snapshot per tick and nothing
@@ -25,7 +25,7 @@ set -euo pipefail
 STORE="${MIADI_TIDE_STORE:-$HOME/.miadi/navigator/context/snapshots.sqlite3}"
 KEEP_DAYS="${MIADI_TIDE_KEEP_DAYS:-7}"
 KEEP_MIN="${MIADI_TIDE_KEEP_MIN:-200}"
-PYTHON="${MIADI_TIDE_PYTHON:-$HOME/.local/share/tide-runtime/venv/bin/python}"
+PYTHON="${MIADI_TIDE_PYTHON:-${PREFIX:-/data/data/com.termux/files/usr}/lib/miadi-tide/tide-runtime/bin/python}"
 VACUUM_ABOVE_MB="${MIADI_TIDE_VACUUM_ABOVE_MB:-64}"
 
 [ -r "$STORE" ] || { echo "no store at $STORE — nothing to prune"; exit 0; }
