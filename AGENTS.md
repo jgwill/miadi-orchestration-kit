@@ -24,3 +24,14 @@ If an agent creates or changes files in this repository, it must inspect, valida
 Every meaningful repo change must be associated with a GitHub issue or PR. If no suitable issue exists, create one first or immediately after discovery, then reference it in commits/comments. Current hygiene anchor: https://github.com/jgwill/miadi-orchestration-kit/issues/31
 
 Reports to the operator should stay compact: 55 words or less per aspect, surfacing only attention-needed items.
+
+## Issues: the agent decides, and opens the issue
+
+This holds for every agent, Claude Code, Codex, Gemini, Copilot, pi or any other (Guillaume, 2026-11-25, jgwill/etc-claude-code#27). When work may need a GitHub issue, or a commit needs an issue reference the agent does not have, the agent runs the issue-decision model and acts on its answer: `open_new`, `update_existing` (it names the issue) or `none`. It never drafts an issue and hands it back to a person, and never writes that an issue waits on someone's "word".
+
+The rule, its skill and its decision model are host law, in jgwill/etc-claude-code: `/etc/claude-code/skills/structural-issue-authoring/` (`SKILL.md`, `decision-model/issue-decision.mjs`). Claude Code loads the skill from there. Codex, Gemini and the generic agent layer read it through `~/.agents/skills/structural-issue-authoring`, a link to that folder:
+
+```sh
+ln -s /etc/claude-code/skills/structural-issue-authoring ~/.agents/skills/structural-issue-authoring
+node /etc/claude-code/skills/structural-issue-authoring/decision-model/issue-decision.mjs --work "<what was asked or found>" --repository <owner/repo> [--asked-by "<person>"] [--commit-needs-reference]
+```
