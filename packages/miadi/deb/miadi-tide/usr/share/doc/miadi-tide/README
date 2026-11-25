@@ -43,8 +43,10 @@ Server
       systemctl --user enable --now tide-runtime.service tide-store-prune.timer
   tide-store-prune.timer      keeps the daemon's store (~/.miadi/navigator/context/)
                               to 7 days; MIADI_TIDE_KEEP_DAYS changes it
-  A user's own ~/.config/systemd/user/tide-runtime.service (for example one
-  written by `tide service install`) replaces the packaged unit.
+  A user's own ~/.config/systemd/user/tide-runtime.service (or tide-store-prune.*)
+  replaces the packaged unit and runs another install that drifts from this
+  package: do not write one. `tide service install` refuses here (ironsilk 0.9.89)
+  and `tide doctor` warns on one. A new ironsilk arrives with a new miadi-tide.
 
 The runtime venv
   /usr/lib/miadi-tide/tide-runtime is built at install from the wheels in

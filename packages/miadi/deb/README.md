@@ -272,8 +272,13 @@ sudo apt install miadi-tide
 
 The daemon observes one user's tmux, so it is a user unit that each user turns on.
 Its name is the one `ironsilk`'s `tide service install` writes, so a user's own
-`~/.config/systemd/user/tide-runtime.service` replaces it instead of running
-beside it:
+`~/.config/systemd/user/tide-runtime.service` replaces it and runs another install of
+ironsilk, which drifts from the deb: on gaia one kept the daemon on a private venv until
+2026-11-25, and a release went into that venv (jgwill/Miadi#1081). Do not write one, nor a
+user `tide-store-prune.*`. From ironsilk 0.9.89 `tide service install` refuses where the
+packaged unit exists, and `tide doctor` warns on a user unit that overrides it. A new
+ironsilk reaches the daemon only through a new `miadi-tide` (bump, build, test, publish,
+`apt-get install --only-upgrade miadi-tide`). Turn the packaged units on:
 
 ```bash
 systemctl --user enable --now tide-runtime.service tide-store-prune.timer
@@ -290,9 +295,9 @@ tide doctor --require-daemon --strict          # last line: READY package=<irons
 `--require-daemon`, `daemon_ping` must answer on the daemon socket,
 `~/.miadi/navigator/daemon.sock`: the unit sets `MIADI_HOME=%h/.miadi/navigator`,
 and a login shell leaves `MIADI_HOME` unset. `--strict` makes `BLOCKED` exit 1.
-Two rows read `warn` on a fresh package install and do not block: `user_service`
-looks for the file `tide service install` writes in `~/.config/systemd/user/`,
-not the packaged unit, and `domains_config` waits for `tide init`.
+`user_service` reads `ok` with the packaged unit and `warn` when a user unit overrides
+it (ironsilk 0.9.89; before, it warned on every package install). `domains_config` reads
+`warn` until `tide init` and does not block.
 `miadi-config check` is a different check: it covers this host's `MIADI_*`
 settings and directories, not the runtime.
 
