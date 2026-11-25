@@ -2,32 +2,45 @@
   "mcpServers": {
     "inquiry-weave": {
       "command": "npx",
-      "args": ["-y", "-p", "${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.19.1}", "inquiry-weave-mcp"],
+      "args": [
+        "--prefix",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "-y",
+        "-p",
+        "${MIADI_INQUIRY_WEAVE_MCP:-@miadi/inquiry-weave@0.19.1}",
+        "inquiry-weave-mcp"
+      ],
       "env": {
         "MIADI_EPISODE_DOOR": "http",
         "MIADI_INQUIRY_API_BASE": "${MIADI_API_URL:-https://miadi.tail3b11eb.ts.net}",
         "MIADI_INQUIRY_ISSUES_BASE": "${MIADI_INQUIRY_ISSUES_BASE:-https://iaip.tail3b11eb.ts.net}",
-        "MIADI_API_TOKEN_WRITER": "${MIADI_API_TOKEN_WRITER:-}",
-        "MIADI_PERSON_TOKEN": "${MIADI_PERSON_TOKEN:-}",
-        "MIADI_CHRONICLE_ROOT": "${MIADI_CHRONICLE_ROOT:-}",
         "MIADI_CHRONICLE_MW_URL": "${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}"
       }
     },
     "miadi-voice": {
       "command": "npx",
-      "args": ["-y", "-p", "${MIADI_VOICE_MCP:-@miadi/voice-mcp@0.5.0}", "miadi-voice-mcp"],
+      "args": [
+        "--prefix",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "-y",
+        "-p",
+        "${MIADI_VOICE_MCP:-@miadi/voice-mcp@0.5.0}",
+        "miadi-voice-mcp"
+      ],
       "env": {
         "MIADI_API_URL": "${MIADI_API_URL:-https://miadi.tail3b11eb.ts.net}",
-        "MIADI_API_TOKEN_WRITER": "${MIADI_API_TOKEN_WRITER:-}",
-        "MIADI_SRC": "${MIADI_SRC:-}",
-        "MIADI_CHRONICLE_ROOT": "${MIADI_CHRONICLE_ROOT:-}",
         "MIADI_CHRONICLE_MW_URL": "${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}",
         "ASSEMBLY_VOICE_AUDIO_DIR": "${MIADI_ASSEMBLY_VOICE_AUDIO_DIR:-}"
       }
     },
     "medicine-wheel-miadi-chronicle": {
       "command": "npx",
-      "args": ["-y", "${MIADI_CHRONICLE_MW_MCP:-@medicine-wheel/mcp@4.27.17}"],
+      "args": [
+        "--prefix",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "-y",
+        "${MIADI_CHRONICLE_MW_MCP:-@medicine-wheel/mcp@4.27.17}"
+      ],
       "env": {
         "MW_API_URL": "${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}"
       }
