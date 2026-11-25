@@ -1,0 +1,17 @@
+{
+  "description": "PostToolUse on Bash: a shell command that touched a display or a production program (xdotool, wmctrl, import -window, Kdenlive's D-Bus, pactl, kdenlive, ardour, musescore) outside film_desk.py is written as an improvised act to the miadi-film acts log (MIADI_FILM_ACTS_LOG, default ~/.local/state/miadi-film/acts.jsonl). Silent and never blocks. Loads at session start.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/log_improvised_act.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

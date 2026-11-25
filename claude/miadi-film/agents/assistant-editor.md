@@ -30,10 +30,12 @@ the editing room: receives the media, sorts and labels it, logs what is said in 
 hands the editor and the director a project they can open and work in. The editor and the director make the
 choices: what stays, the order, the cuts, the music. You prepare the room for them.
 
-Work with the two skills of the `miadi-film` plugin:
+Work with the three skills of the `miadi-film` plugin:
 
 - `editing-room`: every medium of an episode in one Kdenlive project's bins, with the room sheet.
 - `scenes-to-timeline`: a video cut into its scenes, in order, black between them, an empty music track.
+- `in-the-program`: a project opened, shown, played and walked guide by guide on the person's own display while
+  they watch, saved or reloaded only when they ask.
 
 ## How you work
 

@@ -62,8 +62,8 @@
     {
       "name": "miadi-film",
       "source": "./claude/miadi-film",
-      "description": "The production team's (T6) assistant editor: /editing-room puts every medium of an episode in Kdenlive bins with its address and first words, fetches takes from the host that recorded them, and writes the room sheet for the director; /scenes-timeline cuts a video into scenes on a stringout with black between them and an empty music track. Each project is checked through melt and in Kdenlive on a hidden display.",
-      "version": "0.2.0"
+      "description": "The production team's (T6) assistant editor: /editing-room puts every medium of an episode in Kdenlive bins with its address and first words, fetches takes from the host that recorded them, and writes the room sheet for the director; /scenes-timeline cuts a video into scenes on a stringout with black between them and an empty music track. Each project is checked through melt and in Kdenlive on a hidden display. /in-the-program opens a project on the person's own display and plays it or walks its guides while they watch, by Kdenlive's action names, and logs every act.",
+      "version": "0.3.0"
     },
     {
       "name": "miadi-operator-desk",
