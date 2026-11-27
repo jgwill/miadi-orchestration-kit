@@ -136,6 +136,7 @@ Hosts set `MIADI_ORCHESTRATION_KIT_ROOT` to their checkout of this repository.
 | [`scripts/install-chronicle-skill.sh`](scripts/install-chronicle-skill.sh) | pointing every skill layer on a host at the kit's one `chronicle-episode` |
 | [`scripts/kit-mcp-upgrade.sh`](scripts/kit-mcp-upgrade.sh) | moving each plugin's pinned MCP packages to the version the registry serves | probably ok |
 | [`scripts/miadi-agent`](scripts/miadi-agent) | launching Pi or Claude Code as a named peer in a Pi Network room | untested |
+| [`scripts/chatgpt-codex-session.sh`](scripts/chatgpt-codex-session.sh) | the thread the ChatGPT desktop app's Codex section ran last, its capture folder and latest plan; source it for `miadi-chatgpt-session` | |
 
 ## Other hosts
 
