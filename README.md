@@ -26,7 +26,7 @@ Guides that go with this README: [the order of episode work](docs/chronicle-epis
 
 ## Teams
 
-Seven teams share this kit since 2026-09-28. Each writes its practice here as a skill or a plugin. Leads, sessions and status: [`teams/README.md`](teams/README.md), and [`teams/teams.json`](teams/teams.json) for machines.
+Ten teams share this kit. T1 to T7 were named on 2026-09-28; T8 and T9 followed, and T10 is an Episode 120 pilot. Each writes its practice here as a skill or a plugin. Leads, sessions and status: [`teams/README.md`](teams/README.md), and [`teams/teams.json`](teams/teams.json) for machines.
 
 | Team | Works at | Ships here | Guillaume's notes on the team | 
 | --- | --- | --- | --- |
@@ -37,6 +37,9 @@ Seven teams share this kit since 2026-09-28. Each writes its practice here as a 
 | T5 Production context exploration | before an episode | [`skills/production-context-exploration`](skills/production-context-exploration/SKILL.md) (first-version practice) |  Like many things I dont want to turn into miadi-chronicle:// right away, that is meant to be the part of the 'germination phase' where concepts and explored ideas are not choosen as vision (not all of them obviously) being part of a creative-process that will lead the to a created miadi-chronicle.  My motivation for this team is due to a F@#$(@# mess into some of my miadi-chronicle due to an unclear vision at the beginning, leading to a lack of structure and so much files and folders that nobody even agents can't comprehend what happened.  It is meant also to try to isolate concepts into intellectualizable chunks for human to discuss about and propose them to the community as potential miadi-chronicle://.  I created miadi-chronicle://548 to illustrate that as we have not choosen "An Adequate Event-Driven-Broker" for the Miadi Factory yet and potential exploration in screenwalk could be the subject of a new chronicle (ex. with CloudFlare Queue) |
 | T6 Production | after an episode | `miadi-deepdiver`, `miadi-film` (the assistant editor) | Not just after an episode but after a miadi-review (screenwalk or other) would be marked as 'Ready for DeepDiver' which implies that if no miadi-chronicle episode given, there would be one crearted for it, the miadi-review associated with it with related resources to it and deepdiver would start acting on it. |
 | T7 Operator desk | between William and the whole factory | `miadi-operator-desk` |  Could be confusing, it came from a discussion I had on this very own system and did not knew how todo thing, the response was good and I asked to create a team that would be responsible to answer like that.  I guess they'd need a UI like the `mia-episode-companion` has and be capable to speak, explain be supported by graphical UI etc |
+| T8 Software development | the code base | shared `@miadi/*` packages, builds and host delivery | |
+| T9 Story | where the author writes | Author's Desk, story studio and creative threads | |
+| T10 Embodied Performance & Capture | the set and performance field | [`skills/on-set-performance`](skills/on-set-performance/SKILL.md) and field-kit profiles | Pilot for #157; permanent status follows the proof |
 
 
 Results the teams made that can be used again, in an episode, a documentary or a Page post: [`catalogue/README.md`](catalogue/README.md).
@@ -130,6 +133,7 @@ Hosts set `MIADI_ORCHESTRATION_KIT_ROOT` to their checkout of this repository.
 | [`skills/chronicle-episode`](skills/chronicle-episode/SKILL.md) | the one entry point for Chronicle episode work on any host, with `redeem-receipt.sh` and `reconcile.py` beside it | ok |
 | [`skills/youtube-source`](skills/youtube-source/SKILL.md) | retrieve YouTube metadata and manual/automatic captions, render timestamped source text, or use a labelled CPU-transcription fallback | |
 | [`skills/production-context-exploration`](skills/production-context-exploration/SKILL.md) | T5 first-version practice: one staged inquiry and script, bounded Mia–Ava academic lenses, no automatic episode birth | |
+| [`skills/on-set-performance`](skills/on-set-performance/SKILL.md) | T10 pilot practice: prepare, calibrate, monitor and close one consent-bounded field take without moving raw media | pilot for #157 |
 | [`skills/chart-path`](skills/chart-path/SKILL.md) | how a structural tension chart an agent writes reaches Asterion, and the words the teams use for it | just a stub and Asterion is still just a prototype |
 | [`skills/proposal-visualization`](skills/proposal-visualization/SKILL.md) | a proposal or a set of questions as one HTML page to read, comment on and approve, and the commands to attach it to a GitHub issue as an artifact |  Getting better, it helps to comment on claude-code artefact.  Still has a lot of useless content or unclear sections on what requires human attention but that is really getting better |
 | [`skills/miadi-react`](skills/miadi-react/SKILL.md) | the emoji reactions on GitHub issues, as Miadi stores them | Confusing with react framework, should be renamed |
