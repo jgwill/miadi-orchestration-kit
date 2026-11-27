@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "namespace": "miadi.kit.companion",
+    "name": "mia-episode-companion",
+    "description": "A recorded voice take wakes the episode companion and the person receives an edited reply.",
+    "notes": "Read SPEC.md for the capture and reply boundaries. This drawing describes the checked take path in plugin 0.6.3."
+  },
+  "members": [
+    {
+      "path": "reply-to-a-take.sqdf.json",
+      "notes": "The phone records into the episode. Mia returns through draft, developmental edit and revision."
+    }
+  ],
+  "actors": [
+    { "name": "Person", "kind": "person", "description": "Records the take and decides how to act on the reply." },
+    { "name": "Mia", "kind": "agent", "description": "The episode-bound companion seat." },
+    { "name": "Developmental editor", "kind": "agent", "description": "Reviews the current draft and returns recommendations." }
+  ]
+}

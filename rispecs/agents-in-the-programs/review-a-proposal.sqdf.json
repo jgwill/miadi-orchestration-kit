@@ -1,0 +1,30 @@
+{
+  "settings": {
+    "namespace": "miadi.kit.film",
+    "name": "review-a-proposal",
+    "description": "An editor reviews a Kdenlive proposal on their own display with help from the miadi-film plugin."
+  },
+  "participants": [
+    { "name": "Editor", "actor": "Editor" },
+    { "name": "Assistant editor", "actor": "Assistant editor" },
+    { "name": "Kdenlive", "service": "Kdenlive desktop" }
+  ],
+  "messages": [
+    { "from": "Editor", "to": "Assistant editor", "label": "Show me the proposal" },
+    { "from": "Assistant editor", "to": "Editor", "label": "Report the file's Git state and say what will open" },
+    { "from": "Assistant editor", "to": "Kdenlive", "label": "Open the proposal or raise its existing window" },
+    { "from": "Assistant editor", "to": "Kdenlive", "label": "Look, walk the guides and play by action name" },
+    { "from": "Assistant editor", "to": "Editor", "label": "Report what the last look and sound check showed" },
+    { "from": "Editor", "to": "Assistant editor", "label": "Choose what to keep or ask for a revision" }
+  ],
+  "fragments": [
+    {
+      "kind": "opt",
+      "label": "The editor explicitly asks to save",
+      "after": 6,
+      "messages": [
+        { "from": "Assistant editor", "to": "Kdenlive", "label": "Save the open project with --person-asked" }
+      ]
+    }
+  ]
+}

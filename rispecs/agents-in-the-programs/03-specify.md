@@ -1,5 +1,9 @@
 # 03 · Specify
 
+Capability `miadi-capability://jgwill/miadi-orchestration-kit/plugin/miadi-film`.
+The [Stateloom system](./agents-in-the-programs.sysdf.json) draws the Kdenlive review scenario
+covered by S1, S3–S5, S7 and S8.
+
 Nine specifications. Each says what exists when it holds, independent of the code that first carried it
 (`claude/miadi-film/scripts/film_desk.py`, plugin 0.3.0). Episode 120's film-toolchain principles hold
 throughout, in particular: people decide and agents prepare (1), a project file is edited only while its

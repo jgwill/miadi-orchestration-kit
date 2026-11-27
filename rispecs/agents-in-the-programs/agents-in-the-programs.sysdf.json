@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "namespace": "miadi.kit.film",
+    "name": "agents-in-the-programs",
+    "description": "The miadi-film plugin helps a person review a proposal in Kdenlive.",
+    "notes": "Read 03-specify.md for the act groups and their boundaries. This drawing describes the Kdenlive review path in plugin 0.3.0."
+  },
+  "members": [
+    {
+      "path": "review-a-proposal.sqdf.json",
+      "notes": "The assistant editor opens and plays a proposal. The person owns the keep, revise and save decisions."
+    }
+  ],
+  "actors": [
+    { "name": "Editor", "kind": "person", "description": "Chooses what the film keeps and authorizes any save." },
+    { "name": "Assistant editor", "kind": "agent", "description": "Prepares and presents a proposal and reports observations." }
+  ]
+}

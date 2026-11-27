@@ -27,6 +27,7 @@ Open the folder's `README.md` first. A folder holding a single file is read from
 |--------|---------|-------|
 | [`agent-harness-hooks/`](./agent-harness-hooks/) | Hooks that let a seat finish its work: the word gate reads a file's kind and a word's sense, every guard refuses the same way and records it, the capture keeps a person's corrections apart from guard refusals and holds a latency budget, agents make prompts through one door (specified 2026-11-20, not built; grounded in jgwill/Miadi `foundations/agent-harness-and-controlled-language/`) | #165 |
 | [`agent-memory-provenance-framework/`](./agent-memory-provenance-framework/) | Observed, inferred and user-confirmed agent memory: provenance metadata, trust, scope | #15 |
+| [`agents-in-the-programs/`](./agents-in-the-programs/) | The miadi-film plugin brings an editor’s proposal onto the person’s display for review | #168 |
 | [`chronicle-github-sessions-observability/`](./chronicle-github-sessions-observability/) | A session that asks opens one GitHub issue from its first prompt and comments on it at each exit: the ilex prototype, built as its own plugin `claude/miadi-session-issue` (0.1.0, 2026-10-14), opted into per session, with a tracing sink as option (specified, not built) | #89 |
 | [`claude-session-orchestrator-plugin/`](./claude-session-orchestrator-plugin/) | The first native Claude Code plugin of the kit, `claude/miadi-session-orchestrator` | — |
 | [`coaia-agent-orchestration-session/`](./coaia-agent-orchestration-session/) | Replayable session pack for the coaia-agent COAIA integration (README → `launch-context.md` → `session-charter.md`) | — |
@@ -37,6 +38,7 @@ Open the folder's `README.md` first. A folder holding a single file is read from
 | [`gemini/`](./gemini/) | Guidance for rispecs that may become Gemini CLI extensions (`AGENTS.md`) | #31 |
 | [`hosted-witness-service/`](./hosted-witness-service/) | `miadi-hosted-witness`: a witness seat hosted on a relative's machine that watches their sessions from the capture, lands their work, keeps their feedback verbatim and sends the next step to the factory as a decision (specified, not built; prototype run with Jerry, 2026-11-04) | #138 |
 | [`medicine-wheel/`](./medicine-wheel/) | Medicine Wheel as a harness-neutral orchestration substrate: Four Directions, Fire Keeper gates, ceremony context | #36 |
+| [`mia-episode-companion/`](./mia-episode-companion/SPEC.md) | The episode-bound Claude Code companion hears a checked take and returns an edited reply | #168 |
 | [`miadi-edge-case-collector/`](./miadi-edge-case-collector/) | The edge case collector: accountable collection of use and edge cases, with credit (`STCGOAL.md`, not yet specified) | — |
 | [`miadi-storyweaver-orchestration-kit/`](./miadi-storyweaver-orchestration-kit/) | A Copilot-first storytelling orchestration kit: agents, skills, review gates, story artefacts | #9 |
 | [`model-routing-orchestration/`](./model-routing-orchestration/) | OpenClaw model-routing study: model tiers, routing policy, fallback behaviour | #15 |

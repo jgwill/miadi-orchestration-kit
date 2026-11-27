@@ -24,6 +24,7 @@ He asked that those acts become capabilities of the factory: specified, built, i
 | [`01-reverse-engineer.md`](./01-reverse-engineer.md) | the ten acts of 2026-11-25, the hazards of a person's desktop, what the kit and the host hold |
 | [`02-intent.md`](./02-intent.md) | the desired outcome, what the person valued, secondary intents I1 to I6 |
 | [`03-specify.md`](./03-specify.md) | S1 three kinds of act, S2 to S7 the verbs per program, S8 the acts log, S9 the inventory |
+| [`agents-in-the-programs.sysdf.json`](./agents-in-the-programs.sysdf.json) | Stateloom system for reviewing a proposal in Kdenlive |
 | [`04-export.md`](./04-export.md) | E1 to E10, where each lands, in build order |
 | [`05-source-ledger.md`](./05-source-ledger.md) | every claim and where it was measured |
 | [`STATUS.md`](./STATUS.md) | what exists, what is next, the open question |

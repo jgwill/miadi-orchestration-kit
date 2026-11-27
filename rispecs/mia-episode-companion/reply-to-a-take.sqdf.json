@@ -1,0 +1,23 @@
+{
+  "settings": {
+    "namespace": "miadi.kit.companion",
+    "name": "reply-to-a-take",
+    "description": "A person records a new take into their episode. The checked transcript wakes Mia, who drafts, reviews and returns a reply."
+  },
+  "participants": [
+    { "name": "Person", "actor": "Person" },
+    { "name": "Phone capture", "service": "Episode phone-capture service" },
+    { "name": "Listener", "service": "mia-listen" },
+    { "name": "Mia", "actor": "Mia" },
+    { "name": "Developmental editor", "actor": "Developmental editor" }
+  ],
+  "messages": [
+    { "from": "Person", "to": "Phone capture", "label": "Record a take in the episode" },
+    { "from": "Phone capture", "to": "Listener", "label": "Make the completed capture and transcription available in the episode" },
+    { "from": "Listener", "to": "Mia", "label": "Wake the seat with the new transcript after checking its capture receipts" },
+    { "from": "Mia", "to": "Developmental editor", "label": "Send the take text and the exact draft for review" },
+    { "from": "Developmental editor", "to": "Mia", "label": "Return exact-span recommendations", "reply": true },
+    { "from": "Mia", "to": "Phone capture", "label": "Send the revised reply after reviewing Jev's checks" },
+    { "from": "Phone capture", "to": "Person", "label": "Show the reply on the episode’s phone page" }
+  ]
+}
