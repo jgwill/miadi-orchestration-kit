@@ -1,6 +1,6 @@
 {
   "name": "miadi-session-observability",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Codex session capture, durable transcripts, terminal binding and file/publication indexes.",
   "author": {
     "name": "jgwill"

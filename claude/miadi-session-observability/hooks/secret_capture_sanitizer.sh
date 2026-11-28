@@ -51,18 +51,35 @@ hook_secret_sanitize_text() {
     printf '%s' "$1" | hook_secret_sanitize_stream
 }
 
+# One record, one line, in one locked append (jgwill/Miadi#1113). The record and its newline were
+# two appends, and hooks fired at once by parallel tool calls (a Code Mode script's Promise.all,
+# a subagent beside the main thread) wrote between them: two records on one line, then an empty
+# one. tests/capture-line-writer.sh holds it.
 hook_secret_write_line() {
     local file="$1"
     local text="$2"
-    hook_secret_sanitize_text "$text" >> "$file"
-    printf '\n' >> "$file"
+    local line
+    line="$(hook_secret_sanitize_text "$text")"
+    if command -v flock >/dev/null 2>&1; then
+        {
+            flock -w 5 9 || true
+            printf '%s\n' "$line" >&9
+        } 9>>"$file"
+    else
+        printf '%s\n' "$line" >> "$file"
+    fi
 }
 
+# The whole snapshot written beside it, then renamed over it: a reader never sees half of one.
 hook_secret_overwrite_line() {
     local file="$1"
     local text="$2"
-    hook_secret_sanitize_text "$text" > "$file"
-    printf '\n' >> "$file"
+    local tmp="$file.tmp.$$.$RANDOM"
+    if { hook_secret_sanitize_text "$text"; printf '\n'; } > "$tmp"; then
+        mv -f "$tmp" "$file"
+    else
+        rm -f "$tmp"
+    fi
 }
 
 hook_secret_sanitize_file_to() {

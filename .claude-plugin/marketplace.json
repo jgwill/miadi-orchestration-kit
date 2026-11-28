@@ -33,13 +33,13 @@
       "name": "miadi-session-observability",
       "source": "./claude/miadi-session-observability",
       "description": "Session capture installed once per host: every Claude Code event under <root>/<session_id>/, every file a tool call writes copied to written/, every publication (Artifact, GitHub, commit, push, npm) listed with its prompt, and a binding line per session start, end and rename with its tmux pane, command line, name history, team and chronicle episode, every image attached to a prompt, and every /btw side question with the story of its fork. Carries the session-continuity skill (T1).",
-      "version": "0.1.55"
+      "version": "0.1.56"
     },
     {
       "name": "miadi-session-issue",
       "source": "./claude/miadi-session-issue",
       "description": "A session that asks (MIADI_SESSION_ISSUE at launch, or /session-issue) gets one GitHub issue from its first prompt and a comment at each exit: what it did, what it published, its last answer. Private repositories only, every text sanitized first. Sessions that do not ask are untouched.",
-      "version": "0.1.1"
+      "version": "0.1.3"
     },
     {
       "name": "miadi-witness",
