@@ -39,7 +39,7 @@
         "--prefix",
         "${CLAUDE_PLUGIN_ROOT}",
         "-y",
-        "${MIADI_CHRONICLE_MW_MCP:-@medicine-wheel/mcp@4.27.17}"
+        "${MIADI_CHRONICLE_MW_MCP:-@medicine-wheel/mcp@4.27.19}"
       ],
       "env": {
         "MW_API_URL": "${MIADI_CHRONICLE_MW_URL:-http://127.0.0.1:8040}"
